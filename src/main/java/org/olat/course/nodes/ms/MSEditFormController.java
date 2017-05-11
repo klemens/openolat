@@ -149,7 +149,7 @@ public class MSEditFormController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		formLayout.setElementCssClass("o_sel_course_ms_form");
-		
+
 		// Create the "score granted" field...
 		scoreGranted = uifactory.addCheckboxesHorizontal("form.score", formLayout, new String[]{"xx"}, new String[]{null});
 		scoreGranted.addActionListener(FormEvent.ONCLICK);

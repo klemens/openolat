@@ -29,12 +29,16 @@ import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.model.Membership;
-import org.olat.course.nodes.gta.ui.SubmitEvent;
+import org.olat.course.nodes.gta.model.Solution;
+import org.olat.course.nodes.gta.model.TaskDefinition;
+import org.olat.course.nodes.gta.ui.events.SubmitEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupRef;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
+import org.olat.resource.OLATResource;
 
 /**
  * 
@@ -44,10 +48,40 @@ import org.olat.repository.RepositoryEntryRef;
  */
 public interface GTAManager {
 	
+	public static final String SOLUTIONS_DEFINITIONS = "solutionDefinitions.xml";
+	public static final String TASKS_DEFINITIONS = "taskDefinitions.xml";
+	
 	public VFSContainer getTasksContainer(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
 	public File getTasksDirectory(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
+	/**
+	 * Get (and eventually upgrade) the task definitions.
+	 * @param courseEnv
+	 * @param cNode
+	 * @return
+	 */
+	public List<TaskDefinition> getTaskDefinitions(CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	public void addTaskDefinition(TaskDefinition newTask, CourseEnvironment courseEnv, GTACourseNode cNode);
+
+	/**
+	 * 
+	 * @param currentFilename the filename before the definition was updated
+	 * @param task
+	 * @param courseEnv
+	 * @param cNode
+	 */
+	public void updateTaskDefinition(String currentFilename, TaskDefinition task, CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	/**
+	 * Remove the task definition and the file (if it's not used by an other task)
+	 * 
+	 * @param removedTask The task definition to remove
+	 * @param courseEnv The course environment
+	 * @param cNode The course element
+	 */
+	public void removeTaskDefinition(TaskDefinition removedTask, CourseEnvironment courseEnv, GTACourseNode cNode);
 	
 	public File getSubmitDirectory(CourseEnvironment courseEnv, GTACourseNode cNode, IdentityRef person);
 	
@@ -87,8 +121,30 @@ public interface GTAManager {
 
 	public VFSContainer getSolutionsContainer(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
+	public List<Solution> getSolutions(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
+	public void addSolution(Solution newSolution, CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	public void updateSolution(String currentFilename, Solution solution, CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	public void removeSolution(Solution removedSolution, CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	
+	/**
+	 * Create a subscription context.
+	 * @param courseEnv The course environment
+	 * @param cNode The course element
+	 * @return The subscription context for this course and course element.
+	 */
 	public SubscriptionContext getSubscriptionContext(CourseEnvironment courseEnv, GTACourseNode cNode);
+	
+	/**
+	 * Create a subscription context.
+	 * @param courseRes The course resource found in the repository entry
+	 * @param cNode The course element
+	 * @return The subscription context for this course and course element.
+	 */
+	public SubscriptionContext getSubscriptionContext(OLATResource courseRes, GTACourseNode cNode);
 	
 	public PublisherData getPublisherData(CourseEnvironment courseEnv, GTACourseNode cNode);
 	
@@ -149,6 +205,14 @@ public interface GTAManager {
 	public boolean isTasksInProcess(RepositoryEntryRef entry, GTACourseNode gtaNode);
 	
 	/**
+	 * Convert the status of a task to the status used by the assessment tool.
+	 * @param task
+	 * @param cNode
+	 * @return
+	 */
+	public AssessmentEntryStatus convertToAssessmentEntrystatus(Task task, GTACourseNode cNode);
+	
+	/**
 	 * Are users already processing this task?
 	 * 
 	 * @param entry
@@ -157,6 +221,12 @@ public interface GTAManager {
 	 * @return
 	 */
 	public boolean isTaskInProcess(RepositoryEntryRef entry, GTACourseNode gtaNode, String taskName);
+	
+	/**
+	 * Return the details, a string used by the assessment tool
+	 * @return
+	 */
+	public String getDetails(Identity assessedIdentity, RepositoryEntryRef entry, GTACourseNode cNode);
 	
 	public TaskList createIfNotExists(RepositoryEntry entry, GTACourseNode cNode);
 	
@@ -225,9 +295,9 @@ public interface GTAManager {
 	
 	public TaskProcess nextStep(TaskProcess currentStep, GTACourseNode cNode);
 	
-	public Task updateTask(Task task, TaskProcess newStatus);
+	public Task updateTask(Task task, TaskProcess newStatus, GTACourseNode cNode);
 	
-	public Task updateTask(Task task, TaskProcess newStatus, int iteration);
+	public Task updateTask(Task task, TaskProcess newStatus, int iteration, GTACourseNode cNode);
 	
 	public void log(String step, String operation, Task assignedTask, Identity actor, Identity assessedIdentity, BusinessGroup assessedGroup,
 			CourseEnvironment courseEnv, GTACourseNode cNode);

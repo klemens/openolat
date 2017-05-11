@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.openolat</groupId>
 	<artifactId>openolat-lms</artifactId>
-	<version>10.3-SNAPSHOT</version>
+	<version>11.4-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>OpenOLAT LMS</name>
 	<url>http://www.openolat.org</url>
@@ -24,9 +24,7 @@
 			<name>Apache 2.0 Open Source License</name>
 			<url>http://www.apache.org/licenses/LICENSE-2.0</url>
 			<distribution>manual</distribution>
-			<comments>
-		OpenOLAT is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-		</comments>
+			<comments>OpenOLAT is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.</comments>
 		</license>
 	</licenses>
 	<distributionManagement>
@@ -63,17 +61,19 @@
 		level if necessary. -->
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<targetJdk>1.7</targetJdk>
-		<org.springframework.version>3.2.13.RELEASE</org.springframework.version>
-		<org.hibernate.version>4.3.9.Final</org.hibernate.version>
-		<com.sun.jersey.version>1.17.1</com.sun.jersey.version>
+		<targetJdk>1.8</targetJdk>
+		<org.springframework.version>3.2.17.RELEASE</org.springframework.version>
+		<org.hibernate.version>5.2.7.Final</org.hibernate.version>
+		<com.sun.jersey.version>1.19.1</com.sun.jersey.version>
 		<jackson.version>1.9.2</jackson.version>
-		<org.mysql.version>5.1.34</org.mysql.version>
-		<org.postgresql.version>9.4-1201-jdbc41</org.postgresql.version>
-		<org.infinispan.version>6.0.2.Final</org.infinispan.version>
+		<org.mysql.version>5.1.40</org.mysql.version>
+		<org.postgresql.version>9.4.1212</org.postgresql.version>
+		<org.infinispan.version>8.1.0.Final</org.infinispan.version>
 		<lucene.version>4.8.0</lucene.version>
-		<version.selenium>2.46.0</version.selenium>
+		<version.selenium>2.53.1</version.selenium>
+		<version.drone>2.0.1.Final</version.drone>
 		<activemq.version>5.11.1</activemq.version>
+		<qtiworks.version>1.0.4</qtiworks.version>
 
 	    <!-- properties for testing and Q&A -->
 	    <!-- by default no tests are executed so far (April 2011). Use appropriate profiles and properties on the command line -->
@@ -160,8 +160,34 @@
 											</includes>
 										</aggregation>
 									</aggregations>
+									<excludes>
+										<exclude>**/sliderpips/jquery-ui-slider-pips.js</exclude>
+									</excludes>
 								</configuration>
-							</execution>
+							</execution>														
+							<execution>
+								<!-- compress movie player in place, don't append to any other file -->
+								<id>compressmovieplayer</id>
+								<phase>process-resources</phase>
+								<goals>
+									<goal>compress</goal>
+								</goals>
+								<configuration>
+									<suffix>.min</suffix>
+									<force>true</force>
+									<encoding>UTF-8</encoding>
+									<nocompress>false</nocompress>
+									<outputDirectory>${basedir}/src/main/webapp/static/movie</outputDirectory>
+									<sourceDirectory>${basedir}/src/main/webapp/static/movie</sourceDirectory>
+									<excludeResources>true</excludeResources>
+									<excludes>
+										<exclude>**/*.min.js</exclude>
+										<exclude>**/mediaelementjs/*</exclude>
+										<exclude>**/sliderpips/jquery-ui-slider-pips.js</exclude>
+										<exclude>**/jw/*</exclude>
+									</excludes>
+								</configuration>
+							</execution>							
 							<execution>
 								<id>compressjs</id>
 								<phase>process-resources</phase>
@@ -201,6 +227,13 @@
 											</includes>
 										</aggregation>
 										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatqti/plugin.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/tinymce4/tinymce/plugins/olatqti/plugin.min.js</include>
+											</includes>
+										</aggregation>
+										<aggregation>
 											<output>${basedir}/src/main/webapp/static/js/tinymce4/tinymce/plugins/olatmovieviewer/plugin.min.js</output>
 											<removeIncluded>false</removeIncluded>
 											<includes>
@@ -228,7 +261,17 @@
 												<include>${basedir}/target/jquery/jquery/openolat/jquery.statistics.chart.min.js</include>
 											</includes>
 										</aggregation>
+										<aggregation>
+											<output>${basedir}/src/main/webapp/static/js/jquery/openolat/jquery.timeline.min.js</output>
+											<removeIncluded>false</removeIncluded>
+											<includes>
+												<include>${basedir}/target/jquery/jquery/openolat/jquery.timeline.min.js</include>
+											</includes>
+										</aggregation>
 									</aggregations>
+									<excludes>
+										<exclude>**/sliderpips/jquery-ui-slider-pips.js</exclude>
+									</excludes>
 								</configuration>
 							</execution>
 							<execution>
@@ -253,10 +296,14 @@
 												<include>${basedir}/target/jquery/jquery/tagsinput/bootstrap-tagsinput.min.css</include>
 												<include>${basedir}/target/jquery/jquery/fullcalendar/fullcalendar.min.css</include>
 												<include>${basedir}/target/jquery/jquery/cropper/cropper.min.css</include>
+												<include>${basedir}/target/jquery/jquery/sliderpips/jquery-ui-slider-pips.min.css</include>
 												<include>${basedir}/target/jquery/jquery/ui/jquery-ui-1.11.4.custom.min.css</include>
 											</includes>
 										</aggregation>
 									</aggregations>
+									<excludes>
+										<exclude>**/sliderpips/jquery-ui-slider-pips.js</exclude>
+									</excludes>
 								</configuration>
 							</execution>
 						</executions>
@@ -379,6 +426,10 @@
 						<exclusion>
 							<groupId>org.rhq.helpers</groupId>
 							<artifactId>rhq-pluginAnnotations</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.jgroups</groupId>
+							<artifactId>jgroups</artifactId>
 						</exclusion>
 					</exclusions>
 				</dependency>
@@ -564,6 +615,10 @@
 						<exclusion>
 							<groupId>org.rhq.helpers</groupId>
 							<artifactId>rhq-pluginAnnotations</artifactId>
+						</exclusion>
+						<exclusion>
+							<groupId>org.jgroups</groupId>
+							<artifactId>jgroups</artifactId>
 						</exclusion>
 					</exclusions>
 				</dependency>
@@ -1064,15 +1119,10 @@
 			</snapshots>
 		</repository>
 		<repository>
-			<id>maven2-repository.java.net</id>
+			<id>java.net-Public</id>
 			<name>Java.net repository for Maven</name>
-			<url>https://maven.java.net/content/repositories/public</url>
+			<url>https://maven.java.net/content/groups/public/</url>
 			<layout>default</layout>
-		</repository>
-		<repository>
-			<id>nexus.codehaus.org</id>
-			<name>Codehaus nexus repo</name>
-			<url>https://nexus.codehaus.org/content/groups/public</url>
 		</repository>
 		<repository>
 			<id>jboss-public-repository-group</id>
@@ -1087,18 +1137,28 @@
 				<enabled>true</enabled>
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
+		</repository>
+		<repository>
+			<id>www2.ph.ed.ac.uk</id>
+			<url>http://www2.ph.ed.ac.uk/maven2</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
 		</repository>	
 		<repository>
 			<id>openolat-repo</id>
 			<name>OpenOLAT Public Maven Repository Group</name>
-			<url>http://nexus.openolat.org/nexus/content/groups/public</url>
+			<url>https://nexus.openolat.org/nexus/content/groups/public</url>
 			<layout>default</layout>
 			<releases>
 				<enabled>true</enabled>
 				<updatePolicy>never</updatePolicy>
 			</releases>
 			<snapshots>
-				<enabled>false</enabled>
+				<enabled>true</enabled>
 				<updatePolicy>daily</updatePolicy>
 			</snapshots>
 		</repository>
@@ -1119,7 +1179,7 @@
 		<pluginRepository>
 			<id>openolat-plugin-repo</id>
 			<name>OpenOLAT Public Maven Repository Group</name>
-			<url>http://nexus.openolat.org/nexus/content/groups/public</url>
+			<url>https://nexus.openolat.org/nexus/content/groups/public</url>
 			<layout>default</layout>
 			<releases>
 				<enabled>true</enabled>
@@ -1152,6 +1212,7 @@
 					<exclude>**/*.odt</exclude>
 					<exclude>**/*.pdf</exclude>
 					<exclude>**/*.graffle</exclude>
+					<exclude>**/doc-files/**</exclude>
 				</excludes>
 			</resource>
 			<resource>
@@ -1224,8 +1285,8 @@
                         <configuration>
                             <tasks>
                                 <mkdir dir="${project.build.directory}/downloads" />
-                                <get src="http://nexus.openolat.org/nexus/content/repositories/openolat/org/apache/tomcat/apache-tomcat-arq/7.0.27/apache-tomcat-arq-7.0.27.zip" dest="${project.build.directory}/downloads" verbose="true" skipexisting="true" />
-                                <unzip src="${project.build.directory}/downloads/apache-tomcat-arq-7.0.27.zip" dest="${project.build.directory}" />
+                                <get src="http://nexus.openolat.org/nexus/content/repositories/openolat/org/apache/tomcat/apache-tomcat-arq/8.0.24/apache-tomcat-arq-8.0.24.zip" dest="${project.build.directory}/downloads" verbose="true" skipexisting="true" />
+                                <unzip src="${project.build.directory}/downloads/apache-tomcat-arq-8.0.24.zip" dest="${project.build.directory}/arq-apache-tomcat-8.0.24" />
                             </tasks>
                         </configuration>
                     </execution> 
@@ -1235,16 +1296,18 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>2.8.1</version>
+				<version>2.18.1</version>
 				<configuration>
+					<encoding>UTF-8</encoding>
 					<skipTests>${skipTests}</skipTests>
-					<argLine>-XX:MaxPermSize=128m -Xmx512m -Xms256m -Djava.awt.headless=true</argLine>
+					<argLine>-Xmx512m -Xms256m -Djava.awt.headless=true</argLine>
 					<systemPropertyVariables>
 						<java.io.tmpdir>${project.build.directory}/olatdata</java.io.tmpdir>
 					</systemPropertyVariables>
 					<testNGArtifactName>none:none</testNGArtifactName>
 					<includes>
 						<include>org/olat/test/AllTestsJunit4.java</include>
+						<include>org/olat/test/QtiWorksTests.java</include>
 					</includes>
 				</configuration>
 			</plugin>
@@ -1252,12 +1315,15 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
-				<version>2.9</version>
+				<version>2.18.1</version>
 				<configuration>
+					<encoding>UTF-8</encoding>
 					<skipITs>${skipSeleniumTests}</skipITs>
 					<skipTests>${skipSeleniumTests}</skipTests>
-					<forkMode>always</forkMode>
-					<systemProperties>
+					<reuseForks>false</reuseForks>
+					<argLine>-Xmx512m -Xms256m -Djava.awt.headless=true</argLine>
+					
+					<systemPropertyVariables>
 						<profile>${test.env}</profile>
 						<test.env.db.name>${test.env.db.name}</test.env.db.name>
 						<test.env.db.user>${test.env.db.user}</test.env.db.user>
@@ -1269,9 +1335,11 @@
 						<test.env.instance.id>${test.env.instance.id}</test.env.instance.id>
 						<test.env.jmx.rmi.port.0>${test.env.jmx.rmi.port.0}</test.env.jmx.rmi.port.0>
 						<arquillian.launch>tomcat-7-managed</arquillian.launch>
-					</systemProperties>
+					</systemPropertyVariables>
 					<testNGArtifactName>none:none</testNGArtifactName>
-					<test>org/olat/selenium/*Test.java</test>
+					<includes>
+						<include>org/olat/selenium/*Test.java</include>
+					</includes>
 				</configuration>
 				<executions>
 					<execution>
@@ -1291,14 +1359,14 @@
 		</plugins>
 		<pluginManagement>
 			<plugins>
-				<!-- OLAT requires JDK 1.7 or later ! -->
+				<!-- OLAT requires JDK 1.8 or later ! -->
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>2.5.1</version>
+					<version>3.3</version>
 					<configuration>
-						<source>1.7</source>
-						<target>1.7</target>
+						<source>1.8</source>
+						<target>1.8</target>
 						<encoding>UTF-8</encoding>
 					</configuration>
 				</plugin>
@@ -1306,7 +1374,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-war-plugin</artifactId>
-					<version>2.4</version>
+					<version>2.6</version>
 					<configuration>
 						<attachClasses>true</attachClasses>
 						<directory>src/main/java</directory>
@@ -1321,7 +1389,7 @@
 								<Implementation-Build>${buildNumber}</Implementation-Build>
 							</manifestEntries>
 						</archive>
-						<excludes>**/*.pxm, **/*.psd, **/*.scss, **/*.sh, **/*.README</excludes>
+						<excludes>**/*.pxm, **/*.psd, **/*.scss, **/*.sh, static/bootstrap/**, **/*.README</excludes>
 						<webResources>
 							<resource>
 								<directory>src/main/webapp</directory>
@@ -1375,7 +1443,7 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-enforcer-plugin</artifactId>
-					<version>1.3.1</version>
+					<version>1.4</version>
 					<executions>
 						<execution>
 							<id>show-versions</id>
@@ -1395,7 +1463,7 @@
 										<version>2.2+</version>
 									</requireMavenVersion>
 									<requireJavaVersion>
-										<version>1.7+</version>
+										<version>1.8+</version>
 									</requireJavaVersion>
 								</rules>
 							</configuration>
@@ -1664,7 +1732,27 @@
 			<!-- Used by at least velocity engine -->
 			<groupId>commons-collections</groupId>
 			<artifactId>commons-collections</artifactId>
-			<version>3.2.1</version>
+			<version>3.2.2</version>
+		</dependency>
+		<dependency>
+			<!-- Used by email address validator -->
+			<groupId>commons-validator</groupId>
+			<artifactId>commons-validator</artifactId>
+			<version>1.5.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-digester</groupId>
+					<artifactId>commons-digester</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>commons-beanutils</groupId>
+					<artifactId>commons-beanutils</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<!-- Used by at least commons-fileupload, webdriver -->
@@ -1681,6 +1769,17 @@
 			<groupId>org.mnode.ical4j</groupId>
 			<artifactId>ical4j</artifactId>
 			<version>1.0.2</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.mnode.ical4j</groupId>
+			<artifactId>ical4j-zoneinfo-outlook</artifactId>
+			<version>1.0.4</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -1713,21 +1812,20 @@
 			<artifactId>viterows</artifactId>
 			<version>6.0</version>
 		</dependency>
-		<!-- docx4j need poi scratchpad version 3.8 -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi</artifactId>
-			<version>3.8</version>
+			<version>3.14</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.poi</groupId>
 			<artifactId>poi-scratchpad</artifactId>
-			<version>3.8</version>
+			<version>3.14</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
-			<version>1.8.8</version>
+			<version>1.8.12</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -1807,6 +1905,97 @@
 			<artifactId>reload-moonunit</artifactId>
 			<version>reload_dist255-moonunit.jar</version>
 		</dependency>
+		<!-- Sart dependency to qtiworks -->
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-jqtiplus</artifactId>
+			<version>${qtiworks.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-jqtiplus</artifactId>
+			<version>${qtiworks.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-mathassess</artifactId>
+			<version>${qtiworks.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-mathassess-glue</artifactId>
+			<version>${qtiworks.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-mathassess-glue</artifactId>
+			<version>${qtiworks.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-samples</artifactId>
+			<version>${qtiworks.version}</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.openolat.qtiworks</groupId>
+			<artifactId>qtiworks-samples</artifactId>
+			<version>${qtiworks.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>ch.qos.logback</groupId>
+					<artifactId>logback-classic</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- End dependency to qtiworks -->
+		<dependency>
+			<groupId>org.openolat.imscp</groupId>
+			<artifactId>manifest</artifactId>
+			<version>1.3.0</version>
+		</dependency>
 		<dependency>
 			<groupId>rome</groupId>
 			<artifactId>rome</artifactId>
@@ -1869,7 +2058,7 @@
 		<dependency>
 			<groupId>javax.servlet</groupId>
 			<artifactId>javax.servlet-api</artifactId>
-			<version>3.0.1</version>
+			<version>3.1.0</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -1879,11 +2068,6 @@
 			<scope>test</scope>
 		</dependency>
 		<!-- core dependencies -->
-		<dependency>
-			<groupId>commons-fileupload</groupId>
-			<artifactId>commons-fileupload</artifactId>
-			<version>1.3.1</version>
-		</dependency>
 		<dependency>
 			<groupId>net.sourceforge.nekohtml</groupId>
 			<artifactId>nekohtml</artifactId>
@@ -1978,6 +2162,10 @@
 					<groupId>org.rhq.helpers</groupId>
 					<artifactId>rhq-pluginAnnotations</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.jgroups</groupId>
+					<artifactId>jgroups</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
@@ -2034,17 +2222,17 @@
 		<dependency>
 			<groupId>com.thoughtworks.xstream</groupId>
 			<artifactId>xstream</artifactId>
-			<version>1.4.7</version>
+			<version>1.4.9</version>
 		</dependency>
 		<dependency>
 			<groupId>xerces</groupId>
 			<artifactId>xercesImpl</artifactId>
-			<version>2.9.1</version>
-			<!-- fxdiff: FXOLAT-243  prevents duplicate -->
+			<version>2.11.0</version>
+			<!-- prevents duplicate -->
 			<exclusions>
   				<exclusion>
   					<groupId>xerces</groupId>
-						<artifactId>xmlParserAPIs</artifactId>
+					<artifactId>xmlParserAPIs</artifactId>
   				</exclusion>
   			</exclusions>
 		</dependency>
@@ -2159,11 +2347,12 @@
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-web</artifactId>
 			<version>${org.springframework.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-orm</artifactId>
-			<version>${org.springframework.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-fileupload</groupId>
+					<artifactId>commons-fileupload</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<!-- end Spring dependencies -->
 		<!-- Start Jersey dependency -->
@@ -2198,14 +2387,9 @@
 		
 		<!-- paypal -->
 		<dependency>
-			<groupId>com.paypal</groupId>
-			<artifactId>paypal_platform_base_AP</artifactId>
-			<version>0.76</version>
-		</dependency>
-		<dependency>
-			<groupId>com.paypal</groupId>
-			<artifactId>paypal_platform_stubs_AP</artifactId>
-			<version>0.76</version>
+			<groupId>com.paypal.sdk</groupId>
+			<artifactId>adaptivepaymentssdk</artifactId>
+			<version>2.9.117</version>
 		</dependency>
 		<!-- end Paypal -->
 
@@ -2217,15 +2401,33 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>3.6.1</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>xmlunit</groupId>
+			<artifactId>xmlunit</artifactId>
+			<version>1.5</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
 		    <groupId>io.undertow</groupId>
 		    <artifactId>undertow-core</artifactId>
-		    <version>1.1.2.Final</version>
+		    <version>1.2.9.Final</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 		    <groupId>io.undertow</groupId>
 		    <artifactId>undertow-servlet</artifactId>
-		    <version>1.1.2.Final</version>
+		    <version>1.2.9.Final</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.zapodot</groupId>
+			<artifactId>embedded-ldap-junit</artifactId>
+			<version>0.5.2</version>
 			<scope>test</scope>
 		</dependency>
     
@@ -2238,17 +2440,12 @@
 		<dependency>
         	<groupId>org.jboss.arquillian.container</groupId>
         	<artifactId>arquillian-tomcat-managed-7</artifactId>
-        	<version>1.0.0.CR6</version>
+        	<version>1.0.0.CR9</version>
         	<scope>test</scope>
       	</dependency>
 		<dependency>
 			<groupId>org.jboss.arquillian.extension</groupId>
 			<artifactId>arquillian-drone-impl</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>org.jboss.arquillian.extension</groupId>
-			<artifactId>arquillian-drone-selenium</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -2259,14 +2456,36 @@
 		<dependency>
             <groupId>org.jboss.arquillian.extension</groupId>
             <artifactId>arquillian-drone-webdriver-depchain</artifactId>
-            <version>1.3.1.Final</version>
+            <version>${version.drone}</version>
             <type>pom</type>
             <scope>test</scope>
+            <exclusions>
+            	<exclusion>
+					<groupId>org.seleniumhq.selenium</groupId>
+					<artifactId>selenium-htmlunit-driver</artifactId>
+            	</exclusion>
+            	<exclusion>
+					<groupId>org.seleniumhq.selenium</groupId>
+					<artifactId>htmlunit-driver</artifactId>
+            	</exclusion>
+            	<exclusion>
+					<groupId>com.opera</groupId>
+					<artifactId>operadriver</artifactId>
+            	</exclusion>
+            	<exclusion>
+					<groupId>org.jboss.arquillian.extension</groupId>
+					<artifactId>arquillian-phantom-driver</artifactId>
+            	</exclusion>
+            	<exclusion>
+					<groupId>org.seleniumhq.selenium</groupId>
+					<artifactId>selenium-chrome-driver</artifactId>
+            	</exclusion>
+            </exclusions>
         </dependency>
 		<dependency>
 			<groupId>org.jboss.arquillian.graphene</groupId>
 			<artifactId>graphene-webdriver</artifactId>
-			<version>2.0.3.Final</version>
+			<version>2.1.0.Final</version>
 			<type>pom</type>
 			<scope>test</scope>
 		</dependency>
@@ -2307,14 +2526,14 @@
 			<dependency>
 				<groupId>org.jboss.arquillian</groupId>
 				<artifactId>arquillian-bom</artifactId>
-				<version>1.1.7.Final</version>
+				<version>1.1.12.Final</version>
 				<scope>import</scope>
 				<type>pom</type>
 			</dependency>
 			<dependency>
 				<groupId>org.jboss.arquillian.extension</groupId>
 				<artifactId>arquillian-drone-bom</artifactId>
-				<version>1.3.1.Final</version>
+				<version>${version.drone}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -2336,7 +2555,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-report-plugin</artifactId>
-				<version>2.9</version>
+				<version>2.18.1</version>
 			</plugin>
 		</plugins>
 	</reporting>

@@ -34,6 +34,8 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -46,6 +48,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.io.HttpServletResponseOutputStream;
+import org.olat.core.util.io.ShieldOutputStream;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -69,7 +72,7 @@ public class RepositoryEntryImportExport {
 	private static final OLog log = Tracing.createLoggerFor(RepositoryEntryImportExport.class);
 
 	private static final String CONTENT_FILE = "repo.zip";
-	private static final String PROPERTIES_FILE = "repo.xml";
+	public static final String PROPERTIES_FILE = "repo.xml";
 	private static final String PROP_ROOT = "RepositoryEntryProperties";
 	private static final String PROP_SOFTKEY = "Softkey";
 	private static final String PROP_RESOURCENAME = "ResourceName";
@@ -153,6 +156,39 @@ public class RepositoryEntryImportExport {
 			FileUtils.closeSafely(fOut);
 		}
 	}
+	
+	public void exportDoExportProperties(ZipOutputStream zout) throws IOException {
+		RepositoryEntryImport imp = new RepositoryEntryImport(re);
+		RepositoryManager rm = RepositoryManager.getInstance();
+		VFSLeaf image = rm.getImage(re);
+		if(image != null) {
+			imp.setImageName(image.getName());
+			zout.putNextEntry(new ZipEntry(image.getName()));
+			try(InputStream inImage=image.getInputStream()) {
+				FileUtils.copy(inImage, new ShieldOutputStream(zout));
+			} catch(Exception e) {
+				log.error("", e);
+			}
+			zout.closeEntry();
+		}
+
+		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
+		VFSLeaf movie = repositoryService.getIntroductionMovie(re);
+		if(movie != null) {
+			imp.setMovieName(movie.getName());
+			zout.putNextEntry(new ZipEntry(movie.getName()));
+			try(InputStream inMovie=movie.getInputStream()) {
+				FileUtils.copy(inMovie, new ShieldOutputStream(zout));
+			} catch(Exception e) {
+				log.error("", e);
+			}
+			zout.closeEntry();
+		}
+		
+		zout.putNextEntry(new ZipEntry(PROPERTIES_FILE));
+		getXStream().toXML(imp, new ShieldOutputStream(zout));
+		zout.closeEntry();
+	}
 
 	/**
 	 * Export a repository entry referenced by a course node to the given export directory.
@@ -205,12 +241,25 @@ public class RepositoryEntryImportExport {
 				log.error("", e);
 			}
 		}
-		
+		return setRepoEntryPropertiesFromImport(newEntry);
+	}
+
+	/**
+	 * Update the repo entry property from the current import information in the database
+	 * 
+	 * @param newEntry
+	 * @return
+	 */
+	public RepositoryEntry setRepoEntryPropertiesFromImport(RepositoryEntry newEntry) {
+		if(!propertiesLoaded) {
+			loadConfiguration();
+		}
+		RepositoryManager repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 		return repositoryManager.setDescriptionAndName(newEntry, newEntry.getDisplayname(), null,
 				repositoryProperties.getAuthors(), repositoryProperties.getDescription(),
 				repositoryProperties.getObjectives(), repositoryProperties.getRequirements(),
 				repositoryProperties.getCredits(), repositoryProperties.getMainLanguage(),
-				repositoryProperties.getExpenditureOfWork(), null);
+				repositoryProperties.getLocation(), repositoryProperties.getExpenditureOfWork(), null);
 	}
 
 	/**
@@ -255,6 +304,13 @@ public class RepositoryEntryImportExport {
 		}
 	}
 	
+	/**
+	 * Get the repo entry import metadata from the given path. E.g. usefull
+	 * when reading from an unzipped archive.
+	 * 
+	 * @param repoXmlPath
+	 * @return The RepositoryEntryImport or NULL
+	 */
 	public static RepositoryEntryImport getConfiguration(Path repoXmlPath) {
 		try (InputStream in=Files.newInputStream(repoXmlPath)) {
 			XStream xstream = getXStream();
@@ -265,7 +321,25 @@ public class RepositoryEntryImportExport {
 		}
 	}
 	
-	public static XStream getXStream() {
+	/**
+	 * Get the repo entry import metadata from the given stream. E.g. usefull
+	 * when reading from an ZIP file without inflating it.
+	 * 
+	 * @param repoMetaFileInputStream
+	 * @return The RepositoryEntryImport or NULL
+	 */
+	public static RepositoryEntryImport getConfiguration(InputStream repoMetaFileInputStream) {
+		XStream xstream = getXStream();
+		return (RepositoryEntryImport)xstream.fromXML(repoMetaFileInputStream);
+	}
+	
+	/**
+	 * Helper to load the xstream instances with all the aliases for the
+	 * RepositoryEntryImport class
+	 * 
+	 * @return
+	 */
+	private static XStream getXStream() {
 		XStream xStream = XStreamHelper.createXStreamInstance();
 		xStream.alias(PROP_ROOT, RepositoryEntryImport.class);
 		xStream.aliasField(PROP_SOFTKEY, RepositoryEntryImport.class, "softkey");
@@ -357,6 +431,7 @@ public class RepositoryEntryImportExport {
 		private String requirements;
 		private String credits;
 		private String expenditureOfWork;
+		private String location;
 		
 		private String movieName;
 		private String imageName;
@@ -459,6 +534,14 @@ public class RepositoryEntryImportExport {
 
 		public void setMainLanguage(String mainLanguage) {
 			this.mainLanguage = mainLanguage;
+		}
+
+		public String getLocation() {
+			return location;
+		}
+
+		public void setLocation(String location) {
+			this.location = location;
 		}
 
 		public String getObjectives() {

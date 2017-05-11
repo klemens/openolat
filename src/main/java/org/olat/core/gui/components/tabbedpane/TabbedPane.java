@@ -27,7 +27,6 @@
 package org.olat.core.gui.components.tabbedpane;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +34,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.components.Container;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.translator.Translator;
@@ -42,7 +42,8 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.logging.AssertException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
 
@@ -52,6 +53,7 @@ import org.olat.core.util.resource.OresHelper;
  * @author Felix Jost
  */
 public class TabbedPane extends Container implements Activateable2 {
+	private static final OLog log = Tracing.createLoggerFor(TabbedPane.class);
 	private static final ComponentRenderer RENDERER = new TabbedPaneRenderer();
 
 	/**
@@ -59,11 +61,9 @@ public class TabbedPane extends Container implements Activateable2 {
 	 */
 	protected static final String PARAM_PANE_ID = "taid";
 
-	private List<Component> tabbedPanes = new ArrayList<Component>(4);
-	private List<String> displayNames = new ArrayList<String>(4);
-	private BitSet disabledPanes = new BitSet(4);
+
 	private int selectedPane = -1;
-	
+	private final List<TabPane> tabPanes = new ArrayList<>(5);
 	private Translator compTrans;
 	
 	/**
@@ -78,12 +78,16 @@ public class TabbedPane extends Container implements Activateable2 {
 	/**
 	 * @see org.olat.core.gui.components.Component#dispatchRequest(org.olat.core.gui.UserRequest)
 	 */
+	@Override
 	protected void doDispatchRequest(UserRequest ureq) {
 		// the taid indicates which tab the user clicked
 		String s_taid = ureq.getParameter(PARAM_PANE_ID);
-		int newTaid = Integer.parseInt(s_taid);
-				
-		dispatchRequest(ureq, newTaid);
+		try {
+			int newTaid = Integer.parseInt(s_taid);
+			dispatchRequest(ureq, newTaid);
+		} catch (NumberFormatException e) {
+			log.warn("Not a number: " + s_taid);
+		}
 	}
 
 	/**
@@ -91,11 +95,12 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @param newTaid
 	 */
 	private void dispatchRequest(UserRequest ureq, int newTaid) {
-		if (!isEnabled(newTaid)) throw new AssertException("tab with id "+newTaid+" is not enabled, but was dispatched");
-		Component oldSelComp = getTabAt(selectedPane);	
-		setSelectedPane(newTaid);
-		Component newSelComp = getTabAt(selectedPane);
-		fireEvent(ureq, new TabbedPaneChangedEvent(oldSelComp, newSelComp));
+		if (isEnabled(newTaid) && newTaid >= 0 && newTaid < getTabCount()) {
+			Component oldSelComp = getTabAt(selectedPane);	
+			setSelectedPane(newTaid);
+			Component newSelComp = getTabAt(selectedPane);
+			fireEvent(ureq, new TabbedPaneChangedEvent(oldSelComp, newSelComp));
+		}
 	}
 	
 	/**
@@ -103,14 +108,14 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * 
 	 * @param selectedPane The selectedPane to set
 	 */
-	public void setSelectedPane(int selectedPane) {
+	public void setSelectedPane(int newSelectedPane) {
 		// get old selected component and remove it from render tree
-		Component oldSelComp = getTabAt(this.selectedPane);
+		Component oldSelComp = getTabAt(selectedPane);
 		remove(oldSelComp);
 		
 		// activate new
-		this.selectedPane = selectedPane;
-		Component newSelComp = getTabAt(selectedPane);
+		selectedPane = newSelectedPane;
+		Component newSelComp = getTabAt(newSelectedPane);
 		super.put("atp", newSelComp); 
 		//setDirty(true); not needed since: line above marks this container automatically dirty
 	}
@@ -130,35 +135,80 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	public int addTab(String displayName, Component component) {
-		displayNames.add(displayName);
-		tabbedPanes.add(component);
+		tabPanes.add(new TabPane(displayName, component));
 		if (selectedPane == -1) {
 			selectedPane = 0; // if no pane has been selected, select the first one
 			super.put("atp", component); 
 		}
-		return tabbedPanes.size() - 1;
+		return tabPanes.size() - 1;
+	}
+	
+	public int addTab(String displayName, Controller controller) {
+		TabPane tab = new TabPane(displayName, controller);
+		tabPanes.add(tab);
+		if (selectedPane == -1) {
+			selectedPane = 0; // if no pane has been selected, select the first one
+			super.put("atp", tab.getComponent()); 
+		}
+		return tabPanes.size() - 1;
 	}
 	
 	public boolean containsTab(Component component) {
-		return tabbedPanes.contains(component);
+		boolean found = false;
+		for(int i=tabPanes.size(); i-->0; ) {
+			if(tabPanes.get(i).getComponent() == component) {
+				found = true;
+			}
+		}
+		return found;
+	}
+	
+	public int indexOfTab(Component component) {
+		for(int i=tabPanes.size(); i-->0; ) {
+			if(tabPanes.get(i).getComponent() == component) {
+				return i;
+			}
+		}
+		return -1;
 	}
 	
 	public boolean containsTab(String displayName) {
-		return displayNames.contains(displayName);
+		boolean found = false;
+		for(int i=tabPanes.size(); i-->0; ) {
+			if(displayName.equals(tabPanes.get(i).getDisplayName())) {
+				found = true;
+			}
+		}
+		return found;
+	}
+	
+	public int indexOfTab(String displayName) {
+		for(int i=tabPanes.size(); i-->0; ) {
+			if(displayName.equals(tabPanes.get(i).getComponent())) {
+				return i;
+			}
+		}
+		return -1;
+	}
+	
+	public void replaceTab(int pos, Controller controller) {
+		tabPanes.get(pos).setController(controller);
+		if(pos == selectedPane) {
+			super.put("atp", controller.getInitialComponent());
+		}
 	}
 	
 	public void replaceTab(int pos, Component component) {
-		tabbedPanes.set(pos, component);
+		tabPanes.get(pos).setComponent(component);
 		if(pos == selectedPane) {
 			super.put("atp", component);
 		}
 	}
 	
 	public void removeTab(Component component) {
-		int index = tabbedPanes.indexOf(component);
-		if(index >= 0 && index < tabbedPanes.size()) {
-			tabbedPanes.remove(index);
-			displayNames.remove(index);
+		int index = indexOfTab(component);
+		if(index >= 0 && index < tabPanes.size()) {
+			tabPanes.remove(index);
 			if(selectedPane == index) {
 				setSelectedPane(0);
 			}
@@ -167,13 +217,11 @@ public class TabbedPane extends Container implements Activateable2 {
 	}
 
 	public void removeAll() {
-		if (this.selectedPane != -1) {
-			Component oldSelComp = getTabAt(this.selectedPane);
+		if (selectedPane != -1) {
+			Component oldSelComp = getTabAt(selectedPane);
 			remove(oldSelComp);
 		}
-		tabbedPanes.clear();
-		displayNames.clear();
-		disabledPanes.clear();
+		tabPanes.clear();
 		selectedPane = -1;
 		setDirty(true);
 	}
@@ -183,7 +231,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	protected Component getTabAt(int position) {
-		return tabbedPanes.get(position);
+		return tabPanes.get(position).getComponent();
 	}
 
 	/**
@@ -191,14 +239,14 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	protected String getDisplayNameAt(int position) {
-		return displayNames.get(position);
+		return tabPanes.get(position).getDisplayName();
 	}
 
 	/**
 	 * @return
 	 */
 	protected int getTabCount() {
-		return (tabbedPanes == null ? 0 : tabbedPanes.size());
+		return (tabPanes == null ? 0 : tabPanes.size());
 	}
 
 	/**
@@ -209,6 +257,20 @@ public class TabbedPane extends Container implements Activateable2 {
 	public int getSelectedPane() {
 		return selectedPane;
 	}
+	
+	/**
+	 * Return the selected controller only if you used
+	 * the addTab with a controller as parameter!
+	 * 
+	 * @return
+	 */
+	public Controller getSelectedController() {
+		int index = getSelectedPane();
+		if(index >= 0 && index < this.tabPanes.size()) {
+			return tabPanes.get(index).getController();
+		}
+		return null;
+	}
 
 	/**
 	 * @deprecated
@@ -216,7 +278,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	 */
 	public void setSelectedPane(String displayName) {
 		if (displayName == null) return;
-		int pos = displayNames.indexOf(displayName);
+		int pos = indexOfTab(displayName);
 		if (pos > -1) {
 			setSelectedPane(pos);
 		}
@@ -225,6 +287,7 @@ public class TabbedPane extends Container implements Activateable2 {
 	/**
 	 * @see org.olat.core.gui.components.Component#getExtendedDebugInfo()
 	 */
+	@Override
 	public String getExtendedDebugInfo() {
 		return "selectedPane:" + selectedPane;
 	}
@@ -238,7 +301,8 @@ public class TabbedPane extends Container implements Activateable2 {
 		if (wasEnabled != enabled) {
 			setDirty(true);
 		}
-		disabledPanes.set(pane, !enabled);
+		tabPanes.get(pane).setEnabled(enabled);
+		setDirty(true);
 	}
 
 	/**
@@ -246,9 +310,10 @@ public class TabbedPane extends Container implements Activateable2 {
 	 * @return
 	 */
 	protected boolean isEnabled(int pane) {
-		return !disabledPanes.get(pane);
+		return tabPanes.get(pane).isEnabled();
 	}
 
+	@Override
 	public ComponentRenderer getHTMLRendererSingleton() {
 		return RENDERER;
 	}
@@ -267,6 +332,61 @@ public class TabbedPane extends Container implements Activateable2 {
 			if(pos != selectedPane && pos >= 0 && pos < getTabCount()) {
 				dispatchRequest(ureq, pos);
 			}
+		}
+	}
+	
+	private static class TabPane {
+		
+		private boolean enabled = true;
+		private final String displayName;
+		private Component component;
+		private Controller controller;
+		
+		public TabPane(String displayName, Component component) {
+			this.displayName = displayName;
+			this.component = component;
+			this.enabled = true;
+		}
+		
+		public TabPane(String displayName, Controller controller) {
+			this.displayName = displayName;
+			this.controller = controller;
+			this.component = controller.getInitialComponent();
+			this.enabled = true;
+		}
+		
+		public boolean isEnabled() {
+			return enabled;
+		}
+		
+		public void setEnabled(boolean enabled) {
+			this.enabled = enabled;
+		}
+		
+		public String getDisplayName() {
+			return displayName;
+		}
+		
+		public Controller getController() {
+			return controller;
+		}
+		
+		public void setController(Controller controller) {
+			if(controller == null) {
+				controller = null;
+				component = null;
+			} else {
+				this.controller = controller;
+				this.component = controller.getInitialComponent();
+			}
+		}
+		
+		public Component getComponent() {
+			return component;
+		}
+		
+		public void setComponent(Component component) {
+			this.component = component;
 		}
 	}
 }

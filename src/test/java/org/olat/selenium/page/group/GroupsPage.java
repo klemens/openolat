@@ -43,6 +43,14 @@ public class GroupsPage {
 		this.browser = browser;
 	}
 	
+	public GroupsPage assertOnMyGroupsSelected() {
+		By myGroupsBy = By.cssSelector("div.o_segments a.btn.btn-primary.o_sel_group_all_groups_seg");
+		OOGraphene.waitElement(myGroupsBy, 5, browser);
+		WebElement myGroupsEl = browser.findElement(myGroupsBy);
+		Assert.assertTrue(myGroupsEl.isDisplayed());
+		return this;
+	}
+	
 	/**
 	 * Select the tab "Published groups"
 	 * 
@@ -61,6 +69,9 @@ public class GroupsPage {
 		WebElement createButton = browser.findElement(createBy);
 		createButton.click();
 		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalDialog(browser);
+		By popupBy = By.cssSelector("div.modal-content fieldset.o_sel_group_edit_group_form");
+		OOGraphene.waitElement(popupBy, 5, browser);
 		
 		//fill the form
 		By nameBy = By.cssSelector(".o_sel_group_edit_title input[type='text']");
@@ -73,6 +84,8 @@ public class GroupsPage {
 		WebElement submitButton = browser.findElement(submitBy);
 		submitButton.click();
 		OOGraphene.waitBusy(browser);
+		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//div[contains(@class,'o_name')]//div[contains(text(),'" + name+ "')]");
+		OOGraphene.waitElement(groupNameBy, 2, browser);
 		
 		return new GroupPage(browser);
 	}
@@ -114,11 +127,8 @@ public class GroupsPage {
 	 */
 	public GroupPage selectGroup(String name) {
 		selectGroupInTable(name);
-		
-		//By groupNameBy = By.xpath("//div[contains(@class,'o_tree')]//a/span[contains(text(),'" + name+ "')]");
-		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//p[contains(text(),'" + name+ "')]");
+		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//div[contains(@class,'o_name')]//div[contains(text(),'" + name+ "')]");
 		OOGraphene.waitElement(groupNameBy, browser);
-		
 		return new GroupPage(browser);
 	}
 	
@@ -136,6 +146,29 @@ public class GroupsPage {
 		Assert.assertNotNull(groupLink);
 		groupLink.click();
 		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	public GroupsPage deleteGroup(String name) {
+		By groupNameBy = By.xpath("//table//td[//a[text()[contains(.,'" + name+ "')]]]//a[contains(@href,'bgTblDelete')]");
+		browser.findElement(groupNameBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		//wait confirm dialog
+		By popupBy = By.cssSelector("div.modal-dialog");
+		OOGraphene.waitElement(popupBy, 2, browser);
+		
+		By okBy = By.cssSelector("div.modal-dialog button.btn.btn-primary");
+		browser.findElement(okBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
+		return this;
+	}
+	
+	public GroupsPage assertDeleted(String name) {
+		By groupNameBy = By.xpath("//table//td[//a[text()[contains(.,'" + name+ "')]]]");
+		List<WebElement> groupEls = browser.findElements(groupNameBy);
+		Assert.assertTrue(groupEls.isEmpty());
 		return this;
 	}
 }

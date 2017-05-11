@@ -25,9 +25,13 @@
 
 package org.olat.course.nodes;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
@@ -37,6 +41,7 @@ import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Roles;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.course.ICourse;
@@ -52,8 +57,14 @@ import org.olat.course.properties.PersistingCoursePropertyManager;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
+import org.olat.group.BusinessGroupShort;
+import org.olat.group.area.BGArea;
+import org.olat.group.area.BGAreaManager;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
+import org.olat.resource.OLATResource;
 
 /**
  * Description:<BR>
@@ -61,10 +72,11 @@ import org.olat.repository.RepositoryEntry;
  * <P>
  * 
  * Initial Date: Sep 8, 2004
- * @author Felix Jost, Florian Gn�gi
+ * @author Felix Jost, Florian Gnaegi
  */
 public class ENCourseNode extends AbstractAccessableCourseNode {
 	private static final String PACKAGE = Util.getPackageName(ENCourseNode.class);
+	private static final String PACKAGE_COND = Util.getPackageName(ConditionEditController.class);
 
 	/**
 	 * property name for the initial enrollment date will be set only the first
@@ -151,6 +163,46 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_en_icon");
 		return new NodeRunConstructionResult(ctrl);
 	}
+	
+	public boolean isUsedForEnrollment(List<BusinessGroup> groups, OLATResource courseResource) {
+		if(groups == null || groups.isEmpty()) return false;
+		
+		ModuleConfiguration mc = getModuleConfiguration();
+		String groupNames = (String) mc.get(CONFIG_GROUPNAME);
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
+		if(groupKeys != null && groupKeys.size() > 0) {
+			for(BusinessGroup group:groups) {
+				if(groupKeys.contains(group.getKey())) {
+					return true;
+				}
+			}
+		} else if(StringHelper.containsNonWhitespace(groupNames)) {
+			String[] groupNameArr = groupNames.split(",");
+			for(BusinessGroup group:groups) {
+				for(String groupName:groupNameArr) {
+					if(groupName != null && group.getName() != null && groupName.equals(group.getName())) {
+						return true;
+					}
+				}
+			}
+		}
+		
+		List<Long> areaKeys = mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys == null || areaKeys.isEmpty()) {
+			String areaNames = (String) mc.get(CONFIG_AREANAME);
+			areaKeys = CoreSpringFactory.getImpl(BGAreaManager.class).toAreaKeys(areaNames, courseResource);
+		}
+		if(areaKeys != null && areaKeys.size() > 0) {
+			List<Long> areaGroupKeys = CoreSpringFactory.getImpl(BGAreaManager.class).findBusinessGroupKeysOfAreaKeys(areaKeys);
+			for(BusinessGroup group:groups) {
+				if(areaGroupKeys.contains(group.getKey())) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
+	}
 
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
@@ -167,7 +219,7 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 			// FIXME: refine statusdescriptions
 			String shortKey = "error.nogroupdefined.short";
 			String longKey = "error.nogroupdefined.long";
-			String[] params = new String[] { this.getShortTitle() };
+			String[] params = new String[] { getShortTitle() };
 			String translPackage = Util.getPackageName(ENEditController.class);
 			sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, translPackage);
 			sd.setDescriptionForUnit(getIdent());
@@ -185,44 +237,28 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
 		// error messages
-		String translatorStr = Util.getPackageName(ConditionEditController.class);
 
-		List<StatusDescription> condErrs = isConfigValidWithTranslator(cev, translatorStr, getConditionExpressions());
+		List<StatusDescription> condErrs = isConfigValidWithTranslator(cev, PACKAGE_COND, getConditionExpressions());
 		List<StatusDescription> missingNames = new ArrayList<StatusDescription>();
 		/*
 		 * check group and area names for existence
 		 */
-		String nodeId = getIdent();
 		
 		ModuleConfiguration mc = getModuleConfiguration();
-		String areaStr = (String) mc.get(CONFIG_AREANAME);
-		if (areaStr != null) {
-			String[] areas = areaStr.split(",");
-			for (int i = 0; i < areas.length; i++) {
-				String trimmed = areas[i] != null ?
-						FilterFactory.getHtmlTagsFilter().filter(areas[i]).trim() : areas[i];
-				if (!trimmed.equals("") && !cev.existsArea(trimmed)) {
-					StatusDescription sd = new StatusDescription(StatusDescription.WARNING, "error.notfound.name", "solution.checkgroupmanagement",
-							new String[] { "NONE", trimmed }, translatorStr);
-					sd.setDescriptionForUnit(nodeId);
-					missingNames.add(sd);
-				}
-			}
+		String areaNames = (String) mc.get(CONFIG_AREANAME);
+		List<Long> areaKeys = mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		List<String> missingAreas = getMissingAreas(areaKeys, areaNames, cev);
+		if(missingAreas.size() > 0) {
+			missingNames.add(addStatusErrorMissing(missingAreas));
 		}
-		String groupStr = (String) mc.get(CONFIG_GROUPNAME);
-		if (groupStr != null) {
-			String[] groups = groupStr.split(",");
-			for (int i = 0; i < groups.length; i++) {
-				String trimmed = groups[i] != null ?
-						FilterFactory.getHtmlTagsFilter().filter(groups[i]).trim() : groups[i];
-				if (!trimmed.equals("") && !cev.existsGroup(trimmed)) {
-					StatusDescription sd = new StatusDescription(StatusDescription.WARNING, "error.notfound.name", "solution.checkgroupmanagement",
-							new String[] { "NONE", trimmed }, translatorStr);
-					sd.setDescriptionForUnit(nodeId);
-					missingNames.add(sd);
-				}
-			}
+		
+		String groupNames = (String) mc.get(CONFIG_GROUPNAME);
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
+		List<String> missingGroups = getMissingBusinessGroups(groupKeys, groupNames, cev);
+		if(missingGroups.size() > 0) {
+			missingNames.add(addStatusErrorMissing(missingGroups));
 		}
+		
 		missingNames.addAll(condErrs);
 		/*
 		 * sort -> Errors > Warnings > Infos and remove NOERRORS, if
@@ -230,6 +266,122 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		 */
 		oneClickStatusCache = StatusDescriptionHelper.sort(missingNames);
 		return oneClickStatusCache;
+	}
+	
+	private StatusDescription addStatusErrorMissing(List<String> missingObjects) {
+		String labelKey = missingObjects.size() == 1 ? "error.notfound.name" : "error.notfound.names";
+		StringBuilder missing = new StringBuilder();
+		for(String missingObject:missingObjects) {
+			if(missing.length() > 0) missing.append(", ");
+			missing.append(missingObject);
+		}
+		
+		StatusDescription sd = new StatusDescription(StatusDescription.WARNING, labelKey, "solution.checkgroupmanagement",
+				new String[] { "NONE", missing.toString() }, PACKAGE_COND);
+		sd.setDescriptionForUnit(getIdent());
+		return sd;
+	}
+	
+	public List<String> getMissingAreas(List<Long> areaKeys, String areaNames, CourseEditorEnv cev) {
+		List<String> missingNames = new ArrayList<>();
+		if(areaKeys == null || areaKeys.isEmpty()) {
+			if (areaNames != null) {
+				String[] areas = areaNames.split(",");
+				for (int i = 0; i < areas.length; i++) {
+					String trimmed = areas[i] != null ?
+							FilterFactory.getHtmlTagsFilter().filter(areas[i]).trim() : areas[i];
+					if (!trimmed.equals("") && !cev.existsArea(trimmed)) {
+						missingNames.add(trimmed);
+					}
+				}
+			}
+		} else {
+			Set<Long> missingAreas = new HashSet<Long>();
+			List<BGArea> existingAreas =  CoreSpringFactory.getImpl(BGAreaManager.class).loadAreas(areaKeys);
+			
+			List<String> knowNames = new ArrayList<>();
+			if (areaNames != null) {
+				String[] areas = areaNames.split(",");
+				for (int i = 0; i < areas.length; i++) {
+					String trimmed = areas[i] != null ? FilterFactory.getHtmlTagsFilter().filter(areas[i]).trim() : areas[i];
+					knowNames.add(trimmed);
+				}
+			}
+			
+			a_a:
+			for(Long areaKey:areaKeys) {
+				for(BGArea area:existingAreas) {
+					if(area.getKey().equals(areaKey)) {
+						String trimmed = area.getName() != null ? FilterFactory.getHtmlTagsFilter().filter(area.getName()).trim() : area.getName();
+						knowNames.remove(trimmed);
+						continue a_a;
+					}
+				}
+				missingAreas.add(areaKey);
+			}
+			
+			if(missingAreas.size() > 0 ) {
+				if(knowNames.size() > 0) {
+					missingNames.addAll(knowNames);
+				} else {
+					for(Long missingArea:missingAreas) {
+						missingNames.add(missingArea.toString());
+					}
+				}
+			}
+		}
+		return missingNames;
+	}
+	
+	public List<String> getMissingBusinessGroups(List<Long> groupKeys, String groupNames, CourseEditorEnv cev) {
+		List<String> missingNames = new ArrayList<>();
+		if(groupKeys == null || groupKeys.isEmpty()) {
+			if (groupNames != null) {
+				String[] groups = groupNames.split(",");
+				for (int i = 0; i < groups.length; i++) {
+					String trimmed = groups[i] != null ?
+							FilterFactory.getHtmlTagsFilter().filter(groups[i]).trim() : groups[i];
+					if (!trimmed.equals("") && !cev.existsGroup(trimmed)) {
+						missingNames.add(trimmed);
+					}
+				}
+			}
+		} else {
+			Set<Long> missingGroups = new HashSet<Long>();
+			List<BusinessGroupShort> existingGroups =  CoreSpringFactory.getImpl(BusinessGroupService.class).loadShortBusinessGroups(groupKeys);
+			
+			List<String> knowNames = new ArrayList<>();
+			if (groupNames != null) {
+				String[] groups = groupNames.split(",");
+				for (int i = 0; i < groups.length; i++) {
+					String trimmed = groups[i] != null ? FilterFactory.getHtmlTagsFilter().filter(groups[i]).trim() : groups[i];
+					knowNames.add(trimmed);
+				}
+			}
+			
+			a_a:
+			for(Long groupKey:groupKeys) {
+				for(BusinessGroupShort group:existingGroups) {
+					if(group.getKey().equals(groupKey)) {
+						String trimmed = group.getName() != null ? FilterFactory.getHtmlTagsFilter().filter(group.getName()).trim() : group.getName();
+						knowNames.remove(trimmed);
+						continue a_a;
+					}
+				}
+				missingGroups.add(groupKey);
+			}
+			
+			if(missingGroups.size() > 0 ) {
+				if(knowNames.size() > 0) {
+					missingNames.addAll(knowNames);
+				} else {
+					for(Long missingGroup:missingGroups) {
+						missingNames.add(missingGroup.toString());
+					}
+				}
+			}
+		}
+		return missingNames;
 	}
 
 	/**
@@ -274,17 +426,16 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 	}
     
     @Override	
-    public void postImport(CourseEnvironmentMapper envMapper, Processing processType) {
-    	super.postImport(envMapper, processType);
+    public void postImport(File importDirectory, ICourse course, CourseEnvironmentMapper envMapper, Processing processType) {
+    	super.postImport(importDirectory, course, envMapper, processType);
      	postImportCopy(envMapper);
     }
     
 	public void postImportCopy(CourseEnvironmentMapper envMapper) {
 		ModuleConfiguration mc = getModuleConfiguration();
 		String groupNames = (String)mc.get(ENCourseNode.CONFIG_GROUPNAME);
-		@SuppressWarnings("unchecked")
-		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
-		if(groupKeys == null) {
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
+		if(groupKeys == null || groupKeys.isEmpty()) {
 			groupKeys = envMapper.toGroupKeyFromOriginalNames(groupNames);
 		} else {
 			groupKeys = envMapper.toGroupKeyFromOriginalKeys(groupKeys);
@@ -292,12 +443,11 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		mc.set(ENCourseNode.CONFIG_GROUP_IDS, groupKeys);
 	
 		String areaNames = (String)mc.get(ENCourseNode.CONFIG_AREANAME);
-		@SuppressWarnings("unchecked")
-		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
-		if(areaKeys == null) {
-			areaKeys = envMapper.toGroupKeyFromOriginalNames(areaNames);
+		List<Long> areaKeys =  mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys == null || areaKeys.isEmpty()) {
+			areaKeys = envMapper.toAreaKeyFromOriginalNames(areaNames);
 		} else {
-			areaKeys = envMapper.toAreaKeyFromOriginalKeys(groupKeys);
+			areaKeys = envMapper.toAreaKeyFromOriginalKeys(areaKeys);
 		}
 		mc.set(ENCourseNode.CONFIG_AREA_IDS, areaKeys);
 	}
@@ -307,16 +457,14 @@ public class ENCourseNode extends AbstractAccessableCourseNode {
 		super.postExport(envMapper, backwardsCompatible);
 
 		ModuleConfiguration mc = getModuleConfiguration();
-		@SuppressWarnings("unchecked")
-		List<Long> groupKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_GROUP_IDS);
+		List<Long> groupKeys = mc.getList(ENCourseNode.CONFIG_GROUP_IDS, Long.class);
 		if(groupKeys != null) {
 			String groupNames = envMapper.toGroupNames(groupKeys);
 			mc.set(ENCourseNode.CONFIG_GROUPNAME, groupNames);
 		}
 
-		@SuppressWarnings("unchecked")
-		List<Long> areaKeys = (List<Long>) mc.get(ENCourseNode.CONFIG_AREA_IDS);
-		if(areaKeys != null ) {
+		List<Long> areaKeys = mc.getList(ENCourseNode.CONFIG_AREA_IDS, Long.class);
+		if(areaKeys != null) {
 			String areaNames = envMapper.toAreaNames(areaKeys);
 			mc.set(ENCourseNode.CONFIG_AREANAME, areaNames);
 		}

@@ -19,7 +19,10 @@
  */
 package org.olat.selenium.page.repository;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
+import java.util.List;
+
+import org.junit.Assert;
+import org.olat.selenium.page.core.BookingPage;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -34,12 +37,7 @@ import org.openqa.selenium.support.ui.Select;
  */
 public class RepositoryAccessPage {
 	
-	@Drone
 	private WebDriver browser;
-	
-	public RepositoryAccessPage() {
-		//
-	}
 	
 	public RepositoryAccessPage(WebDriver browser) {
 		this.browser = browser;
@@ -73,10 +71,18 @@ public class RepositoryAccessPage {
 		return this;
 	}
 	
+	public BookingPage boooking() {
+		By bookingFieldsetBy = By.cssSelector("fieldset.o_ac_configuration");
+		List<WebElement> bookingFieldsetEls = browser.findElements(bookingFieldsetBy);
+		Assert.assertEquals(1, bookingFieldsetEls.size());
+		return new BookingPage(browser);
+	}
+	
 	/**
 	 * Click toolbar
 	 */
 	public void clickToolbarBack() {
+		OOGraphene.closeBlueMessageWindow(browser);
 		By toolbarBackBy = By.cssSelector("li.o_breadcrumb_back>a");
 		browser.findElement(toolbarBackBy).click();
 		OOGraphene.waitBusy(browser);

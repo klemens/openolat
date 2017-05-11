@@ -37,16 +37,17 @@ import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.StartupException;
 import org.olat.core.util.nodes.INode;
+import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.navigation.NavigationHandler;
-import org.olat.course.run.userview.VisibleTreeFilter;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
+import org.olat.course.run.userview.VisibleTreeFilter;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
@@ -73,9 +74,7 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 		this.repositoryManager = repositoryManager;
 	}
 
-	/**
-	 * 
-	 */
+	@Override
 	public String getSupportedTypeName() {	
 		return CourseModule.getCourseTypeName(); 
 	}
@@ -91,11 +90,13 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 				return;
 			}
 
-			ICourse course = CourseFactory.loadCourse(repositoryEntry.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(repositoryEntry);
 			// course.getCourseTitle(); // do not index title => index root-node
 			parentResourceContext.setParentContextType(TYPE);
 			parentResourceContext.setParentContextName(course.getCourseTitle());
 			doIndexCourse( parentResourceContext, course,  course.getRunStructure().getRootNode(), indexWriter);			
+		} catch(CorruptedCourseException ex) {
+			logWarn("Can not index repositoryEntry (" + repositoryEntry.getKey() + ")", ex);
 		} catch (Exception ex) {
 			logWarn("Can not index repositoryEntry=" + repositoryEntry,ex);
 		}
@@ -126,15 +127,13 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 					logWarn("Can not index course node=" + childCourseNode.getIdent(), e);
 				}
 			}
-		} else if (isLogDebugEnabled()) {
-			logDebug("ChildNode is no CourseNode, " + node);
 		}
 		
 		//loop over all child nodes
 		int childCount = node.getChildCount();
 		for (int i=0;i<childCount; i++) {
 			INode childNode = node.getChildAt(i);
-  		doIndexCourse(repositoryResourceContext, course, childNode, indexWriter);
+			doIndexCourse(repositoryResourceContext, course, childNode, indexWriter);
 		}
 	}
 
@@ -168,7 +167,7 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 		Long nodeId = bcContextEntry.getOLATResourceable().getResourceableId();
 		if (isLogDebugEnabled()) logDebug("nodeId=" + nodeId );
 		
-		ICourse course = CourseFactory.loadCourse(repositoryEntry.getOlatResource());
+		ICourse course = CourseFactory.loadCourse(repositoryEntry);
 		IdentityEnvironment ienv = new IdentityEnvironment();
 		ienv.setIdentity(identity);
 		ienv.setRoles(roles);
@@ -211,11 +210,9 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 	private CourseNodeIndexer getCourseNodeIndexer(CourseNode node) {
 		String courseNodeName = node.getClass().getName();
 		List<Indexer> courseNodeIndexer = getIndexerByType(courseNodeName);
-    if (courseNodeIndexer != null && !courseNodeIndexer.isEmpty()) {
-    	return (CourseNodeIndexer)courseNodeIndexer.get(0);
-    } else if (isLogDebugEnabled()) {
-    	logDebug("No indexer found for node=" + node);
-    }
-    return null;
+		if (courseNodeIndexer != null && !courseNodeIndexer.isEmpty()) {
+			return (CourseNodeIndexer)courseNodeIndexer.get(0);
+		}
+		return null;
 	}
 }

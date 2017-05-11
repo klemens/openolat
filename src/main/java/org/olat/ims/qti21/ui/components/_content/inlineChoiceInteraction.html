@@ -1,0 +1,20 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+#set($choices = $r.getVisibleOrderedChoices($interaction))
+#set($responseValue = $r.getResponseValue($interaction.responseIdentifier))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<span class="$localName"> 
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+	<span class="o_error badResponse">$r.translate("error.choice")</span>
+	#end
+      
+	<select id="oo_${responseIdentifier}" name="qtiworks_response_${responseIdentifier}">
+        <option value="" #if($r.isItemSessionEnded()) disabled #end>(Select)</option>
+        #foreach($choice in $choices)
+        	<option value="${choice.identifier}" #if($r.isItemSessionEnded()) disabled #end #if($r.valueContains($responseValue,$choice.identifier)) selected #end>
+        	$r.renderTextOrVariables($choice.getTextOrVariables())
+        	</option>
+        #end
+	</select>
+	$r.appendFlexiFormDirty("oo_${responseIdentifier}")
+</span>

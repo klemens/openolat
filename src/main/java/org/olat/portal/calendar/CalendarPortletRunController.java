@@ -35,7 +35,8 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.olat.NewControllerFactory;
-import org.olat.commons.calendar.CalendarUtils;
+import org.olat.commons.calendar.CalendarManager;
+import org.olat.commons.calendar.PersonalCalendarManager;
 import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.gui.UserRequest;
@@ -58,7 +59,7 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.OLATRuntimeException;
-import org.olat.home.HomeCalendarController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -77,6 +78,11 @@ public class CalendarPortletRunController extends BasicController {
 	private TableController tableController;
 	private boolean dirty = false;
 	private Link showAllLink;
+	
+	@Autowired
+	private CalendarManager calendarManager;
+	@Autowired
+	private PersonalCalendarManager personalCalendarManager;
 
 	/**
 	 * Constructor
@@ -127,15 +133,16 @@ public class CalendarPortletRunController extends BasicController {
 		cal.set(Calendar.DAY_OF_YEAR, cal.get(Calendar.DAY_OF_YEAR) + 7);
 		Date endDate = cal.getTime();
 		List<KalendarEvent> events = new ArrayList<>();
-		List<KalendarRenderWrapper> calendars = HomeCalendarController.getListOfCalendarWrappers(ureq, wControl);
-		calendars.addAll( HomeCalendarController.getListOfImportedCalendarWrappers(ureq) );
+		List<KalendarRenderWrapper> calendars = personalCalendarManager.getListOfCalendarWrappers(ureq, wControl);
 		for (Iterator<KalendarRenderWrapper> iter = calendars.iterator(); iter.hasNext();) {
 			KalendarRenderWrapper calendarWrapper = iter.next();
 			boolean readOnly = (calendarWrapper.getAccess() == KalendarRenderWrapper.ACCESS_READ_ONLY) && !calendarWrapper.isImported();
-			List<KalendarEvent> eventsWithinPeriod = CalendarUtils.listEventsForPeriod(calendarWrapper.getKalendar(), startDate, endDate);
+			List<KalendarEvent> eventsWithinPeriod = calendarManager.getEvents(calendarWrapper.getKalendar(), startDate, endDate, true);
 			for (KalendarEvent event : eventsWithinPeriod) {
 				// skip non-public events
-				if (readOnly && event.getClassification() != KalendarEvent.CLASS_PUBLIC) continue;
+				if (readOnly && event.getClassification() != KalendarEvent.CLASS_PUBLIC) {
+					continue;
+				}
 				events.add(event);
 			}
 		}

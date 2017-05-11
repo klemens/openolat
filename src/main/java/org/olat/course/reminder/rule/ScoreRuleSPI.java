@@ -19,17 +19,24 @@
  */
 package org.olat.course.reminder.rule;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.STCourseNode;
 import org.olat.course.reminder.manager.ReminderRuleDAO;
 import org.olat.course.reminder.ui.ScoreRuleEditor;
+import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.reminder.FilterRuleSPI;
 import org.olat.modules.reminder.ReminderRule;
 import org.olat.modules.reminder.RuleEditorFragment;
@@ -47,6 +54,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ScoreRuleSPI implements FilterRuleSPI {
 	
+	private static final OLog log = Tracing.createLoggerFor(ScoreRuleSPI.class);
 	private static final double ROUND = 0.000001d;
 	
 	@Autowired
@@ -80,10 +88,32 @@ public class ScoreRuleSPI implements FilterRuleSPI {
 			String operator = r.getOperator();
 			float value = Float.parseFloat(r.getRightOperand());
 			
-			ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(entry);
 			CourseNode courseNode = course.getRunStructure().getNode(nodeIdent);
+			if (courseNode == null) {
+				identities.clear();
+				log.error("Score rule in course " + entry.getKey() + " (" + entry.getDisplayname() + ") is missing a course element");
+				return;
+			}
 			
-			Map<Long, Float> scores = helperDao.getScores(entry.getOlatResource().getResourceableId(), courseNode, identities);
+			Map<Long, Float> scores;
+			if(courseNode instanceof STCourseNode) {
+				scores = new HashMap<>();
+				
+				STCourseNode structureNode = (STCourseNode)courseNode;
+				if(structureNode.hasScoreConfigured()) {
+					for(Identity identity:identities) {
+						UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
+						ScoreEvaluation scoreEval = structureNode.getUserScoreEvaluation(uce);
+						Float score = scoreEval.getScore();
+						if(score != null) {
+							scores.put(identity.getKey(), score);
+						}
+					}
+				}
+			} else {
+				scores = helperDao.getScores(entry, courseNode, identities);
+			}
 			
 			for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {
 				Identity identity = identityIt.next();

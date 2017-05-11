@@ -27,7 +27,6 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
-import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -66,7 +65,6 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 
 	private static final String CONFIG_START_DATE = "startDate";
 	private static final String CONFIG_AUTO_DATE = "autoDate";
-	private static final String CONFIG_AUTO_SUBSCRIBE = "autoSubscribe";
 
 	private static final String[] paneKeys = { PANE_TAB_CALCONFIG, PANE_TAB_ACCESSIBILITY };
 
@@ -101,15 +99,15 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		// Accessibility precondition
 		Condition accessCondition = calCourseNode.getPreConditionAccess();
-		accessCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
-				AssessmentHelper.getAssessableNodes(editorModel, calCourseNode), euce);
+		accessCondContr = new ConditionEditController(ureq, getWindowControl(), euce, accessCondition,
+				AssessmentHelper.getAssessableNodes(editorModel, calCourseNode));
 		this.listenTo(accessCondContr);
 		editAccessVc.put("readerCondition", accessCondContr.getInitialComponent());
 
 		// cal read / write preconditions
 		Condition editCondition = calCourseNode.getPreConditionEdit();
-		editCondContr = new ConditionEditController(ureq, getWindowControl(), editCondition,
-				AssessmentHelper.getAssessableNodes(editorModel, calCourseNode), euce);
+		editCondContr = new ConditionEditController(ureq, getWindowControl(), euce, editCondition,
+				AssessmentHelper.getAssessableNodes(editorModel, calCourseNode));
 		listenTo(editCondContr);
 		editAccessVc.put("editCondition", editCondContr.getInitialComponent());
 
@@ -218,20 +216,9 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 		config.setStringValue(CONFIG_AUTO_DATE, Boolean.toString(autoDate));
 	}
 
-	public static boolean getAutoSubscribe(ModuleConfiguration config) {
-		String autoStr = config.getStringValue(CONFIG_AUTO_SUBSCRIBE);
-		if (StringHelper.containsNonWhitespace(autoStr)) { return new Boolean(autoStr); }
-		return Boolean.FALSE;
-	}
-
-	public static void setAutoSubscribe(ModuleConfiguration config, boolean subscribe) {
-		config.setStringValue(CONFIG_AUTO_SUBSCRIBE, Boolean.toString(subscribe));
-	}
-
 	private class DisplayConfigTabForm extends FormBasicController {
 		private DateChooser dateChooser;
 		private SingleSelection autoDateEl;
-		private MultipleSelectionElement autoSubscribeEl;
 		private ModuleConfiguration config;
 
 		public DisplayConfigTabForm(ModuleConfiguration config, UserRequest ureq, WindowControl wControl) {
@@ -244,14 +231,13 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 		protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 			setFormTitle("pane.tab.calconfig");
 			//setFormDescription("pane.tab.calconfigdesc");
-			setFormContextHelp(CalEditController.class.getPackage().getName(), "caledit.html", "help.hover.calendar");
-			
 
 			boolean autoDate = getAutoDate(config);
 			String[] keys = new String[]{"auto","selected"};
 			String[] values = new String[]{translate("pane.tab.auto_date"),translate("pane.tab.manual_date")};
 			autoDateEl = uifactory.addRadiosVertical("pane.tab_auto_date", formLayout, keys, values);
-			
+
+			autoDateEl.setHelpText(translate("fhelp.start_date"));
 			autoDateEl.select(autoDate ? keys[0] : keys[1], autoDate);
 			autoDateEl.setLabel("pane.tab.start_date", null);
 			autoDateEl.addActionListener(FormEvent.ONCLICK);
@@ -262,14 +248,7 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 			dateChooser.setDate(selectedDate);
 			dateChooser.setVisible(!autoDate);
 			
-			boolean autoSubscribe = getAutoSubscribe(config);
-			String[] subscribesKeys = new String[]{""};
-			String[] subscribesValues = new String[]{translate("pane.tab.auto_subscribe.value")};
-			autoSubscribeEl = uifactory.addCheckboxesHorizontal("pane.tab.auto_subscribe", formLayout, subscribesKeys, subscribesValues);
-			autoSubscribeEl.select("", autoSubscribe);
-			autoSubscribeEl.setLabel("pane.tab.auto_subscribe", null);
-			
-		// Create submit and cancel buttons
+			// Create submit and cancel buttons
 			final FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttonLayout", getTranslator());
 			formLayout.add(buttonLayout);
 			uifactory.addFormSubmitButton("save", buttonLayout);
@@ -293,7 +272,6 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 		protected void formOK(UserRequest ureq) {
 			setStartDate(config, getDate());
 			setAutoDate(config, isAutoDate());
-			setAutoSubscribe(config, isAutoSubscribe());
 			fireEvent(ureq, Event.DONE_EVENT);
 		}
 
@@ -303,10 +281,6 @@ public class CalEditController extends ActivateableTabbableDefaultController imp
 
 		public boolean isAutoDate() {
 			return autoDateEl.isSelected(0);
-		}
-
-		public boolean isAutoSubscribe() {
-			return autoSubscribeEl.isSelected(0);
 		}
 	}
 }

@@ -29,6 +29,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.StringHelper;
 import org.olat.course.run.RunMainController;
+import org.olat.course.run.userview.UserCourseEnvironment;
 
 import de.bps.course.nodes.CourseNodePasswordManager;
 import de.bps.course.nodes.CourseNodePasswordManagerImpl;
@@ -39,13 +40,16 @@ import de.bps.course.nodes.CourseNodePasswordManagerImpl;
  * @author srosse, stephane.rosse@frentix.com
  */
 public class PasswordVerificationController extends FormBasicController {
-	private final PasswordCondition condition;
 	
 	private TextElement pwElement;
+	
+	private final PasswordCondition condition;
+	private final UserCourseEnvironment userCourseEnv;
 
-	protected PasswordVerificationController(UserRequest ureq, WindowControl wControl, PasswordCondition condition) {
+	protected PasswordVerificationController(UserRequest ureq, WindowControl wControl, PasswordCondition condition, UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl);
 		this.condition = condition;
+		this.userCourseEnv = userCourseEnv;
 		initForm(ureq);
 	}
 	
@@ -58,8 +62,10 @@ public class PasswordVerificationController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("password.title");
 		setFormWarning("password.inputorder");
+		formLayout.setElementCssClass("o_sel_course_password_form");
 
 		pwElement = uifactory.addPasswordElement("password.field", "password.field", 255, "", formLayout);
+		pwElement.setElementCssClass("o_sel_course_password");
 		pwElement.setMandatory(true);
 		pwElement.setDisplaySize(30);
 		
@@ -84,7 +90,8 @@ public class PasswordVerificationController extends FormBasicController {
 			valid = condition.evaluate(pwElement.getValue());
 			if (valid) {
 				CourseNodePasswordManager cnpm = CourseNodePasswordManagerImpl.getInstance();
-				cnpm.updatePwd(ureq.getIdentity(), condition.getNodeIdentifier(), condition.getCourseId().toString(), pwElement.getValue());
+				//used the identity of the user course environment for the preview of courses
+				cnpm.updatePwd(userCourseEnv.getIdentityEnvironment().getIdentity(), condition.getNodeIdentifier(), condition.getCourseId(), pwElement.getValue());
 			} else {
 				pwElement.setErrorKey("password.incorrect", new String[0]);
 			}

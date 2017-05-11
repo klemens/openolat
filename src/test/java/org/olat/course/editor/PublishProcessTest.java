@@ -286,7 +286,7 @@ public class PublishProcessTest extends OlatTestCase {
 		StatusDescription[] sds = set.getWarnings();
 		Assert.assertNotNull(sds);
 		Assert.assertEquals(0, sds.length);
-		pp.applyPublishSet(author, locale);
+		pp.applyPublishSet(author, locale, true);
 		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);
 	}
 	
@@ -327,17 +327,14 @@ public class PublishProcessTest extends OlatTestCase {
 			softKey = importExport.getSoftkey();
 		}
 		
-		newCourseResource = olatResourceManager.findOrPersistResourceable(newCourseResource);
 		RepositoryEntry re = repositoryService.create(importExport.getInitialAuthor(), importExport.getResourceName(),
 				importExport.getDisplayName(), importExport.getDescription(), newCourseResource);
 		// ok, continue import
-		re.setOlatResource(newCourseResource);
 		re.setSoftkey(softKey);
 		// set access configuration
 		re.setAccess(access);
-
 		// save the repository entry
-		repositoryService.update(re);
+		re = repositoryService.update(re);
 
 		//import groups
 		course = CourseFactory.openCourseEditSession(course.getResourceableId());

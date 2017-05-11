@@ -31,7 +31,6 @@ import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.control.Event;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.logging.AssertException;
 import org.olat.core.logging.DBRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -47,7 +46,6 @@ import org.olat.core.util.coordinate.SyncerCallback;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
-import org.olat.resource.lock.pessimistic.PessimisticLockManager;
 
 /**
  * Description:<br>
@@ -88,7 +86,7 @@ public class ClusterLocker implements Locker, GenericEventListener {
 
 	
 	//cluster:::::: on init of olat system, clear all locks?? but only the one from node in question?
-
+	@Override
 	public PersistentLockManager getPersistentLockManager() {
 		return persistentLockManager;
 	}
@@ -97,10 +95,12 @@ public class ClusterLocker implements Locker, GenericEventListener {
 		this.persistentLockManager = persistentLockManager;
 	}
 
+	@Override
 	public LockResult acquireLock(final OLATResourceable ores, final Identity requestor, final String locksubkey) {
 		final String asset = OresHelper.createStringRepresenting(ores, locksubkey);
 		
 		LockResult res = syncer.doInSync(ores, new SyncerCallback<LockResult>(){
+			@Override
 			public LockResult execute() {
 				LockResultImpl lres;
 				LockImpl li = clusterLockManager.findLock(asset);
@@ -132,6 +132,7 @@ public class ClusterLocker implements Locker, GenericEventListener {
 	 * 
 	 * @see org.olat.core.util.event.GenericEventListener#event(org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(Event event) {
 		SignOnOffEvent se = (SignOnOffEvent) event;
 		if (!se.isSignOn() && se.isEventOnThisNode()) {
@@ -158,13 +159,20 @@ public class ClusterLocker implements Locker, GenericEventListener {
 		}
 	}
 	
-
+	@Override
 	public boolean isLocked(OLATResourceable ores, String locksubkey) {
 		final String asset = OresHelper.createStringRepresenting(ores, locksubkey);
-		LockImpl li = clusterLockManager.findLock(asset);
-		return (li != null);
+		return clusterLockManager.isLocked(asset);
 	}
 
+	@Override
+	public Identity getLockedBy(OLATResourceable ores, String locksubkey) {
+		final String asset = OresHelper.createStringRepresenting(ores, locksubkey);
+		LockImpl li = clusterLockManager.findLock(asset);
+		return li == null ? null : li.getOwner();
+	}
+
+	@Override
 	public void releaseLock(LockResult lockResult) {
 		// if the lock has not been acquired, then nothing is to be released -
 		// return silently to make cleaning up easier
@@ -183,10 +191,10 @@ public class ClusterLocker implements Locker, GenericEventListener {
 	public void releaseLockEntry(LockEntry lockEntry) {
 		String asset = lockEntry.getKey();
 		Identity releaseRequestor = lockEntry.getOwner();
-		
+		clusterLockManager.deleteLock(asset, releaseRequestor);
 		
 		// cluster:: change to useage with syncer, but we don't have the olatresourceable yet
-		PessimisticLockManager.getInstance().findOrPersistPLock(asset);
+		/*pessimisticLockManager.findOrPersistPLock(asset);
 
 		LockImpl li = clusterLockManager.findLock(asset);
 		if (li == null) {
@@ -201,7 +209,7 @@ public class ClusterLocker implements Locker, GenericEventListener {
 				throw new AssertException("cannot release lock since the requestor of the release ("+
 						releaseRequestor.getName()+") is not the owner ("+ownwer.getName()+") of the lock ("+asset+")");
 			}
-		}
+		}*/
 	}
 	
 	public List<LockEntry> adminOnlyGetLockEntries() {

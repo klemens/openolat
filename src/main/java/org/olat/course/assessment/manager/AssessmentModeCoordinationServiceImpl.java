@@ -34,6 +34,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.course.CourseFactory;
 import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.assessment.AssessmentMode.Status;
 import org.olat.course.assessment.AssessmentModeCoordinationService;
@@ -43,6 +44,8 @@ import org.olat.course.assessment.model.AssessmentModeImpl;
 import org.olat.course.assessment.model.CoordinatedAssessmentMode;
 import org.olat.course.assessment.model.TransientAssessmentMode;
 import org.olat.group.ui.edit.BusinessGroupModifiedEvent;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,6 +64,8 @@ public class AssessmentModeCoordinationServiceImpl implements AssessmentModeCoor
 	private DB dbInstance;
 	@Autowired
 	private AssessmentModule assessmentModule;
+	@Autowired
+	private RepositoryService repositoryService;
 	@Autowired
 	private CoordinatorManager coordinatorManager;
 	@Autowired
@@ -268,6 +273,9 @@ public class AssessmentModeCoordinationServiceImpl implements AssessmentModeCoor
 		if(currentStatus == null || currentStatus != status) {
 			mode.setStatus(status);
 			mode = dbInstance.getCurrentEntityManager().merge(mode);
+			if(status == Status.leadtime || status == Status.assessment) {
+				warmUpAssessment(mode);
+			}
 			dbInstance.commit();
 		}
 		return mode;
@@ -318,7 +326,9 @@ public class AssessmentModeCoordinationServiceImpl implements AssessmentModeCoor
 		mode = assessmentModeManager.getAssessmentModeById(mode.getKey());
 		Set<Long> assessedIdentityKeys = assessmentModeManager.getAssessedIdentityKeys(mode);
 		if(mode.getFollowupTime() > 0) {
-			Date followupTime = assessmentModeManager.evaluateFollowupTime(now(), mode.getFollowupTime());
+			Date now = new Date();
+			Date followupTime = assessmentModeManager.evaluateFollowupTime(now, mode.getFollowupTime());
+			((AssessmentModeImpl)mode).setEnd(now);
 			((AssessmentModeImpl)mode).setEndWithFollowupTime(followupTime);
 			mode.setStatus(Status.followup);
 			mode = dbInstance.getCurrentEntityManager().merge(mode);
@@ -329,5 +339,10 @@ public class AssessmentModeCoordinationServiceImpl implements AssessmentModeCoor
 			sendEvent(AssessmentModeNotificationEvent.END, mode, assessedIdentityKeys);
 		}
 		return mode;
+	}
+	
+	private void warmUpAssessment(AssessmentMode mode) {
+		RepositoryEntry entry = repositoryService.loadByKey(mode.getRepositoryEntry().getKey());
+		CourseFactory.loadCourse(entry);
 	}
 }

@@ -40,6 +40,7 @@ import org.olat.core.gui.render.Renderer;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.util.Formatter;
 
@@ -88,14 +89,13 @@ public class WikiMarkupRenderer extends DefaultComponentRenderer {
 		String uri = out.toString();
 		
 		ParserDocument parsedDoc = null;
-		String uniqueId = "o_wiki"+wikiComp.getDispatchID();
+		String uniqueId = "o_wiki".concat(wikiComp.getDispatchID());
 		try {
 			uri = URLDecoder.decode(uri, "utf-8");
 			input.setVirtualWiki(uri.substring(1, uri.length()-1));
 			if (iframePostEnabled) {
-				StringOutput so = new StringOutput();
-				ubu.appendTarget(so);
-				input.setURLTarget(so.toString());
+				String targetUrl = " onclick=\"o_XHREvent(jQuery(this).attr('href'),false,true); return false;\"";
+				input.setURLTarget(targetUrl);
 			}
 			sb.append("<div style=\"min-height:"+ wikiComp.getMinHeight() +"px\" id=\"");
 			sb.append(uniqueId);
@@ -113,7 +113,8 @@ public class WikiMarkupRenderer extends DefaultComponentRenderer {
 		sb.append("</div>");
 		//set targets of media, image and external links to target "_blank" 
 		sb.append("<script type=\"text/javascript\">/* <![CDATA[ */ ");
-		sb.append("changeAnchorTargets('").append(uniqueId).append("');");
+		String instanceUrl = Settings.getServerContextPathURI();
+		sb.append("changeAnchorTargets('").append(uniqueId).append("','").append(instanceUrl).append("');");
 		sb.append("/* ]]> */</script>");
 	}
 }

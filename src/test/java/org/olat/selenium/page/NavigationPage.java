@@ -30,6 +30,7 @@ import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupsPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage;
 import org.olat.selenium.page.repository.CatalogAdminPage;
+import org.olat.selenium.page.repository.CatalogPage;
 import org.olat.selenium.page.user.PortalPage;
 import org.olat.selenium.page.user.UserAdminPage;
 import org.openqa.selenium.By;
@@ -56,10 +57,11 @@ public class NavigationPage {
 	private By myCoursesBy = By.cssSelector("li.o_site_repository > a");
 	private By userManagementBy = By.cssSelector("li.o_site_useradmin > a");
 	private By administrationBy = By.cssSelector("li.o_site_admin > a");
+	private By catalogBy = By.cssSelector("li.o_site_catalog > a");
 	private By catalogAdministrationBy = By.cssSelector("li.o_site_catalog_admin > a");
 	private	By groupsBy = By.cssSelector("li.o_site_groups > a");
 	
-	public static final By myCoursesAssertBy = By.xpath("//div[contains(@class,'o_segments')]//a[contains(@href,'search.mycourses.student')]");
+	public static final By myCoursesAssertBy = By.xpath("//div[contains(@class,'o_segments')]//a[contains(@onclick,'search.mycourses.student')]");
 	public static final By portalAssertBy = By.className("o_portal");
 	
 	public NavigationPage() {
@@ -78,12 +80,9 @@ public class NavigationPage {
 	
 	public AuthoringEnvPage openAuthoringEnvironment() {
 		navigate(authoringEnvTabBy);
-		
 		backToTheTop();
 		OOGraphene.closeBlueMessageWindow(browser);
-		
-		WebElement main = browser.findElement(By.id("o_main"));
-		return Graphene.createPageFragment(AuthoringEnvPage.class, main);
+		return new AuthoringEnvPage(browser);
 	}
 	
 	public PortalPage openPortal() {
@@ -111,6 +110,11 @@ public class NavigationPage {
 	public CatalogAdminPage openCatalogAdministration() {
 		navigate(catalogAdministrationBy);
 		return new CatalogAdminPage(browser);
+	}
+	
+	public CatalogPage openCatalog() {
+		navigate(catalogBy);
+		return new CatalogPage(browser);
 	}
 	
 	public GroupsPage openGroups(WebDriver currentBrowser) {
@@ -155,6 +159,9 @@ public class NavigationPage {
 		List<WebElement> openMoreLinks = browser.findElements(openMoreBy);
 		Assert.assertFalse(openMoreLinks.isEmpty());
 		openMoreLinks.get(0).click();
+		//wait the small transition
+		By openedMoreMenuby = By.cssSelector("#o_navbar_more ul.dropdown-menu.dropdown-menu-right");
+		OOGraphene.waitElement(openedMoreMenuby, 5, browser);
 	}
 	
 	public NavigationPage backToTheTop() {
@@ -170,6 +177,13 @@ public class NavigationPage {
 		}
 
 		OOGraphene.closeBlueMessageWindow(browser);
+		return this;
+	}
+	
+	public NavigationPage closeTab() {
+		By closeBy = By.xpath("//li//a[contains(@class,'o_navbar_tab_close')]");
+		browser.findElement(closeBy).click();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 }

@@ -21,22 +21,27 @@ package org.olat.course.nodes.gta.ui;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.gui.media.FileMediaResource;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.util.CodeHelper;
+import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.io.SystemFileFilter;
 import org.olat.core.util.vfs.VFSContainer;
@@ -57,9 +62,15 @@ public class DirectoryController extends BasicController {
 	
 	private final String zipName;
 	private final File documentsDir;
+	private final VFSContainer documentsContainer;
+	
+	private CloseableModalController cmc;
+	private SinglePageController previewCtrl;
 	
 	@Autowired
 	private UserManager userManager;
+	
+	private final Formatter format;
 	
 	public DirectoryController(UserRequest ureq, WindowControl wControl,
 			File documentsDir, VFSContainer documentsContainer, String i18nDescription) {
@@ -72,7 +83,10 @@ public class DirectoryController extends BasicController {
 		super(ureq, wControl);
 		this.zipName = zipName;
 		this.documentsDir = documentsDir;
-
+		this.documentsContainer = documentsContainer;
+		
+		format = Formatter.getInstance(ureq.getLocale());
+		
 		VelocityContainer mainVC = createVelocityContainer("documents_readonly");
 		mainVC.contextPut("description", translate(i18nDescription));
 		
@@ -92,11 +106,15 @@ public class DirectoryController extends BasicController {
 			String cssClass = CSSHelper.createFiletypeIconCssClassFor(document.getName());
 			link.setIconLeftCSS("o_icon o_icon-fw " + cssClass);
 			link.setUserObject(document);
-			link.setTarget("_blank");
+			if(!document.getName().endsWith(".html")) {
+				link.setTarget("_blank");
+			}
 			
 			String uploadedBy = null;
+			String lastModified = null;
 			if(documentsContainer != null) {
 				VFSItem item = documentsContainer.resolve(document.getName());
+				lastModified = format.formatDateAndTime(new Date(item.getLastModified()));
 				if(item instanceof MetaTagged) {
 					MetaInfo metaInfo = ((MetaTagged)item).getMetaInfo();
 					if(metaInfo != null && metaInfo.getAuthorIdentityKey() != null) {
@@ -105,7 +123,7 @@ public class DirectoryController extends BasicController {
 				}
 			}
 
-			linkNames.add(new DocumentInfos(link.getComponentName(), uploadedBy));
+			linkNames.add(new DocumentInfos(link.getComponentName(), uploadedBy, lastModified));
 		}
 		mainVC.contextPut("linkNames", linkNames);
 
@@ -126,10 +144,34 @@ public class DirectoryController extends BasicController {
 			doDownload(ureq, (File)downloadLink.getUserObject());
 		}
 	}
-	
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(cmc == source) {
+			cleanUp();
+		}
+		super.event(ureq, source, event);
+	}
+
+	private void cleanUp() {
+		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(previewCtrl);
+		cmc = null;
+		previewCtrl = null;
+	}
+
 	private void doDownload(UserRequest ureq, File file) {
-		MediaResource mdr = new FileMediaResource(file, true);
-		ureq.getDispatchResult().setResultingMediaResource(mdr);
+		if(file.getName().endsWith(".html")) {
+			previewCtrl = new SinglePageController(ureq, getWindowControl(), documentsContainer, file.getName(), false);
+			listenTo(previewCtrl);
+
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), previewCtrl.getInitialComponent(), true, file.getName());
+			listenTo(cmc);
+			cmc.activate();
+		} else {
+			MediaResource mdr = new FileMediaResource(file, true);
+			ureq.getDispatchResult().setResultingMediaResource(mdr);
+		}
 	}
 	
 	private void doBulkdownload(UserRequest ureq) {
@@ -141,10 +183,16 @@ public class DirectoryController extends BasicController {
 		
 		private final String linkName;
 		private final String uploadedBy;
+		private final String lastModified;
 		
 		public DocumentInfos(String linkName, String uploadedBy) {
+			this(linkName, uploadedBy, null);
+		}
+
+		public DocumentInfos(String linkName, String uploadedBy, String lastModified) {
 			this.linkName = linkName;
 			this.uploadedBy = uploadedBy;
+			this.lastModified = lastModified;
 		}
 
 		public String getLinkName() {
@@ -153,6 +201,10 @@ public class DirectoryController extends BasicController {
 
 		public String getUploadedBy() {
 			return uploadedBy;
+		}
+
+		public String getLastModified() {
+			return lastModified;
 		}
 	}
 }

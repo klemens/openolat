@@ -32,6 +32,8 @@ import org.apache.lucene.document.DateTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.modules.bc.meta.MetaInfo;
+import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.vfs.LocalImpl;
@@ -41,6 +43,7 @@ import org.olat.search.SearchModule;
 import org.olat.search.SearchService;
 import org.olat.search.ServiceNotAvailableException;
 import org.olat.search.model.AbstractOlatDocument;
+import org.olat.search.model.OlatDocument;
 import org.olat.search.service.SearchResourceContext;
 import org.olat.search.service.SearchServiceImpl;
 
@@ -95,32 +98,48 @@ public class FileDocumentFactory {
 	}
 	
 	public static int getMaxFileSize() {
-		return (int)searchModule.getMaxFileSize();
+		return searchModule == null ? 120000 : (int)searchModule.getMaxFileSize();
+	}
+	
+	private Document getDocumentFromCurrentIndex(SearchResourceContext leafResourceContext, VFSLeaf leaf) {
+		try {
+			String resourceUrl = leafResourceContext.getResourceUrl();
+			SearchService searchService = CoreSpringFactory.getImpl(SearchServiceImpl.class);
+			
+			Document indexedDoc = searchService.doSearch(resourceUrl);
+			if(indexedDoc != null) {
+				String timestamp = indexedDoc.get(AbstractOlatDocument.TIME_STAMP_NAME);
+				if(timestamp != null) {
+					Date indexLastModification = DateTools.stringToDate(timestamp);
+					Date docLastModificationDate = new Date(leaf.getLastModified());
+					if(leaf instanceof MetaTagged) {
+						MetaInfo metaInfo = ((MetaTagged)leaf).getMetaInfo();
+						Date metaDate = metaInfo.getMetaLastModified();
+						if(metaDate != null && metaDate.after(docLastModificationDate)) {
+							docLastModificationDate = metaDate;
+						}
+					}
+					if(docLastModificationDate.compareTo(indexLastModification) < 0) {
+						OlatDocument olatDoc = new OlatDocument(indexedDoc);
+						return olatDoc.getLuceneDocument();
+					}
+				}
+			}
+		} catch (ServiceNotAvailableException | ParseException | QueryException | java.text.ParseException e) {
+			log.error("", e);
+		}
+		return null;
 	}
 	
 	public Document createDocument(SearchResourceContext leafResourceContext, VFSLeaf leaf)
 	throws IOException, DocumentAccessException {
+		Document indexedDocument = getDocumentFromCurrentIndex(leafResourceContext, leaf);
+		if(indexedDocument != null) {
+			return indexedDocument;
+		}
+
 		try {
 			Document doc = null;
-			try {
-				String resourceUrl = leafResourceContext.getResourceUrl();
-				SearchService searchService = CoreSpringFactory.getImpl(SearchServiceImpl.class);
-				
-				Document indexedDoc = searchService.doSearch(resourceUrl);
-				if(indexedDoc != null) {
-					String timestamp = indexedDoc.get(AbstractOlatDocument.TIME_STAMP_NAME);
-					if(timestamp != null) {
-						Date lastMod = DateTools.stringToDate(timestamp);
-						Date lastMod2 = new Date(leaf.getLastModified());
-						if(lastMod2.compareTo(lastMod) < 0) {
-							return indexedDoc;
-						}
-					}
-				}
-			} catch (ServiceNotAvailableException | ParseException | QueryException | java.text.ParseException e) {
-				log.error("", e);
-			}
-			
 			String fileName = leaf.getName();
 			String suffix = FileTypeDetector.getSuffix(leaf);
 			if (log.isDebug()) log.debug("suffix=" + suffix);
@@ -196,16 +215,14 @@ public class FileDocumentFactory {
 	 */
 	public boolean isFileSupported(VFSLeaf leaf) {
 		String fileName = leaf.getName();
-		if (fileName != null && fileName.startsWith(".")) {
+		if (fileName == null || fileName.startsWith(".")) {
 			//don't index all mac os x hidden files
 			return false;
 		}
 		
-		String suffix;
-		try {
-			suffix = FileTypeDetector.getSuffix(leaf);
-		} catch (DocumentNotImplementedException e) {
-			return false;
+		long fileSize = leaf.getSize();
+		if(fileSize == 0) {
+			return false;// don't index empty files
 		}
 		
 		// 1. Check if file is not on fileBlackList
@@ -216,26 +233,32 @@ public class FileDocumentFactory {
 		
 		if(leaf instanceof LocalImpl) {
 			String path = ((LocalImpl)leaf).getBasefile().getAbsolutePath();
-			if (searchModule.getFileBlackList().contains(path)) {
+			if (!isFileSupported(path)) {
 				return false;
 			}
+		}
+		
+		String suffix;
+		try {
+			suffix = FileTypeDetector.getSuffix(leaf);
+		} catch (DocumentNotImplementedException e) {
+			return false;
 		}
 		
 		// 2. Check for certain file-type the file size
 		if (searchModule.getFileSizeSuffixes().contains(suffix)) {
 			long maxFileSize = searchModule.getMaxFileSize();
-			if ( (maxFileSize != 0) && (leaf.getSize() > maxFileSize) ) {
+			if ( (maxFileSize != 0) && (fileSize > maxFileSize) ) {
 				log.info("File too big, exlude from search index. filename=" + fileName);
 				excludedFileSizeCount++;
 				return false;
 			}
 		}
-		/* 3. Check if suffix is supported
-		if (supportedSuffixes.indexOf(suffix) >= 0) {
-			return true;
-		}*/
-		//index all files (index metadatas)
 		return true;
+	}
+	
+	public boolean isFileSupported(String path) {
+		return !searchModule.getFileBlackList().contains(path);
 	}
 	
 	public int getExcludedFileSizeCount( ) {

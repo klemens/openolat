@@ -36,15 +36,20 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 import javax.persistence.Version;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.core.id.CreateInfo;
+import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Persistable;
@@ -64,10 +69,21 @@ import org.olat.resource.OLATResourceImpl;
  */
 @Entity(name="repositoryentry")
 @Table(name="o_repositoryentry")
+@NamedQueries({
+	@NamedQuery(name="getRepositoryEntryRoleAndDefaults", query="select membership.role, relGroup.defaultGroup from repositoryentry as v inner join v.groups as relGroup inner join relGroup.group as baseGroup inner join baseGroup.members as membership where v.key=:repoKey and membership.identity.key=:identityKey"),
+	@NamedQuery(name="filterRepositoryEntryMembership", query="select v.key, membership.identity.key from repositoryentry as v inner join v.groups as relGroup inner join relGroup.group as baseGroup inner join baseGroup.members as membership on membership.role in ('owner','coach','participant') where membership.identity.key=:identityKey and v.key in (:repositoryEntryKey)"),
+	@NamedQuery(name="loadRepositoryEntryByKey", query="select v from repositoryentry as v inner join fetch v.olatResource as ores inner join fetch v.statistics as statistics left join fetch v.lifecycle as lifecycle where v.key = :repoKey"),
+	@NamedQuery(name="loadRepositoryEntryByResourceKey", query="select v from repositoryentry as v inner join fetch v.olatResource as ores inner join fetch v.statistics as statistics left join fetch v.lifecycle as lifecycle where ores.key = :resourceKey"),
+	@NamedQuery(name="getDisplayNameByOlatResourceRedId", query="select v.displayname from repositoryentry v inner join v.olatResource as ores where ores.resId=:resid"),
+	@NamedQuery(name="getDisplayNameByRepositoryEntryKey", query="select v.displayname from repositoryentry v where v.key=:reKey")
+
+})
 public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntryRef, ModifiedInfo, OLATResourceable {
 
 	private static final long serialVersionUID = 5319576295875289054L;
 	// IMPORTANT: Keep relation ACC_OWNERS < ACC_OWNERS_AUTHORS < ACC_USERS < ACC_USERS_GUESTS
+	
+	public static final int DELETED = 0;
 	/**
 	 * limit access to owners
 	 */
@@ -89,7 +105,14 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="repositoryentry_id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	@Version
@@ -127,6 +150,8 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 
 	@Column(name="mainlanguage", nullable=true, insertable=true, updatable=true)
 	private String mainLanguage;
+	@Column(name="location", nullable=true, insertable=true, updatable=true)
+	private String location;
 	@Column(name="objectives", nullable=true, insertable=true, updatable=true)
 	private String objectives;
 	@Column(name="requirements", nullable=true, insertable=true, updatable=true)
@@ -167,6 +192,13 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	private int statusCode;
 	@Column(name="allowToLeave", nullable=true, insertable=true, updatable=true)
 	private String allowToLeave;
+
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name="deletiondate", nullable=true, insertable=true, updatable=true)
+	private Date deletionDate;
+	@ManyToOne(targetEntity=IdentityImpl.class,fetch=FetchType.LAZY, optional=true)
+	@JoinColumn(name="fk_deleted_by", nullable=true, insertable=true, updatable=true)
+	private Identity deletedBy;
 
 	
 	/**
@@ -227,6 +259,14 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 
 	public void setMainLanguage(String mainLanguage) {
 		this.mainLanguage = mainLanguage;
+	}
+
+	public String getLocation() {
+		return location;
+	}
+
+	public void setLocation(String location) {
+		this.location = location;
 	}
 
 	public String getObjectives() {
@@ -306,6 +346,12 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	public void setStatusCode(int statusCode) {
 		this.statusCode = statusCode;
 	}
+	
+	@Transient
+	public RepositoryEntryStatus getRepositoryEntryStatus() {
+		return new RepositoryEntryStatus(statusCode);
+	}
+	
 	/**
 	 * @return Returns the name.
 	 */
@@ -543,6 +589,7 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	 * 
 	 * @see org.olat.core.id.ModifiedInfo#getLastModified()
 	 */
+	@Override
 	public Date getLastModified() {
 		return lastModified;
 	}
@@ -551,6 +598,7 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 	 * 
 	 * @see org.olat.core.id.ModifiedInfo#setLastModified(java.util.Date)
 	 */
+	@Override
 	public void setLastModified(Date date) {
 		this.lastModified = date;
 	}
@@ -559,7 +607,22 @@ public class RepositoryEntry implements CreateInfo, Persistable , RepositoryEntr
 		this.creationDate = date;
 	}
 	
-	
+	public Date getDeletionDate() {
+		return deletionDate;
+	}
+
+	public void setDeletionDate(Date deletionDate) {
+		this.deletionDate = deletionDate;
+	}
+
+	public Identity getDeletedBy() {
+		return deletedBy;
+	}
+
+	public void setDeletedBy(Identity deletedBy) {
+		this.deletedBy = deletedBy;
+	}
+
 	@Override
 	public int hashCode() {
 		return getKey() == null ? 293485 : getKey().hashCode();

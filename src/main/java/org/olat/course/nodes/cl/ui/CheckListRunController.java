@@ -26,8 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
@@ -53,6 +53,7 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.auditing.UserNodeAuditManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.MSCourseNode;
@@ -61,10 +62,11 @@ import org.olat.course.nodes.cl.model.Checkbox;
 import org.olat.course.nodes.cl.model.CheckboxList;
 import org.olat.course.nodes.cl.model.DBCheck;
 import org.olat.course.nodes.cl.model.DBCheckbox;
-import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -86,7 +88,8 @@ public class CheckListRunController extends FormBasicController implements Contr
 	private final OLATResourceable courseOres;
 	private final UserCourseEnvironment userCourseEnv;
 	
-	private final CheckboxManager checkboxManager;
+	@Autowired
+	private CheckboxManager checkboxManager;
 	
 	/**
 	 * Use this constructor to launch the checklist.
@@ -102,7 +105,6 @@ public class CheckListRunController extends FormBasicController implements Contr
 		this.courseNode = courseNode;
 		this.courseOres = courseOres;
 		this.userCourseEnv = userCourseEnv;
-		checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		
 		config = courseNode.getModuleConfiguration();
 		CheckboxList configCheckboxList = (CheckboxList)config.get(CheckListCourseNode.CONFIG_KEY_CHECKBOX);
@@ -140,6 +142,15 @@ public class CheckListRunController extends FormBasicController implements Contr
 				}
 			}
 			layoutCont.contextPut("withScore", new Boolean(withScore));
+			
+			if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+				HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(),
+						userCourseEnv, courseNode, this.mainForm);
+				if (highScoreCtr.isViewHighscore()) {
+					Component highScoreComponent = highScoreCtr.getInitialComponent();
+					layoutCont.put("highScore", highScoreComponent);							
+				}
+			}
 			
 			List<DBCheck> checks = checkboxManager.loadCheck(getIdentity(), courseOres, courseNode.getIdent());
 			Map<String, DBCheck> uuidToCheckMap = new HashMap<>();
@@ -181,12 +192,24 @@ public class CheckListRunController extends FormBasicController implements Contr
 	}
 	
 	private void exposeUserDataToVC(FormLayoutContainer layoutCont) {
-		ScoreEvaluation scoreEval = courseNode.getUserScoreEvaluation(userCourseEnv);
-		layoutCont.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
-		layoutCont.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
-		layoutCont.contextPut("passed", scoreEval.getPassed());
-		StringBuilder comment = Formatter.stripTabsAndReturns(courseNode.getUserUserComment(userCourseEnv));
-		layoutCont.contextPut("comment", StringHelper.xssScan(comment));
+		AssessmentEntry scoreEval = courseNode.getUserAssessmentEntry(userCourseEnv);
+		if(scoreEval == null) {
+			layoutCont.contextPut("score", null);
+			layoutCont.contextPut("hasPassedValue", Boolean.FALSE);
+			layoutCont.contextPut("passed", null);
+			layoutCont.contextPut("comment", null);
+		} else {
+			boolean resultsVisible = scoreEval.getUserVisibility() == null || scoreEval.getUserVisibility().booleanValue();
+			layoutCont.contextPut("resultsVisible", resultsVisible);
+			layoutCont.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
+			layoutCont.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
+			layoutCont.contextPut("passed", scoreEval.getPassed());
+			if(resultsVisible) {
+				StringBuilder comment = Formatter.stripTabsAndReturns(scoreEval.getComment());
+				layoutCont.contextPut("comment", StringHelper.xssScan(comment));
+			}
+		}
+
 		UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
 		layoutCont.contextPut("log", am.getUserNodeLog(courseNode, userCourseEnv.getIdentityEnvironment().getIdentity()));
 	}
@@ -199,12 +222,12 @@ public class CheckListRunController extends FormBasicController implements Contr
 		String boxId = "box_" + checkbox.getCheckboxId();
 		MultipleSelectionElement el = uifactory
 				.addCheckboxesHorizontal(boxId, null, formLayout, onKeys, values);
-		el.setEnabled(canCheck && !readOnly);
+		el.setEnabled(canCheck && !readOnly && !userCourseEnv.isCourseReadOnly());
 		el.addActionListener(FormEvent.ONCHANGE);
 
 		DownloadLink downloadLink = null;
 		if(StringHelper.containsNonWhitespace(checkbox.getFilename())) {
-			VFSContainer container = checkboxManager.getFileContainer(userCourseEnv.getCourseEnvironment(), courseNode, checkbox);
+			VFSContainer container = checkboxManager.getFileContainer(userCourseEnv.getCourseEnvironment(), courseNode);
 			VFSItem item = container.resolve(checkbox.getFilename());
 			if(item instanceof VFSLeaf) {
 				String name = "file_" + checkbox.getCheckboxId();
@@ -276,7 +299,7 @@ public class CheckListRunController extends FormBasicController implements Contr
 			//make sure all results is on the database before calculating some scores
 			//manager commit already DBFactory.getInstance().commit();
 			
-			courseNode.updateScoreEvaluation(userCourseEnv, getIdentity());
+			courseNode.updateScoreEvaluation(getIdentity(), userCourseEnv, getIdentity());
 			
 			Checkbox checkbox = wrapper.getCheckbox();
 			logUpdateCheck(checkbox.getCheckboxId(), checkbox.getTitle());
@@ -346,6 +369,10 @@ public class CheckListRunController extends FormBasicController implements Contr
 		
 		public String getCheckboxElName() {
 			return checkboxEl.getName();
+		}
+		
+		public boolean hasDownload() {
+			return StringHelper.containsNonWhitespace(checkbox.getFilename()) && downloadLink != null;
 		}
 		
 		public String getDownloadName() {

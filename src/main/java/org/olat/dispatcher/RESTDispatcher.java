@@ -106,15 +106,7 @@ public class RESTDispatcher implements Dispatcher {
 			log.warn("URL is not valid: "+restPart);
 			return;
 		}
-		String businessPath = "";
-		for (int i = 0; i < split.length; i=i+2) {
-			String key = split[i];
-			if(key != null && key.startsWith("path=")) {
-				key = key.replace("~~", "/");
-			}
-			String value = split[i+1];
-			businessPath += "[" + key + ":" + value +"]";
-		}
+		String businessPath = BusinessControlFactory.getInstance().formatFromSplittedURI(split);
 		if(log.isDebug()) {
 			log.debug("REQUEST URI: " + origUri);
 			log.debug("REQUEST PREFIX " + restPart);
@@ -210,18 +202,17 @@ public class RESTDispatcher implements Dispatcher {
 		
 		boolean auth = usess.isAuthenticated();
 		if (auth) {
-			//fxdiff FXOLAT-113: business path in DMZ
-			setBusinessPathInUserSession(usess, businessPath, ureq.getParameter(WINDOW_SETTINGS));
-			
-			//fxdiff
 			if (Windows.getWindows(usess).getChiefController() == null) {
 				// Session is already available, but no main window (Head-less REST
 				// session). Only create the base chief controller and the window
+				setBusinessPathInUserSession(usess, businessPath, ureq.getParameter(WINDOW_SETTINGS));
+
 				AuthHelper.createAuthHome(ureq);
 				String url = getRedirectToURL(usess) + ";jsessionid=" + usess.getSessionInfo().getSession().getId();
 				DispatcherModule.redirectTo(response, url);
 			} else {
-				String url = getRedirectToURL(usess);
+				//redirect to the authenticated dispatcher which support REST url
+				String url = WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED + restPart;
 				DispatcherModule.redirectTo(response, url);
 			}
 		} else {
@@ -313,7 +304,7 @@ public class RESTDispatcher implements Dispatcher {
 		ChiefController cc = Windows.getWindows(usess).getChiefController();
 		Window w = cc.getWindow();
 
-		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED, w.getInstanceId(), String.valueOf(w.getTimestamp()), null);
+		URLBuilder ubu = new URLBuilder(WebappHelper.getServletContextPath() + DispatcherModule.PATH_AUTHENTICATED, w.getInstanceId(), String.valueOf(w.getTimestamp()));
 		StringOutput sout = new StringOutput(30);
 		ubu.buildURI(sout, null, null);
 		

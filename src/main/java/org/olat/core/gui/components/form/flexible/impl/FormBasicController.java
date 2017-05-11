@@ -25,6 +25,11 @@
 */ 
 package org.olat.core.gui.components.form.flexible.impl;
 
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -67,7 +72,7 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLoggerInstaller;
  * 
  * @author patrickb
  */
-public abstract class FormBasicController extends BasicController {
+public abstract class FormBasicController extends BasicController implements IFormFragmentContainer {
 
 	
 	public static final int LAYOUT_DEFAULT = 0;
@@ -77,7 +82,8 @@ public abstract class FormBasicController extends BasicController {
 	public static final int LAYOUT_BAREBONE = 4;
 	public static final int LAYOUT_PANEL = 5;
 	public static final int LAYOUT_DEFAULT_6_6 = 6;
-	public static final int LAYOUT_DEFAULT_9_3 = 6;
+	public static final int LAYOUT_DEFAULT_9_3 = 7;
+	public static final int LAYOUT_DEFAULT_2_10 = 8;
 
 	protected FormLayoutContainer flc;
 
@@ -85,7 +91,9 @@ public abstract class FormBasicController extends BasicController {
 
 	protected StackedPanel initialPanel;
 
-	protected FormUIFactory uifactory = FormUIFactory.getInstance();
+	private List<FragmentRef> fragments;
+
+	protected final FormUIFactory uifactory = FormUIFactory.getInstance();
 	
 	public FormBasicController(UserRequest ureq, WindowControl wControl) {
 		this(ureq, wControl, (String)null);
@@ -167,6 +175,10 @@ public abstract class FormBasicController extends BasicController {
 			// init with panel layout
 			flc = FormLayoutContainer.createDefaultFormLayout_9_3("ffo_default_9_3", getTranslator());		
 			mainForm = Form.create(mainFormId, "ffo_main_default_9_3", flc, this);
+		} else if (layout == LAYOUT_DEFAULT_2_10) {
+			// init with panel layout
+			flc = FormLayoutContainer.createDefaultFormLayout_2_10("ffo_default_2_10", getTranslator());		
+			mainForm = Form.create(mainFormId, "ffo_main_default_2_10", flc, this);
 		} else if (layout == LAYOUT_CUSTOM) {
 			throw new AssertException("Use another constructor to work with a custom layout!");
 
@@ -203,6 +215,10 @@ public abstract class FormBasicController extends BasicController {
 		} else if (layout == LAYOUT_DEFAULT_9_3) {
 			// init with default layout
 			flc = FormLayoutContainer.createDefaultFormLayout_9_3("ffo_panel", getTranslator());
+		
+		}  else if (layout == LAYOUT_DEFAULT_2_10) {
+			// init with default layout
+			flc = FormLayoutContainer.createDefaultFormLayout_2_10("ffo_panel", getTranslator());
 		
 		} else if (layout == LAYOUT_CUSTOM && customLayoutPageName != null) {
 			// init with provided layout
@@ -345,9 +361,14 @@ public abstract class FormBasicController extends BasicController {
 	 * @param source
 	 * @param event
 	 */
-	@SuppressWarnings("unused")
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 	// overwrite if you want to listen to inner form elements events
+	}
+
+	@Override
+	protected void event(UserRequest ureq,Controller source, Event event) {
+		routeEventToFragments(ureq, source, event);
+		super.event(ureq, source, event);
 	}
 
 	/**
@@ -357,6 +378,7 @@ public abstract class FormBasicController extends BasicController {
 	 */
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
+		routeEventToFragments(ureq, source, event);
 		if (source == mainForm.getInitialComponent()) {
 			// general form events
 			if (event == org.olat.core.gui.components.form.Form.EVNT_VALIDATION_OK) {
@@ -403,7 +425,7 @@ public abstract class FormBasicController extends BasicController {
 				 * evaluate normal inner form events
 				 */
 				FormItem fiSrc = fe.getFormItemSource();
-				propagateDirtinessToContainer(fiSrc);
+				propagateDirtinessToContainer(fiSrc, fe);
 				//
 				formInnerEvent(ureq, fiSrc, fe);
 				// no need to set container dirty, up to controller code if something is dirty
@@ -411,7 +433,7 @@ public abstract class FormBasicController extends BasicController {
 		}
 	}
 	
-	protected void propagateDirtinessToContainer(FormItem fiSrc) {
+	protected void propagateDirtinessToContainer(FormItem fiSrc, @SuppressWarnings("unused") FormEvent fe) {
 		// check for InlineElments remove as the tag library has been replaced
 		if(fiSrc instanceof InlineElement){
 			if(!((InlineElement) fiSrc).isInlineEditingElement()){ //OO-137
@@ -421,6 +443,14 @@ public abstract class FormBasicController extends BasicController {
 				flc.setDirty(true);
 			}
 		}
+	}
+	
+	public String getAndRemoveFormTitle() {
+		String title = (String)flc.contextGet("off_title");
+		if(title != null) {
+			flc.contextRemove("off_title");
+		}
+		return title;
 	}
 
 	/**
@@ -543,31 +573,12 @@ public abstract class FormBasicController extends BasicController {
 	 * @see org.olat.core.gui.control.controller.BasicController#showInfo(java.lang.String)
 	 */
 	
-	protected void setFormInfo (String i18nKey, String args) {
+	protected void setFormInfo (String i18nKey, String[] args) {
 		flc.contextRemove("off_warn");
 		if (i18nKey == null) {
 			flc.contextRemove("off_info");
 		} else {
-			flc.contextPut("off_info", getTranslator().translate(i18nKey, new String[]{args}));
-		}
-	}
-	
-	/**
-	 * Set an optional context help link for this form. If you use a custom
-	 * template this will have no effect
-	 * 
-	 * @param packageName The bundle name, e.g. org.olat.core
-	 * @param pageName The page name, e.g. my-helppage.html
-	 * @param hoverTextKey The hover text to indicate what this help is about
-	 *          (i18nkey)
-	 */
-	protected void setFormContextHelp(String packageName, String pageName, String hoverTextKey) {
-		if (packageName == null) {
-			flc.contextRemove("off_chelp_package");
-		} else {
-			flc.contextPut("off_chelp_package", packageName);
-			flc.contextPut("off_chelp_page", pageName);
-			flc.contextPut("off_chelp_hover", hoverTextKey);
+			flc.contextPut("off_info", getTranslator().translate(i18nKey, args));
 		}
 	}
 	
@@ -630,7 +641,126 @@ public abstract class FormBasicController extends BasicController {
 						disposableFormItem.dispose();				
 					}
 				}
+				
+				forEachFragment(fragment -> {
+					// do nothing for now
+				});
 			}
 		}, getUserActivityLogger());
 	}
+	
+	// ------------------------------------------------------------------------
+	// IFormFragmentContainer implementation
+	
+	/**
+	 * A lifecycle method used to signal the controller that it should read the contents
+	 * of its configuration and apply it to its view. The idea is that the structure of a
+	 * form can be created separately from assigning contents to its fields.
+	 * <p>This is particularly useful when dealing with fragments which know how to 
+	 * load/store data from a given configuration themselves.
+	 * @param ureq
+	 */
+	public void readFormData(UserRequest ureq) {
+		// do nothing by default
+	}
+	
+	/**
+	 * A lifecycle used to signal the form controller that it should visit the view's
+	 * content and save all relevant data into its current configuration. 
+	 * <p>This is particularly useful when dealing with fragments which know how to 
+	 * load/store data from a given configuration themselves.
+	 * @param ureq
+	 */
+	public void storeFormData(UserRequest ureq) {
+		// do nothing by default
+	}
+
+	@Override
+	public IFormFragmentHost getFragmentHostInterface() {
+		// this is to document the missing method implementation in a subclass
+		throw new IllegalStateException("In order to host from fragments the controller must override getFragmentHostInterface(): " + this.getClass().getSimpleName() );
+	}
+	
+	private static class FragmentRef extends WeakReference<IFormFragment>{
+		public FragmentRef(IFormFragment referent) {
+			super(referent);
+		}
+	}
+	
+	@Override
+	public void setNeedsLayout() {
+		flc.setDirty(true);
+	}
+
+	@Override
+	public void registerFormFragment(IFormFragment fragment) {
+		if(fragments == null) {
+			fragments = new ArrayList<>(5);
+		}
+		fragments.add(new FragmentRef(fragment));
+	}
+	
+	@Override
+	public FormItemContainer formItemsContainer() {
+		return flc;
+	}
+
+	// Helpers
+	@Override
+	protected void fireEvent(UserRequest ureq, Event event) {
+		super.fireEvent(ureq, event);
+	}
+	
+	// Redefinition of a the super method to provide access with the same
+	// package (this is required for the Form Fragments)
+	@Override
+	protected Controller listenTo(Controller controller) {
+		return super.listenTo(controller);
+	}
+	
+	@Override
+	public void forEachFragment(Consumer<IFormFragment> handler) {
+		if(fragments == null) return;
+		
+		fragments.stream()
+			.filter(ref -> ref.get() != null)
+			.forEach(ref -> {
+				IFormFragment frag = ref.get();
+				if (frag != null) {					
+					handler.accept(frag);
+				}
+			});
+	}
+
+	protected boolean routeEventToFragments(UserRequest ureq, Component source, Event event) {
+		if(fragments == null) return false;
+		
+		// implement shortcut?!
+		Boolean processed = 
+				fragments.stream()
+					.reduce(Boolean.FALSE
+							, (t, u) -> {
+								IFormFragment frag = u.get();
+								return frag == null ? Boolean.FALSE : frag.processEvent(ureq, source, event);
+							}, (t, u) -> t & u)
+					;
+		return processed;
+	}
+
+
+	protected boolean routeEventToFragments(UserRequest ureq, Controller source, Event event) {
+		if(fragments == null) return false;
+		
+		// implement shortcut?!
+		Boolean processed = 
+			fragments.stream()
+				.reduce(Boolean.FALSE
+						, (t, u) -> {
+							IFormFragment frag = u.get();
+							return frag == null ? Boolean.FALSE : frag.processEvent(ureq, source, event);
+						}, (t, u) -> t & u)
+				;
+		return processed;
+	}
+	
 }

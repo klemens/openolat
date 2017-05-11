@@ -26,6 +26,7 @@ import java.util.Map;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
+import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -35,6 +36,8 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.services.taskexecutor.TaskExecutorManager;
 import org.olat.core.commons.services.webdav.WebDAVDispatcher;
+import org.olat.core.configuration.AbstractOLATModule;
+import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.configuration.PreWarm;
 import org.olat.core.dispatcher.Dispatcher;
 import org.olat.core.dispatcher.DispatcherModule;
@@ -53,6 +56,8 @@ import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.threadlog.RequestBasedLogLevelManager;
 import org.olat.core.util.threadlog.UserBasedLogLevelManager;
 
+
+@MultipartConfig(fileSizeThreshold=10240)
 public class OpenOLATServlet extends HttpServlet {
 
 	private static final long serialVersionUID = -2777749229549683775L;
@@ -122,6 +127,9 @@ public class OpenOLATServlet extends HttpServlet {
 		
 		//preload extensions
 		ExtManager.getInstance().getExtensions();
+		
+		AbstractOLATModule.printStats();
+		AbstractSpringModule.printStats();
 		preWarm();
 	}
 	
@@ -136,7 +144,10 @@ public class OpenOLATServlet extends HttpServlet {
 	@Override
 	protected void service(HttpServletRequest req, HttpServletResponse resp)
 	throws ServletException, IOException {
-		//log.info(req.getMethod() + " :: " + req.getPathInfo());
+		/*if(!req.getPathInfo().startsWith("/m/")) {
+			log.info(req.getMethod() + " :: " + req.getPathInfo());
+			ServletUtil.printOutRequestParameters(req);
+		}*/
 
 		Tracing.setUreq(req);
 		ThreadLocalUserActivityLoggerInstaller.initUserActivityLogger(req);
@@ -145,6 +156,7 @@ public class OpenOLATServlet extends HttpServlet {
 			sessionStatsManager.incrementRequest();
 			sessionStatsManager.incrementConcurrentCounter();
 		}
+
 		try{
 			
 			final String method = req.getMethod();

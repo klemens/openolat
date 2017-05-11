@@ -23,10 +23,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
+import java.util.zip.ZipOutputStream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Result;
 import javax.xml.transform.Transformer;
@@ -41,6 +46,7 @@ import org.olat.core.commons.services.image.Size;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.io.ShieldOutputStream;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.Attributes;
@@ -58,8 +64,15 @@ public class OpenXMLUtils {
 	private static final OLog log = Tracing.createLoggerFor(OpenXMLUtils.class);
 
 	public static final double emusPerInch = 914400.0d;
+	public static final double emusPerCm = 360000.0d;
 	
-	public static final Size convertPixelToEMUs(Size img, int dpi) {
+
+	public static final int convertPixelToEMUs(int pixel, int dpi, double resizeRatio) {
+		double rezDpi = dpi * 1.0d;
+		return (int)(((pixel / rezDpi) * emusPerInch) * resizeRatio);
+	}
+	
+	public static final OpenXMLSize convertPixelToEMUs2(Size img, int dpi) {
 		int widthPx = img.getWidth();
 		int heightPx = img.getHeight();
 		double horzRezDpi = dpi * 1.0d;
@@ -68,7 +81,28 @@ public class OpenXMLUtils {
 		double widthEmus = (widthPx / horzRezDpi) * emusPerInch;
 		double heightEmus = (heightPx / vertRezDpi) * emusPerInch;
 		
-		return new Size((int)widthEmus, (int)heightEmus, 0, 0, true);
+		return new OpenXMLSize(widthPx, heightPx, (int)widthEmus, (int)heightEmus, 1.0d);
+	}
+	
+	public static final OpenXMLSize convertPixelToEMUs(Size img, int dpi, double maxWidthCm) {
+		int widthPx = img.getWidth();
+		int heightPx = img.getHeight();
+		double horzRezDpi = dpi * 1.0d;
+		double vertRezDpi = dpi * 1.0d;
+		
+		double widthEmus = (widthPx / horzRezDpi) * emusPerInch;
+		double heightEmus = (heightPx / vertRezDpi) * emusPerInch;
+
+		double maxWidthEmus = maxWidthCm * emusPerCm;
+		double resizeRatio = 1.0d;
+		if (widthEmus > maxWidthEmus) {
+			resizeRatio = maxWidthEmus / widthEmus;
+			double ratio = heightEmus / widthEmus;
+			widthEmus = maxWidthEmus;
+			heightEmus = widthEmus * ratio;
+		}
+
+		return new OpenXMLSize(widthPx, heightPx, (int)widthEmus, (int)heightEmus, resizeRatio);
 	}
 	
 	public static int getSpanAttribute(String name, Attributes attrs) {
@@ -96,12 +130,21 @@ public class OpenXMLUtils {
 		return found;
 	}
 	
+	public static final XMLStreamWriter createStreamWriter(ZipOutputStream out) {
+		try {
+			return XMLOutputFactory.newInstance().createXMLStreamWriter(new ShieldOutputStream(out), "UTF-8");
+		} catch (XMLStreamException | FactoryConfigurationError e) {
+			log.error("", e);
+			return null;
+		}
+	}
+	
 	public static final Document createDocument() {
 		try {
 			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 			// Turn on validation, and turn on namespaces
 			factory.setValidating(true);
-			factory.setNamespaceAware(true);
+			factory.setNamespaceAware(false);
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			Document doc = builder.newDocument();
 			return doc;

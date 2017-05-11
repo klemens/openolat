@@ -218,26 +218,25 @@ public class LTIConfigForm extends FormBasicController {
 		fullURI = getFullURL(proto, host, port, uri, query).toString();
 		
 		sendNameConfig = config.getBooleanEntry(CONFIG_KEY_SENDNAME);
-    if (sendNameConfig == null) sendNameConfig = Boolean.FALSE;
+		if (sendNameConfig == null) sendNameConfig = Boolean.FALSE;
 
 		sendEmailConfig = config.getBooleanEntry(CONFIG_KEY_SENDEMAIL);
-    if (sendEmailConfig == null) sendEmailConfig = Boolean.FALSE;
+		if (sendEmailConfig == null) sendEmailConfig = Boolean.FALSE;
 
-		
 		doDebugConfig = config.getBooleanEntry(CONFIG_KEY_DEBUG);
-    if (doDebugConfig == null) doDebugConfig = Boolean.FALSE;
+		if (doDebugConfig == null) doDebugConfig = Boolean.FALSE;
     
-    Boolean assessable = config.getBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD);
-    isAssessable = assessable == null ? false : assessable.booleanValue();
+		Boolean assessable = config.getBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD);
+		isAssessable = assessable == null ? false : assessable.booleanValue();
 
-    initForm(ureq);
+		initForm(ureq);
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("form.title");
-		setFormContextHelp("org.olat.course.nodes.basiclti","ced-lti-conf.html","help.hover.lt.conf");
-			
+		setFormContextHelp("Other#_lti_config");
+
 		thost = uifactory.addTextElement("host", "LTConfigForm.url", 255, fullURI, formLayout);
 		thost.setExampleKey("LTConfigForm.url.example", null);
 		thost.setDisplaySize(64);
@@ -417,15 +416,15 @@ public class LTIConfigForm extends FormBasicController {
 	}
 	
 	private void udpateRoles(MultipleSelectionElement roleEl, String configKey, String defaultRoles) {
-    Object configRoles = config.get(configKey);
-    String roles = defaultRoles;
-    if(configRoles instanceof String) {
-    	roles = (String)configRoles;
-    }
-    String[] roleArr = roles.split(",");
-    for(String role:roleArr) {
-    	roleEl.select(role, true);
-    }
+		Object configRoles = config.get(configKey);
+		String roles = defaultRoles;
+		if(configRoles instanceof String) {
+			roles = (String)configRoles;
+		}
+		String[] roleArr = roles.split(",");
+		for(String role:roleArr) {
+			roleEl.select(role, true);
+		}
 	}
 	
 	private String getRoles(MultipleSelectionElement roleEl) {
@@ -568,16 +567,15 @@ public class LTIConfigForm extends FormBasicController {
 		if(isAssessableEl.isAtLeastSelected(1)) {
 			config.setBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_SCORE_FIELD, Boolean.TRUE);
 			
-			String scaleValue = scaleFactorEl.getValue();
-			Float scaleVal = Float.parseFloat(scaleValue);
-			if(scaleVal.floatValue() > 0.0f) {
+			Float scaleVal = getFloat(scaleFactorEl.getValue());
+			if(scaleVal != null && scaleVal.floatValue() > 0.0f) {
 				config.set(BasicLTICourseNode.CONFIG_KEY_SCALEVALUE, scaleVal);
 			} else {
 				config.remove(BasicLTICourseNode.CONFIG_KEY_SCALEVALUE);
 			}
 
 			String cutValue = cutValueEl.getValue();
-			Float cutVal = (StringHelper.containsNonWhitespace(cutValue)) ? Float.parseFloat(cutValue) : null;
+			Float cutVal = getFloat(cutValueEl.getValue());
 			if(cutVal != null && cutVal.floatValue() > 0.0f) {
 				config.setBooleanEntry(BasicLTICourseNode.CONFIG_KEY_HAS_PASSED_FIELD, Boolean.TRUE);
 				config.set(BasicLTICourseNode.CONFIG_KEY_PASSED_CUT_VALUE, cutValue);
@@ -608,6 +606,18 @@ public class LTIConfigForm extends FormBasicController {
 			config.set(BasicLTICourseNode.CONFIG_WIDTH, widthEl.getSelectedKey());
 		}
 		return config;
+	}
+	
+	private Float getFloat(String text) {
+		Float floatValue = null;
+		if(StringHelper.containsNonWhitespace(text)) {
+			try {
+				floatValue = Float.parseFloat(text);
+			} catch(Exception e) {
+				//can happens
+			}
+		}
+		return floatValue;
 	}
 	
 	private String getCustomConfig() {

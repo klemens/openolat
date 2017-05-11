@@ -53,8 +53,8 @@ public class ItemListMySharesController extends AbstractItemListController {
 	private List<Pool> myPools;
 	private List<BusinessGroup> myGroups;
 
-	public ItemListMySharesController(UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl, new EmptyItemsSource(), "select");
+	public ItemListMySharesController(UserRequest ureq, WindowControl wControl, String restrictToFormat) {
+		super(ureq, wControl, new EmptyItemsSource(), restrictToFormat, "select");
 	}
 	
 	@Override
@@ -89,15 +89,24 @@ public class ItemListMySharesController extends AbstractItemListController {
         }
 
         myShareEl = uifactory.addDropdownSingleselect("source.selector", "my.list", formLayout,  myShareKeys, myShareValues, null);
+        myShareEl.setDomReplacementWrapperRequired(false);
+        myShareEl.getLabelC().setDomReplaceable(false);
         myShareEl.addActionListener(FormEvent.ONCHANGE);
 		if(myPools.isEmpty() && myGroups.isEmpty()) {
 			myShareEl.setEnabled(false);
 		} else {
             myShareEl.select( myShareKeys[0], true);
-
-            Pool firstPool = myPools.get(0);
-			PoolItemsSource source = new PoolItemsSource(getIdentity(), ureq.getUserSession().getRoles(), firstPool);
-            updateSource(source);
+            if(myPools.size() > 0) {
+            	Pool firstPool = myPools.get(0);
+            	PoolItemsSource source = new PoolItemsSource(getIdentity(), ureq.getUserSession().getRoles(), firstPool);
+            	source.getDefaultParams().setFormat(restrictToFormat);
+            	updateSource(source);
+            } else if(myGroups.size() > 0) {
+            	BusinessGroup firstGroup = myGroups.get(0);
+            	SharedItemsSource source = new SharedItemsSource(firstGroup, getIdentity(), ureq.getUserSession().getRoles(), false);
+            	source.setRestrictToFormat(restrictToFormat);
+    			updateSource(source);
+            }
         }
 	}
 
@@ -120,8 +129,6 @@ public class ItemListMySharesController extends AbstractItemListController {
 					} else if(selectedKey.startsWith("grou")) {
 						doSelectBusinessGroup(ureq, resourceKey);
 					}
-					
-					
 				}
             }
         }
@@ -140,6 +147,7 @@ public class ItemListMySharesController extends AbstractItemListController {
 			updateSource(new EmptyItemsSource());
 		} else {
 			PoolItemsSource source = new PoolItemsSource(getIdentity(), ureq.getUserSession().getRoles(), myPool);
+			source.getDefaultParams().setFormat(restrictToFormat);
 			updateSource(source);
 		}
 	}
@@ -156,6 +164,7 @@ public class ItemListMySharesController extends AbstractItemListController {
 			updateSource(new EmptyItemsSource());
 		} else {
 			SharedItemsSource source = new SharedItemsSource(myGroup, getIdentity(), ureq.getUserSession().getRoles(), false);
+			source.setRestrictToFormat(restrictToFormat);
 			updateSource(source);
 		}
 	}

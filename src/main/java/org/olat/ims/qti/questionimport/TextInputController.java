@@ -64,7 +64,7 @@ public class TextInputController extends StepFormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("wizard.import.input.description");
-		setFormContextHelp("org.olat.ims.qti.questionimport", "text-input.html", "chelp.text-input.hover");
+		setFormContextHelp("Data Management#qb_import");
 		
 		FormLayoutContainer textContainer = FormLayoutContainer.createCustomFormLayout("index", getTranslator(), velocity_root + "/example.html");
 		formLayout.add(textContainer);
@@ -103,9 +103,15 @@ public class TextInputController extends StepFormBasicController {
 	private boolean convertInputField() {
 		boolean importDataError = false;
 
-		CSVToQuestionConverter converter = new CSVToQuestionConverter(getTranslator(), options);
-		converter.parse(inputElement.getValue());
-		parsedItems = converter.getItems();
+		try {
+			CSVToQuestionConverter converter = new CSVToQuestionConverter(getTranslator(), options);
+			converter.parse(inputElement.getValue());
+			parsedItems = converter.getItems();
+		} catch (NumberFormatException e) {
+			logError("", e);
+			inputElement.setErrorKey("error.format.number", new String[] { e.getMessage() } );
+			importDataError = true;
+		}
 
 		return importDataError;
 	}

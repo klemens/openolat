@@ -39,7 +39,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.table.TableDataModel;
 import org.olat.core.gui.control.Controller;
@@ -94,7 +93,7 @@ public class QLicensesAdminController extends FormBasicController {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.id.i18nKey(), Cols.id.ordinal(), true, "key"));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.licenseKey.i18nKey(), Cols.licenseKey.ordinal(), true, "licenseKey"));
 		FlexiCellRenderer delRenderer = new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("delete"), "delete-license"), null);
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", Cols.deletable.ordinal(), "delete-license", delRenderer));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("delete", Cols.deletable.ordinal(), "delete-license", delRenderer));
 
 		model = new QItemTypeDataModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "licenses", model, getTranslator(), formLayout);
@@ -136,8 +135,8 @@ public class QLicensesAdminController extends FormBasicController {
 			cleanUp();
 		} else if(source == confirmDeleteCtrl) {
 			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
-				QLicense type = (QLicense)confirmDeleteCtrl.getUserObject();
-				doDelete(ureq, type);
+				QLicense license = (QLicense)confirmDeleteCtrl.getUserObject();
+				doDelete(license);
 			}
 		} else if(source == cmc) {
 			cleanUp();
@@ -164,9 +163,13 @@ public class QLicensesAdminController extends FormBasicController {
 		confirmDeleteCtrl.setUserObject(type);
 	}
 	
-	private void doDelete(UserRequest ureq, QLicense type) {
-		//qpoolService.deldeletePool(pool);
-		reloadModel();
+	private void doDelete(QLicense license) {
+		if(qpoolService.deleteLicense(license)) {
+			reloadModel();
+			showInfo("item.license.deleted");
+		} else {
+			showError("item.license.notdeleted");
+		}
 	}
 	
 	private void doEdit(UserRequest ureq, QLicense license) {
@@ -218,6 +221,11 @@ public class QLicensesAdminController extends FormBasicController {
 		@Override
 		public int getColumnCount() {
 			return columnModel.getColumnCount();
+		}
+
+		@Override
+		public boolean isSelectable(int row) {
+			return true;
 		}
 
 		@Override

@@ -75,7 +75,7 @@ public interface ICourse extends OLATResourceable {
 	
 	public void postCopy(CourseEnvironmentMapper envMapper, ICourse sourceCourse);
 	
-	public void postImport(CourseEnvironmentMapper envMapper);
+	public void postImport(File importDirectory, CourseEnvironmentMapper envMapper);
 	
 	/**
 	 * Return the container to files for this course.
@@ -85,12 +85,31 @@ public interface ICourse extends OLATResourceable {
 	public OlatRootFolderImpl getCourseBaseContainer();
 	
 	/**
-	 * Return the container to the coursefolder of this course.
-	 * (E.g. "COURSEBASEPATH/coursefolder/")
+	 * Return the container to the coursefolder of this course. (E.g.
+	 * "COURSEBASEPATH/coursefolder/"). !! This is for administration or
+	 * internal use!! There is no permission check, make sure your controller
+	 * does check if user is allowed to see stuff, e.g. shared folder
+	 * 
 	 * @return the container to the coursefolder of this course
 	 */
 	public VFSContainer getCourseFolderContainer();
 	
+	/**
+	 * Give the possibility to override the read-only mode of the containers
+	 * if the course is closed.
+	 * 
+	 * @param overrideReadOnly
+	 * @return
+	 */
+	public VFSContainer getCourseFolderContainer(boolean overrideReadOnly);
+	
+	/**
+	 * The course folder that the user specified by its identity environment
+	 * can see and use. Used by WebDAV access.
+	 * 
+	 * @param identityEnv
+	 * @return The aggreagted course folder
+	 */
 	public VFSContainer getCourseFolderContainer(IdentityEnvironment identityEnv);
 	
 	public OlatRootFolderImpl getCourseExportDataDir();

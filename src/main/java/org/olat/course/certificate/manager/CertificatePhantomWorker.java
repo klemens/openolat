@@ -65,9 +65,11 @@ public class CertificatePhantomWorker {
 	private final Boolean passed;
 	private final Identity identity;
 	private final RepositoryEntry entry;
+	private final String certificateURL;
 
 	private Date dateCertification;
 	private Date dateFirstCertification;
+	private Date dateNextRecertification;
 
 	private final Locale locale;
 	private final UserManager userManager;
@@ -75,7 +77,7 @@ public class CertificatePhantomWorker {
 
 	public CertificatePhantomWorker(Identity identity, RepositoryEntry entry,
 			Float score, Boolean passed, Date dateCertification,
-			Date dateFirstCertification, Locale locale,
+			Date dateFirstCertification, Date nextRecertificationDate, String certificateURL, Locale locale,
 			UserManager userManager, CertificatesManagerImpl certificatesManager) {
 		this.entry = entry;
 		this.score = score;
@@ -84,6 +86,8 @@ public class CertificatePhantomWorker {
 		this.identity = identity;
 		this.dateCertification = dateCertification;
 		this.dateFirstCertification = dateFirstCertification;
+		this.dateNextRecertification = nextRecertificationDate;
+		this.certificateURL = certificateURL;
 		this.userManager = userManager;
 		this.certificatesManager = certificatesManager;
 	}
@@ -143,6 +147,7 @@ public class CertificatePhantomWorker {
 		fillRepositoryEntry(context);
 		fillCertificationInfos(context);
 		fillAssessmentInfos(context);
+		fillMetaInfos(context);
 		return context;
 	}
 	
@@ -210,14 +215,16 @@ public class CertificatePhantomWorker {
 	
 	private void fillCertificationInfos(VelocityContext context) {
 		Formatter format = Formatter.getInstance(locale);
+		context.put("dateFormatter", format);
 
 		if(dateCertification == null) {
 			context.put("dateCertification", "");
 		} else {
-			String formattedDateCertification= format.formatDate(dateCertification);
+			String formattedDateCertification = format.formatDate(dateCertification);
 			context.put("dateCertification", formattedDateCertification);
-			String formattedDateCertificationLong= format.formatDateLong(dateCertification);
+			String formattedDateCertificationLong = format.formatDateLong(dateCertification);
 			context.put("dateCertificationLong", formattedDateCertificationLong);
+			context.put("dateCertificationRaw", dateCertification);
 		}
 		
 		if(dateFirstCertification == null) {
@@ -227,7 +234,18 @@ public class CertificatePhantomWorker {
 			context.put("dateFirstCertification", formattedDateFirstCertification);
 			String formattedDateFirstCertificationLong = format.formatDate(dateFirstCertification);
 			context.put("dateFirstCertificationLong", formattedDateFirstCertificationLong);
+			context.put("dateFirstCertificationRaw", dateFirstCertification);
 		}
+
+		if(dateNextRecertification == null) {
+			context.put("dateNextRecertification", "");
+		} else {
+			String formattedDateNextRecertification = format.formatDate(dateNextRecertification);
+			context.put("dateNextRecertification", formattedDateNextRecertification);
+			String formattedDateNextRecertificationLong = format.formatDateLong(dateNextRecertification);
+			context.put("dateNextRecertificationLong", formattedDateNextRecertificationLong);
+			context.put("dateNextRecertificationRaw", dateNextRecertification);
+		}		
 	}
 	
 	private void fillAssessmentInfos(VelocityContext context) {
@@ -236,6 +254,10 @@ public class CertificatePhantomWorker {
 
 		String status = (passed != null && passed.booleanValue()) ? "Passed" : "Failed";
 		context.put("status", status);
+	}
+	
+	private void fillMetaInfos(VelocityContext context) {
+		context.put("certificateVerificationUrl", certificateURL);
 	}
 	
 	public static boolean checkPhantomJSAvailabilty() {

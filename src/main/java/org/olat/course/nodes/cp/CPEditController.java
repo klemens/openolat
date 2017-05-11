@@ -83,7 +83,7 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 	public static final String PANE_TAB_CPCONFIG = "pane.tab.cpconfig";
 	private static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
 	private static final String PANE_TAB_DELIVERYOPTIONS = "pane.tab.deliveryOptions";
-	private static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "reporef";
+	public static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "reporef";
 	private static final String VC_CHOSENCP = "chosencp";
 	public static final String CONFIG_DELIVERYOPTIONS = "deliveryOptions";
   
@@ -175,12 +175,12 @@ public class CPEditController extends ActivateableTabbableDefaultController impl
 
 		// Accessibility precondition
 		Condition accessCondition = cpNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(),
-				accessCondition, AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), cpNode), euce);		
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), euce,
+				accessCondition, AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), cpNode));		
 		listenTo(accessibilityCondContr);
 
 		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(CPEditController.CONFIG_DELIVERYOPTIONS);
-		deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), deliveryOptions, parentConfig);
+		deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), deliveryOptions, "Knowledge Transfer#_cp_layout", parentConfig);
 		listenTo(deliveryOptionsCtrl);
 
 		main.setContent(cpConfigurationVc);

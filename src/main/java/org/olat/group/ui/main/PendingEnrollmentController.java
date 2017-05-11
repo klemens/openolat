@@ -40,8 +40,8 @@ import org.olat.group.model.BGRepositoryEntryRelation;
 import org.olat.login.SupportsAfterLoginInterceptor;
 import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
+import org.olat.resource.accesscontrol.ResourceReservation;
 import org.olat.resource.accesscontrol.model.ACResourceInfo;
-import org.olat.resource.accesscontrol.model.ResourceReservation;
 
 /**
  * 
@@ -68,7 +68,7 @@ public class PendingEnrollmentController extends FormBasicController implements 
 		
 		List<ResourceReservation> resourceReservations = acService.getReservations(getIdentity());
 		reservations = new ArrayList<ReservationWrapper>(resourceReservations.size());
-		
+
 		if(!resourceReservations.isEmpty()) {
 			List<Long> groupKeys = new ArrayList<Long>();
 			List<OLATResource> resources = new ArrayList<OLATResource>();
@@ -140,8 +140,8 @@ public class PendingEnrollmentController extends FormBasicController implements 
 	}
 	
 	@Override
-	public boolean isInterceptionRequired(UserRequest ureq) {
-		return !reservations.isEmpty();
+	public boolean isUserInteractionRequired(UserRequest ureq) {
+		return reservations.size() > 0;
 	}
 
 	@Override

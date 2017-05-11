@@ -61,12 +61,14 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.event.EventBus;
+import org.olat.core.util.vfs.JavaIOItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.certificate.CertificateTemplate;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.certificate.PDFCertificatesOptions;
@@ -75,9 +77,12 @@ import org.olat.course.config.CourseConfig;
 import org.olat.course.config.CourseConfigEvent;
 import org.olat.course.config.CourseConfigEvent.CourseConfigType;
 import org.olat.course.config.ui.CourseOptionsController;
+import org.olat.course.run.RunMainController;
+import org.olat.fileresource.ZippedDirectoryMediaResource;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
+import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -119,9 +124,14 @@ public class CertificatesOptionsController extends FormBasicController {
 	};
 	
 	private final String mapperUrl;
+	private LockResult lockEntry;
 
 	@Autowired
+	private UserManager userManager;
+	@Autowired
 	private CertificatesManager certificatesManager;
+	@Autowired
+	private EfficiencyStatementManager efficiencyStatementManager;
 	
 	/**
 	 * @param name
@@ -131,20 +141,40 @@ public class CertificatesOptionsController extends FormBasicController {
 			RepositoryEntry entry, CourseConfig courseConfig, boolean editable) {
 		super(ureq, wControl);
 		setTranslator(Util.createPackageTranslator(CourseOptionsController.class, getLocale(), getTranslator()));
+		setTranslator(Util.createPackageTranslator(RunMainController.class, getLocale(), getTranslator()));
 		this.courseConfig = courseConfig;
 		this.entry = entry;
-		this.editable = editable;
 		
 		mapperUrl = registerMapper(ureq, new TemplateMapper());
-		
+		lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker()
+				.acquireLock(entry.getOlatResource(), getIdentity(), CourseFactory.COURSE_EDITOR_LOCK);
+		this.editable = (lockEntry != null && lockEntry.isSuccess()) && editable;
+
 		initForm (ureq);
+		
+		if(lockEntry != null && !lockEntry.isSuccess()) {
+			String lockerName = "???";
+			if(lockEntry.getOwner() != null) {
+				lockerName = userManager.getUserDisplayName(lockEntry.getOwner());
+			}
+			showWarning("error.editoralreadylocked", new String[] { lockerName });
+		}
+	}
+	
+	@Override
+	protected void doDispose() {
+		if (lockEntry != null && lockEntry.isSuccess()) {
+			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockEntry);
+			lockEntry = null;
+		}
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("options.certificates.title");
 		setFormTitleIconCss("o_icon o_icon_certificate");
-		setFormContextHelp("org.olat.course.config.ui","course-efficiency.html","help.hover.course-eff");
+		setFormDescription("options.certificates.descr");
+		setFormContextHelp("Course Settings#_leistungsnachweis");
 		formLayout.setElementCssClass("o_sel_course_certificates");
 		
 		boolean effEnabled = courseConfig.isEfficencyStatementEnabled();
@@ -173,6 +203,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		templateCont.setLabel("pdf.certificates.template", null);
 
 		selectTemplateLink = uifactory.addFormLink("select", templateCont, Link.BUTTON);
+		selectTemplateLink.setEnabled(editable);
 		Long templateId = courseConfig.getCertificateTemplate();
 		boolean hasTemplate = templateId != null && templateId.longValue() > 0;
 		if(hasTemplate) {
@@ -192,6 +223,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		boolean reCertificationEnabled = courseConfig.isRecertificationEnabled();
 		reCertificationEl = uifactory.addCheckboxesHorizontal("recertification", formLayout, new String[]{ "xx" }, new String[]{ "" });
 		reCertificationEl.addActionListener(FormEvent.ONCHANGE);
+		reCertificationEl.setEnabled(editable);
 		if(reCertificationEnabled) {
 			reCertificationEl.select("xx", true);
 		}
@@ -205,6 +237,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		reCertificationTimelapseEl = uifactory.addIntegerElement("timelapse", null, timelapse, recertificationCont);
 		reCertificationTimelapseEl.setDomReplacementWrapperRequired(false);
 		reCertificationTimelapseEl.setDisplaySize(4);
+		reCertificationTimelapseEl.setEnabled(editable);
 		
 		String[] timelapseUnitValues = new String[] {
 			translate("recertification.day"), translate("recertification.week"),
@@ -213,6 +246,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		RecertificationTimeUnit timelapseUnit = courseConfig.getRecertificationTimelapseUnit();
 		reCertificationTimelapseUnitEl = uifactory.addDropdownSingleselect("timelapse.unit", null, recertificationCont, timelapseUnitKeys, timelapseUnitValues, null);
 		reCertificationTimelapseUnitEl.setDomReplacementWrapperRequired(false);
+		reCertificationTimelapseUnitEl.setEnabled(editable);
 		if(timelapseUnit != null) {
 			reCertificationTimelapseUnitEl.select(timelapseUnit.name(), true);
 		} else {
@@ -233,7 +267,7 @@ public class CertificatesOptionsController extends FormBasicController {
 		boolean none = !pdfCertificatesEl.isAtLeastSelected(1);
 		
 		templateCont.setVisible(!none);
-		selectTemplateLink.setEnabled(!none);
+		selectTemplateLink.setEnabled(!none && editable);
 		if(none || selectedTemplate == null) {
 			templateCont.contextPut("templateName", translate("default.template"));
 			previewTemplateLink.setEnabled(false);
@@ -246,13 +280,8 @@ public class CertificatesOptionsController extends FormBasicController {
 		
 		boolean enableRecertification = !none && reCertificationEl.isAtLeastSelected(1);
 		recertificationCont.setVisible(enableRecertification);
-		reCertificationTimelapseEl.setEnabled(enableRecertification);
-		reCertificationTimelapseUnitEl.setEnabled(enableRecertification);
-	}
-
-	@Override
-	protected void doDispose() {
-		//
+		reCertificationTimelapseEl.setEnabled(enableRecertification && editable);
+		reCertificationTimelapseUnitEl.setEnabled(enableRecertification && editable);
 	}
 
 	@Override
@@ -351,6 +380,11 @@ public class CertificatesOptionsController extends FormBasicController {
 	
 	private void doChangeConfig(UserRequest ureq) {
 		OLATResourceable courseOres = entry.getOlatResource();
+		if(CourseFactory.isCourseEditSessionOpen(courseOres.getResourceableId())) {
+			showWarning("error.editoralreadylocked", new String[] { "???" });
+			return;
+		}
+		
 		ICourse course = CourseFactory.openCourseEditSession(courseOres.getResourceableId());
 		courseConfig = course.getCourseEnvironment().getCourseConfig();
 		
@@ -393,12 +427,13 @@ public class CertificatesOptionsController extends FormBasicController {
 		if(updateStatement) {
 			if(enableEfficiencyStatment) {
 	            // first create the efficiencies, send event to agency (all courses add link)
+				RepositoryEntry courseRe = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 				List<Identity> identitiesWithData = course.getCourseEnvironment().getCoursePropertyManager().getAllIdentitiesWithCourseAssessmentData(null);
-				EfficiencyStatementManager.getInstance().updateEfficiencyStatements(course, identitiesWithData);							
+				efficiencyStatementManager.updateEfficiencyStatements(courseRe, identitiesWithData);							
 			} else {
 	            // delete really the efficiencies of the users.
 				RepositoryEntry courseRepoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(course, true);
-				EfficiencyStatementManager.getInstance().deleteEfficiencyStatementsFromCourse(courseRepoEntry.getKey());						
+				efficiencyStatementManager.deleteEfficiencyStatementsFromCourse(courseRepoEntry.getKey());						
 			}
 			
 			//inform everybody else		
@@ -421,7 +456,13 @@ public class CertificatesOptionsController extends FormBasicController {
 			MediaResource resource;
 			if(selectedTemplate != null) {
 				VFSLeaf templateLeaf = certificatesManager.getTemplateLeaf(selectedTemplate);
-				resource = new VFSMediaResource(templateLeaf); 
+				if(templateLeaf.getName().equals("index.html") && templateLeaf instanceof JavaIOItem) {
+					JavaIOItem indexFile = (JavaIOItem)templateLeaf;
+					File templateDir = indexFile.getBasefile().getParentFile();
+					resource = new ZippedDirectoryMediaResource(selectedTemplate.getName(), templateDir);
+				} else {
+					resource = new VFSMediaResource(templateLeaf); 
+				}
 			} else {
 				InputStream stream = certificatesManager.getDefaultTemplate();
 				resource = new StreamedMediaResource(stream, "Certificate_template.pdf", "application/pdf");

@@ -31,6 +31,11 @@ public class FullAccessArchiverCallback implements IArchiverCallback {
 	public boolean mayArchiveQtiResults() {
 		return true;
 	}
+	
+	@Override
+	public boolean mayArchiveQtiTestResults() {
+		return true;
+	}
 
 	@Override
 	public boolean mayArchiveLogfiles() {
@@ -74,6 +79,11 @@ public class FullAccessArchiverCallback implements IArchiverCallback {
 
 	@Override
 	public boolean mayArchiveChecklist() {
+		return true;
+	}
+	
+	@Override
+	public boolean mayArchiveParticipantFolder() {
 		return true;
 	}
 

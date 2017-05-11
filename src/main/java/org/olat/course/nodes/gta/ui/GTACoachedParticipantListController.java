@@ -32,7 +32,6 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
-import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColumnModel;
@@ -40,7 +39,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -53,7 +51,7 @@ import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.TaskLight;
 import org.olat.course.nodes.gta.ui.CoachParticipantsTableModel.CGCols;
-import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.nodes.gta.ui.events.SelectIdentityEvent;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
@@ -71,13 +69,12 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class GTACoachedParticipantListController extends FormBasicController {
+public class GTACoachedParticipantListController extends GTACoachedListController {
 	
 	private FlexiTableElement tableEl;
 	private CoachParticipantsTableModel tableModel;
 
-	private final GTACourseNode gtaNode;
-	private final CourseEnvironment courseEnv;
+
 	private List<UserPropertiesRow> assessableIdentities;
 	
 	private final boolean isAdministrativeUser;
@@ -96,7 +93,7 @@ public class GTACoachedParticipantListController extends FormBasicController {
 	
 	public GTACoachedParticipantListController(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, GTACourseNode gtaNode) {
-		super(ureq, wControl, LAYOUT_BAREBONE);
+		super(ureq, wControl, userCourseEnv.getCourseEnvironment(), gtaNode);
 		
 		Roles roles = ureq.getUserSession().getRoles();
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
@@ -105,9 +102,7 @@ public class GTACoachedParticipantListController extends FormBasicController {
 		
 		CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
 		UserCourseEnvironmentImpl coachCourseEnv = (UserCourseEnvironmentImpl)userCourseEnv;
-		courseEnv = userCourseEnv.getCourseEnvironment();
-		this.gtaNode = gtaNode;
-		
+
 		boolean admin = userCourseEnv.isAdmin();
 
 		Set<Identity> duplicateKiller = new HashSet<>();
@@ -139,6 +134,7 @@ public class GTACoachedParticipantListController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		super.initForm(formLayout, listener, ureq);
 
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(isAdministrativeUser) {
@@ -153,18 +149,17 @@ public class GTACoachedParticipantListController extends FormBasicController {
 			
 			String propName = userPropertyHandler.getName();
 			boolean visible = userManager.isMandatoryUserProperty(GTACoachedGroupGradingController.USER_PROPS_ID , userPropertyHandler);
-			if(visible) {
-				FlexiColumnModel col;
-				if(UserConstants.FIRSTNAME.equals(propName)
-						|| UserConstants.LASTNAME.equals(propName)) {
-					col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
-							colIndex, userPropertyHandler.getName(), true, propName,
-							new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
-				} else {
-					col = new DefaultFlexiColumnModel(true, userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex, true, propName);
-				}
-				columnsModel.addFlexiColumnModel(col);
+
+			FlexiColumnModel col;
+			if(UserConstants.FIRSTNAME.equals(propName)
+					|| UserConstants.LASTNAME.equals(propName)) {
+				col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
+						colIndex, userPropertyHandler.getName(), true, propName,
+						new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
+			} else {
+				col = new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex, true, propName);
 			}
+			columnsModel.addFlexiColumnModel(col);
 		}
 
 		if(gtaNode.getModuleConfiguration().getBooleanSafe(GTACourseNode.GTASK_ASSIGNMENT)) {
@@ -174,10 +169,12 @@ public class GTACoachedParticipantListController extends FormBasicController {
 		
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(CGCols.taskStatus.i18nKey(), CGCols.taskStatus.ordinal(),
 				true, CGCols.taskStatus.name(), new TaskStatusCellRenderer(getTranslator())));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("select", translate("select"), "select"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("select", translate("select"), "select"));
 		tableModel = new CoachParticipantsTableModel(userPropertyHandlers, getLocale(), columnsModel);
 
-		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, getTranslator(), formLayout);
+		tableEl = uifactory.addTableElement(getWindowControl(), "entries", tableModel, 10, false, getTranslator(), formLayout);
+		tableEl.setShowAllRowsEnabled(true);
+		tableEl.setAndLoadPersistedPreferences(ureq, "gta-coached-participants");
 	}
 	
 	protected void updateModel() {

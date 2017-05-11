@@ -10,6 +10,10 @@ td.o_qti_item_kprim_input, th.o_qti_item_kprim_input {
 	}
 }
 
+td.o_qti_item_kprim_text {
+	width: 80%;
+}
+
 /* space in menu between sections */
 div.o_qti_menu_section, div.o_qti_menu_section_clickable, div.o_qti_menu_section_active {
 	margin-top: $padding-large-vertical;
@@ -45,6 +49,7 @@ div.o_qti_item_choice_option_flow {
 	.bar_green { fill: $brand-success; }
 	.bar_red { fill: $brand-danger; }
 	.bar_grey { fill: lightgrey; }
+	circle.bubble_green { fill: $brand-success; }
 }
 
 div.o_qti_statistics {
@@ -71,7 +76,7 @@ div.o_qti_statistics {
 	table.o_qti_statistics_figures {
 		tr { float: left; }		
 		tr:nth-child(2n+1) { clear: left; padding-right: 20px; }
-		td { width: 200px; padding-left: 0;}
+		td { width: 200px; padding-left: 0; vertical-align: bottom; }
 		td+td { width: 100px; }
 	}
 	
@@ -114,8 +119,7 @@ div.o_qti_metadatas .panel-body {
 .o_qti_menu_item_attempts_marked:after {
 	content: $fa-var-flag;
 	color: $brand-primary;
-} 
-	
+}	
 
 /* onyx   */
 .onyx_iframe {

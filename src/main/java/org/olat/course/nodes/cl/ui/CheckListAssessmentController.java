@@ -38,12 +38,14 @@ import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableFilter;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -57,7 +59,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
@@ -72,6 +73,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.cl.CheckboxManager;
@@ -96,6 +98,8 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
 
 /**
  * 
+ * This is the coach view.
+ * 
  * Initial date: 07.02.2014<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
@@ -115,7 +119,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	private final OLATResourceable courseOres;
 	private final CheckListCourseNode courseNode;
 	private final ModuleConfiguration config;
-	private final UserCourseEnvironment userCourseEnv;
+	private final UserCourseEnvironment coachCourseEnv;
 	private final boolean isAdministrativeUser;
 	private final List<UserPropertyHandler> userPropertyHandlers;
 
@@ -143,7 +147,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	 * @param wControl
 	 * @param courseNode
 	 */
-	public CheckListAssessmentController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
+	public CheckListAssessmentController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment coachCourseEnv,
 			OLATResourceable courseOres, CheckListCourseNode courseNode) {
 		super(ureq, wControl, "assessment_list");
 
@@ -158,7 +162,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 		
 		this.courseOres = courseOres;
 		this.courseNode = courseNode;
-		this.userCourseEnv = userCourseEnv;
+		this.coachCourseEnv = coachCourseEnv;
 		config = courseNode.getModuleConfiguration();
 		CheckboxList configCheckboxList = (CheckboxList)config.get(CheckListCourseNode.CONFIG_KEY_CHECKBOX);
 		if(configCheckboxList == null) {
@@ -184,12 +188,13 @@ public class CheckListAssessmentController extends FormBasicController implement
 		maxScore = (Float)config.get(MSCourseNode.CONFIG_KEY_SCORE_MAX);
 
 		initForm(ureq);
+		reloadTable();
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("coach.desc");
-		setFormContextHelp("org.olat.course.nodes.cl.ui", "cl-coach-assessment.html", "help.hover.coach.assessment");
+		setFormContextHelp("Assessment#_checklist_manage");
 
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
@@ -197,10 +202,13 @@ public class CheckListAssessmentController extends FormBasicController implement
 				layoutCont.contextPut("dueDate", dueDate);
 			}
 		}
-		
+
+		FlexiTableSortOptions options = new FlexiTableSortOptions();
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(isAdministrativeUser) {
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.username.i18nKey(), Cols.username.ordinal()));
+			options.setDefaultOrderBy(new SortKey(Cols.username.name(), true));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.username.i18nKey(), Cols.username.ordinal(),
+					true, Cols.username.name()));
 		}
 		
 		int i=0;
@@ -214,13 +222,16 @@ public class CheckListAssessmentController extends FormBasicController implement
 				FlexiColumnModel col;
 				if(UserConstants.FIRSTNAME.equals(propName)
 						|| UserConstants.LASTNAME.equals(propName)) {
-					col = new StaticFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
+					col = new DefaultFlexiColumnModel(userPropertyHandler.i18nColumnDescriptorLabelKey(),
 							colIndex, userPropertyHandler.getName(), true, propName,
 							new StaticFlexiCellRenderer(userPropertyHandler.getName(), new TextFlexiCellRenderer()));
 				} else {
 					col = new DefaultFlexiColumnModel(true, userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex, true, propName);
 				}
 				columnsModel.addFlexiColumnModel(col);
+				if(options.getDefaultOrderBy() == null) {
+					options.setDefaultOrderBy(new SortKey(propName, true));
+				}
 			}
 		}
 		
@@ -238,13 +249,16 @@ public class CheckListAssessmentController extends FormBasicController implement
 		if(withScore) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.totalPoints.i18nKey(), Cols.totalPoints.ordinal(), true, "points"));
 		}
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.edit.checkbox", translate("table.header.edit.checkbox"), "edit"));
+		if(coachCourseEnv.isCourseReadOnly()) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.view.checkbox", translate("table.header.view.checkbox"), "view"));
+		} else {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.edit.checkbox", translate("table.header.edit.checkbox"), "edit"));
+		}
 
-		List<CheckListAssessmentRow> datas = loadDatas();
-		model = new CheckListAssessmentDataModel(checkboxList, datas, columnsModel);
+		model = new CheckListAssessmentDataModel(checkboxList, new ArrayList<>(), columnsModel, getLocale());
 		table = uifactory.addTableElement(getWindowControl(), "checkbox-list", model, getTranslator(), formLayout);
-		if(userCourseEnv instanceof UserCourseEnvironmentImpl) {
-			UserCourseEnvironmentImpl env = (UserCourseEnvironmentImpl)userCourseEnv;
+		if(coachCourseEnv instanceof UserCourseEnvironmentImpl) {
+			UserCourseEnvironmentImpl env = (UserCourseEnvironmentImpl)coachCourseEnv;
 			List<BusinessGroup> coachedGroups = env.getCoachedGroups();
 			List<FlexiTableFilter> filters = new ArrayList<>(coachedGroups.size() + 1);
 			filters.add(new FlexiTableFilter(translate("filter.all"), "all"));
@@ -253,10 +267,12 @@ public class CheckListAssessmentController extends FormBasicController implement
 				String groupName = StringHelper.escapeHtml(group.getName());
 				filters.add(new FlexiTableFilter(groupName, group.getKey().toString()));
 			}
-			table.setFilters("participants", filters);
+			table.setFilters("participants", filters, false);
 		}
 		table.setExportEnabled(true);
 		table.setCustomizeColumns(true);
+		FlexiTableSortOptions sortOptions = new FlexiTableSortOptions();
+		table.setSortSettings(sortOptions);
 		table.setAndLoadPersistedPreferences(ureq, "checklist-assessment");
 		
 		pdfExportButton = uifactory.addFormLink("pdf.export", formLayout, Link.BUTTON);
@@ -266,6 +282,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 		
 		editButton = uifactory.addFormLink("edit", formLayout, Link.BUTTON);
 		editButton.setEnabled(numOfCheckbox > 0);
+		editButton.setVisible(!coachCourseEnv.isCourseReadOnly());
 		saveButton = uifactory.addFormSubmitButton("save", formLayout);
 		saveButton.getComponent().setSpanAsDomReplaceable(true);
 		saveButton.setVisible(false);
@@ -273,14 +290,15 @@ public class CheckListAssessmentController extends FormBasicController implement
 		cancelButton.setVisible(false);
 		boxAssessmentButton = uifactory.addFormLink("box.assessment", formLayout, Link.BUTTON);
 		boxAssessmentButton.setEnabled(numOfCheckbox > 0);
+		boxAssessmentButton.setVisible(!coachCourseEnv.isCourseReadOnly());
 	}
 	
 	private List<CheckListAssessmentRow> loadDatas() {
-		if(!(userCourseEnv instanceof UserCourseEnvironmentImpl)) {
+		if(!(coachCourseEnv instanceof UserCourseEnvironmentImpl)) {
 			return Collections.emptyList();
 		}
 
-		UserCourseEnvironmentImpl env = (UserCourseEnvironmentImpl)userCourseEnv;
+		UserCourseEnvironmentImpl env = (UserCourseEnvironmentImpl)coachCourseEnv;
 		List<Checkbox> checkboxColl = checkboxList.getList();
 		int numOfCheckbox = checkboxList.getNumOfCheckbox();
 		
@@ -300,7 +318,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 		}
 
 		List<BusinessGroup> coachedGroups = courseAdmin ?
-				userCourseEnv.getCourseEnvironment().getCourseGroupManager().getAllBusinessGroups()
+				coachCourseEnv.getCourseEnvironment().getCourseGroupManager().getAllBusinessGroups()
 				: env.getCoachedGroups();
 		List<AssessmentData> dataList = checkboxManager.getAssessmentDatas(courseOres, courseNode.getIdent(), courseTutor || courseAdmin ? re : null, coachedGroups);
 		List<CheckListAssessmentRow> boxList = getAssessmentDataViews(dataList, checkboxColl);
@@ -388,7 +406,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	protected void formOK(UserRequest ureq) {
 		saveButton.setVisible(false);
 		cancelButton.setVisible(false);
-		editButton.setVisible(true);
+		editButton.setVisible(!coachCourseEnv.isCourseReadOnly());
 		doSave();
 	}
 	
@@ -396,7 +414,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	protected void formCancelled(UserRequest ureq) {
 		saveButton.setVisible(false);
 		cancelButton.setVisible(false);
-		editButton.setVisible(true);
+		editButton.setVisible(!coachCourseEnv.isCourseReadOnly());
 		doDisableEditingMode();
 	}
 
@@ -406,7 +424,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
 				String cmd = se.getCommand();
-				if("edit".equals(cmd)) {
+				if("edit".equals(cmd) || "view".equals(cmd)) {
 					CheckListAssessmentRow row = model.getObject(se.getIndex());
 					doOpenEdit(ureq, row);
 				} else if(UserConstants.FIRSTNAME.equals(cmd) || UserConstants.LASTNAME.equals(cmd)) {
@@ -428,7 +446,13 @@ public class CheckListAssessmentController extends FormBasicController implement
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
-	
+
+	@Override
+	protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent event) {
+		if(!(fiSrc instanceof MultipleSelectionElement)) {
+			super.propagateDirtinessToContainer(fiSrc, event);
+		}
+	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
@@ -481,7 +505,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 
 		List<CheckListAssessmentRow> rows = model.getObjects();
 		boxAssessmentCtrl = new CheckboxAssessmentController(ureq, getWindowControl(), checkboxList, rows,
-				courseOres, userCourseEnv, courseNode);
+				courseOres, courseNode);
 		listenTo(boxAssessmentCtrl);
 
 		String title = translate("box.assessment");
@@ -505,8 +529,10 @@ public class CheckListAssessmentController extends FormBasicController implement
 				for(int i=0; i<numOfCheckbox; i++) {
 					String checkName = "c" + i + "-" + row.getIdentityKey();
 					checkedEls[i] = uifactory.addCheckboxesHorizontal(checkName, null, flc, onKeys, onValues);
-					if(checked != null && i<checked.length && checked[i] != null) {
-						checkedEls[i].select(onKeys[0], checked[i].booleanValue());
+					checkedEls[i].setAjaxOnly(true);
+					checkedEls[i].setDomReplacementWrapperRequired(false);
+					if(checked != null && i<checked.length && checked[i] != null && checked[i].booleanValue()) {
+						checkedEls[i].select(onKeys[0], true);
 					}
 				}
 				row.setCheckedEl(checkedEls);
@@ -517,7 +543,7 @@ public class CheckListAssessmentController extends FormBasicController implement
 	
 	private void doSave() {
 		int numOfCheckbox = checkboxList.getNumOfCheckbox();
-		List<CheckListAssessmentRow> rows = model.getObjects();
+		List<CheckListAssessmentRow> rows = model.getBackedUpRows();//save all rows
 		List<AssessmentBatch> batchElements = new ArrayList<>(rows.size());
 		Set<Long> assessedIdentityToUpdate = new HashSet<>();
 		for(CheckListAssessmentRow row:rows) {
@@ -557,9 +583,11 @@ public class CheckListAssessmentController extends FormBasicController implement
 		if(assessedIdentityToUpdate.size() > 0) {
 			DBFactory.getInstance().commit();
 			
-			List<Identity> identities = securityManager.loadIdentityByKeys(assessedIdentityToUpdate);
-			for(Identity identity:identities) {
-				courseNode.updateScoreEvaluation(userCourseEnv, identity);
+			ICourse course = CourseFactory.loadCourse(courseOres);
+			List<Identity> assessedIdentities = securityManager.loadIdentityByKeys(assessedIdentityToUpdate);
+			for(Identity assessedIdentity:assessedIdentities) {
+				UserCourseEnvironment assessedUserCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+				courseNode.updateScoreEvaluation(getIdentity(), assessedUserCourseEnv, assessedIdentity);
 			}
 		}
 		
@@ -623,9 +651,11 @@ public class CheckListAssessmentController extends FormBasicController implement
 	private void doOpenEdit(UserRequest ureq, CheckListAssessmentRow row) {
 		if(editCtrl != null) return;
 		
+		ICourse course = CourseFactory.loadCourse(courseOres);
 		Identity assessedIdentity = securityManager.loadIdentityByKey(row.getIdentityKey());
+		UserCourseEnvironment assessedUserCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
 		editCtrl = new AssessedIdentityOverviewController(ureq, getWindowControl(), assessedIdentity,
-				courseOres, userCourseEnv, courseNode);
+				courseOres, coachCourseEnv, assessedUserCourseEnv, courseNode);
 		listenTo(editCtrl);
 
 		String title = courseNode.getShortTitle();

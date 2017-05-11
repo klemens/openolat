@@ -35,7 +35,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
-import org.olat.user.UserManager;
 import org.quartz.CronTrigger;
 import org.quartz.JobDetail;
 import org.quartz.Scheduler;
@@ -57,6 +56,8 @@ import org.springframework.stereotype.Service;
 @Service("org.olat.ldap.LDAPLoginModule")
 public class LDAPLoginModule extends AbstractSpringModule {
 	// Connection configuration
+	
+	public static final long WARNING_LIMIT = 15 *1000 * 1000 * 1000;
 	
 	@Value("${ldap.ldapUrl}")
 	private String ldapUrl;
@@ -127,6 +128,10 @@ public class LDAPLoginModule extends AbstractSpringModule {
 	// Propagate the password changes onto the LDAP server
 	@Value("${ldap.propagatePasswordChangedOnLdapServer}")
 	private boolean propagatePasswordChangedOnLdapServer;
+	@Value("${ldap.resetLockTimoutOnPasswordChange}")
+	private boolean resetLockTimoutOnPasswordChange;
+	@Value("${ldap.changePasswordUrl}")
+	private String changePasswordUrl;
 	// Configuration for syncing user attributes
 
 	
@@ -150,10 +155,6 @@ public class LDAPLoginModule extends AbstractSpringModule {
 	private Scheduler scheduler;
 	@Autowired
 	private BaseSecurity securityManager;
-	@Autowired
-	private LDAPLoginManager ldapManager;
-	@Autowired
-	private UserManager userManager;
 	
 	@Autowired
 	public LDAPLoginModule(CoordinatorManager coordinatorManager) {
@@ -243,22 +244,6 @@ public class LDAPLoginModule extends AbstractSpringModule {
 				log.warn("Server Certificate will expire in less than 30 days.");
 			}
 		}
-		
-		// Check ldap connection
-		if (ldapManager.bindSystem() == null) {
-			// don't disable ldap, maybe just a temporary problem, but still report
-			// problem in logfile
-			log.error("LDAP connection test failed during module initialization, edit config or contact network administrator");
-		} else {
-			log.info("LDAP login is enabled");
-		}
-		
-		// Sync LDAP Users on Startup
-		if (isLdapSyncOnStartup()) {
-			initStartSyncJob();
-		} else {
-			log.info("LDAP start sync is disabled");
-		}
 
 		// Start LDAP cron sync job
 		if (isLdapSyncCronSync()) {
@@ -274,19 +259,6 @@ public class LDAPLoginModule extends AbstractSpringModule {
 	@Override
 	protected void initFromChangedProperties() {
 		//
-	}
-
-	/**
-	 * Internal helper to sync users right away
-	 * @param ldapManager
-	 */
-	private void initStartSyncJob() {
-		LDAPError errors = new LDAPError();
-		if (ldapManager.doBatchSync(errors, true)) {
-			log.info("LDAP start sync: users synced");
-		} else {
-			log.warn("LDAP start sync error: " + errors.get());
-		}
 	}
 
 	/**
@@ -473,6 +445,10 @@ public class LDAPLoginModule extends AbstractSpringModule {
 		this.propagatePasswordChangedOnLdapServer = propagatePasswordChangedOnServer;
 	}
 
+	public void setResetLockTimoutOnPasswordChange(boolean resetLockTimoutOnPasswordChange) {
+		this.resetLockTimoutOnPasswordChange = resetLockTimoutOnPasswordChange;
+	}
+
 	public boolean isLDAPEnabled() {
 		return ldapEnabled;
 	}
@@ -538,5 +514,13 @@ public class LDAPLoginModule extends AbstractSpringModule {
 
 	public boolean isPropagatePasswordChangedOnLdapServer(){
 		return propagatePasswordChangedOnLdapServer;
+	}
+
+	public boolean isResetLockTimoutOnPasswordChange() {
+		return resetLockTimoutOnPasswordChange;
+	}
+
+	public String getChangePasswordUrl() {
+		return changePasswordUrl;
 	}
 }

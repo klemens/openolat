@@ -37,7 +37,6 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.commons.io.IOUtils;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
@@ -63,6 +62,7 @@ import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.ZipUtil;
+import org.olat.core.util.io.ShieldOutputStream;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.ICourse;
@@ -90,10 +90,13 @@ import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.properties.PersistingCoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.AssessmentToolOptions;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
@@ -105,7 +108,7 @@ import org.olat.resource.OLATResource;
  * 	 @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 
-public class TACourseNode extends GenericCourseNode implements AssessableCourseNode {
+public class TACourseNode extends GenericCourseNode implements PersistentAssessableCourseNode {
 	private static final long serialVersionUID = -7266553843441305310L;
 
 	private static final String PACKAGE_TA = Util.getPackageName(TACourseNodeRunController.class);
@@ -480,24 +483,27 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 		this.conditionSolution = conditionSolution;
 	}
 	
-	// //////////// assessable interface implementation
-
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnvironment) {
-		// read score from properties
-		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		Boolean passed = null;
-		Float score = null;
-		// only db lookup if configured, else return null
-		if (hasPassedConfigured()) passed = am.getNodePassed(this, mySelf);
-		if (hasScoreConfigured()) score = am.getNodeScore(this, mySelf);
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+		if(hasPassedConfigured() || hasScoreConfigured()) {
+			return getUserScoreEvaluation(getUserAssessmentEntry(userCourseEnv));
+		}
+		return AssessmentEvaluation.EMPTY_EVAL;
+	}
+	
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(AssessmentEntry entry) {
+		return AssessmentEvaluation.toAssessmentEvalutation(entry, this);
+	}
 
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+	@Override
+	public AssessmentEntry getUserAssessmentEntry(UserCourseEnvironment userCourseEnv) {
+		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
+		return am.getAssessmentEntry(this, mySelf);
 	}
 
 	/**
@@ -545,6 +551,12 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 				return score.booleanValue();
 			}
 		}
+		return false;
+	}
+	
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
 		return false;
 	}
 
@@ -647,11 +659,12 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.core.id.Identity)
 	 */
 	@Override
-	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
+	public void updateUserScoreEvaluation(ScoreEvaluation scoreEval, UserCourseEnvironment userCourseEnvironment,
 			Identity coachingIdentity, boolean incrementAttempts) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation.getScore(), scoreEvaluation.getPassed()), userCourseEnvironment, incrementAttempts);		
+		ScoreEvaluation newScoreEval = new ScoreEvaluation(scoreEval.getScore(), scoreEval.getPassed(), scoreEval.getAssessmentStatus(), scoreEval.getUserVisible(), null, null);
+		am.saveScoreEvaluation(this, coachingIdentity, mySelf, newScoreEval, userCourseEnvironment, incrementAttempts);		
 	}
 
 	/**
@@ -718,9 +731,10 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv) {
 		// prepare file component
-		return new DropboxScoringViewController(ureq, wControl, this, userCourseEnvironment);
+		return new DropboxScoringViewController(ureq, wControl, this, assessedUserCourseEnv);
 	}
 
 	/**
@@ -728,9 +742,12 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 	 */
 	@Override
 	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
-			CourseEnvironment courseEnv, AssessmentToolOptions options) {
+			UserCourseEnvironment coachCourseEnv, AssessmentToolOptions options) {
 		List<Controller> tools = new ArrayList<Controller>(1);
-		tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
+		CourseEnvironment courseEnv = coachCourseEnv.getCourseEnvironment();
+		if(!coachCourseEnv.isCourseReadOnly()) {
+			tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
+		}
 		tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
 		return tools;
 	}
@@ -844,13 +861,13 @@ public class TACourseNode extends GenericCourseNode implements AssessableCourseN
 			}
 			
 			String courseTitle = course.getCourseTitle();
-			String fileName = ExportUtil.createFileNameWithTimeStamp(courseTitle, "xls");
+			String fileName = ExportUtil.createFileNameWithTimeStamp(courseTitle, "xlsx");
 			List<AssessableCourseNode> nodes = Collections.<AssessableCourseNode>singletonList(this);
-			String s = ScoreAccountingHelper.createCourseResultsOverviewTable(users, nodes, course, locale);
 			// write course results overview table to filesystem
 			try {
 				exportStream.putNextEntry(new ZipEntry(dirName + "/" + fileName));
-				IOUtils.write(s, exportStream);
+				ScoreAccountingHelper.createCourseResultsOverviewXMLTable(users, nodes, course, locale,
+						new ShieldOutputStream(exportStream));
 				exportStream.closeEntry();
 			} catch (IOException e) {
 				log.error("", e);

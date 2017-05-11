@@ -25,15 +25,14 @@
 
 package org.olat.course.run.userview;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.olat.basesecurity.Group;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.IdentityEnvironment;
-import org.olat.course.assessment.EfficiencyStatementManager;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
@@ -42,9 +41,7 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.group.BusinessGroup;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryLifecycle;
-import org.olat.resource.OLATResource;
 
 /**
  * Initial Date:  Feb 6, 2004
@@ -52,8 +49,8 @@ import org.olat.resource.OLATResource;
  *
  */
 public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
-	private IdentityEnvironment identityEnvironment;
-	private CourseEnvironment courseEnvironment;
+	private final IdentityEnvironment identityEnvironment;
+	private final CourseEnvironment courseEnvironment;
 	private ConditionInterpreter conditionInterpreter;
 	private ScoreAccounting scoreAccounting;
 	private RepositoryEntryLifecycle lifecycle;
@@ -62,19 +59,28 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	private List<BusinessGroup> participatingGroups;
 	private List<BusinessGroup> waitingLists;
 	
-	private Boolean coach;
-	private Boolean admin;
-	private Boolean participant;
+	private final WindowControl windowControl;
+	
+	private Boolean admin, coach, participant;
+	private Boolean adminAnyCourse, coachAnyCourse, participantAnyCourse;
 	
 	private Boolean certification;
+	private Boolean courseReadOnly;
 	
 	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment) {
-		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null);
+		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null, null, null);
+		if(courseEnvironment != null) {
+			courseReadOnly = courseEnvironment.getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isClosed();
+		}
 	}
 	
-	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment,
+	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment, Boolean courseReadOnly) {
+		this(identityEnvironment, courseEnvironment, null, null, null, null, null, null, null, courseReadOnly);
+	}
+	
+	public UserCourseEnvironmentImpl(IdentityEnvironment identityEnvironment, CourseEnvironment courseEnvironment, WindowControl windowControl,
 			List<BusinessGroup> coachedGroups, List<BusinessGroup> participatingGroups, List<BusinessGroup> waitingLists,
-			Boolean coach, Boolean admin, Boolean participant) {
+			Boolean coach, Boolean admin, Boolean participant, Boolean courseReadOnly) {
 		this.courseEnvironment = courseEnvironment;
 		this.identityEnvironment = identityEnvironment;
 		this.scoreAccounting = new ScoreAccounting(this);
@@ -85,6 +91,8 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 		this.coach = coach;
 		this.admin = admin;
 		this.participant = participant;
+		this.windowControl = windowControl;
+		this.courseReadOnly = courseReadOnly;
 	}
 
 	/**
@@ -98,6 +106,11 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	@Override
 	public IdentityEnvironment getIdentityEnvironment() {
 		return identityEnvironment;
+	}
+
+	@Override
+	public WindowControl getWindowControl() {
+		return windowControl;
 	}
 
 	@Override
@@ -163,6 +176,44 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	}
 
 	@Override
+	public boolean isAdminOfAnyCourse() {
+		if(adminAnyCourse != null) {
+			return adminAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean adminLazy = identityEnvironment.getRoles().isOLATAdmin()
+				|| identityEnvironment.getRoles().isInstitutionalResourceManager()
+				|| cgm.isIdentityAnyCourseAdministrator(identityEnvironment.getIdentity());
+		adminAnyCourse = new Boolean(adminLazy);
+		return adminLazy;
+	}
+
+	@Override
+	public boolean isCoachOfAnyCourse() {
+		if(coachAnyCourse != null) {
+			return coachAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean coachLazy = cgm.isIdentityAnyCourseCoach(identityEnvironment.getIdentity());
+		coachAnyCourse = new Boolean(coachLazy);
+		return coachLazy;
+	}
+
+	@Override
+	public boolean isParticipantOfAnyCourse() {
+		if(participantAnyCourse != null) {
+			return participantAnyCourse.booleanValue();
+		}
+
+		CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
+		boolean participantLazy = cgm.isIdentityAnyCourseParticipant(identityEnvironment.getIdentity());
+		participantAnyCourse = new Boolean(participantLazy);
+		return participantLazy;
+	}
+
+	@Override
 	public RepositoryEntryLifecycle getLifecycle() {
 		if(lifecycle == null) {
 			RepositoryEntry re = getCourseRepositoryEntry();
@@ -175,31 +226,9 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 
 	public RepositoryEntry getCourseRepositoryEntry() {
 		if(courseRepoEntry == null) {
-			CourseGroupManager cgm = courseEnvironment.getCourseGroupManager();
-			OLATResource courseResource = cgm.getCourseResource();
-			courseRepoEntry = RepositoryManager.getInstance().lookupRepositoryEntry(courseResource, false);
+			courseRepoEntry = courseEnvironment.getCourseGroupManager().getCourseEntry();
 		}
 		return courseRepoEntry;
-	}
-	
-	public List<Group> getCoachedBaseGroups(boolean withRepo, boolean withBusinessGroups) {
-		List<Group> groups;
-		if(isCoach()) {
-			boolean repoCoach = false;
-			groups = new ArrayList<Group>();
-			if(withBusinessGroups && sizeCoachedGroups() > 0) {
-				for(BusinessGroup businessGroup: getCoachedGroups()) {
-					groups.add(businessGroup.getBaseGroup());
-				}
-			}
-			
-			if(withRepo && repoCoach) {
-				//TODO groups 
-			}
-		} else {
-			groups = Collections.emptyList();
-		}
-		return groups;
 	}
 	
 	public int sizeCoachedGroups() {
@@ -228,6 +257,15 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 	}
 	
 	@Override
+	public boolean isCourseReadOnly() {
+		return courseReadOnly == null ? false : courseReadOnly.booleanValue();
+	}
+	
+	public void setCourseReadOnly(Boolean courseReadOnly) {
+		this.courseReadOnly = courseReadOnly;
+	}
+	
+	@Override
 	public boolean hasEfficiencyStatementOrCertificate(boolean update) {
 		if(certification == null || update) {
 			EfficiencyStatementManager efficiencyStatementManager = CoreSpringFactory.getImpl(EfficiencyStatementManager.class);
@@ -251,9 +289,9 @@ public class UserCourseEnvironmentImpl implements UserCourseEnvironment {
 		this.waitingLists = waitingLists;
 	}
 	
-	public void setUserRoles(boolean admin, boolean coach) {
+	public void setUserRoles(boolean admin, boolean coach, boolean participant) {
 		this.admin = new Boolean(admin);
 		this.coach = new Boolean(coach);
-		this.participant = null;//reset it
+		this.participant = new Boolean(participant);
 	}
 }

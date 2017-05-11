@@ -29,7 +29,6 @@ import org.olat.admin.user.tools.UserToolExtension;
 import org.olat.admin.user.tools.UserToolsModule;
 import org.olat.core.commons.fullWebApp.LockableController;
 import org.olat.core.dispatcher.DispatcherModule;
-import org.olat.core.extensions.ExtManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -40,14 +39,11 @@ import org.olat.core.gui.control.Disposable;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.prefs.Preferences;
 import org.olat.user.DisplayPortraitController;
-import org.olat.user.DisplayPortraitManager;
-import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -63,13 +59,7 @@ public class OlatTopNavController extends BasicController implements LockableCon
 	private List<Disposable> disposableTools = new ArrayList<>();
 
 	@Autowired
-	private ExtManager extManager;
-	@Autowired
-	private UserManager userManager;
-	@Autowired
 	private UserToolsModule userToolsModule;
-	@Autowired
-	private DisplayPortraitManager portraitManager;
 	
 	public OlatTopNavController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
@@ -111,12 +101,12 @@ public class OlatTopNavController extends BasicController implements LockableCon
 	}
 	
 	@Override
-	public void lockResource(OLATResourceable resource) {
+	public void lock() {
 		topNavVC.contextPut("locked", Boolean.TRUE);
 	}
 	
 	@Override
-	public void unlockResource() {
+	public void unlock() {
 		topNavVC.contextPut("locked", Boolean.FALSE);
 	}
 
@@ -152,10 +142,9 @@ public class OlatTopNavController extends BasicController implements LockableCon
 		List<UserToolExtension> toolExtensions = userToolsModule.getUserToolExtensions(ureq);
 		for (UserToolExtension toolExtension : toolExtensions) {
 			// check for sites
-			UserTool tool = toolExtension.createUserTool(ureq, getWindowControl(), getLocale());
-			if(tool != null) {
-				boolean shortCutOnly = toolExtension.isShortCutOnly();
-				if(shortCutOnly || selectedToolSet.contains(toolExtension.getUniqueExtensionID())) {
+			if(toolExtension.isShortCutOnly() || selectedToolSet.contains(toolExtension.getUniqueExtensionID())) {
+				UserTool tool = toolExtension.createUserTool(ureq, getWindowControl(), getLocale());
+				if(tool != null) {
 					Component cmp = tool.getMenuComponent(ureq, topNavVC);
 					String cssId = toolExtension.getShortCutCssId();
 					String cssClass = toolExtension.getShortCutCssClass();

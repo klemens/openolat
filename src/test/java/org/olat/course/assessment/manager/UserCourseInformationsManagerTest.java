@@ -36,6 +36,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.UserCourseInformations;
+import org.olat.resource.OLATResource;
 import org.olat.restapi.repository.course.CoursesWebService;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
@@ -62,10 +63,11 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		ICourse course = CoursesWebService.createEmptyCourse(user, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		dbInstance.commitAndCloseSession();
 		
-		UserCourseInformations infos = userCourseInformationsManager.getUserCourseInformations(course.getResourceableId(), user);
+		UserCourseInformations infos = userCourseInformationsManager.getUserCourseInformations(courseResource, user);
 		Assert.assertNotNull(infos);
 		Assert.assertNotNull(infos.getIdentity());
 		Assert.assertNotNull(infos.getResource());
@@ -83,16 +85,46 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		Identity user = JunitTestHelper.createAndPersistIdentityAsUser("user-launch-1-" + UUID.randomUUID().toString());
 		ICourse course = CoursesWebService.createEmptyCourse(user, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
-		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		dbInstance.commitAndCloseSession();
 		
-		UserCourseInformations infos = userCourseInformationsManager.getUserCourseInformations(course.getResourceableId(), user);
+		UserCourseInformations infos = userCourseInformationsManager.getUserCourseInformations(courseResource, user);
 		Assert.assertNotNull(infos);
 		Assert.assertNotNull(infos.getIdentity());
+		Assert.assertEquals(2, infos.getVisit());
+	}
+	
+	/**
+	 * Check the low level update statement, it's the critical part of the
+	 * method which update the user course informations.
+	 */
+	@Test
+	public void createUpdateCourseInfos_updateToo_implementationDetails() {
+		Identity user = JunitTestHelper.createAndPersistIdentityAsUser("user-launch-1-" + UUID.randomUUID().toString());
+		ICourse course = CoursesWebService.createEmptyCourse(user, "course-launch-dates", "course long name", null);
+		dbInstance.commitAndCloseSession();
+
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
+		dbInstance.commitAndCloseSession();
+		
+		int updated1 = ((UserCourseInformationsManagerImpl)userCourseInformationsManager).lowLevelUpdate(courseResource, user);
+		dbInstance.commitAndCloseSession();
+		Assert.assertEquals(1, updated1);
+		
+		int updated2 = ((UserCourseInformationsManagerImpl)userCourseInformationsManager).lowLevelUpdate(courseResource, user);
+		dbInstance.commitAndCloseSession();
+		Assert.assertEquals(1, updated2);
+		
+		UserCourseInformations infos = userCourseInformationsManager.getUserCourseInformations(courseResource, user);
+		Assert.assertNotNull(infos);
+		Assert.assertNotNull(infos.getIdentity());
+		Assert.assertEquals(3, infos.getVisit());
 	}
 	
 	@Test
@@ -101,10 +133,11 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		ICourse course = CoursesWebService.createEmptyCourse(user, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		dbInstance.commitAndCloseSession();
 		
-		Date launchDate = userCourseInformationsManager.getRecentLaunchDate(course.getResourceableId(), user);
+		Date launchDate = userCourseInformationsManager.getRecentLaunchDate(courseResource, user);
 		Assert.assertNotNull(launchDate);
 	}
 	
@@ -114,10 +147,11 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		ICourse course = CoursesWebService.createEmptyCourse(user, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		dbInstance.commitAndCloseSession();
 		
-		Date launchDate = userCourseInformationsManager.getInitialLaunchDate(course.getResourceableId(), user);
+		Date launchDate = userCourseInformationsManager.getInitialLaunchDate(courseResource, user);
 		Assert.assertNotNull(launchDate);
 	}
 	
@@ -128,15 +162,16 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		ICourse course = CoursesWebService.createEmptyCourse(user1, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user1, true);
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user2, true);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user1);
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user2);
 		dbInstance.commitAndCloseSession();
 		
 		List<Identity> users = new ArrayList<Identity>();
 		users.add(user1);
 		users.add(user2);
 
-		Map<Long,Date> launchDates = userCourseInformationsManager.getInitialLaunchDates(course.getResourceableId(), users);
+		Map<Long,Date> launchDates = userCourseInformationsManager.getInitialLaunchDates(courseResource, users);
 		Assert.assertNotNull(launchDates);
 		Assert.assertEquals(2, launchDates.size());
 		Assert.assertTrue(launchDates.containsKey(user1.getKey()));
@@ -153,9 +188,10 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		ICourse course = CoursesWebService.createEmptyCourse(user1, "course-launch-dates", "course long name", null);
 		dbInstance.commitAndCloseSession();
 		
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user1, true);
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user2, true);
-		userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user3, true);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user1);
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user2);
+		userCourseInformationsManager.updateUserCourseInformations(courseResource, user3);
 		dbInstance.commitAndCloseSession();
 		
 		//get all launch dates
@@ -182,12 +218,14 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		for(int i=0; i<10; i++) {
-			userCourseInformationsManager.updateUserCourseInformations(course.getResourceableId(), user, true);
+			OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+			userCourseInformationsManager.updateUserCourseInformations(courseResource, user);
 		}
 		dbInstance.commitAndCloseSession();
 		
 		List<Identity> users = Collections.singletonList(user);
-		Map<Long,Date> launchDates = userCourseInformationsManager.getInitialLaunchDates(course.getResourceableId(), users);
+		OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+		Map<Long,Date> launchDates = userCourseInformationsManager.getInitialLaunchDates(courseResource, users);
 		Assert.assertNotNull(launchDates);
 		Assert.assertEquals(1, launchDates.size());
 		Assert.assertTrue(launchDates.containsKey(user.getKey()));
@@ -208,7 +246,8 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		CountDownLatch latch = new CountDownLatch(numThreads);
 		UpdateThread[] threads = new UpdateThread[numThreads];
 		for(int i=0; i<threads.length;i++) {
-			threads[i] = new UpdateThread(user, course.getResourceableId(), userCourseInformationsManager, latch, dbInstance);
+			OLATResource courseResource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();
+			threads[i] = new UpdateThread(user, courseResource, userCourseInformationsManager, latch, dbInstance);
 		}
 
 		for(int i=0; i<threads.length;i++) {
@@ -262,15 +301,15 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 		private final CountDownLatch latch;
 		private final UserCourseInformationsManager uciManager;
 		
-		private final Long courseResourceableId;
+		private final OLATResource courseResource;
 		private final Identity user;
 		
 		private int errors = 0;
 		
-		public UpdateThread(Identity user, Long courseResourceableId,
+		public UpdateThread(Identity user, OLATResource courseResource,
 				UserCourseInformationsManager uciManager, CountDownLatch latch, DB db) {
 			this.user = user;
-			this.courseResourceableId = courseResourceableId;
+			this.courseResource = courseResource;
 			this.uciManager = uciManager;
 			this.latch = latch;
 			this.db = db;
@@ -285,9 +324,9 @@ public class UserCourseInformationsManagerTest extends OlatTestCase {
 			try {
 				Thread.sleep(10);
 				for(int i=0; i<25;i++) {
-					uciManager.updateUserCourseInformations(courseResourceableId, user, true);
-					uciManager.getUserCourseInformations(courseResourceableId, user);
-					uciManager.updateUserCourseInformations(courseResourceableId, user, true);
+					uciManager.updateUserCourseInformations(courseResource, user);
+					uciManager.getUserCourseInformations(courseResource, user);
+					uciManager.updateUserCourseInformations(courseResource, user);
 					db.commitAndCloseSession();
 				}
 			} catch (Exception e) {

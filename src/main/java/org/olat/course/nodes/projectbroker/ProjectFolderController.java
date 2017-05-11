@@ -82,9 +82,9 @@ public class ProjectFolderController extends BasicController {
 		ProjectBrokerModuleConfiguration moduleConfig = new ProjectBrokerModuleConfiguration(config);
 		
 		content = createVelocityContainer("folder");
-		
-		if (   projectGroupManager.isProjectParticipant(ureq.getIdentity(), project)
-			  || projectGroupManager.isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project) ) {
+		boolean isProjectManagerOrAdministrator = projectGroupManager.isProjectManagerOrAdministrator(ureq, userCourseEnv.getCourseEnvironment(), project);
+		if (projectGroupManager.isProjectParticipant(ureq.getIdentity(), project)
+			  || isProjectManagerOrAdministrator ) {
 			content.contextPut("isParticipant", true);
 			readConfig(config);
 			if (!hasDropbox && !hasReturnbox ) {
@@ -92,7 +92,7 @@ public class ProjectFolderController extends BasicController {
 				content.contextPut("noFolder", Boolean.TRUE);
 			} else {
 				getLogger().debug("isDropboxAccessible(project, moduleConfig)=" + isDropboxAccessible(project, moduleConfig));
-				if (projectGroupManager.isProjectManager(ureq.getIdentity(), project)) {
+				if (isProjectManagerOrAdministrator) {
 					dropboxEditController = new ProjectBrokerDropboxScoringViewController(project, ureq, wControl, courseNode, userCourseEnv); 
 					content.put("dropboxController", dropboxEditController.getInitialComponent());
 					content.contextPut("hasDropbox", Boolean.TRUE);
@@ -108,7 +108,7 @@ public class ProjectFolderController extends BasicController {
 						}
 					}
 					if (hasReturnbox) {
-						if (!projectGroupManager.isProjectManager(ureq.getIdentity(), project)) {
+						if (!isProjectManagerOrAdministrator) {
 							returnboxController = new ProjectBrokerReturnboxController(ureq, wControl, courseNode, userCourseEnv, previewMode,project);
 							content.put("returnboxController", returnboxController.getInitialComponent());
 							content.contextPut("hasReturnbox", Boolean.TRUE);
@@ -154,6 +154,7 @@ public class ProjectFolderController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 	}
 	
@@ -161,6 +162,7 @@ public class ProjectFolderController extends BasicController {
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		if (dropboxController != null) {
 			dropboxController.dispose();

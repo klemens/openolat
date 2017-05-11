@@ -58,6 +58,7 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
+import org.olat.course.highscore.ui.HighScoreEditController;
 import org.olat.course.nodes.ScormCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
@@ -84,6 +85,7 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	public static final String PANE_TAB_CPCONFIG = "pane.tab.cpconfig";
 	private static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
 	private static final String PANE_TAB_DELIVERY = "pane.tab.delivery";
+	public static final String PANE_TAB_HIGHSCORE = "pane.tab.highscore";
 
 
 	private static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "reporef";
@@ -97,7 +99,6 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	public static final String CONFIG_CUTVALUE = "cutvalue";
 	
 	public static final String CONFIG_DELIVERY_OPTIONS = "deliveryOptions";
-	//fxdiff FXOLAT-116: SCORM improvements
 	public final static String CONFIG_FULLWINDOW = "fullwindow";
 	public final static String CONFIG_CLOSE_ON_FINISH = "CLOSEONFINISH";
 	
@@ -127,6 +128,7 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 	private ConditionEditController accessibilityCondContr;
 	private DeliveryOptionsConfigurationController deliveryOptionsCtrl;
 	private ScormCourseNode scormNode;
+	private HighScoreEditController highScoreNodeConfigController;
 
 	private TabbedPane myTabbedPane;
 
@@ -158,6 +160,9 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 		chooseCPButton.setElementCssClass("o_sel_scorm_choose_repofile");
 		changeCPButton = LinkFactory.createButtonSmall("command.changecp", cpConfigurationVc, this);
 		changeCPButton.setElementCssClass("o_sel_scorm_change_repofile");
+		
+		highScoreNodeConfigController = new HighScoreEditController(ureq, wControl, config);
+		listenTo(highScoreNodeConfigController);
 		
 		DeliveryOptions parentConfig = null;
 		if (config.get(CONFIG_KEY_REPOSITORY_SOFTKEY) != null) {
@@ -202,7 +207,6 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 		boolean advanceScore = config.getBooleanSafe(CONFIG_ADVANCESCORE, true);
 		// </OLATCE-289>
 		int cutvalue = config.getIntegerSafe(CONFIG_CUTVALUE, 0);
-		//fxdiff FXOLAT-116: SCORM improvements
 		boolean fullWindow = config.getBooleanSafe(CONFIG_FULLWINDOW, true);
 		boolean closeOnFinish = config.getBooleanSafe(CONFIG_CLOSE_ON_FINISH, false);
 		
@@ -215,13 +219,13 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 
 		// Accessibility precondition
 		Condition accessCondition = scormNode.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), 
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), euce, 
 				accessCondition,
-				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), scormNode), euce);		
+				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), scormNode));		
 		listenTo(accessibilityCondContr);
 
 		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(CONFIG_DELIVERY_OPTIONS);
-		deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), deliveryOptions, parentConfig);
+		deliveryOptionsCtrl = new DeliveryOptionsConfigurationController(ureq, getWindowControl(), deliveryOptions, "Knowledge Transfer#_scorm_layout" , parentConfig);
 		listenTo(deliveryOptionsCtrl);
 
 		main.setContent(cpConfigurationVc);
@@ -308,13 +312,11 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				//save form-values to config
 				
 				config.setBooleanEntry(CONFIG_SHOWMENU, scorevarform.isShowMenu());
-				//fxdiff FXOLAT-322
 				config.setBooleanEntry(CONFIG_SKIPLAUNCHPAGE, scorevarform.isSkipLaunchPage());
 				config.setBooleanEntry(CONFIG_SHOWNAVBUTTONS, scorevarform.isShowNavButtons());
 				config.setBooleanEntry(CONFIG_ISASSESSABLE, scorevarform.isAssessable());
 				config.setStringValue(CONFIG_ASSESSABLE_TYPE, scorevarform.getAssessableType());
 				config.setIntValue(CONFIG_CUTVALUE, scorevarform.getCutValue());
-				//fxdiff FXOLAT-116: SCORM improvements
 				config.setBooleanEntry(CONFIG_FULLWINDOW, scorevarform.isFullWindow());
 				config.setBooleanEntry(CONFIG_CLOSE_ON_FINISH, scorevarform.isCloseOnFinish());
 				// <OLATCE-289>
@@ -324,6 +326,7 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				// </OLATCE-289>
 				// fire event so the updated config is saved by the
 				// editormaincontroller
+				updateHighscoreTab();
 				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
 			}
 		} else if(source == deliveryOptionsCtrl) {
@@ -331,7 +334,16 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 				config.set(CONFIG_DELIVERY_OPTIONS, deliveryOptionsCtrl.getDeliveryOptions());
 				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
 			}
+		} else if (source == highScoreNodeConfigController){
+			if (event == Event.DONE_EVENT) {
+				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
+			}
 		}
+	}
+	
+	private void updateHighscoreTab() {
+		Boolean sf = scormNode.getModuleConfiguration().getBooleanSafe(CONFIG_ISASSESSABLE,true);
+		myTabbedPane.setEnabled(5, sf);
 	}
 
 	/**
@@ -342,6 +354,8 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 		tabbedPane.addTab(translate(PANE_TAB_ACCESSIBILITY), accessibilityCondContr.getWrappedDefaultAccessConditionVC(translate(NLS_CONDITION_ACCESSIBILITY_TITLE)));
 		tabbedPane.addTab(translate(PANE_TAB_CPCONFIG), main); // the choose learning content tab
 		tabbedPane.addTab(translate(PANE_TAB_DELIVERY), deliveryOptionsCtrl.getInitialComponent());
+		tabbedPane.addTab(translate(PANE_TAB_HIGHSCORE) , highScoreNodeConfigController.getInitialComponent());
+		updateHighscoreTab();
 	}
 
 	/**
@@ -408,17 +422,17 @@ public class ScormEditController extends ActivateableTabbableDefaultController i
 class VarForm extends FormBasicController {
 	private SelectionElement showMenuEl;
 	private SelectionElement showNavButtonsEl;
-	private SelectionElement fullWindowEl;//fxdiff FXOLAT-116: SCORM improvements
-	private SelectionElement closeOnFinishEl;//fxdiff FXOLAT-116: SCORM improvements
+	private SelectionElement fullWindowEl;
+	private SelectionElement closeOnFinishEl;
 	private SelectionElement isAssessableEl;
-	private SelectionElement skipLaunchPageEl; //fxdiff FXOLAT-322 : skip start-page / auto-launch
+	private SelectionElement skipLaunchPageEl;
 	private IntegerElement cutValueEl;
 	
 	private boolean showMenu, showNavButtons, skipLaunchPage;
 	private String assessableType;
 	private int cutValue;
-	private boolean fullWindow;//fxdiff FXOLAT-116: SCORM improvements
-	private boolean closeOnFinish;//fxdiff FXOLAT-116: SCORM improvements
+	private boolean fullWindow;
+	private boolean closeOnFinish;
 	private String[] assessableKeys, assessableValues;
 
 	// <OLATCE-289>
@@ -447,7 +461,6 @@ class VarForm extends FormBasicController {
 		this.showNavButtons = showNavButtons;
 		this.assessableType = assessableType;
 		this.cutValue = cutValue;
-		//fxdiff FXOLAT-116: SCORM improvements
 		this.fullWindow = fullWindow;
 		this.closeOnFinish = closeOnFinish;
 		
@@ -472,11 +485,11 @@ class VarForm extends FormBasicController {
 	public int getCutValue() {
 		return cutValueEl.getIntValue();
 	}
-	//fxdiff FXOLAT-116: SCORM improvements
+	
 	public boolean isFullWindow() {
 		return fullWindowEl.isMultiselect() && fullWindowEl.isSelected(0);
 	}
-	//fxdiff FXOLAT-116: SCORM improvements
+	
 	public boolean isCloseOnFinish() {
 		return closeOnFinishEl.isMultiselect() && closeOnFinishEl.isSelected(0);
 	}
@@ -508,8 +521,6 @@ class VarForm extends FormBasicController {
 		return null;
 	}
 	
-
-	
 	@Override
 	protected void formOK(UserRequest ureq) {
 		fireEvent (ureq, Event.DONE_EVENT);
@@ -518,15 +529,24 @@ class VarForm extends FormBasicController {
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
 		boolean allOk = true;
-
+		
+		cutValueEl.clearError();
+		if(cutValueEl.isVisible() && cutValueEl.isEnabled() && StringHelper.containsNonWhitespace(cutValueEl.getValue())) {
+			try {
+				Integer.parseInt(cutValueEl.getValue());
+			} catch (NumberFormatException e) {
+				cutValueEl.setErrorKey("cutvalue.validation", null);
+				allOk &= false;
+			}
+		}
+		
 		return allOk && super.validateFormLogic(ureq);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("headerform");
-		setFormContextHelp("org.olat.course.nodes.scorm","ced-scorm-settings.html","help.hover.scorm-settings-filename");
-		
+
 		showMenuEl = uifactory.addCheckboxesHorizontal("showmenu", "showmenu.label", formLayout, new String[]{"xx"}, new String[]{null});
 		showMenuEl.select("xx", showMenu);
 		
@@ -535,7 +555,6 @@ class VarForm extends FormBasicController {
 		
 		showNavButtonsEl = uifactory.addCheckboxesHorizontal("shownavbuttons", "shownavbuttons.label", formLayout, new String[]{"xx"}, new String[]{null});
 		showNavButtonsEl.select("xx", showNavButtons);
-		//fxdiff FXOLAT-116: SCORM improvements
 		fullWindowEl = uifactory.addCheckboxesHorizontal("fullwindow", "fullwindow.label", formLayout, new String[]{"fullwindow"}, new String[]{null});
 		fullWindowEl.select("fullwindow", fullWindow);
 		

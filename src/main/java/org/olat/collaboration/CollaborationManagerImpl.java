@@ -31,8 +31,7 @@ import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.model.KalendarConfig;
+import org.olat.commons.calendar.model.CalendarUserConfiguration;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
@@ -55,13 +54,16 @@ public class CollaborationManagerImpl extends BasicManager implements Collaborat
 	@Autowired
 	private DB dbInstance;
 	@Autowired
+	private CalendarManager calendarManager;
+	@Autowired
 	private BusinessGroupService businessGroupService;
-	
+
+	@Override
 	public String getFolderRelPath(OLATResourceable ores) {
 		return "/cts/folders/" + ores.getResourceableTypeName() + "/" + ores.getResourceableId();
 	}
 
-	//fxdiff VCRP-8: collaboration tools folder access control
+	@Override
 	public Long lookupFolderAccess(OLATResourceable ores) {
 		StringBuilder query = new StringBuilder();
 		query.append("select prop.longValue from ").append(Property.class.getName()).append(" as prop where ")
@@ -121,13 +123,11 @@ public class CollaborationManagerImpl extends BasicManager implements Collaborat
 
 	@Override
 	public KalendarRenderWrapper getCalendar(BusinessGroup businessGroup, UserRequest ureq, boolean isAdmin) {
-	
 		// do not use a global translator since in the fututre a collaborationtools
 		// may be shared among users
 
 		// get the calendar
-		CalendarManager calManager = CalendarManagerFactory.getInstance().getCalendarManager();
-		KalendarRenderWrapper calRenderWrapper = calManager.getGroupCalendar(businessGroup);
+		KalendarRenderWrapper calRenderWrapper = calendarManager.getGroupCalendar(businessGroup);
 		boolean isOwner = businessGroupService.hasRoles(ureq.getIdentity(), businessGroup, GroupRoles.coach.name());
 		if (!(isAdmin || isOwner)) {
 			// check if participants have read/write access
@@ -142,14 +142,10 @@ public class CollaborationManagerImpl extends BasicManager implements Collaborat
 		} else {
 			calRenderWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
 		}
-		KalendarConfig config = calManager.findKalendarConfigForIdentity(calRenderWrapper.getKalendar(), ureq);
+		CalendarUserConfiguration config = calendarManager.findCalendarConfigForIdentity(calRenderWrapper.getKalendar(), ureq.getIdentity());
 		if (config != null) {
-			calRenderWrapper.getKalendarConfig().setCss(config.getCss());
-			calRenderWrapper.getKalendarConfig().setVis(config.isVis());
+			calRenderWrapper.setConfiguration(config);
 		}
-		calRenderWrapper.getKalendarConfig().setResId(businessGroup.getKey());
 		return calRenderWrapper;
 	}
-	
-	
 }

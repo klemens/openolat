@@ -68,8 +68,8 @@ import org.olat.core.util.vfs.VFSContainerMapper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.CorruptedCourseException;
 import org.olat.course.assessment.AssessmentHelper;
-import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.course.assessment.UserEfficiencyStatement;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.run.RunMainController;
 import org.olat.group.BusinessGroup;
@@ -79,7 +79,6 @@ import org.olat.login.LoginModule;
 import org.olat.repository.CatalogEntry;
 import org.olat.repository.LeavingStatusList;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
@@ -89,13 +88,14 @@ import org.olat.repository.manager.CatalogManager;
 import org.olat.repository.model.RepositoryEntryStatistics;
 import org.olat.repository.ui.PriceMethod;
 import org.olat.repository.ui.RepositoyUIFactory;
+import org.olat.resource.OLATResource;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessControlModule;
 import org.olat.resource.accesscontrol.AccessResult;
+import org.olat.resource.accesscontrol.OfferAccess;
+import org.olat.resource.accesscontrol.Price;
 import org.olat.resource.accesscontrol.method.AccessMethodHandler;
 import org.olat.resource.accesscontrol.model.AccessMethod;
-import org.olat.resource.accesscontrol.model.OfferAccess;
-import org.olat.resource.accesscontrol.model.Price;
 import org.olat.resource.accesscontrol.ui.PriceFormat;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
@@ -120,6 +120,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	protected RepositoryEntry entry;
 	protected RepositoryEntryRow row;
 	private Integer index;
+	private final boolean inRuntime;
 
 	@Autowired
 	private LoginModule loginModule;
@@ -155,30 +156,25 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	private String baseUrl;
 	private final boolean guestOnly;
 	
-	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntryRow row) {
-		this(ureq, wControl);
+	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, RepositoryEntryRow row, boolean inRuntime) {
+		this(ureq, wControl, inRuntime);
 		this.row = row;
-		entry = repositoryService.loadByKey(row.getKey());
-		initForm(ureq);
-	}
-	
-	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntryRef ref) {
-		this(ureq, wControl);
-		entry = repositoryService.loadByKey(ref.getKey());
-		initForm(ureq);
-	}
-	
-	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry) {
-		this(ureq, wControl);
 		this.entry = entry;
 		initForm(ureq);
 	}
 	
-	private RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl) {
+	public RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, boolean inRuntime) {
+		this(ureq, wControl, inRuntime);
+		this.entry = entry;
+		initForm(ureq);
+	}
+	
+	private RepositoryEntryDetailsController(UserRequest ureq, WindowControl wControl, boolean inRuntime) {
 		super(ureq, wControl, Util.getPackageVelocityRoot(RepositoryEntryDetailsController.class) + "/details.html");
 		setTranslator(Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator()));
 		setTranslator(Util.createPackageTranslator(RestapiAdminController.class, getLocale(), getTranslator()));
 		guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
+		this.inRuntime = inRuntime;
 
 		OLATResourceable ores = OresHelper.createOLATResourceableType("MyCoursesSite");
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
@@ -211,8 +207,8 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			layoutCont.contextPut("guestOnly", new Boolean(guestOnly));
 			String cssClass = RepositoyUIFactory.getIconCssClass(entry);
 			layoutCont.contextPut("cssClass", cssClass);
-			layoutCont.contextPut("closed",
-					new Boolean(repositoryManager.createRepositoryEntryStatus(entry.getStatusCode()).isClosed()));
+			boolean closed = entry.getRepositoryEntryStatus().isClosed() || entry.getRepositoryEntryStatus().isUnpublished();
+			layoutCont.contextPut("closed", new Boolean(closed));
 			
 			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(entry);
 			VFSContainer mediaContainer = handler.getMediaContainer(entry);
@@ -232,14 +228,14 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				ImageComponent ic = new ImageComponent(ureq.getUserSession(), "thumbnail");
 				if(movie != null) {
 					ic.setMedia(movie);
-					ic.setMaxWithAndHeightToFitWithin(500, 300);
+					ic.setMaxWithAndHeightToFitWithin(RepositoryManager.PICTURE_WIDTH, RepositoryManager.PICTURE_HEIGHT);
 					// add poster image
 					if (image != null) {
 						ic.setPoster(image);
 					}
 				} else {
 					ic.setMedia(image);
-					ic.setMaxWithAndHeightToFitWithin(500, 300);
+					ic.setMaxWithAndHeightToFitWithin(RepositoryManager.PICTURE_WIDTH, RepositoryManager.PICTURE_HEIGHT);
 				}
 				layoutCont.put("thumbnail", ic);
 			}
@@ -313,8 +309,10 @@ public class RepositoryEntryDetailsController extends FormBasicController {
             Roles roles = ureq.getUserSession().getRoles();
 			layoutCont.contextPut("roles", roles);
 
-			if(memberRoles.contains(GroupRoles.participant.name()) && repositoryService.isParticipantAllowedToLeave(entry)) {
-				leaveLink = uifactory.addFormLink("sign.out", "leave", "sign.out", null, formLayout, Link.LINK);
+			if(!guestOnly && memberRoles.contains(GroupRoles.participant.name())
+					&& repositoryService.isParticipantAllowedToLeave(entry)) {
+				leaveLink = uifactory.addFormLink("sign.out", "leave", translate("sign.out"), null, formLayout, Link.BUTTON_SMALL + Link.NONTRANSLATED);
+				leaveLink.setElementCssClass("o_sign_out btn-danger");
 				leaveLink.setIconLeftCSS("o_icon o_icon_sign_out");
 			}
 
@@ -325,7 +323,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				// members only
 				if(isMember) {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setElementCssClass("o_start btn-block");
 					startLink.setIconRightCSS("o_icon o_icon_start o_icon-lg");
 					startLink.setPrimary(true);
@@ -336,7 +334,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 				AccessResult acResult = acService.isAccessible(entry, getIdentity(), isMember, false);
 				if(acResult.isAccessible()) {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setElementCssClass("o_start btn-block");
 				} else if (acResult.getAvailableMethods().size() > 0) {
 					for(OfferAccess access:acResult.getAvailableMethods()) {
@@ -350,7 +348,7 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 					}
 					String linkText = guestOnly ? translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName())) 
 							: translate("book.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					startLink.setCustomEnabledLinkCSS("btn btn-success"); // custom style
 					startLink.setElementCssClass("o_book btn-block");
 					if(guestOnly) {
@@ -364,13 +362,14 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 					}
 				} else {
 					String linkText = translate("start.with.type", translate(entry.getOlatResource().getResourceableTypeName()));
-					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON + Link.NONTRANSLATED);
+					startLink = uifactory.addFormLink("start", "start", linkText, null, layoutCont, Link.BUTTON_LARGE + Link.NONTRANSLATED);
 					//startLink.setEnabled(false);
 					startLink.setElementCssClass("o_start btn-block");
 					startLink.setVisible(!guestOnly);
 				}
 				startLink.setIconRightCSS("o_icon o_icon_start o_icon-lg");
 				startLink.setPrimary(true);
+				startLink.setFocus(true);
 				
 				switch (entry.getAccess()) {
 					case 0: accessI18n = "ERROR";
@@ -433,14 +432,14 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 			layoutCont.contextPut("failed", failed);
 			layoutCont.contextPut("score", score);
 			
-			Long courseResId = entry.getOlatResource().getResourceableId();
-			Date recentLaunch = userCourseInfosManager.getRecentLaunchDate(courseResId, getIdentity());
+            OLATResource ores = entry.getOlatResource();
+			Date recentLaunch = userCourseInfosManager.getRecentLaunchDate(ores, getIdentity());
 			layoutCont.contextPut("recentLaunch", recentLaunch);
 			
 			// show how many users are currently using this resource
             String numUsers;
-            OLATResourceable ores = entry.getOlatResource();
             int cnt = 0;
+			Long courseResId = entry.getOlatResource().getResourceableId();
             OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, courseResId);
             if (ores != null) cnt = coordinatorManager.getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres);
             numUsers = String.valueOf(cnt);
@@ -571,11 +570,13 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	protected void doConfirmLeave(UserRequest ureq) {
 		String reName = StringHelper.escapeHtml(entry.getDisplayname());
 		String title = translate("sign.out");
-		String text = translate("sign.out.dialog.text", reName);
+		String text = "<div class='o_warning'>" + translate("sign.out.dialog.text", reName) + "</div>";
 		leaveDialogBox = activateYesNoDialog(ureq, title, text, leaveDialogBox);
 	}
 	
 	protected void doLeave() {
+		if(guestOnly) return;
+		
 		MailerResult result = new MailerResult();
 		MailPackage reMailing = new MailPackage(result, getWindowControl().getBusinessControl().getAsString(), true);
 		LeavingStatusList status = new LeavingStatusList();
@@ -595,12 +596,16 @@ public class RepositoryEntryDetailsController extends FormBasicController {
 	}
 	
 	protected void doStart(UserRequest ureq) {
-		try {
-			String businessPath = "[RepositoryEntry:" + entry.getKey() + "]";
-			NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
-		} catch (CorruptedCourseException e) {
-			logError("Course corrupted: " + entry.getKey() + " (" + entry.getOlatResource().getResourceableId() + ")", e);
-			showError("cif.error.corrupted");
+		if(inRuntime) {
+			fireEvent(ureq, Event.DONE_EVENT);
+		} else {
+			try {
+				String businessPath = "[RepositoryEntry:" + entry.getKey() + "]";
+				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+			} catch (CorruptedCourseException e) {
+				logError("Course corrupted: " + entry.getKey() + " (" + entry.getOlatResource().getResourceableId() + ")", e);
+				showError("cif.error.corrupted");
+			}
 		}
 	}
 	

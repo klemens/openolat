@@ -12,6 +12,7 @@ var o3c=new Array();//array holds flexi.form id's
 // o_info is a global object that contains global variables
 o_info.guibusy = false;
 o_info.linkbusy = false;
+o_info.scrolling = false;
 //debug flag for this file, to enable debugging to the olat.log set JavaScriptTracingController to level debug
 o_info.debug = true;
 
@@ -206,16 +207,20 @@ var BFormatter = {
 	// process element with given dom id using jsmath
 	formatLatexFormulas : function(domId) {
 		try {
-			if (window.jsMath) { // only when js math available
-				if (jsMath.loaded && jsMath.tex2math && jsMath.tex2math.loaded) {
-					jsMath.Process();
-				} else { // not yet loaded (autoload), load first
-					jsMath.Autoload.LoadJsMath();
-					// retry formatting when ready (recursively until loaded)
-					setTimeout(function() {
-						BFormatter.formatLatexFormulas(domId);
-					}, 100);
-				}
+			if(typeof MathJax === "undefined") {
+				o_mathjax();//will render the whole page
+			} else if (MathJax && MathJax.isReady) {
+				jQuery(function() {
+					MathJax.Hub.Queue(function() {
+						if(jQuery('#' + domId + ' .MathJax').length == 0) {
+							MathJax.Hub.Typeset(domId)
+						}
+					});
+				})
+			} else { // not yet loaded (autoload), load first
+				setTimeout(function() {
+					BFormatter.formatLatexFormulas(domId);
+				}, 100);
 			}
 		} catch(e) {
 			if (window.console) console.log("error in BFormatter.formatLatexFormulas: ", e);
@@ -223,12 +228,22 @@ var BFormatter = {
 	}
 };
 
-
 function o_init() {
 	try {
 		// all init-on-new-page calls here
 		//return opener window
-		o_getMainWin().o_afterserver();	
+		o_getMainWin().o_afterserver();
+		// initialize the business path and social media
+		if(window.location.href && window.location.href != null && window.location.href.indexOf('%3A') < 0) {
+			var url = window.location.href;
+			if(url != null && !(url.lastIndexOf("http", 0) === 0) && !(url.lastIndexOf("https", 0) === 0)) {
+				url = o_info.serverUri + url;
+			}
+			o_info.businessPath = url;
+			if(!(typeof o_shareActiveSocialUrl === "undefined")) {
+				o_shareActiveSocialUrl();	
+			}
+		}
 	} catch(e) {
 		if (o_info.debug) o_log("error in o_init: "+showerror(e));
 	}	
@@ -285,12 +300,17 @@ function o_afterserver() {
 }
 
 function o2cl() {
-	if (o_info.linkbusy) {
+	try {
+		if (o_info.linkbusy) {
+			return false;
+		} else {
+			var doreq = (o2c==0 || confirm(o_info.dirty_form));
+			if (doreq) o_beforeserver();
+			return doreq;
+		}
+	} catch(e) {
+		if(window.console) console.log(e);
 		return false;
-	} else {
-		var doreq = (o2c==0 || confirm(o_info.dirty_form));
-		if (doreq) o_beforeserver();
-		return doreq;
 	}
 }
 //for flexi tree
@@ -300,18 +320,6 @@ function o2cl_noDirtyCheck() {
 	} else {
 		o_beforeserver();
 		return true;
-	}
-}
-//for tree and Firefox
-function o2cl_secure() {
-	try {
-		if(o2cl()) {
-			return true;
-		} else {
-			return false;
-		}
-	} catch(e){
-		return false
 	}
 }
 
@@ -680,7 +688,6 @@ function o_ainvoke(r) {
 	BDebugger.logDOMCount();
 	BDebugger.logGlobalObjCount();
 	BDebugger.logGlobalOLATObjects();
-	BDebugger.logManagedOLATObjects();
 */
 }
 /**
@@ -694,7 +701,6 @@ function clearAfterAjaxIframeCall() {
 		// the ajax channel, e.g. error message from apache or no response from server
 		// Call afterserver to remove busy icon clear the linkbusy flag
 		o_afterserver();
-		showMessageBox('info', o_info.i18n_noresponse_title, o_info.i18n_noresponse, undefined);
 	}
 }
 
@@ -768,7 +774,14 @@ function o_openPopUp(url, windowname, width, height, menubar) {
 	} else {
 		attributes += "location=no, menubar=no, status=no, toolbar=no";
 	}
-	var win = window.open(url, windowname, attributes);
+
+	var win;
+	try {
+		win = window.open(url, windowname, attributes);
+	} catch(e) {
+		win = window.open(url, 'OpenOLAT', attributes);
+	}
+	
 	win.focus();
 	if (o_info.linkbusy) {
 		o_afterserver();
@@ -823,18 +836,6 @@ function gotonode(nodeid) {
 	} catch (e) {
 		alert('Goto node error:' + e);
 		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug',"Error in gotonode()::" + e.message, "functions.js");
-	}
-}
-
-
-function o_openUriInMainWindow(uri) {
-	// get the "olatmain" window
-	try {
-		var w = o_getMainWin();
-		w.focus();
-		w.location.replace(uri);		
-	} catch (e) {
-		showMessageBox("error", "Error", "Can not find main OpenOLAT window to open URL.");		
 	}
 }
 
@@ -937,9 +938,12 @@ jQuery().ready(OPOL.adjustHeight);
 
 function o_scrollToElement(elem) {
 	try {
+		o_info.scrolling = true;
 		jQuery('html, body').animate({
 			scrollTop : jQuery(elem).offset().top
-		}, 333);
+		}, 333, function(e, el) {
+			o_info.scrolling = false;
+		});
 	} catch (e) {
 		//console.log(e);
 	}
@@ -1146,7 +1150,7 @@ function showerror(e) {
 // parameter submitted is the action value triggering the submit.
 // A 'submit' is not the same as 'submit and validate'. if the form should validate
 // is defined by the triggered component.
-function o_ffEvent (formNam, dispIdField, dispId, eventIdField, eventInt){
+function o_ffEvent(formNam, dispIdField, dispId, eventIdField, eventInt){
 	//set hidden fields and submit form
 	var dispIdEl, defDispId,eventIdEl,defEventId;
 	
@@ -1157,14 +1161,169 @@ function o_ffEvent (formNam, dispIdField, dispId, eventIdField, eventInt){
 	defEventId = eventIdEl.value;
 	eventIdEl.value=eventInt;
 	// manually execute onsubmit method - calling submit itself does not trigger onsubmit event!
-	if (document.forms[formNam].onsubmit()) {
+	var form = jQuery('#' + formNam);
+	var enctype = form.attr('enctype');
+	if(enctype && enctype.indexOf("multipart") == 0) {
+		o_XHRSubmitMultipart(formNam);
+	} else if (document.forms[formNam].onsubmit()) {
 		document.forms[formNam].submit();
 	}
+	
 	dispIdEl.value = defDispId;
 	eventIdEl.value = defEventId;
 }
 
-function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
+function o_IQEvent(formNam){
+	if (document.forms[formNam].onsubmit()) {
+		document.forms[formNam].submit();
+	}
+}
+
+function o_TableMultiActionEvent(formNam, action){
+	var mActionIdEl = jQuery('#o_mai_' + formNam);
+	mActionIdEl.val(action);
+	if (document.forms[formNam].onsubmit()) {
+		document.forms[formNam].submit();
+	}
+	mActionIdEl.val('');
+}
+
+function o_XHRSubmit(formNam) {
+	if(o_info.linkbusy) {
+		return false;
+	}
+
+	o_beforeserver();
+	var push = true;
+	var form = jQuery('#' + formNam);
+	var enctype = form.attr('enctype');
+	if(enctype && enctype.indexOf("multipart") == 0) {
+		var iframeName = "openolat-submit-" + ("" + Math.random()).substr(2);
+		var iframe = o_createIFrame(iframeName);
+		document.body.appendChild(iframe);
+		form.attr('target', iframe.name);
+		return true;
+	} else {
+		var data = form.serializeArray();
+		if(arguments.length > 1) {
+			var argLength = arguments.length;
+			for(var i=1; i<argLength; i=i+2) {
+				if(argLength > i+1) {
+					var argData = new Object();
+					argData["name"] = arguments[i];
+					argData["value"] = arguments[i+1];
+					data[data.length] = argData;
+				}
+			}
+		}
+
+		var targetUrl = form.attr("action");
+		jQuery.ajax(targetUrl,{
+			type:'POST',
+			data: data,
+			cache: false,
+			dataType: 'json',
+			success: function(data, textStatus, jqXHR) {
+				try {
+					o_ainvoke(data);
+					if(push) {
+						var businessPath = data['businessPath'];
+						var documentTitle = data['documentTitle'];
+						var historyPointId = data['historyPointId'];
+						if(businessPath) {
+							o_pushState(historyPointId, documentTitle, businessPath);
+						}
+					}
+				} catch(e) {
+					if(window.console) console.log(e);
+				} finally {
+					o_afterserver();
+				}
+			},
+			error: o_onXHRError
+		});
+		return false;
+	}
+}
+
+function o_XHRSubmitMultipart(formNam) {
+	var form = jQuery('#' + formNam);
+	var iframeName = "openolat-submit-" + ("" + Math.random()).substr(2);
+	var iframe = o_createIFrame(iframeName);
+	document.body.appendChild(iframe);
+	form.attr('target', iframe.name);
+	form.submit();
+	form.attr('target','');
+}
+
+function o_createIFrame(iframeName) {
+	var $iframe = jQuery('<iframe name="'+iframeName+'" id="'+iframeName+'" src="about:blank" style="position: absolute; top: -9999px; left: -9999px;"></iframe>');
+	return $iframe[0];
+}
+
+function o_removeIframe(id) {
+	jQuery('#' + id).remove();
+}
+
+function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, dirtyCheck, push, submit) {
+	if(dirtyCheck) {
+		if(!o2cl()) return false;
+	} else {
+		if(!o2cl_noDirtyCheck()) return false;
+	}
+	
+	var data = new Object();
+	if(submit) {
+		var form = jQuery('#' + formNam);
+		var formData = form.serializeArray();
+		var formLength = formData.length;
+		for(var i=0; i<formLength; i++) {
+			var nameValue = formData[i];//dispatchuri and dispatchevent will be overriden
+			if(nameValue.name != 'dispatchuri' && nameValue.name != 'dispatchevent') {
+				data[nameValue.name] = nameValue.value;
+			}
+		}
+	}
+	
+	data['dispatchuri'] = dispId;
+	data['dispatchevent'] = eventInt;
+	if(arguments.length > 8) {
+		var argLength = arguments.length;
+		for(var i=8; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
+	var targetUrl = jQuery('#' + formNam).attr("action");
+	jQuery.ajax(targetUrl,{
+		type:'POST',
+		data: data,
+		cache: false,
+		dataType: 'json',
+		success: function(data, textStatus, jqXHR) {
+			try {
+				o_ainvoke(data);
+				if(push) {
+					var businessPath = data['businessPath'];
+					var documentTitle = data['documentTitle'];
+					var historyPointId = data['historyPointId'];
+					if(businessPath) {
+						o_pushState(historyPointId, documentTitle, businessPath);
+					}
+				}
+			} catch(e) {
+				if(window.console) console.log(e);
+			} finally {
+				o_afterserver();
+			}
+		},
+		error: o_onXHRError
+	})
+}
+
+function o_ffXHRNFEvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 	var data = new Object();
 	data['dispatchuri'] = dispId;
 	data['dispatchevent'] = eventInt;
@@ -1179,42 +1338,136 @@ function o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 	
 	var targetUrl = jQuery('#' + formNam).attr("action");
 	jQuery.ajax(targetUrl,{
-		type:'GET',
+		type:'POST',
 		data: data,
 		cache: false,
 		dataType: 'json',
 		success: function(data, textStatus, jqXHR) {
-			o_ainvoke(data);
-		},
-		error: function(jqXHR, textStatus, errorThrown) {
-			if(window.console) console.log('Error status', textStatus);
+			//no response
 		}
 	})
 }
 
-function o_ffXHRNFEvent(targetUrl) {
+function o_XHREvent(targetUrl, dirtyCheck, push) {
+	if(dirtyCheck) {
+		if(!o2cl()) return false;
+	} else {
+		if(!o2cl_noDirtyCheck()) return false;
+	}
+	
 	var data = new Object();
+	if(arguments.length > 3) {
+		var argLength = arguments.length;
+		for(var i=3; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
 	jQuery.ajax(targetUrl,{
-		type:'GET',
+		type:'POST',
 		data: data,
 		cache: false,
 		dataType: 'json',
 		success: function(data, textStatus, jqXHR) {
-			if(window.console) console.log('Hourra');
+			try {
+				o_ainvoke(data);
+				if(push) {
+					var businessPath = data['businessPath'];
+					var documentTitle = data['documentTitle'];
+					var historyPointId = data['historyPointId'];
+					if(businessPath) {
+						o_pushState(historyPointId, documentTitle, businessPath);
+					}
+				}
+			} catch(e) {
+				if(window.console) console.log(e);
+			} finally {
+				o_afterserver();
+			}
 		},
-		error: function(jqXHR, textStatus, errorThrown) {
-			if(window.console) console.log('Error status', textStatus);
-		}
+		error: o_onXHRError
 	})
+	
+	return false;
+}
+
+//by pass every check and don't wait a response from the response
+//typically used to send GUI settings back to the server
+function o_XHRNFEvent(targetUrl) {
+	var data = new Object();
+	if(arguments.length > 1) {
+		var argLength = arguments.length;
+		for(var i=1; i<argLength; i=i+2) {
+			if(argLength > i+1) {
+				data[arguments[i]] = arguments[i+1];
+			}
+		}
+	}
+	
+	jQuery.ajax(targetUrl,{
+		type:'POST',
+		data: data,
+		cache: false,
+		dataType: 'json',
+		success: function(data, textStatus, jqXHR) {
+			//ok
+		},
+		error: o_onXHRError
+	})
+}
+
+function o_onXHRError(jqXHR, textStatus, errorThrown) {
+	o_afterserver();
+	if(401 == jqXHR.status) {
+		var msg = o_info.oo_noresponse.replace("reload.html", window.document.location.href);
+		showMessageBox('error', o_info.oo_noresponse_title, msg, undefined);
+	} else if(window.console) {
+		console.log('Error status 2', textStatus, errorThrown, jqXHR.responseText);
+		console.log(jqXHR);
+	}
+}
+
+function o_pushState(historyPointId, title, url) {
+	try {
+		var data = new Object();
+		data['businessPath'] = url;
+		data['historyPointId'] = historyPointId;
+		
+		if(url != null && !(url.lastIndexOf("http", 0) === 0) && !(url.lastIndexOf("https", 0) === 0)) {
+			url = o_info.serverUri + url;
+		}
+		o_info.businessPath = url;
+		if(!(typeof o_shareActiveSocialUrl === "undefined")) {
+			o_shareActiveSocialUrl();	
+		}
+		if(window.history && !(typeof window.history === "undefined") && window.history.pushState) {
+			window.history.pushState(data, title, url);
+		} else {
+			window.location.hash = historyPointId;
+		}
+	} catch(e) {
+		if(window.console) console.log(e, url);
+	}
+}
+
+function o_toggleMark(el) {
+	var current = jQuery('i', el).attr('class');
+	if(current.indexOf('o_icon_bookmark_add') >= 0) {
+		jQuery('i', el).removeClass('o_icon_bookmark_add').addClass('o_icon_bookmark');
+	} else {
+		jQuery('i', el).removeClass('o_icon_bookmark').addClass('o_icon_bookmark_add');
+	}
 }
 
 //
 // param formId a String with flexi form id
 function setFlexiFormDirtyByListener(e){
-	setFlexiFormDirty(e.data.formId);
+	setFlexiFormDirty(e.data.formId, e.data.hideMessage);
 }
 
-function setFlexiFormDirty(formId){
+function setFlexiFormDirty(formId, hideMessage){
 	var isRegistered = o3c.indexOf(formId) > -1;
 	if(!isRegistered){
 		o3c.push(formId);
@@ -1223,7 +1476,7 @@ function setFlexiFormDirty(formId){
 		var submitId = jQuery(this).data('FlexiSubmit');
 		if(submitId != null) {
 			jQuery('#'+submitId).addClass('btn o_button_dirty');
-			o2c=1;
+			o2c = (hideMessage ? 0 : 1);
 		}
 	});
 }
@@ -1233,6 +1486,11 @@ function setFlexiFormDirty(formId){
 function o_ffRegisterSubmit(formId, submElmId){
 	jQuery('#'+formId).data('FlexiSubmit', submElmId);
 }
+
+function dismissInfoBox(uuid) {
+	javascript:jQuery('#' + uuid).remove();
+	return true;
+}
 /*
 * renders an info msg that slides from top into the window
 * and hides automatically
@@ -1241,7 +1499,7 @@ function showInfoBox(title, content){
 	// Factory method to create message box
 	var uuid = Math.floor(Math.random() * 0x10000 /* 65536 */).toString(16);
 	var info = '<div id="' + uuid
-	     + '" class="o_alert_info "><div class="alert alert-info clearfix o_sel_info_message"><i class="o_icon o_icon_close"></i><h3><i class="o_icon o_icon_info"></i> '
+	     + '" class="o_alert_info"><div class="alert alert-info clearfix o_sel_info_message"><a class="o_alert_close o_sel_info_close" href="javascript:;" onclick="dismissInfoBox(\'' + uuid + '\')"><i class="o_icon o_icon_close"> </i></a><h3><i class="o_icon o_icon_info"> </i> '
 		 + title + '</h3><p>' + content + '</p></div></div>';
     var msgCt = jQuery('#o_messages').prepend(info);
     // Hide message automatically based on content length
@@ -1255,6 +1513,7 @@ function showInfoBox(title, content){
     		});    	
     };
     // Show info box now
+    o_info.scrolling = true;
     jQuery('#' + uuid).show().transition({ top: 0 }, 333);
     // Visually remove message box immediately when user clicks on it
     jQuery('#' + uuid).click(function(e) {
@@ -1266,7 +1525,6 @@ function showInfoBox(title, content){
     title = null;
     content = null;
     msgCt = null;
-    time = null;
     
     setTimeout(function(){
 		try {
@@ -1274,7 +1532,7 @@ function showInfoBox(title, content){
 		} catch(e) {
 			//possible if the user has closed the window
 		}
-	}, 8000);
+	}, time);
 }
 /*
 * renders an message box which the user has to click away
@@ -1307,15 +1565,6 @@ function showMessageBox(type, title, message, buttonCallback) {
 		o_scrollToElement('#o_top');
 		return msg;
 	}
-}
-
-/*
- * For standard tables
- */
-function tableFormInjectCommandAndSubmit(formName, cmd, param) {
-	document.forms[formName].elements["cmd"].value = cmd;
-	document.forms[formName].elements["param"].value = param;
-	document.forms[formName].submit();
 }
 
 /*
@@ -1364,8 +1613,10 @@ function onTreeDrop(event, ui) {
 	} else if(droppableId.indexOf('dt') == 0) {
 		url += '%3Asne%3Aend';
 	}
-	jQuery('.ui-droppable').each(function(index, el) { jQuery(el).droppable( "disable" ); });
-	frames['oaa0'].location.href = url + '/';
+	jQuery('.ui-droppable').each(function(index, el) {
+		jQuery(el).droppable( "disable" );
+	});
+	o_XHREvent(url + '/', false, false);
 }
 
 function treeAcceptDrop(el) {
@@ -1601,7 +1852,7 @@ function b_hideExtMessageBox() {
 var BDebugger = {
 	_lastDOMCount : 0,
 	_lastObjCount : 0,
-	_knownGlobalOLATObjects : ["o_afterserver","o_onc","o_getMainWin","o_ainvoke","o_info","o_beforeserver","o_ffEvent","o_openPopUp","o_debu_show","o_logwarn","o_dbg_unmark","o_ffRegisterSubmit","o_clearConsole","o_init","o_log","o_allowNextClick","o_dbg_mark","o_debu_hide","o_logerr","o_debu_oldcn","o_debu_oldtt","o_openUriInMainWindow","o_debug_trid","o_log_all"],
+	_knownGlobalOLATObjects : ["o_afterserver","o_onc","o_getMainWin","o_ainvoke","o_info","o_beforeserver","o_ffEvent","o_openPopUp","o_debu_show","o_logwarn","o_dbg_unmark","o_ffRegisterSubmit","o_clearConsole","o_init","o_log","o_allowNextClick","o_dbg_mark","o_debu_hide","o_logerr","o_debu_oldcn","o_debu_oldtt","o_debug_trid","o_log_all"],
 		
 	_countDOMElements : function() {
 		return document.getElementsByTagName('*').length;
@@ -1646,19 +1897,6 @@ var BDebugger = {
 				console.log("\t" + typeof window[o] + " \t" + o);
 			});
 		}
-	},
-	
-	logManagedOLATObjects : function() {
-		var self = BDebugger;
-		if (o_info.objectMap.length > 0) {
-			console.log(o_info.objectMap.length + " managed OLAT objects found:");
-			o_info.objectMap.eachKey(function(key){
-				var item=o_info.objectMap.get(key); 
-				console.log("\t" + typeof item + " \t" + key); 
-				return true;
-			});
-		}
 	}
 }
-
  

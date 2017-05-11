@@ -28,8 +28,10 @@ package org.olat.core.gui.components.form.flexible.impl;
 import java.util.Iterator;
 import java.util.Set;
 
+import org.apache.commons.io.IOUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.logging.OLATRuntimeException;
 
@@ -83,24 +85,87 @@ public class FormJSHelper {
 		return content;
 	}
 	
-	public static String getXHRFnCallFor(Form form, String id, int actionIndex, NameValuePair... pairs) {
-		StringBuilder sb = new StringBuilder(128);
+	/**
+	 * Build the javascript method to send a flexi form event.
+	 * 
+	 * @param item The form item
+	 * @param dirtyCheck If false, the dirty check is by passed
+	 * @param pushState If true, the state (visible url in browser) will be pushed to the browser
+	 * @param pairs Additional name value pairs send by the link
+	 * @return
+	 */
+	public static String getXHRFnCallFor(FormItem item, boolean dirtyCheck, boolean pushState, NameValuePair... pairs) {
+		return getXHRFnCallFor(item.getRootForm(), item.getFormDispatchId(), 1, dirtyCheck, pushState, false, pairs);
+	}
+	
+	/**
+	 * Build the javascript method to send a flexi form event.
+	 * 
+	 * @param form The form object
+	 * @param id The id of the element
+	 * @param actionIndex The type of event (click...)
+	 * @param dirtyCheck If false, the dirty check is by passed
+	 * @param pushState If true, the state (visible url in browser) will be pushed to the browser
+	 * @param pairs Additional name value pairs send by the link
+	 * @return
+	 */
+	public static String getXHRFnCallFor(Form form, String id, int actionIndex, boolean dirtyCheck, boolean pushState, NameValuePair... pairs) {
+		return getXHRFnCallFor(form, id, actionIndex, dirtyCheck, pushState, false, pairs);
+	}
+	
+	/**
+	 * Build the javascript method to send a flexi form event with all possible settings.
+	 * 
+	 * @param form The form object
+	 * @param id The id of the element
+	 * @param actionIndex The type of event (click...)
+	 * @param dirtyCheck If false, the dirty check is by passed
+	 * @param pushState If true, the state (visible url in browser) will be pushed to the browser
+	 * @param submit If true, the form will be submitted but it only works for none multi part forms.
+	 * @param pairs Additional name value pairs send by the link
+	 * @return
+	 */
+	public static String getXHRFnCallFor(Form form, String id, int actionIndex, boolean dirtyCheck, boolean pushState, boolean submit, NameValuePair... pairs) {
+		StringOutput sb = new StringOutput(128);
 		sb.append("o_ffXHREvent('")
 		  .append(form.getFormName()).append("','")
 		  .append(form.getDispatchFieldId()).append("','")
 		  .append(id).append("','")
 		  .append(form.getEventFieldId()).append("','")
 		  .append(FormEvent.ON_DOTDOTDOT[actionIndex])
-		  .append("'");
+		  .append("',").append(dirtyCheck)
+		  .append(",").append(pushState)
+		  .append(",").append(submit);
+
 		if(pairs != null && pairs.length > 0) {
 			for(NameValuePair pair:pairs) {
-				sb.append(",'")
-			    .append(pair.getName()).append("','")
-			    .append(pair.getValue()).append("'");
+				sb.append(",'").append(pair.getName()).append("','").append(pair.getValue()).append("'");
 			}
 		}
 
 		sb.append(")");
+		IOUtils.closeQuietly(sb);
+		return sb.toString();
+	}
+	
+	public static String getXHRNFFnCallFor(Form form, String id, int actionIndex, NameValuePair... pairs) {
+		StringOutput sb = new StringOutput(128);
+		sb.append("o_ffXHRNFEvent('")
+		  .append(form.getFormName()).append("','")
+		  .append(form.getDispatchFieldId()).append("','")
+		  .append(id).append("','")
+		  .append(form.getEventFieldId()).append("','")
+		  .append(FormEvent.ON_DOTDOTDOT[actionIndex])
+		  .append("'");
+
+		if(pairs != null && pairs.length > 0) {
+			for(NameValuePair pair:pairs) {
+				sb.append(",'").append(pair.getName()).append("','").append(pair.getValue()).append("'");
+			}
+		}
+
+		sb.append(")");
+		IOUtils.closeQuietly(sb);
 		return sb.toString();
 	}
 	
@@ -111,6 +176,20 @@ public class FormJSHelper {
 		  .append("var dispId = '").append(id).append("';\n")
 		  .append("var eventIdField = '").append(form.getEventFieldId()).append("';\n")
 		  .append("var eventInt = ").append(FormEvent.ON_DOTDOTDOT[actionIndex]).append(";\n");
+		return sb.toString();
+	}
+	
+	public static String getXHRSubmit(Form form, NameValuePair... pairs) {
+		StringOutput sb = new StringOutput(128);
+		sb.append("o_ffXHRNFEvent('")
+		   .append(form.getFormName()).append("'");
+		if(pairs != null && pairs.length > 0) {
+			for(NameValuePair pair:pairs) {
+				sb.append(",'").append(pair.getName()).append("','").append(pair.getValue()).append("'");
+			}
+		}
+		sb.append(")");
+		IOUtils.closeQuietly(sb);
 		return sb.toString();
 	}
 
@@ -177,29 +256,48 @@ public class FormJSHelper {
 		return "})();\n /* ]]> */ \n</script>";
 	}
 	
-	public static String getExtJSVarDeclaration(String id){
-		return "var "+id+" = jQuery('#"+id+"'); ";
-	}
-	
 	// Execute code within an anonymous function (closure) to not leak
 	// variables to global scope (OLAT-5755)
 	public static StringOutput appendFlexiFormDirty(StringOutput sb, Form form, String id) {
-		sb.append("<script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
-		  .append("(function() { jQuery('#").append(id).append("').on('change keypress',{formId:\"").append(form.getDispatchFieldId()).append("\"},setFlexiFormDirtyByListener);")
+		return appendFlexiFormDirtyOn(sb, form, "change keypress", id);
+	}
+	
+	public static StringOutput appendFlexiFormDirtyForCheckbox(StringOutput sb, Form form, String formDispatchId) {
+		return appendFlexiFormDirtyOn(sb, form, "change mouseup", formDispatchId);
+	}
+	
+	public static StringOutput appendFlexiFormDirtyForClick(StringOutput sb, Form form, String formDispatchId) {
+		return appendFlexiFormDirtyOn(sb, form, "click", formDispatchId);
+	}
+	
+	/**
+	 * 
+	 * @param sb The output
+	 * @param form The form containing the button to be dirty
+	 * @param events A list of space separated javascript events
+	 * @param formDispatchId
+	 * @return
+	 */
+	public static StringOutput appendFlexiFormDirtyOn(StringOutput sb, Form form, String events, String formDispatchId) {
+		sb.append(" <script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
+		  .append("(function() { jQuery('#").append(formDispatchId).append("').on('").append(events).append("', {formId:\"").append(form.getDispatchFieldId()).append("\", hideMessage:").append(form.isHideDirtyMarkingMessage()).append("}, setFlexiFormDirtyByListener);")
 		  .append("})();\n /* ]]> */ \n</script>");
 		return sb;
 	}
 	
-	public static StringOutput appendFlexiFormDirtyForCheckbox(StringOutput sb, Form form, String formDispatchId) {
-		sb.append(" <script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
-		  .append("(function() { jQuery('#").append(formDispatchId).append("').on('change mouseup', {formId:\"").append(form.getDispatchFieldId()).append("\"}, setFlexiFormDirtyByListener);")
-		  .append("})();\n /* ]]> */ \n</script>");
+	/**
+	 * This is an hack because it use a timeout of 500ms to be executed after
+	 * o_afterserver() method
+	 * 
+	 * @param sb
+	 * @param form
+	 * @return
+	 */
+	public static StringOutput setFlexiFormDirtyOnLoad(StringOutput sb, Form form) {
+		sb.append("<script type=\"text/javascript\">\n /* <![CDATA[ */ \n")
+		  .append(" setTimeout(function(){ setFlexiFormDirty(\"").append(form.getDispatchFieldId()).append("\",").append(form.isHideDirtyMarkingMessage()).append(");}, 500);")
+		  .append("\n/* ]]> */ \n</script>");
 		return sb;
-	}
-
-	public static String getFocusFor(String id){
-		// deactivated due OLAT-3094 and OLAT-3040
-		return id +".focus();";
 	}
 	
 	public static String getSetFlexiFormDirtyFnCallOnly(Form form){
@@ -221,11 +319,11 @@ public class FormJSHelper {
 		/*
 		 * yesFn emulates a click on the input field, which in turn "submits" to the inlineElement to extract the value
 		 */
-		sb.append(FormJSHelper.getExtJSVarDeclaration(id));
-		sb.append(id).append(".focus(1);");//defer focus,based on EXT
-		sb.append("var o_ff_inline_yesFn = function(e){");
-		sb.append(FormJSHelper.getJSFnCallFor(rootForm, id, FormEvent.ONCLICK)).append(";};");
-		sb.append("jQuery('#").append(id).append("').on('blur',o_ff_inline_yesFn);");		
+		sb.append("var ").append(id).append("=jQuery('#").append(id).append("');")
+		  .append(id).append(".focus(1);")//defer focus
+		  .append("var o_ff_inline_yesFn = function(e){")
+		  .append(FormJSHelper.getJSFnCallFor(rootForm, id, FormEvent.ONCLICK)).append(";};")
+		  .append("jQuery('#").append(id).append("').on('blur',o_ff_inline_yesFn);");		
 
 		/*
 		 * noFn replaces the old value in the input field, and then "submits" to the inlineElement via yesFn
@@ -239,28 +337,22 @@ public class FormJSHelper {
 	      .append(" }")
 	      .append("});");
 	}
-
+	
 	/**
 	 * submits a form when the enter key is pressed.
-	 * TextAreas are handeled special and do not propagate the enter event to the outer world
+	 * TextAreas are handled special and do not propagate the enter event to the outer world
 	 * @param formName
 	 * @return
 	 */
 	public static String submitOnKeypressEnter(String formName) {
 		StringBuilder sb = new StringBuilder();
 		sb.append(getJSStart())
-		  .append("var myExtForm = jQuery('#").append(formName).append("');")
-		  .append("if(myExtForm) {")
-		  .append(" myExtForm.on('keypress', function(event) {if (13 == event.keyCode) {if (this.onsubmit()) {this.submit();}}}, myExtForm.dom);")
-		  .append("} else {")
-		  .append(" jQuery('#").append(formName).append("').each(function(formEl) {")
-		  .append("  jQuery(formEl).on('keypress', function(event) {")
-		  .append("   if (13 == event.keyCode) {")
-		  .append("    if (this.onsubmit && this.onsubmit()) { this.submit(); }")
-		  .append("   }")
-		  .append("  }, formEl)")
-		  .append(" });")
-		  .append("}")
+		  .append("jQuery('#").append(formName).append("').keypress(function(event) {\n")
+		  .append(" if (13 == event.keyCode) {\n")
+		  .append("  event.preventDefault();\n")
+		  .append("  if (this.onsubmit()) { this.submit(); }\n")
+		  .append(" }\n")
+		  .append("});\n")
 		  .append(getJSEnd());
 		return sb.toString();
 	}

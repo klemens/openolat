@@ -27,6 +27,7 @@ import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityImpl;
+import org.olat.basesecurity.IdentityRef;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.mark.impl.MarkImpl;
@@ -40,8 +41,8 @@ import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.model.RepositoryEntryAuthorImpl;
 import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams;
 import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams.OrderBy;
-import org.olat.resource.accesscontrol.model.OfferImpl;
 import org.olat.user.UserImpl;
+import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -62,6 +63,8 @@ public class RepositoryEntryAuthorQueries {
 	
 	@Autowired
 	private DB dbInstance;
+	@Autowired
+	private UserManager userManager;
 	
 	public int countViews(SearchAuthorRepositoryEntryViewParams params) {
 		if(params.getIdentity() == null) {
@@ -93,7 +96,16 @@ public class RepositoryEntryAuthorQueries {
 			boolean hasMarks = numOfMarks == null ? false : numOfMarks.longValue() > 0;
 			Number numOffers = (Number)object[2];
 			long offers = numOffers == null ? 0l : numOffers.longValue();
-			views.add(new RepositoryEntryAuthorImpl(re, hasMarks, offers));
+			
+			String deletedByName = null;
+			if(params.isDeleted()) {
+				Identity deletedBy = re.getDeletedBy();
+				if(deletedBy != null) {
+					deletedByName = userManager.getUserDisplayName(deletedBy);
+				}
+			}
+			
+			views.add(new RepositoryEntryAuthorImpl(re, hasMarks, offers, deletedByName));
 		}
 		return views;
 	}
@@ -101,17 +113,18 @@ public class RepositoryEntryAuthorQueries {
 	protected <T> TypedQuery<T> createViewQuery(SearchAuthorRepositoryEntryViewParams params,
 			Class<T> type) {
 
-		Identity identity = params.getIdentity();
+		IdentityRef identity = params.getIdentity();
 		Roles roles = params.getRoles();
 		List<String> resourceTypes = params.getResourceTypes();
 		boolean oracle = "oracle".equals(dbInstance.getDbVendor());
 		boolean admin = (roles != null && (roles.isInstitutionalResourceManager() || roles.isOLATAdmin()));
 
 		boolean count = Number.class.equals(type);
+		boolean needIdentity = false;
 		StringBuilder sb = new StringBuilder();
 		if(count) {
 			sb.append("select count(v.key) ")
-			  .append(" from repositoryentry as v, ").append(IdentityImpl.class.getName()).append(" as ident ")
+			  .append(" from repositoryentry as v")
 			  .append(" inner join v.olatResource as res")
 			  .append(" left join v.lifecycle as lifecycle");
 		} else {
@@ -120,32 +133,47 @@ public class RepositoryEntryAuthorQueries {
 				sb.append(" 1 as marks,");
 			} else {
 				sb.append(" (select count(mark.key) from ").append(MarkImpl.class.getName()).append(" as mark ")
-				  .append("   where mark.creator=ident and mark.resId=v.key and mark.resName='RepositoryEntry'")
+				  .append("   where mark.creator.key=:identityKey and mark.resId=v.key and mark.resName='RepositoryEntry'")
 				  .append(" ) as marks,");
+				needIdentity = true;
 			}
-			sb.append(" (select count(offer.key) from ").append(OfferImpl.class.getName()).append(" as offer ")
+			sb.append(" (select count(offer.key) from acoffer as offer ")
 			  .append("   where offer.resource=res and offer.valid=true")
 			  .append(" ) as offers")
-			  .append(" from repositoryentry as v, ").append(IdentityImpl.class.getName()).append(" as ident ")
+			  .append(" from repositoryentry as v")
 			  .append(" inner join ").append(oracle ? "" : "fetch").append(" v.olatResource as res")
 			  .append(" inner join fetch v.statistics as stats")
 			  .append(" left join fetch v.lifecycle as lifecycle ");
+			if(params.isDeleted()) {
+				sb.append(" left join fetch v.deletedBy as deletedBy")
+				  .append(" left join fetch deletedBy.user as deletedByUser");
+			}
 		}
 
-		sb.append(" where ident.key=:identityKey ");
-		//only my entries as author
+		sb.append(" where");
 		if(params.isOwnedResourcesOnly()) {
-			sb.append(" and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership")
-			  .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=ident.key")
+			needIdentity = true;
+			sb.append(" v.key in (select rel.entry.key from repoentrytogroup as rel, bgroupmember as membership")
+			  .append("    where rel.group.key=membership.group.key and membership.identity.key=:identityKey")
 			  .append("      and membership.role='").append(GroupRoles.owner.name()).append("'")
 			  .append(" )");
+			if(params.isDeleted()) {
+				sb.append(" and v.access=").append(RepositoryEntry.DELETED);
+			} else {
+				sb.append(" and v.access>=").append(RepositoryEntry.ACC_OWNERS);
+			}
 		} else if(admin) {
-			sb.append(" and v.access>=").append(RepositoryEntry.ACC_OWNERS);
+			if(params.isDeleted()) {
+				sb.append(" v.access=").append(RepositoryEntry.DELETED);
+			} else {
+				sb.append(" v.access>=").append(RepositoryEntry.ACC_OWNERS);
+			}
 		} else {
-			sb.append(" and (v.access>=").append(RepositoryEntry.ACC_OWNERS_AUTHORS)
+			needIdentity = true;
+			sb.append(" (v.access>=").append(RepositoryEntry.ACC_OWNERS_AUTHORS)
 			  .append(" or (v.access=").append(RepositoryEntry.ACC_OWNERS)
-			  .append("   and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership")
-			  .append("     where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=ident.key")
+			  .append("   and v.key in (select rel.entry.key from repoentrytogroup as rel, bgroupmember as membership")
+			  .append("     where rel.group.key=membership.group.key and membership.identity.key=:identityKey")
 			  .append("       and membership.role='").append(GroupRoles.owner.name()).append("'")
 			  .append("   )")
 			  .append(" ))");
@@ -159,8 +187,9 @@ public class RepositoryEntryAuthorQueries {
 			sb.append(" and res.resName in (:resourcetypes)");
 		}
 		if(params.getMarked() != null && params.getMarked().booleanValue()) {
+			needIdentity = true;
 			sb.append(" and exists (select mark2.key from ").append(MarkImpl.class.getName()).append(" as mark2 ")
-			  .append("   where mark2.creator=ident and mark2.resId=v.key and mark2.resName='RepositoryEntry'")
+			  .append("   where mark2.creator.key=:identityKey and mark2.resId=v.key and mark2.resName='RepositoryEntry'")
 			  .append(" )");
 		}
 		
@@ -168,14 +197,14 @@ public class RepositoryEntryAuthorQueries {
 		if (StringHelper.containsNonWhitespace(author)) { // fuzzy author search
 			author = PersistenceHelper.makeFuzzyQueryString(author);
 
-			sb.append(" and exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership, ")
+			sb.append(" and v.key in (select rel.entry.key from repoentrytogroup as rel, bgroupmember as membership, ")
 			     .append(IdentityImpl.class.getName()).append(" as identity, ").append(UserImpl.class.getName()).append(" as user")
-		         .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity=identity and identity.user=user")
+		         .append("    where rel.group.key=membership.group.key and membership.identity.key=identity.key and user.identity.key=identity.key")
 		         .append("      and membership.role='").append(GroupRoles.owner.name()).append("'")
 		         .append("      and (");
-			PersistenceHelper.appendFuzzyLike(sb, "user.userProperties['firstName']", "author", dbInstance.getDbVendor());
+			PersistenceHelper.appendFuzzyLike(sb, "user.firstName", "author", dbInstance.getDbVendor());
 			sb.append(" or ");
-			PersistenceHelper.appendFuzzyLike(sb, "user.userProperties['lastName']", "author", dbInstance.getDbVendor());
+			PersistenceHelper.appendFuzzyLike(sb, "user.lastName", "author", dbInstance.getDbVendor());
 			sb.append(" or ");
 			PersistenceHelper.appendFuzzyLike(sb, "identity.name", "author", dbInstance.getDbVendor());
 			sb.append(" ))");
@@ -243,7 +272,7 @@ public class RepositoryEntryAuthorQueries {
 		}
 
 		if(!count) {
-			appendAuthorViewOrderBy(params.getOrderBy(), params.isOrderByAsc(), sb);
+			appendAuthorViewOrderBy(params, sb);
 		}
 
 		TypedQuery<T> dbQuery = dbInstance.getCurrentEntityManager()
@@ -283,11 +312,16 @@ public class RepositoryEntryAuthorQueries {
 			dbQuery.setParameter("desc", desc);
 		}
 
-		dbQuery.setParameter("identityKey", identity.getKey());
+		if(needIdentity) {
+			dbQuery.setParameter("identityKey", identity.getKey());
+		}
 		return dbQuery;
 	}
 	
-	private void appendAuthorViewOrderBy(OrderBy orderBy, boolean asc, StringBuilder sb) {
+	private void appendAuthorViewOrderBy(SearchAuthorRepositoryEntryViewParams params, StringBuilder sb) {
+		OrderBy orderBy = params.getOrderBy();
+		boolean asc = params.isOrderByAsc();
+		
 		if(orderBy != null) {
 			switch(orderBy) {
 				case key:
@@ -317,11 +351,15 @@ public class RepositoryEntryAuthorQueries {
 					sb.append(" order by lower(v.initialAuthor)");
 					appendAsc(sb, asc).append(", lower(v.displayname) asc");	
 					break;
+				case location:
+					sb.append(" order by lower(v.location)");
+					appendAsc(sb, asc).append(", lower(v.displayname) asc");	
+					break;
 				case access:
 					if(asc) {
-						sb.append(" order by v.access asc, lower(v.displayname) asc");
+						sb.append(" order by v.membersOnly asc, v.access asc, lower(v.displayname) asc");
 					} else {
-						sb.append(" order by v.access desc, lower(v.displayname) desc");
+						sb.append(" order by v.membersOnly desc, v.access desc, lower(v.displayname) desc");
 					}
 					break;
 				case ac:
@@ -348,18 +386,12 @@ public class RepositoryEntryAuthorQueries {
 					appendAsc(sb, asc).append(", lower(v.displayname) asc");
 					break;
 				case lifecycleLabel:
-					if(asc) {
-						sb.append(" order by lifecycle.label nulls last, lower(v.displayname) asc");
-					} else {
-						sb.append(" order by lifecycle.label nulls last, lower(v.displayname) desc");
-					}
+					sb.append(" order by lifecycle.label ");
+					appendAsc(sb, asc).append(" nulls last, lower(v.displayname) asc");
 					break;
 				case lifecycleSoftkey:
-					if(asc) {
-						sb.append(" order by lifecycle.softKey nulls last, lower(v.displayname) asc");
-					} else {
-						sb.append(" order by lifecycle.softKey nulls last, lower(v.displayname) desc");
-					}
+					sb.append(" order by lifecycle.softKey ");
+					appendAsc(sb, asc).append(" nulls last, lower(v.displayname) asc");
 					break;	
 				case lifecycleStart:
 					sb.append(" order by lifecycle.validFrom ");
@@ -368,6 +400,17 @@ public class RepositoryEntryAuthorQueries {
 				case lifecycleEnd:
 					sb.append(" order by lifecycle.validTo ");
 					appendAsc(sb, asc).append(" nulls last, lower(v.displayname) asc");
+					break;
+				case deletionDate:
+					sb.append(" order by v.deletionDate ");
+					appendAsc(sb, asc).append(" nulls last, lower(v.displayname) asc");
+					break;
+				case deletedBy:
+					if(params.isDeleted()) {
+						sb.append(" order by deletedByUser.lastName ");
+						appendAsc(sb, asc).append(" nulls last, deletedByUser.firstName ");
+						appendAsc(sb, asc).append(" nulls last, lower(v.displayname) asc");
+					}
 					break;
 			}
 		}

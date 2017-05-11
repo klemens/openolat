@@ -21,11 +21,14 @@ package org.olat.course.export;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
 import org.olat.group.model.BGAreaReference;
 import org.olat.group.model.BusinessGroupEnvironment;
@@ -39,7 +42,40 @@ public class CourseEnvironmentMapper {
 
 	private final List<BGAreaReference> areas = new ArrayList<BGAreaReference>();
 	private final List<BusinessGroupReference> groups = new ArrayList<BusinessGroupReference>();
+	private final Map<String,Map<String,String>> mapUniqueKeys = new HashMap<>();
 	
+	private Identity author;
+	
+	public CourseEnvironmentMapper() {
+		//
+	}
+	
+	public Identity getAuthor() {
+		return author;
+	}
+
+	public void setAuthor(Identity author) {
+		this.author = author;
+	}
+	
+	public void addUniqueKeyPair(String ident, String sourceKey, String targetKey) {
+		Map<String,String> map;
+		if(mapUniqueKeys.containsKey(ident)) {
+			map = mapUniqueKeys.get(ident);
+		} else {
+			map = new HashMap<>();
+			mapUniqueKeys.put(ident, map);
+		}
+		map.put(sourceKey, targetKey);
+	}
+	
+	public String getTargetUniqueKey(String ident, String sourceKey) {
+		if(mapUniqueKeys.containsKey(ident)) {
+			return mapUniqueKeys.get(ident).get(sourceKey);
+		}
+		return null;
+	}
+
 	public List<BGAreaReference> getAreas() {
 		return areas;
 	}
@@ -114,6 +150,18 @@ public class CourseEnvironmentMapper {
 			}
 		}
 		return groupKeyList;
+	}
+	
+	public Long toGroupKeyFromOriginalKey(Long originalKey) {
+		if(originalKey == null) return null;
+		Long groupKey = null;
+		for(BusinessGroupReference group:groups) {
+			if(originalKey.equals(group.getOriginalKey())) {
+				groupKey = group.getKey();
+				break;
+			}
+		}
+		return groupKey;
 	}
 	
 	public List<Long> toAreaKeyFromOriginalNames(String areaNames) {

@@ -27,6 +27,7 @@ package org.olat.core.util.cache;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Function;
 
 
 /**
@@ -91,6 +92,10 @@ public interface CacheWrapper<U, V> {
 	
 	public V putIfAbsent(U key, V value);
 	
+	public V replace(U key, V value);
+	
+	public V computeIfAbsent(U key, Function<? super U, ? extends V> mappingFunction);
+	
 	/**
 	 * In the case of distributed cache, the list can be partial and
 	 * you must carefully setup your cache.
@@ -117,5 +122,12 @@ public interface CacheWrapper<U, V> {
 	 * @return
 	 */
 	public Iterator<U> iterateKeys();
+	
+	/**
+	 * Annotated listener
+	 * 
+	 * @param obj
+	 */
+	public void addListener(Object obj);
 
 }

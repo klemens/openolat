@@ -47,6 +47,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.form.flexible.impl.InvalidRequestParameterException;
 import org.olat.core.gui.components.htmlheader.jscss.CustomCSS;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSSDelegate;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.control.Controller;
@@ -76,6 +77,7 @@ import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.gui.render.intercept.InterceptHandler;
 import org.olat.core.gui.render.intercept.InterceptHandlerInstance;
 import org.olat.core.gui.themes.Theme;
+import org.olat.core.helpers.GUISettings;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -94,7 +96,7 @@ import org.olat.core.util.component.ComponentVisitor;
  * 
  * @author Felix Jost
  */
-public class Window extends AbstractComponent {
+public class Window extends AbstractComponent implements CustomCSSDelegate {
 	
 	private static final OLog log = Tracing.createLoggerFor(Window.class);
 	private static final DispatchResult NO_DISPATCHRESULT = new DispatchResult(false, false, false);
@@ -139,6 +141,12 @@ public class Window extends AbstractComponent {
 	 */
 	public static final Event ABOUT_TO_DISPATCH = new Event("about_to_dispatch");
 	
+	/** The parameter name for the case where the event doesn't need to trigger a response */
+	public static final String NO_RESPONSE_PARAMETER_MARKER = "no-response";
+
+	/** The parameter value for the case where the event doesn't need to trigger a response */
+	public static final String NO_RESPONSE_VALUE_MARKER = "oo-no-response";
+	
 	private String uriPrefix;
 	private ComponentCollection contentPane;
 	private String latestTimestamp;
@@ -162,7 +170,7 @@ public class Window extends AbstractComponent {
 	private CustomCSS customCSS;
 	
 	// wbackoffice reference
-	private WindowBackOfficeImpl wbackofficeImpl;
+	private final WindowBackOfficeImpl wbackofficeImpl;
 	// mutex for rendering
 	private final Object render_mutex = new Object();
 	// delegate for css and js includes
@@ -175,9 +183,9 @@ public class Window extends AbstractComponent {
 	public Window(String name, WindowBackOfficeImpl wbackoffice) {
 		super(name);
 		this.wbackofficeImpl = wbackoffice;
-		this.jsAndCssAdder = wbackoffice.createJSAndCSSAdder();
+		jsAndCssAdder = wbackoffice.createJSAndCSSAdder();
 		// set default theme
-		Theme myTheme = new Theme(Settings.getGuiThemeIdentifyer());
+		Theme myTheme = new Theme(CoreSpringFactory.getImpl(GUISettings.class).getGuiThemeIdentifyer());
 		setGuiTheme(myTheme);
 	}
 	
@@ -335,6 +343,11 @@ public class Window extends AbstractComponent {
 							// this can happen e.g. on quick double-clicks, so that the dom-replacement-command never reaches the client.
 							if (isDebugLog) log.debug("no ajax dispatch: component not found (target=null)");
 							validForDispatching = false;
+							//check no response call
+							String noResponseMarker = ureq.getParameter("no-response");
+							if("oo-no-response".equals(noResponseMarker)) {
+								return;
+							}
 						}
 						
 						// 2.) collect dirty components (top-down, return from sub-path when first dirty node met)
@@ -515,7 +528,7 @@ public class Window extends AbstractComponent {
 							log.debug("Perf-Test: Window durationBeforeServeResource=" + durationBeforeServeResource);
 						}
 						
-						wbackofficeImpl.pushCommands(request, response);
+						wbackofficeImpl.pushCommands(ureq, request, response);
 					}  catch (InvalidRequestParameterException e) {
 						try {
 							response.sendError(HttpServletResponse.SC_BAD_REQUEST);
@@ -542,7 +555,7 @@ public class Window extends AbstractComponent {
 							String newWinUri = buildRenderOnlyURIFor(errWindow);
 							Command rmrcom = CommandFactory.createParentRedirectTo(newWinUri);
 							wbackofficeImpl.sendCommandTo(rmrcom);
-							MediaResource jsonmr = wbackofficeImpl.extractCommands(true);
+							MediaResource jsonmr = wbackofficeImpl.extractCommands(request);
 							ServletUtil.serveResource(request, response, jsonmr);
 						} catch (Throwable anotherTh) {
 							log.error("Exception while handling exception!!!!", anotherTh);
@@ -666,7 +679,7 @@ public class Window extends AbstractComponent {
 					// window id. needed for asyncronous data like images loaded
 					
 					// todo maybe better delegate window registry to the windowbackoffice?
-					URLBuilder ubu = new URLBuilder(uriPrefix, resWindow.getInstanceId(), String.valueOf(resWindow.timestamp), resWindow.wbackofficeImpl);
+					URLBuilder ubu = new URLBuilder(uriPrefix, resWindow.getInstanceId(), String.valueOf(resWindow.timestamp));
 					StringOutput sout = new StringOutput(30);
 					ubu.buildURI(sout, null, null);
 					mr = new RedirectMediaResource(sout.toString());
@@ -742,7 +755,7 @@ public class Window extends AbstractComponent {
 						// coding effort: setting an appropriate business path and launching for each controller.
 						// note: the businesspath may also be used as a easy (but of course not perfect) back-button-solution:
 						// if the timestamp of a request is outdated, simply jump to its bookmarked business control path.
-						URLBuilder ubu = new URLBuilder(uriPrefix, getInstanceId(), newTimestamp, wbackofficeImpl);
+						URLBuilder ubu = new URLBuilder(uriPrefix, getInstanceId(), newTimestamp);
 						RenderResult renderResult = new RenderResult();
 						
 						// if we have an around-component-interception
@@ -831,6 +844,7 @@ public class Window extends AbstractComponent {
 		this.dTabs = dTabs;
 	}
 
+	@Override
 	public CustomCSS getCustomCSS() {
 		return customCSS;
 	}
@@ -845,8 +859,7 @@ public class Window extends AbstractComponent {
 			StringBuilder sb = new StringBuilder();
 			List<ContextEntry> ces = p.getEntries();
 			String url = BusinessControlFactory.getInstance().getAsURIString(ces, true);
-			sb.append("try { o_info.businessPath='").append(url).append("';");
-			sb.append("o_shareActiveSocialUrl(); } catch(e) { }");
+			sb.append("try { o_info.businessPath='").append(url).append("'; } catch(e) { }");
 			return new JSCommand(sb.toString());
 		}
 		return null;
@@ -854,7 +867,7 @@ public class Window extends AbstractComponent {
 	
 	public String renderComponent(Component cmp) {
 		RenderResult renderResult = new RenderResult();
-		URLBuilder ubu = new URLBuilder(getUriPrefix(), getInstanceId(), getTimestamp(), wbackofficeImpl);
+		URLBuilder ubu = new URLBuilder(getUriPrefix(), getInstanceId(), getTimestamp());
 		Renderer fr = Renderer.getInstance(cmp.getParent(), cmp.getTranslator(), ubu, renderResult, wbackofficeImpl.getGlobalSettings());
 		
 		StringOutput sb = StringOutputPool.allocStringBuilder(2048);
@@ -954,7 +967,7 @@ public class Window extends AbstractComponent {
 								toRender.setDomReplaceable(false);
 								wrapper.setContent(toRender);
 								String newTimestamp = String.valueOf(timestamp);
-								URLBuilder ubu = new URLBuilder(uriPrefix,getInstanceId(), newTimestamp,wbackofficeImpl);
+								URLBuilder ubu = new URLBuilder(uriPrefix,getInstanceId(), newTimestamp);
 
 								renderResult = new RenderResult();
 
@@ -1064,11 +1077,10 @@ public class Window extends AbstractComponent {
 	 * @return the new (relative) url as a string
 	 */
 	public String buildURIFor(Window win, String timestampId, String moduleUri) {
-		URLBuilder ubu = new URLBuilder(uriPrefix, win.getInstanceId(), timestampId, wbackofficeImpl);
+		URLBuilder ubu = new URLBuilder(uriPrefix, win.getInstanceId(), timestampId);
 		StringOutput so = new StringOutput();
 		ubu.buildURI(so, null, null, moduleUri, 0);
-		String uri = so.toString();
-		return uri;
+		return so.toString();
 	}	
 
 	private String buildURIForRedirect(String moduleUri) {
@@ -1080,8 +1092,7 @@ public class Window extends AbstractComponent {
 	}
 	
 	public URLBuilder getURLBuilder() {
-		URLBuilder ubu = new URLBuilder(getUriPrefix(), getInstanceId(), getTimestamp(), wbackofficeImpl);
-		return ubu;
+		return new URLBuilder(getUriPrefix(), getInstanceId(), getTimestamp());
 	}
 	
 	/**
@@ -1155,7 +1166,7 @@ public class Window extends AbstractComponent {
 			latestDispatchedComp = null;
 		}
 		
-		ChiefController chief = Windows.getWindows(ureq).getChiefController();
+		ChiefController chief = wbackofficeImpl.getChiefController();
 		boolean reload = chief == null ? false : chief.wishReload(ureq, true);
 		return new DispatchResult(toDispatch, incTimestamp, reload);
 	}
@@ -1190,7 +1201,6 @@ public class Window extends AbstractComponent {
 				String targetInfo = target.getExtendedDebugInfo();
 				msg += targetInfo+"%%";
 				debugMsg.append(msg).append(LOG_SEPARATOR);
-				//Tracing.logDebug(msg, WindowStats.class);
 			} else {
 				// no windowcontrol -> ignore						
 			}

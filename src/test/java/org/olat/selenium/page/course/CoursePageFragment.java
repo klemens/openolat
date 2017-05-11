@@ -22,10 +22,10 @@ package org.olat.selenium.page.course;
 import java.net.URL;
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.restapi.support.vo.CourseVO;
+import org.olat.selenium.page.core.BookingPage;
 import org.olat.selenium.page.core.MenuTreePageFragment;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.repository.RepositoryAccessPage;
@@ -50,23 +50,18 @@ public class CoursePageFragment {
 	
 	public static final By editCourseBy = By.className("o_sel_course_editor");
 	public static final By accessConfigBy = By.className("o_sel_course_access");
+	public static final By bookingBy = By.className("o_sel_course_ac_tool");
 	public static final By assessmentToolBy = By.className("o_sel_course_assessment_tool");
 	public static final By assessmentModeBy = By.className("o_sel_course_assessment_mode");
 	public static final By membersCourseBy = By.className("o_sel_course_members");
 	public static final By treeContainerBy = By.id("o_main_left_content");
-	public static final By efficiencyStatementsBy = By.className(" o_sel_course_options_certificates");
+	public static final By efficiencyStatementsBy = By.className("o_sel_course_options_certificates");
 	
-	@Drone
 	private WebDriver browser;
-	
-	public CoursePageFragment() {
-		//
-	}
 	
 	public CoursePageFragment(WebDriver browser) {
 		this.browser = browser;
 	}
-	
 	
 	public static CoursePageFragment getCourse(WebDriver browser, URL deploymentUrl, CourseVO course) {
 		browser.navigate().to(deploymentUrl.toExternalForm() + "url/RepositoryEntry/" + course.getRepoEntryKey());
@@ -86,13 +81,52 @@ public class CoursePageFragment {
 	}
 	
 	public CoursePageFragment assertOnTitle(String displayName) {
-		List<WebElement> titleList = browser.findElements(By.tagName("h2"));
-		Assert.assertNotNull(titleList);
-		Assert.assertEquals(1, titleList.size());
+		By titleBy = By.xpath("//h2[text()[contains(.,'" + displayName + "')]]");
+		OOGraphene.waitElement(titleBy, 5, browser);
 		
-		WebElement title = titleList.get(0);
-		Assert.assertTrue(title.isDisplayed());
-		Assert.assertTrue(title.getText().contains(displayName));
+		WebElement titleEl = browser.findElement(titleBy);
+		Assert.assertNotNull(titleEl);
+		Assert.assertTrue(titleEl.isDisplayed());
+		return this;
+	}
+	
+	/**
+	 * Assert if the password field is displayed.
+	 * @return
+	 */
+	public CoursePageFragment assertOnPassword() {
+		By passwordBy = By.cssSelector(".o_sel_course_password_form input[type='password']");
+		List<WebElement> passwordEls = browser.findElements(passwordBy);
+		Assert.assertEquals(1, passwordEls.size());
+		return this;
+	}
+	
+	public CoursePageFragment enterPassword(String password) {
+		By passwordBy = By.cssSelector(".o_sel_course_password_form .o_sel_course_password input[type='password']");
+		browser.findElement(passwordBy).sendKeys(password);
+		
+		By enterBy = By.cssSelector(".o_sel_course_password_form button.btn-primary");
+		browser.findElement(enterBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	/**
+	 * Wait until the restart button appears or make an error.
+	 * 
+	 * @return
+	 */
+	public CoursePageFragment assertOnRestart() {
+		By restartBy = By.cssSelector("a.btn.o_sel_course_restart");
+		OOGraphene.waitElement(restartBy, 10, browser);
+		return this;
+	}
+	
+	public CoursePageFragment clickRestart() {
+		By restartBy = By.cssSelector("a.btn.o_sel_course_restart");
+		browser.findElement(restartBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(courseRun, 5, browser);
 		return this;
 	}
 	
@@ -101,6 +135,7 @@ public class CoursePageFragment {
 	 * @return
 	 */
 	public MenuTreePageFragment clickTree() {
+		OOGraphene.waitElement(MenuTreePageFragment.treeBy, 2, browser);
 		MenuTreePageFragment menuTree = new MenuTreePageFragment(browser);
 		menuTree.selectRoot();
 		return menuTree;
@@ -112,7 +147,7 @@ public class CoursePageFragment {
 	 */
 	public CoursePageFragment openToolsMenu() {
 		browser.findElement(toolsMenuCaret).click();
-		OOGraphene.waitElement(toolsMenu, browser);
+		OOGraphene.waitElement(toolsMenu, 5, browser);
 		return this;
 	}
 	
@@ -126,6 +161,27 @@ public class CoursePageFragment {
 		return this;
 	}
 	
+	public RemindersPage reminders() {
+		if(!browser.findElement(settingsMenu).isDisplayed()) {
+			openSettingsMenu();
+		}
+		By reminderBy = By.cssSelector("a.o_sel_course_reminders");
+		browser.findElement(reminderBy).click();
+		OOGraphene.waitBusy(browser);
+		return new RemindersPage(browser);
+	}
+	
+	public CourseOptionsPage options() {
+		if(!browser.findElement(settingsMenu).isDisplayed()) {
+			openSettingsMenu();
+		}
+		
+		By reminderBy = By.cssSelector("a.o_sel_course_options");
+		browser.findElement(reminderBy).click();
+		OOGraphene.waitBusy(browser);
+		return new CourseOptionsPage(browser);
+	}
+	
 	/**
 	 * Click the editor link in the tools drop-down
 	 * @return
@@ -137,9 +193,7 @@ public class CoursePageFragment {
 		browser.findElement(editCourseBy).click();
 		OOGraphene.waitBusy(browser);
 		OOGraphene.closeBlueMessageWindow(browser);
-
-		WebElement main = browser.findElement(By.id("o_main"));
-		return Graphene.createPageFragment(CourseEditorPageFragment.class, main);
+		return new CourseEditorPageFragment(browser);
 	}
 	
 	/**
@@ -153,8 +207,9 @@ public class CoursePageFragment {
 		browser.findElement(membersCourseBy).click();
 		OOGraphene.waitBusy(browser);
 
-		WebElement main = browser.findElement(By.id("o_main"));
-		return Graphene.createPageFragment(MembersPage.class, main);
+		By mainId = By.id("o_main");
+		OOGraphene.waitElement(mainId, 5, browser);
+		return new MembersPage(browser);
 	}
 	
 	public AssessmentToolPage assessmentTool() {
@@ -164,7 +219,7 @@ public class CoursePageFragment {
 		browser.findElement(assessmentToolBy).click();
 		OOGraphene.waitBusy(browser);
 
-		WebElement main = browser.findElement(By.id("o_main"));
+		WebElement main = browser.findElement(By.id("o_assessment_tool_main"));
 		Assert.assertTrue(main.isDisplayed());
 		return new AssessmentToolPage(browser);
 	}
@@ -187,8 +242,9 @@ public class CoursePageFragment {
 		browser.findElement(accessConfigBy).click();
 		OOGraphene.waitBusy(browser);
 
-		WebElement main = browser.findElement(By.id("o_main_container"));
-		return Graphene.createPageFragment(RepositoryAccessPage.class, main);
+		By mainId = By.id("o_main_container");
+		OOGraphene.waitElement(mainId, 5, browser);
+		return new RepositoryAccessPage(browser);
 	}
 	
 	public EfficiencyStatementConfigurationPage efficiencyStatementConfiguration() {
@@ -200,5 +256,14 @@ public class CoursePageFragment {
 
 		WebElement main = browser.findElement(By.id("o_main_container"));
 		return Graphene.createPageFragment(EfficiencyStatementConfigurationPage.class, main);
+	}
+	
+	public BookingPage bookingTool() {
+		if(!browser.findElement(toolsMenu).isDisplayed()) {
+			openToolsMenu();
+		}
+		browser.findElement(bookingBy).click();
+		OOGraphene.waitBusy(browser);
+		return new BookingPage(browser);
 	}
 }

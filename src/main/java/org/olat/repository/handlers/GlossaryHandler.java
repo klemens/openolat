@@ -56,6 +56,7 @@ import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.FileResource;
 import org.olat.fileresource.types.GlossaryResource;
@@ -155,6 +156,11 @@ public class GlossaryHandler implements RepositoryHandler {
 	}
 	
 	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
+	}
+	
+	@Override
 	public VFSContainer getMediaContainer(RepositoryEntry repoEntry) {
 		return FileResourceManager.getInstance()
 				.getFileResourceMedia(repoEntry.getOlatResource());
@@ -174,6 +180,8 @@ public class GlossaryHandler implements RepositoryHandler {
 	 */
 	@Override
 	public MainLayoutController createLaunchController(RepositoryEntry re, RepositoryEntrySecurity reSecurity, UserRequest ureq, WindowControl wControl) {
+		
+		
 		return new GlossaryRuntimeController(ureq, wControl, re, reSecurity,
 			new RuntimeControllerCreator() {
 				@Override
@@ -191,9 +199,17 @@ public class GlossaryHandler implements RepositoryHandler {
 					} else {
 						secCallback = new GlossarySecurityCallbackImpl(false, owner, editableByUser, uureq.getIdentity().getKey());
 					}
+
+					CoreSpringFactory.getImpl(UserCourseInformationsManager.class)
+						.updateUserCourseInformations(entry.getOlatResource(), uureq.getIdentity());
 					return new GlossaryMainController(wwControl, uureq, glossaryFolder, entry.getOlatResource(), secCallback, false);	
 				}
 			});
+	}
+	
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	@Override
@@ -243,11 +259,6 @@ public class GlossaryHandler implements RepositoryHandler {
 			return false;
 		}
 		return true;
-	}
-
-	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		return GlossaryManager.getInstance().archive(archivFilePath, repoEntry);
 	}
 
 	@Override

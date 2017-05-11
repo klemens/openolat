@@ -19,10 +19,19 @@
 		</div>
 		#end
 		#if($description && $description.length() > 0)
-		<div class="o_desc">
+		<div class="o_desc o_user_content_block">
 			$description
 		</div>
 		#end
+		
+		#if($r.available("start"))
+		<div class="o_start_wrapper">
+			<div class="o_start_inner">
+				$r.render("start")
+			</div>
+		</div>
+		#end
+		
 	</div>
 
 	## calculate is any metadata available. If not, render right column at center
@@ -30,11 +39,6 @@
 
 	<div class="row">
 		<div class="col-xs-12 #if($hasMetaData) col-sm-5 col-md-4 pull-right #end o_sidecolumn"><div class="row">		
-			<div class="col-sm-12 o_subcolumn">
-				#if($r.available("start"))
-					$r.render("start")
-				#end
-			</div>
 			<div class="#if($hasMetaData) col-xs-6 col-sm-12 #else col-sm-6 #end o_subcolumn">
 				<div class="o_overview">
 					<h3>$r.translate("details.overview")</h3>
@@ -43,7 +47,7 @@
 					#end
 					#if($v.lifecycle || $v.lifecycle.softKey || $v.lifecycle.label || $row.lifecycle.start || $row.lifecycle.end)
 					<div title="$r.translateInAttribute("cif.dates")">
-						<i class="o_icon o_icon_lifecycle"></i> 
+						<i class="o_icon o_icon_lifecycle_date"> </i> 
 						#if(!$v.lifecycle.privateCycle)
 							#if($v.lifecycle.softKey and !$v.lifecycle.softKey.isEmpty()) $r.escapeHtml($v.lifecycle.softKey)
 							#else $r.escapeHtml($v.lifecycle.label) #end
@@ -51,6 +55,11 @@
 							#if($v.lifecycle.validFrom) $r.formatDate($v.lifecycle.validFrom) #end
 							#if($v.lifecycle.validTo) - $r.formatDate($v.lifecycle.validTo) #end
 						#end
+					</div>
+					#end
+					#if($v.location && !${v.location.isEmpty()})
+					<div title="$r.translateInAttribute("cif.location")">
+						<i class="o_icon o_icon_home"> </i> $r.escapeHtml($v.location)
 					</div>
 					#end
 					#if($v.expenditureOfWork && !$v.expenditureOfWork.empty)
@@ -168,19 +177,19 @@
 		## START LEFT COLUMN		
 		<div class="col-xs-12 #if($hasMetaData) col-sm-7 col-md-8 #end o_maincolumn">
 			#if($objectives)
-				<div class="o_objectives clearfix">
+				<div class="o_objectives o_user_content_block clearfix">
 					<h3>$r.translate("cif.objectives")</h3>
 					$objectives
 				</div>
 			#end		
 			#if($requirements)
-				<div class="o_requirements clearfix">
+				<div class="o_requirements o_user_content_block clearfix">
 					<h3>$r.translate("cif.requirements")</h3>
 					$requirements
 				</div>
 			#end
 			#if($credits)
-				<div class="o_credits clearfix">
+				<div class="o_credits o_user_content_block clearfix">
 					<h3>$r.translate("cif.credits")</h3>
 					$credits
 				</div>
@@ -217,11 +226,7 @@
 			<div class="panel panel-default o_infopanel">
 				<div class="panel-heading" data-toggle="collapse" data-target="#collapseInfo">
 			    	<h3 class="panel-title">
-						#if ($isGuestAllowed)
-							$r.contextHelpWithWrapper("org.olat.repository","rep-meta-guest.html","help.hover.rep.detail")
-						#else
-							$r.contextHelpWithWrapper("org.olat.repository","rep-meta-learner.html","help.hover.rep.detail")
-						#end
+						$r.contextHelpWithWrapper("Technical Information on Resources and Usage")
 						<i id="collapseInfoToggler" class="o_icon o_icon-fw o_icon_open_togglebox"> </i>
 						$r.translate("details.entryinfoheader")
 			    	</h3>
@@ -272,7 +277,7 @@
 			<div class="panel panel-default o_usagepanel">
 				<div class="panel-heading" data-toggle="collapse" data-target="#collapseUsage">
 			    	<h3 class="panel-title">
-						$r.contextHelpWithWrapper("org.olat.repository",'rep-meta-info-reference.html','help.hover.rep.detail')
+						$r.contextHelpWithWrapper("Technical Information on Resources and Usage#_usage")
 						<i id="collapseUsageToggler" class="o_icon o_icon-fw o_icon_open_togglebox"> </i>
 						$r.translate("details.referenceinfoheader")
 			    	</h3>
@@ -310,7 +315,6 @@
 			<div class="panel panel-default o_managedpanel">
 				<div class="panel-heading" data-toggle="collapse" data-target="#collapseManaged">
 			    	<h3 class="panel-title">
-						$r.contextHelpWithWrapper("org.olat.admin.restapi","managed.html","help.hover.managed")
 						<i id="collapseManagedToggler" class="o_icon o_icon-fw o_icon_open_togglebox"> </i>
 						$r.translate("cif.managedflags")
 			    	</h3>

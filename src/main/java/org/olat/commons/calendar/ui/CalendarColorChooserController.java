@@ -37,25 +37,28 @@ import org.olat.core.gui.control.controller.BasicController;
 
 public class CalendarColorChooserController extends BasicController {
 
-	private VelocityContainer colorVC;
 	private String choosenColor;
+	private final CalendarPersonalConfigurationRow row;
 
 	private static final String[] colors = new String[]{
-		"o_cal_green", "o_cal_blue", "o_cal_orange",
-		"o_cal_yellow", "o_cal_red", "o_cal_rebeccapurple", "o_cal_grey"
+		"o_cal_green", "o_cal_lime", "o_cal_blue", "o_cal_orange", "o_cal_fuchsia",
+		"o_cal_yellow", "o_cal_red", "o_cal_rebeccapurple", "o_cal_navy", "o_cal_olive",
+		"o_cal_maroon", "o_cal_grey"
 	};
 
-	public CalendarColorChooserController(UserRequest ureq, WindowControl wControl, String currentCssSelection) {
+	public CalendarColorChooserController(UserRequest ureq, WindowControl wControl,
+			CalendarPersonalConfigurationRow row) {
 		super(ureq, wControl);
-		colorVC = createVelocityContainer("calEdit", "calColor");
 		
+		this.row = row;
+		VelocityContainer colorVC = createVelocityContainer("calEdit", "calColor");
 		for(String color:colors) {
-			addColor(color, currentCssSelection);
+			addColor(color, row.getCssClass(), colorVC);
 		}
 		putInitialPanel(colorVC);
 	}
 	
-	private void addColor(String css, String currentCssSelection) {
+	private void addColor(String css, String currentCssSelection, VelocityContainer colorVC) {
 		Link colorLink = LinkFactory.createCustomLink(css, "selc", "", Link.NONTRANSLATED, colorVC, this);
 		if (currentCssSelection.equals(css)){
 			colorLink.setIconLeftCSS("o_icon o_cal_colorchooser_selected");
@@ -78,6 +81,11 @@ public class CalendarColorChooserController extends BasicController {
 		return choosenColor;
 	}
 	
+	public CalendarPersonalConfigurationRow getRow() {
+		return row;
+	}
+
+	@Override
 	protected void doDispose() {
 		// nothing to dispose
 	}

@@ -67,6 +67,7 @@ import org.olat.repository.manager.RepositoryEntryLifecycleDAO;
 import org.olat.repository.manager.RepositoryEntryRelationDAO;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.model.RepositoryEntryToGroupRelation;
+import org.olat.resource.OLATResource;
 import org.olat.restapi.repository.course.CoursesWebService;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
@@ -321,16 +322,15 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		dbInstance.commit();
 		
 		//create user course infos
-		Long courseResId = course.getCourseEnvironment().getCourseResourceableId();
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id1, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id2, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id3, true);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id1);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id2);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id3);
 		dbInstance.commit();
 		
 		//fake the date
-		updateInitialLaunchDate(courseResId, id1, -5, Calendar.DATE);
-		updateInitialLaunchDate(courseResId, id2, -35, Calendar.DATE);
-		updateInitialLaunchDate(courseResId, id3, -75, Calendar.DATE);
+		updateInitialLaunchDate(re.getOlatResource(), id1, -5, Calendar.DATE);
+		updateInitialLaunchDate(re.getOlatResource(), id2, -35, Calendar.DATE);
+		updateInitialLaunchDate(re.getOlatResource(), id3, -75, Calendar.DATE);
 		dbInstance.commitAndCloseSession();
 		
 		List<Identity> identities = new ArrayList<>();
@@ -403,8 +403,8 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		}
 	}
 	
-	private void updateInitialLaunchDate(Long courseResId, Identity id, int amount, int field) {
-		UserCourseInfosImpl userCourseInfos = (UserCourseInfosImpl)userCourseInformationsManager.getUserCourseInformations(courseResId, id);
+	private void updateInitialLaunchDate(OLATResource courseRes, Identity id, int amount, int field) {
+		UserCourseInfosImpl userCourseInfos = (UserCourseInfosImpl)userCourseInformationsManager.getUserCourseInformations(courseRes, id);
 		Date initialLaunch = userCourseInfos.getInitialLaunch();
 		Calendar cal = Calendar.getInstance();
 		cal.setTime(initialLaunch);
@@ -442,16 +442,15 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		dbInstance.commit();
 		
 		//create user course infos
-		Long courseResId = course.getCourseEnvironment().getCourseResourceableId();
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id1, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id2, true);
-		userCourseInformationsManager.updateUserCourseInformations(courseResId, id3, true);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id1);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id2);
+		userCourseInformationsManager.updateUserCourseInformations(re.getOlatResource(), id3);
 		dbInstance.commit();
 		
 		//fake the date
-		updateRecentLaunchDate(courseResId, id1, -5, Calendar.DATE);
-		updateRecentLaunchDate(courseResId, id2, -35, Calendar.DATE);
-		updateRecentLaunchDate(courseResId, id3, -75, Calendar.DATE);
+		updateRecentLaunchDate(re.getOlatResource(), id1, -5, Calendar.DATE);
+		updateRecentLaunchDate(re.getOlatResource(), id2, -35, Calendar.DATE);
+		updateRecentLaunchDate(re.getOlatResource(), id3, -75, Calendar.DATE);
 		dbInstance.commitAndCloseSession();
 		
 		List<Identity> identities = new ArrayList<>();
@@ -524,8 +523,8 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		}
 	}
 	
-	private void updateRecentLaunchDate(Long courseResId, Identity id, int amount, int field) {
-		UserCourseInfosImpl userCourseInfos = (UserCourseInfosImpl)userCourseInformationsManager.getUserCourseInformations(courseResId, id);
+	private void updateRecentLaunchDate(OLATResource courseRes, Identity id, int amount, int field) {
+		UserCourseInfosImpl userCourseInfos = (UserCourseInfosImpl)userCourseInformationsManager.getUserCourseInformations(courseRes, id);
 		Date recentLaunch = userCourseInfos.getRecentLaunch();
 		Calendar cal = Calendar.getInstance();
 		cal.setTime(recentLaunch);
@@ -679,7 +678,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		Date validTo = cal.getTime();
 		
 		RepositoryEntryLifecycle cycle = lifecycleDao.create("Cycle 1", "Cycle soft 1", false, validFrom, validTo);
-		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, cycle);
+		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, null, cycle);
 		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.owner.name());
 		repositoryEntryRelationDao.addRole(id2, re, GroupRoles.coach.name());
 		repositoryEntryRelationDao.addRole(id3, re, GroupRoles.participant.name());
@@ -764,7 +763,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		Date validTo = cal.getTime();
 		
 		RepositoryEntryLifecycle cycle = lifecycleDao.create("Cycle 2", "Cycle soft 2", false, validFrom, validTo);
-		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, cycle);
+		re = repositoryManager.setDescriptionAndName(re, null, null, null, null, null, null, null, cycle);
 		repositoryEntryRelationDao.addRole(id1, re, GroupRoles.owner.name());
 		repositoryEntryRelationDao.addRole(id2, re, GroupRoles.coach.name());
 		repositoryEntryRelationDao.addRole(id3, re, GroupRoles.participant.name());
@@ -1042,7 +1041,7 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 	
 	private String assessmentData(Identity tutor, Identity student, ScoreEvaluation scoreEval, RepositoryEntry re) {
 		//create user course infos
-		ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+		ICourse course = CourseFactory.loadCourse(re);
 		List<CourseNode> assessableNodeList = AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), null);
 		AssessableCourseNode testNode = null; 
 		for(CourseNode currentNode: assessableNodeList) {	

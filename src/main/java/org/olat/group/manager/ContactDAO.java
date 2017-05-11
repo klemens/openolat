@@ -29,7 +29,6 @@ import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
-import org.olat.group.BusinessGroupImpl;
 import org.olat.group.model.ContactView;
 import org.olat.group.model.ContactViewExtended;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,13 +61,12 @@ public class ContactDAO {
 	
 	private List<Long> getMembersForCount(IdentityRef me) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select contact.identity.key from ").append(BusinessGroupImpl.class.getName()).append(" bgroup ")
+		sb.append("select contact.identity.key from businessgroup bgroup ")
 		  .append(" inner join bgroup.baseGroup baseGroup")
 		  .append(" inner join baseGroup.members contact")
-		  .append(" where exists (select me.key from bgroupmember as me where me.group=baseGroup and me.identity.key=:identKey)")
-		  .append("  and ((bgroup.ownersVisibleIntern=true and contact.role='coach')")
-		  .append("  or")
-		  .append("  (bgroup.participantsVisibleIntern=true and contact.role='participant'))");
+		  .append(" inner join baseGroup.members me on (me.identity.key=:identKey)")
+		  .append(" where (bgroup.ownersVisibleIntern=true and contact.role='coach')")
+		  .append("  or (bgroup.participantsVisibleIntern=true and contact.role='participant')");
 
 		return dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Long.class)
 				.setParameter("identKey", me.getKey())

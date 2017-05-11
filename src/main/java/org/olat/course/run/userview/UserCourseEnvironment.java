@@ -25,6 +25,7 @@
 
 package org.olat.course.run.userview;
 
+import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.IdentityEnvironment;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
@@ -51,18 +52,58 @@ public interface UserCourseEnvironment {
 	
 	public IdentityEnvironment getIdentityEnvironment();
 	
+	/**
+	 * Return a value only if the user has opened the course in
+	 * the GUI. Return null otherwise.
+	 * @return
+	 */
+	public WindowControl getWindowControl();
+	
 	public ScoreAccounting getScoreAccounting();
 	
-
+	/**
+	 * Is admin of the course, as administrator in OpenOLAT, resource manager
+	 * or owner of the course.
+	 * @return
+	 */
 	public boolean isAdmin();
 	
+	/**
+	 * Is a coach of the course, within the course as in relation of a group.
+	 * @return
+	 */
 	public boolean isCoach();
 
+	/**
+	 * Is a participant of the course, within the course as in relation of a group.
+	 * @return
+	 */
 	public boolean isParticipant();
 	
 	public boolean isIdentityInCourseGroup(Long groupKey);
 	
+	/**
+	 * Is administrator of some courses (as owner, OpenOLAT administrator or institutional resource manager).
+	 * @return
+	 */
+	public boolean isAdminOfAnyCourse();
+	
+	/**
+	 * Is coach of some course.
+	 * @return
+	 */
+	public boolean isCoachOfAnyCourse();
+
+	/**
+	 * Is participant of some course.
+	 * @return
+	 */
+	public boolean isParticipantOfAnyCourse();
+	
+	
 	public RepositoryEntryLifecycle getLifecycle();
+	
+	public boolean isCourseReadOnly();
 	
 	/**
 	 * Check if the user has an efficiency statement or a certificate. The method

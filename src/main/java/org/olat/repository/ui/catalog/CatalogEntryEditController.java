@@ -31,30 +31,31 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.olat.basesecurity.BaseSecurityManager;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
-import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.repository.CatalogEntry;
+import org.olat.repository.RepositoryManager;
 import org.olat.repository.CatalogEntry.Style;
 import org.olat.repository.manager.CatalogManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -72,7 +73,7 @@ public class CatalogEntryEditController extends FormBasicController {
 	
 	private static final int picUploadlimitKB = 5024;
 	
-	private static final Set<String> mimeTypes = new HashSet<String>();
+	private static final Set<String> mimeTypes = new HashSet<>();
 	static {
 		mimeTypes.add("image/gif");
 		mimeTypes.add("image/jpg");
@@ -87,23 +88,23 @@ public class CatalogEntryEditController extends FormBasicController {
 	private TextElement nameEl;
 	private SingleSelection styleEl;
 	private RichTextElement descriptionEl;
-	private FormLink deleteImage;
 	private FileElement fileUpload;
 
 	private CatalogEntry parentEntry;
 	private CatalogEntry catalogEntry;
-	private final CatalogManager catalogManager;
+	
+	@Autowired
+	private CatalogManager catalogManager;
 	
 	public CatalogEntryEditController(UserRequest ureq, WindowControl wControl, CatalogEntry entry) {
 		this(ureq, wControl, entry, null);
 	}
 	
 	public CatalogEntryEditController(UserRequest ureq, WindowControl wControl, CatalogEntry entry, CatalogEntry parentEntry) {
-		super(ureq, wControl);
+		super(ureq, wControl, Util.createPackageTranslator(RepositoryManager.class, ureq.getLocale()));
 		
 		this.catalogEntry = entry;
 		this.parentEntry = parentEntry;
-		catalogManager = CoreSpringFactory.getImpl(CatalogManager.class);
 		initForm (ureq);
 	}
 	
@@ -133,20 +134,16 @@ public class CatalogEntryEditController extends FormBasicController {
 		}
 		
 		VFSLeaf img = catalogEntry == null || catalogEntry.getKey() == null ? null : catalogManager.getImage(catalogEntry);
-		fileUpload = uifactory.addFileElement("entry.pic", "entry.pic", formLayout);
+		fileUpload = uifactory.addFileElement(getWindowControl(), "entry.pic", "entry.pic", formLayout);
 		fileUpload.setMaxUploadSizeKB(picUploadlimitKB, null, null);
 		fileUpload.addActionListener(FormEvent.ONCHANGE);
 		fileUpload.setPreview(ureq.getUserSession(), true);
 		fileUpload.setCropSelectionEnabled(true);
+		fileUpload.setDeleteEnabled(true);
 		if(img instanceof LocalFileImpl) {
 			fileUpload.setInitialFile(((LocalFileImpl)img).getBasefile());
 		}
-		fileUpload.limitToMimeType(mimeTypes, null, null);
-
-		deleteImage = uifactory.addFormLink("delete", "tools.delete.catalog.image", null, formLayout, Link.BUTTON_SMALL);
-		deleteImage.setElementCssClass("o_catalog_delete_img");
-		deleteImage.setIconLeftCSS("o_icon o_icon_delete o_icon-lg");
-		deleteImage.setVisible(img != null);
+		fileUpload.limitToMimeType(mimeTypes, "cif.error.mimetype", new String[]{ mimeTypes.toString()} );
 
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		buttonLayout.setElementCssClass("o_sel_catalog_entry_form_buttons");
@@ -167,35 +164,29 @@ public class CatalogEntryEditController extends FormBasicController {
 	public void setElementCssClass(String cssClass) {
 		flc.setElementCssClass(cssClass);
 	}
+	
+	
 
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
-		 if (source == fileUpload) {
-			if (fileUpload.isUploadSuccess()) {
-				deleteImage.setVisible(true);
-				fileUpload.setLabel(null, null);
-				flc.setDirty(true);
-			}
-		} else if (source == deleteImage) {
-			VFSLeaf img = catalogManager.getImage(catalogEntry);
-			if(fileUpload.getUploadFile() != null && fileUpload.getUploadFile() != fileUpload.getInitialFile()) {
-				fileUpload.reset();
-				
-				if(img == null) {
-					deleteImage.setVisible(false);
-					fileUpload.setLabel("entry.pic", null);
-				} else {
-					deleteImage.setVisible(true);
-					fileUpload.setLabel(null, null);
+		if (source == fileUpload) {
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				VFSLeaf img = catalogManager.getImage(catalogEntry);
+				if(fileUpload.getUploadFile() != null && fileUpload.getUploadFile() != fileUpload.getInitialFile()) {
+					fileUpload.reset();
+					if(img != null) {
+						fileUpload.setInitialFile(((LocalFileImpl)img).getBasefile());
+					}
+				} else if(img != null) {
+					catalogManager.deleteImage(catalogEntry);
+					fileUpload.setInitialFile(null);
 				}
-			} else if(img != null) {
-				catalogManager.deleteImage(catalogEntry);
-				deleteImage.setVisible(false);
-				fileUpload.setLabel("entry.pic", null);
-				fileUpload.setInitialFile(null);
+				flc.setDirty(true);
+				fileUpload.clearError();
+			} else if (fileUpload.isUploadSuccess()) {
+				flc.setDirty(true);
+				fileUpload.clearError();
 			}
-
-			flc.setDirty(true);
 		}
 		super.formInnerEvent(ureq, source, event);
 	}

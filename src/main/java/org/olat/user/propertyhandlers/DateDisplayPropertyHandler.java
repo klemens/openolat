@@ -23,7 +23,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 
-import org.olat.basesecurity.BaseSecurityManager;
+import org.olat.admin.user.imp.TransientIdentity;
 import org.olat.core.gui.components.form.ValidationError;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -35,6 +35,7 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.user.AbstractUserPropertyHandler;
+import org.olat.user.UserImpl;
 
 /**
  * this class displays a static textElement. it always shows one of three dates:
@@ -73,10 +74,15 @@ public class DateDisplayPropertyHandler extends AbstractUserPropertyHandler {
 		if (DATE_TYPE_CR.equals(myName))
 			return user.getCreationDate();
 		if (DATE_TYPE_LL.equals(myName)) {
-			Identity id = BaseSecurityManager.getInstance().findIdentityByUser(user);
-			if (id != null)
-				return id.getLastLogin();
-
+			if (user instanceof UserImpl) {
+				Identity id = ((UserImpl)user).getIdentity();
+				if (id != null) {
+					return id.getLastLogin();
+				}				
+			} else if (user instanceof TransientIdentity) {
+				// anticipated, some kind of preview screen
+				return new Date(0);
+			}
 			// huh, we didn't find this identity
 			log.warn("Couldn't find Identity for given User: " + user.getKey());
 			return new Date(0);
@@ -108,6 +114,11 @@ public class DateDisplayPropertyHandler extends AbstractUserPropertyHandler {
 	}
 
 	@Override
+	protected void setInternalValue(User user, String value) {
+		//read-only
+	}
+
+	@Override
 	public void updateUserFromFormItem(User user, FormItem formItem) {
 		// we do nothing here, its read-only
 	}
@@ -136,5 +147,10 @@ public class DateDisplayPropertyHandler extends AbstractUserPropertyHandler {
 	@Override
 	public String getStringValue(String displayValue, Locale locale) {
 		return displayValue;
+	}
+	
+	@Override
+	protected void setInternalGetterSetter(String name) {
+		//do nothing, artificial value
 	}
 }

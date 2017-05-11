@@ -31,10 +31,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
+import org.olat.NewControllerFactory;
 import org.olat.admin.quota.QuotaConstants;
 import org.olat.admin.quota.QuotaImpl;
 import org.olat.basesecurity.GroupRoles;
@@ -52,6 +54,7 @@ import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.stack.TooledStackedPanel.Align;
 import org.olat.core.gui.components.tree.MenuTree;
 import org.olat.core.gui.components.tree.TreeNode;
+import org.olat.core.gui.components.tree.TreePosition;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -96,8 +99,8 @@ import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.iq.IQEditController;
-import org.olat.course.tree.TreePosition;
 import org.olat.fileresource.types.FileResource;
+import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.ims.qti.QTIChangeLogMessage;
 import org.olat.ims.qti.QTIConstants;
 import org.olat.ims.qti.QTIResultManager;
@@ -133,7 +136,11 @@ import org.olat.modules.qpool.ui.events.QItemViewEvent;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
+import org.olat.repository.handlers.RepositoryHandler;
+import org.olat.repository.handlers.RepositoryHandlerFactory;
+import org.olat.repository.ui.author.CreateRepositoryEntryController;
 import org.olat.resource.references.Reference;
+import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -176,6 +183,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private static final String CMD_TOOLS_EXPORT_QPOOL = "cmd.export.qpool";
 	private static final String CMD_TOOLS_EXPORT_DOCX = "cmd.export.docx";
 	private static final String CMD_TOOLS_IMPORT_TABLE = "cmd.import.xls";
+	private static final String CMD_TOOLS_CONVERT_TO_QTI21 = "cmd.convert.qti.21";
 
 	private static final String CMD_EXIT_SAVE = "exit.save";
 	private static final String CMD_EXIT_DISCARD = "exit.discard";
@@ -229,7 +237,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private TooledStackedPanel stackedPanel;
 	private LayoutMain3ColsController columnLayoutCtr;
 	
-	private Link previewLink, exportPoolLink, exportDocLink, importTableLink, closeLink;
+	private Link previewLink, exportPoolLink, convertQTI21Link, exportDocLink, importTableLink, closeLink;
 	private Link addPoolLink, addSectionLink, addSCLink, addMCLink, addFIBLink, addKPrimLink, addEssayLink;
 	private Link deleteLink, moveLink, copyLink;
 
@@ -255,17 +263,30 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	private Link notEditableButton; 
 	private Set<String> deletableMediaFiles;
 	private StepsMainRunController importTableWizard;
+	private CreateRepositoryEntryController createConvertedTestController;
 	private InsertNodeController moveCtrl, copyCtrl, insertCtrl;
+	private CountDownLatch exportLatch;
+	private RepositoryEntry qtiEntry;
 
 	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private QTIResultManager qtiResultManager;
 	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private ReferenceManager referenceManager;
+	@Autowired
+	private RepositoryService repositoryService;
+	@Autowired
 	private QTIQPoolServiceProvider qtiQpoolServiceProvider;
+	@Autowired
+	private RepositoryHandlerFactory repositoryHandlerFactory;
 	
 	public QTIEditorMainController(UserRequest ureq, WindowControl wControl, RepositoryEntry qtiEntry, List<Reference> referencees, FileResource fileResource) {
 		super(ureq, wControl);
+		
+		this.qtiEntry = qtiEntry;
 
 		for(Iterator<Reference> iter = referencees.iterator(); iter.hasNext(); ) {
 			Reference ref = iter.next();
@@ -273,18 +294,27 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				try {
 					ICourse course = CourseFactory.loadCourse(ref.getSource().getResourceableId());
 					CourseNode courseNode = course.getEditorTreeModel().getCourseNode(ref.getUserdata());
-					String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-					//check softly that the setting if ok
-					if(qtiEntry.getSoftkey().equals(repositorySoftKey)) {
-						restrictedEdit = ((CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(course, null))
-							|| qtiResultManager.countResults(course.getResourceableId(), courseNode.getIdent(), qtiEntry.getKey()) > 0) ? true : false;
+					if(courseNode == null) {
+						courseNode = course.getRunStructure().getNode(ref.getUserdata());
+					}
+						
+					if(courseNode == null) {
+						referenceManager.delete(ref);	
 					} else {
-						logError("The course node soft key doesn't match the test/survey sotf key. Course resourceable id: "
-					      + course.getResourceableId() + " (" + course.getCourseTitle() + ") course node: " + courseNode.getIdent() + " (" + courseNode.getShortTitle() + " )"
-					      + " soft key of test/survey in course: " + repositorySoftKey + "  test/survey soft key: " + qtiEntry.getSoftkey(), null);
+						String repositorySoftKey = (String) courseNode.getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
+						//check softly that the setting if ok
+						if(qtiEntry.getSoftkey().equals(repositorySoftKey)) {
+							restrictedEdit = ((CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(course, null))
+								|| qtiResultManager.countResults(course.getResourceableId(), courseNode.getIdent(), qtiEntry.getKey()) > 0) ? true : false;
+						} else {
+							logError("The course node soft key doesn't match the test/survey sotf key. Course resourceable id: "
+						      + course.getResourceableId() + " (" + course.getCourseTitle() + ") course node: " + courseNode.getIdent() + " (" + courseNode.getShortTitle() + " )"
+						      + " soft key of test/survey in course: " + repositorySoftKey + "  test/survey soft key: " + qtiEntry.getSoftkey(), null);
+						}
 					}
 				} catch(CorruptedCourseException e) {
 					logError("", e);
+					referenceManager.delete(ref);
 				}
 			}
 			if(restrictedEdit) {
@@ -344,6 +374,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		}
 
 		stackedPanel = new TooledStackedPanel("qtiEditorStackedPanel", getTranslator(), this);
+		stackedPanel.setCssClass("o_edit_mode");
 		
 		// initialize the history
 		if (qtiPackage.isResumed() && qtiPackage.hasSerializedChangelog()) {
@@ -478,7 +509,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				}
 			}
 		} else if (source == exitVC) {
-			if (event.getCommand().equals(CMD_EXIT_SAVE)) {
+			if (CMD_EXIT_SAVE.equals(event.getCommand())) {
 				if (isRestrictedEdit() && history.size() > 0) {
 					// changes were recorded
 					// start work flow:
@@ -519,7 +550,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					// remove lock, clean tmp dir, fire done event to close editor
 					saveAndExit(ureq);
 				}
-			} else if (event.getCommand().equals(CMD_EXIT_DISCARD)) {
+			} else if (CMD_EXIT_DISCARD.equals(event.getCommand())) {
 				// remove modal dialog and proceed with exit process
 				cmcExit.deactivate();
 				removeAsListenerAndDispose(cmcExit);
@@ -529,7 +560,7 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 				// remove lock
 				removeLocksAndExit(ureq);
 				
-			} else if (event.getCommand().equals(CMD_EXIT_CANCEL)) {
+			} else if (CMD_EXIT_CANCEL.equals(event.getCommand())) {
 				// remove modal dialog and go back to edit mode
 				cmcExit.deactivate();
 				removeAsListenerAndDispose(cmcExit);
@@ -617,6 +648,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			doExportQItem();
 		} else if (exportDocLink == source) {
 			doExportDocx(ureq);
+		} else if (convertQTI21Link == source) {
+			doConvertToQTI21(ureq);
 		} else if (importTableLink == source) {
 			doImportTable(ureq);
 		} else if (addSectionLink == source) {
@@ -803,6 +836,15 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 			if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
 				doSelectInsertionPoint(ureq, CMD_TOOLS_ADD_QPOOL, importPackage);
 			}
+		} else if(createConvertedTestController == source) {
+			cmc.deactivate();
+			if(event == Event.DONE_EVENT) {
+				showInfo("test.converted");
+				RepositoryEntry convertedEntry = createConvertedTestController.getAddedEntry();
+				String businessPath = "[RepositoryEntry:" + convertedEntry.getKey() + "]";
+				NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
+			}
+			cleanUp();
 		} else if (source == insertCtrl) { // catch insert operations
 			cmc.deactivate();
 			if(event == Event.DONE_EVENT) {
@@ -842,10 +884,12 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		removeAsListenerAndDispose(insertCtrl);
 		removeAsListenerAndDispose(selectQItemCtrl);
 		removeAsListenerAndDispose(importTableWizard);
+		removeAsListenerAndDispose(createConvertedTestController);
 		cmc = null;
 		insertCtrl = null;
 		selectQItemCtrl = null;
 		importTableWizard = null;
+		createConvertedTestController = null;
 	}
 	
 	private void doSelectInsertionPoint(UserRequest ureq, String cmd, Object userObj) {
@@ -1016,11 +1060,27 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		cmc.activate();
 		listenTo(cmc);
 	}
+	
+	private void doConvertToQTI21(UserRequest ureq) {
+		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(createConvertedTestController);
+
+		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(ImsQTI21Resource.TYPE_NAME);
+		createConvertedTestController = new CreateRepositoryEntryController(ureq, getWindowControl(), handler);
+		createConvertedTestController.setCreateObject(qtiEntry.getOlatResource());
+		createConvertedTestController.setDisplayname(qtiEntry.getDisplayname());
+		listenTo(createConvertedTestController);
+
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), createConvertedTestController.getInitialComponent(), true, translate("title.convert.qti21") );
+		cmc.activate();
+		listenTo(cmc);
+	}
 
 	private void doExportDocx(UserRequest ureq) {
 		AssessmentNode rootNode = (AssessmentNode)menuTreeModel.getRootNode();
 		VFSContainer editorContainer = qtiPackage.getBaseDir();
-		MediaResource mr = new QTIWordExport(rootNode, editorContainer, getLocale(), "UTF-8");
+		exportLatch = new CountDownLatch(1);
+		MediaResource mr = new QTIWordExport(rootNode, editorContainer, getLocale(), "UTF-8", exportLatch);
 		ureq.getDispatchResult().setResultingMediaResource(mr);
 	}
 	
@@ -1120,6 +1180,9 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		exportDocLink = LinkFactory.createToolLink(CMD_TOOLS_EXPORT_DOCX, translate("tools.export.docx"), this, "o_mi_docx_export");
 		exportDocLink.setIconLeftCSS("o_icon o_icon_download");
 		exportTools.addComponent(exportDocLink);
+		convertQTI21Link = LinkFactory.createToolLink(CMD_TOOLS_CONVERT_TO_QTI21, translate("tools.convert.qti21"), this, "o_FileResource-IMSQTI21_icon");
+		convertQTI21Link.setIconLeftCSS("o_icon o_FileResource-IMSQTI21_icon");
+		exportTools.addComponent(convertQTI21Link);
 
 		//add
 		Dropdown addItemTools = new Dropdown("editTools", "tools.add.header", false, getTranslator());
@@ -1175,6 +1238,13 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 	@Override
 	public boolean requestForClose(UserRequest ureq) {		
 		// enter save/discard dialog if not already in it
+		if(exportLatch != null) {
+			try {
+				exportLatch.await(30, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				logError("", e);
+			}
+		}
 		if (cmcExit == null) {
 			exitVC = createVelocityContainer("exitDialog");
 			exitPanel = new Panel("exitPanel");
@@ -1199,10 +1269,8 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 		 */
 		changeEmail = new ContactMessage(ureq.getIdentity());
 
-		RepositoryManager rm = RepositoryManager.getInstance();
-		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		// the owners of this qtiPkg
-		RepositoryEntry myEntry = rm.lookupRepositoryEntry(qtiPackage.getRepresentingResourceable(), false);
+		RepositoryEntry myEntry = repositoryManager.lookupRepositoryEntry(qtiPackage.getRepresentingResourceable(), false);
 		
 		// add qti resource owners as group
 		ContactList cl = new ContactList("qtiPkgOwners");
@@ -1225,29 +1293,33 @@ public class QTIEditorMainController extends MainLayoutBasicController implement
 					continue;
 				}
 				
+				CourseNode cn = course.getEditorTreeModel().getCourseNode(element.getUserdata());
+				if(cn == null) {
+					logError("Cannot find course element " + element.getUserdata() + " in course " + course, null);
+					continue;
+				}
+
 				String courseTitle = course.getCourseTitle();
 				StringBuilder stakeHolders = new StringBuilder();
 				
 				// the course owners
-				RepositoryEntry entry = rm.lookupRepositoryEntry(course, false);
+				RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(course, false);
 				if(entry != null) {//OO-1300
 					List<Identity> stakeHoldersIds = repositoryService.getMembers(entry, GroupRoles.owner.name());
-	
-					// add stakeholders as group
-					cl = new ContactList(courseTitle);
-					cl.addAllIdentites(stakeHoldersIds);
-					changeEmail.addEmailTo(cl);
-	
-					User user = stakeHoldersIds.get(0).getUser();
-					Locale loc = ureq.getLocale();
-					stakeHolders.append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
-					for (int i = 1; i < stakeHoldersIds.size(); i++) {
-						user = stakeHoldersIds.get(i).getUser();
-						stakeHolders.append(", ").append(user.getProperty(UserConstants.FIRSTNAME, loc)).append(" ").append(user.getProperty(UserConstants.LASTNAME, loc));
+					if(stakeHoldersIds != null && stakeHoldersIds.size() > 0) {
+						// add stakeholders as group
+						cl = new ContactList(courseTitle);
+						cl.addAllIdentites(stakeHoldersIds);
+						changeEmail.addEmailTo(cl);
+		
+						for (Identity stakeHoldersId:stakeHoldersIds) {
+							if(stakeHolders.length() > 0) stakeHolders.append(", ");
+							User user = stakeHoldersId.getUser();
+							stakeHolders.append(user.getProperty(UserConstants.FIRSTNAME, getLocale())).append(" ").append(user.getProperty(UserConstants.LASTNAME, getLocale()));
+						}
 					}
 				}
 
-				CourseNode cn = course.getEditorTreeModel().getCourseNode(element.getUserdata());
 				String courseNodeTitle = cn.getShortTitle();
 				result.append(translate("qti.restricted.course", StringHelper.escapeHtml(courseTitle)));
 				result.append(translate("qti.restricted.node", StringHelper.escapeHtml(courseNodeTitle)));

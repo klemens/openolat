@@ -53,7 +53,7 @@ public interface CalendarController extends Controller {
 	 * 
 	 * @param Date
 	 */
-	public void setFocusOnEvent(String eventId);
+	public void setFocusOnEvent(String eventId, String recurenceId);
 	
 	/**
 	 * Sets the list of KalendarRenderWrappers for this calendar controller.
@@ -61,13 +61,6 @@ public interface CalendarController extends Controller {
 	 * @param calendars
 	 */
 	public void setCalendars(List<KalendarRenderWrapper> calendars);
-	
-	/**
-	 * Sets the list of KalendarRenderWrappers for this calendar controller.
-	 * 
-	 * @param calendars
-	 */
-	public void setCalendars(List<KalendarRenderWrapper> calendars, List<KalendarRenderWrapper> importedCalendars);
 	
 	/**
 	 * Sets the calendar dirty. The calendar controller should

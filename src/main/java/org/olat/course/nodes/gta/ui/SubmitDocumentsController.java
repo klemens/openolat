@@ -26,16 +26,19 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import org.olat.core.commons.editor.htmleditor.HTMLEditorController;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.modules.singlepage.SinglePageController;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -47,7 +50,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -61,7 +63,10 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.nodes.GTACourseNode;
+import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.Task;
+import org.olat.course.nodes.gta.ui.events.SubmitEvent;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +87,7 @@ class SubmitDocumentsController extends FormBasicController {
 	private NewDocumentController newDocCtrl;
 	private DocumentUploadController uploadCtrl, replaceCtrl;
 	private DialogBoxController confirmDeleteCtrl;
+	private SinglePageController viewDocCtrl;
 	private HTMLEditorController newDocumentEditorCtrl, editDocumentEditorCtrl;
 	
 	private final int maxDocs;
@@ -90,20 +96,32 @@ class SubmitDocumentsController extends FormBasicController {
 	private final File documentsDir;
 	private final VFSContainer documentsContainer;
 	private final ModuleConfiguration config;
+	private final SubscriptionContext subscriptionContext;
+	
+	private boolean open = true;
+	private final boolean readOnly;
+	private final Date deadline;
 	
 	@Autowired
 	private UserManager userManager;
+	@Autowired
+	private GTAManager gtaManager;
+	@Autowired
+	private NotificationsManager notificationsManager;
 	
 	public SubmitDocumentsController(UserRequest ureq, WindowControl wControl, Task assignedTask,
-			File documentsDir, VFSContainer documentsContainer, int maxDocs, ModuleConfiguration config,
-			String docI18nKey) {
+			File documentsDir, VFSContainer documentsContainer, int maxDocs, GTACourseNode cNode,
+			CourseEnvironment courseEnv, boolean readOnly, Date deadline, String docI18nKey) {
 		super(ureq, wControl, "documents");
 		this.assignedTask = assignedTask;
 		this.documentsDir = documentsDir;
 		this.documentsContainer = documentsContainer;
 		this.maxDocs = maxDocs;
 		this.docI18nKey = docI18nKey;
-		this.config = config;
+		this.deadline = deadline;
+		this.readOnly = readOnly;
+		this.config = cNode.getModuleConfiguration();
+		subscriptionContext = gtaManager.getSubscriptionContext(courseEnv, cNode);
 		initForm(ureq);
 		updateModel();
 	}
@@ -111,12 +129,14 @@ class SubmitDocumentsController extends FormBasicController {
 	public Task getAssignedTask() {
 		return assignedTask;
 	}
-	
 
 	public boolean hasUploadDocuments() {
 		return (model.getRowCount() > 0);
 	}
-
+	
+	public void close() {
+		open = false;
+	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
@@ -124,27 +144,35 @@ class SubmitDocumentsController extends FormBasicController {
 			uploadDocButton = uifactory.addFormLink("upload.document", formLayout, Link.BUTTON);
 			uploadDocButton.setIconLeftCSS("o_icon o_icon_upload");
 			uploadDocButton.setElementCssClass("o_sel_course_gta_submit_file");
+			uploadDocButton.setVisible(!readOnly);
 		}
 		if(config.getBooleanSafe(GTACourseNode.GTASK_EMBBEDED_EDITOR)) {
 			createDocButton = uifactory.addFormLink("open.editor", formLayout, Link.BUTTON);
 			createDocButton.setIconLeftCSS("o_icon o_icon_edit");
 			createDocButton.setElementCssClass("o_sel_course_gta_create_doc");
 			createDocButton.setI18nKey(docI18nKey + ".open.editor");
+			createDocButton.setVisible(!readOnly);
 		}
 
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(docI18nKey, DocCols.document.ordinal()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(DocCols.date.i18nKey(), DocCols.date.ordinal()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(DocCols.uploadedBy.i18nKey(), DocCols.uploadedBy.ordinal()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("edit", DocCols.edit.ordinal(), "edit",
-				new BooleanCellRenderer(
-						new StaticFlexiCellRenderer(translate("edit"), "edit"),
-						new StaticFlexiCellRenderer(translate("replace"), "edit"))));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("delete", translate("delete"), "delete"));
+		if(!readOnly) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("edit", DocCols.edit.ordinal(), "edit",
+					new BooleanCellRenderer(
+							new StaticFlexiCellRenderer(translate("edit"), "edit"),
+							new StaticFlexiCellRenderer(translate("replace"), "edit"))));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("delete", translate("delete"), "delete"));
+		}
 		
 		model = new DocumentTableModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, getTranslator(), formLayout);
 		formLayout.add("table", tableEl);
+		// configure table to be as slim as possible
+		tableEl.setCustomizeColumns(false);
+		tableEl.setNumOfRowsEnabled(false);
+		tableEl.setElementCssClass("o_table_no_margin");
 	}
 	
 	private void updateModel() {
@@ -161,8 +189,13 @@ class SubmitDocumentsController extends FormBasicController {
 				}
 			}
 			
-			
-			DownloadLink download = uifactory.addDownloadLink("view-" + CodeHelper.getRAMUniqueID(), filename, null, document, tableEl);
+			FormItem download;
+			if(filename.endsWith(".html")) {
+				download = uifactory.addFormLink("view-" + CodeHelper.getRAMUniqueID(), "view", filename, null, flc, Link.LINK | Link.NONTRANSLATED);
+				download.setUserObject(filename);
+			} else {
+				download = uifactory.addDownloadLink("view-" + CodeHelper.getRAMUniqueID(), filename, null, document, tableEl);
+			}
 			docList.add(new SubmittedSolution(document, uploadedBy, download));
 		}
 		model.setObjects(docList);
@@ -203,24 +236,30 @@ class SubmitDocumentsController extends FormBasicController {
 				String filename = document.getFile().getName();
 				doDelete(document);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.DELETE, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cleanUp();
+			checkDeadline(ureq);
 		} else if(uploadCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				String filename = uploadCtrl.getUploadedFilename();
 				doUpload(ureq, uploadCtrl.getUploadedFile(), filename);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPLOAD, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
+			checkDeadline(ureq);
 		} else if(replaceCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				String filename = replaceCtrl.getUploadedFilename();
 				doReplace(ureq, replaceCtrl.getSolution(), replaceCtrl.getUploadedFile(), filename);
 				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, filename));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
+			checkDeadline(ureq);
 		} else if(newDocCtrl == source) {
 			String filename = newDocCtrl.getFilename();
 			cmc.deactivate();
@@ -230,20 +269,25 @@ class SubmitDocumentsController extends FormBasicController {
 				doCreateDocumentEditor(ureq, filename);
 				updateModel();
 			} 
+			checkDeadline(ureq);
 		} else if(newDocumentEditorCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
-				fireEvent(ureq, new SubmitEvent(SubmitEvent.CREATE, newDocumentEditorCtrl.getFilename()));	
+				fireEvent(ureq, new SubmitEvent(SubmitEvent.CREATE, newDocumentEditorCtrl.getFilename()));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
+			checkDeadline(ureq);
 		} else if(editDocumentEditorCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
-				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, editDocumentEditorCtrl.getFilename()));	
+				fireEvent(ureq, new SubmitEvent(SubmitEvent.UPDATE, editDocumentEditorCtrl.getFilename()));
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
+			checkDeadline(ureq);
 		} else if(cmc == source) {
 			cleanUp();
 		}
@@ -253,11 +297,13 @@ class SubmitDocumentsController extends FormBasicController {
 	private void cleanUp() {
 		removeAsListenerAndDispose(newDocumentEditorCtrl);
 		removeAsListenerAndDispose(confirmDeleteCtrl);
+		removeAsListenerAndDispose(viewDocCtrl);
 		removeAsListenerAndDispose(uploadCtrl);
 		removeAsListenerAndDispose(newDocCtrl);
 		removeAsListenerAndDispose(cmc);
 		newDocumentEditorCtrl = null;
 		confirmDeleteCtrl = null;
+		viewDocCtrl = null;
 		uploadCtrl = null;
 		newDocCtrl = null;
 		cmc = null;
@@ -271,11 +317,15 @@ class SubmitDocumentsController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(uploadDocButton == source) {
-			doOpenDocumentUpload(ureq);
+			if(checkOpen(ureq) && checkDeadline(ureq)) {
+				doOpenDocumentUpload(ureq);
+			}
 		} else if(createDocButton == source) {
-			doChooseFilename(ureq);
+			if(checkOpen(ureq) && checkDeadline(ureq)) {
+				doChooseFilename(ureq);
+			}
 		} else if(tableEl == source) {
-			if(event instanceof SelectionEvent) {
+			if(checkOpen(ureq) && checkDeadline(ureq) && event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
 				SubmittedSolution row = model.getObject(se.getIndex());
 				if("delete".equals(se.getCommand())) {
@@ -284,8 +334,38 @@ class SubmitDocumentsController extends FormBasicController {
 					doEdit(ureq, row);
 				}
 			}
+		} else if(source instanceof FormLink) {
+			FormLink link = (FormLink)source;
+			if("view".equals(link.getCmd())) {
+				doView(ureq, (String)link.getUserObject());
+			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	private boolean checkDeadline(UserRequest ureq) {
+		if(deadline == null || deadline.after(new Date())) return true;
+		showWarning("warning.tasks.submitted");
+		fireEvent(ureq, Event.DONE_EVENT);
+		return false;
+	}
+	
+	private boolean checkOpen(UserRequest ureq) {
+		if(open) return true;
+		showWarning("warning.tasks.submitted");
+		fireEvent(ureq, Event.DONE_EVENT);
+		return false;
+	}
+	
+	private void doView(UserRequest ureq, String filename) {
+		if(viewDocCtrl != null) return;
+		
+		viewDocCtrl = new SinglePageController(ureq, getWindowControl(), documentsContainer, filename, false);
+		listenTo(viewDocCtrl);
+
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), viewDocCtrl.getInitialComponent(), true, filename);
+		listenTo(cmc);
+		cmc.activate();
 	}
 	
 	private void doConfirmDelete(UserRequest ureq, SubmittedSolution solution) {
@@ -401,6 +481,8 @@ class SubmitDocumentsController extends FormBasicController {
 	
 			newDocumentEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 					documentsContainer, documentName, "media", true, true);
+			newDocumentEditorCtrl.getRichTextConfiguration().disableMedia();
+			newDocumentEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 			newDocumentEditorCtrl.setNewFile(true);
 			listenTo(newDocumentEditorCtrl);
 			
@@ -415,6 +497,8 @@ class SubmitDocumentsController extends FormBasicController {
 
 		editDocumentEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 				documentsContainer, documentName, "media", true, true);
+		editDocumentEditorCtrl.getRichTextConfiguration().disableMedia();
+		editDocumentEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 		listenTo(editDocumentEditorCtrl);
 		
 		cmc = new CloseableModalController(getWindowControl(), "close", editDocumentEditorCtrl.getInitialComponent());
@@ -443,9 +527,9 @@ class SubmitDocumentsController extends FormBasicController {
 		
 		private final File file;
 		private final String uploadedBy;
-		private final DownloadLink downloadLink;
+		private final FormItem downloadLink;
 		
-		public SubmittedSolution(File file, String uploadedBy, DownloadLink downloadLink) {
+		public SubmittedSolution(File file, String uploadedBy, FormItem downloadLink) {
 			this.file = file;
 			this.uploadedBy = uploadedBy;
 			this.downloadLink = downloadLink;
@@ -459,7 +543,7 @@ class SubmitDocumentsController extends FormBasicController {
 			return uploadedBy;
 		}
 
-		public DownloadLink getDownloadLink() {
+		public FormItem getDownloadLink() {
 			return downloadLink;
 		}
 	}

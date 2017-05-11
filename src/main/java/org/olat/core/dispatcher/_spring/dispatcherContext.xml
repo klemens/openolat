@@ -37,9 +37,6 @@
 				<entry key="/admin.html">
 					<ref bean="adminbean" />
 				</entry>
-				<entry key="/help/">
-					<ref bean="contexthelpbean" />
-				</entry>
 				<entry key="/qti/">
 					<ref bean="secstaticlegacybean" />
 				</entry>
@@ -48,6 +45,9 @@
 				</entry>
 				<entry key="/error/">
 					<ref bean="errorMailBean" />
+				</entry>
+				<entry key="/math/">
+					<ref bean="mathwebbean" />
 				</entry>
 				<entry key="/podcast/">
 					<ref bean="podcastMediaBean" />
@@ -71,7 +71,10 @@
 	<bean id="oauthcallback" class="org.olat.login.oauth.OAuthDispatcher" />
 	
 	<!-- send bug report dispatcher -->
-	<bean id="errorMailBean" class="org.olat.core.dispatcher.ErrorFeedbackMailer" />
+	<bean id="errorMailBean" class="org.olat.core.dispatcher.ErrorFeedbackMailer">
+		<property name="mailManager" ref="mailManager"/>
+		<property name="securityManager" ref="baseSecurityManager"/>
+	</bean>
 
 	<!--  all olat dispatchers -->
 	<bean id="dmzbean" class="org.olat.dispatcher.DMZDispatcher">
@@ -202,18 +205,14 @@
 		</constructor-arg>
 	</bean>
 	
-	<bean id="contexthelpbean"
-		class="org.olat.core.commons.contextHelp.ContextHelpDispatcher">
-		<constructor-arg index="0">
-			<value>/help/</value>
-		</constructor-arg>
-	</bean>
-	
 	<bean id="secstaticlegacybean"
 		class="org.olat.commons.servlets.StaticsLegacyDispatcher" />
 
 	<bean id="adminbean"
 		class="org.olat.admin.AdminModuleDispatcher" />
+		
+	<bean id="mathwebbean"
+		class="org.olat.ims.qti21.restapi.MathWebDispatcher" />
 
 	<!-- podcast media dispatcher -->
 	<bean id="podcastMediaBean" class="org.olat.modules.webFeed.dispatching.FeedMediaDispatcher" />

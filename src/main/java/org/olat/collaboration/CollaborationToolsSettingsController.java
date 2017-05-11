@@ -30,8 +30,7 @@ import java.util.List;
 
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.CalendarModule;
-import org.olat.commons.calendar.ui.events.KalendarModifiedEvent;
-import org.olat.core.CoreSpringFactory;
+import org.olat.commons.calendar.ui.events.CalendarGUIModifiedEvent;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -136,7 +135,6 @@ public class CollaborationToolsSettingsController extends BasicController {
 		// update quota form: only show when enabled
 		if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER)) {
 			vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
-			//fxdiff VCRP-8: collaboration tools folder access control
 			if(ureq.getUserSession().getRoles().isOLATAdmin()) {
 				vc_collabtools.put("quota", quotaCtr.getInitialComponent());
 			}
@@ -159,12 +157,12 @@ public class CollaborationToolsSettingsController extends BasicController {
 
 	private void addNewsTool(UserRequest ureq) {
 		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
-		String newsValue = collabTools.lookupNews();
+		String access = collabTools.getNewsAccessProperty();
 		
 		if (newsController != null) {
 			removeAsListenerAndDispose(newsController);
 		}
-		newsController = new NewsFormController(ureq, getWindowControl(), (newsValue == null ? "" : newsValue));
+		newsController = new NewsFormController(ureq, getWindowControl(), (access == null ? "" : access));
 		newsController.setEnabled(!managed);
 		listenTo(newsController);
 		
@@ -220,7 +218,7 @@ public class CollaborationToolsSettingsController extends BasicController {
 
 					// notify calendar components to refresh their calendars
 					CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(
-							new KalendarModifiedEvent(), OresHelper.lookupType(CalendarManager.class)
+							new CalendarGUIModifiedEvent(), OresHelper.lookupType(CalendarManager.class)
 					);
 				}
 				lastCalendarEnabledState = newCalendarEnabledState;
@@ -229,7 +227,6 @@ public class CollaborationToolsSettingsController extends BasicController {
 			// update quota form: only show when enabled
 			if (collabTools.isToolEnabled(CollaborationTools.TOOL_FOLDER)) {
 				vc_collabtools.contextPut("folderToolEnabled", Boolean.TRUE);
-				//fxdiff VCRP-8: collaboration tools folder access control
 				if(folderForm != null) {
 					removeAsListenerAndDispose(folderForm);
 				}
@@ -245,20 +242,18 @@ public class CollaborationToolsSettingsController extends BasicController {
 			} else {
 				vc_collabtools.contextPut("folderToolEnabled", Boolean.FALSE);
 			}
-			
 		} else if (source == newsController) {
 			if (event.equals(Event.DONE_EVENT)) {
-				String news = newsController.getNewsValue();
-				collabTools.saveNews(news);
+				String access = newsController.getAccessPropertyValue();
+				collabTools.saveNewsAccessProperty(access);
 			}
 			
 		} else if (source == calendarForm) {	
 			collabTools.saveCalendarAccess(new Long(calendarForm.getCalendarAccess()));
 			// notify calendar components to refresh their calendars
 			CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(
-					new KalendarModifiedEvent(), OresHelper.lookupType(CalendarManager.class)
+					new CalendarGUIModifiedEvent(), OresHelper.lookupType(CalendarManager.class)
 			);
-		//fxdiff VCRP-8: collaboration tools folder access control
 		} else if (source == folderForm) {
 			collabTools.saveFolderAccess(new Long(folderForm.getFolderAccess()));
 		}
@@ -277,30 +272,38 @@ public class CollaborationToolsSettingsController extends BasicController {
 }
 
 class ChoiceOfToolsForm extends FormBasicController {
-	CollaborationTools cts;
-	MultipleSelectionElement ms;
+	private CollaborationTools cts;
+	private MultipleSelectionElement ms;
 	
-	List <String>theKeys   = new ArrayList<String>();
-	List <String>theValues = new ArrayList<String>();
-
-	final String[] availableTools;
+	private final String[] toolsKeys;
+	private final String[] toolsValues;
+	private final String[] cssClasses;
+	private final String[] availableTools;
+	
+	@Autowired
+	private InstantMessagingModule imModule;
 	
 	public ChoiceOfToolsForm(UserRequest ureq, WindowControl wControl, CollaborationTools cts, final String[] availableTools) {
 		super(ureq, wControl);
 		this.cts = cts;
 		this.availableTools = availableTools;
 		
+		List<String> theKeys = new ArrayList<>();
+		List<String> theValues = new ArrayList<>();
+		List<String> theClasses = new ArrayList<>();
 		for (int i=0; i<availableTools.length; i++) {
 			String k = availableTools[i];
-			if (k.equals(CollaborationTools.TOOL_CHAT)) {
-				InstantMessagingModule imModule = CoreSpringFactory.getImpl(InstantMessagingModule.class);
-				if (!imModule.isEnabled() || !imModule.isGroupEnabled()) {
-					continue;
-				}
+			if (k.equals(CollaborationTools.TOOL_CHAT) && (!imModule.isEnabled() || !imModule.isGroupEnabled())) {
+				continue;
 			}
 			theKeys.add(""+i);
-			theValues.add(translate("collabtools.named."+availableTools[i]));
+			theValues.add(translate("collabtools.named." + availableTools[i]));
+			theClasses.add("o_sel_" + availableTools[i]);
 		}
+		
+		toolsKeys = theKeys.toArray(new String[theKeys.size()]);
+		toolsValues = theValues.toArray(new String[theValues.size()]);
+		cssClasses = theClasses.toArray(new String[theClasses.size()]);
 		
 		initForm(ureq);
 	}
@@ -316,10 +319,7 @@ class ChoiceOfToolsForm extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		ms = uifactory.addCheckboxesVertical(
-				"selection", formLayout, 
-				theKeys.toArray(new String[theKeys.size()]),
-				theValues.toArray(new String[theValues.size()]), 1);
+		ms = uifactory.addCheckboxesVertical("selection", "selection", formLayout, toolsKeys, toolsValues, cssClasses, null, 1);
 		ms.setElementCssClass("o_sel_collab_tools");
 		for (int i=0; i<availableTools.length; i++) {
 			ms.select(""+i, cts.isToolEnabled(availableTools[i]));

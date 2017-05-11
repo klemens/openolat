@@ -21,12 +21,11 @@ package org.olat.selenium.page.user;
 
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
-import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.selenium.page.LoginPage;
+import org.olat.selenium.page.core.FolderPage;
 import org.olat.selenium.page.graphene.OOGraphene;
-import org.olat.selenium.page.portfolio.PortfolioPage;
+import org.olat.selenium.page.portfolio.PortfolioV2HomePage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -41,12 +40,7 @@ public class UserToolsPage {
 	
 	public static final By mySettingsClassName = By.className("o_sel_user_tools-mysettings");
 
-	@Drone
-	private WebDriver browser;
-	
-	public UserToolsPage() {
-		//
-	}
+	private final WebDriver browser;
 	
 	public UserToolsPage(WebDriver browser) {
 		this.browser = browser;
@@ -66,6 +60,39 @@ public class UserToolsPage {
 	}
 	
 	/**
+	 * Check if the notification panel is displayed in home.
+	 * @return
+	 */
+	public UserToolsPage assertOnNotifications() {
+		By notificationPanelBy = By.cssSelector("div.o_notifications_news_wrapper");
+		OOGraphene.waitElement(notificationPanelBy, 5, browser);
+		WebElement notificationPanel = browser.findElement(notificationPanelBy);
+		Assert.assertTrue(notificationPanel.isDisplayed());
+		return this;
+	}
+	
+	/**
+	 * Check if we see the calendar.
+	 * @return
+	 */
+	public UserToolsPage assertOnCalendar() {
+		By calendarBy = By.cssSelector("div.o_cal div.fc-content");
+		OOGraphene.waitElement(calendarBy, 5, browser);
+		WebElement calendarEl = browser.findElement(calendarBy);
+		Assert.assertTrue(calendarEl.isDisplayed());
+		return this;
+	}
+	
+	/**
+	 * Check if we see the calendar.
+	 * @return
+	 */
+	public FolderPage assertOnFolder() {
+		return new FolderPage(browser)
+			.assertOnFolderCmp();
+	}
+	
+	/**
 	 * Open the user menu with the tools.
 	 * 
 	 * @return The user menu page
@@ -78,8 +105,12 @@ public class UserToolsPage {
 			Assert.assertFalse(toolbarCaretLinks.isEmpty());
 			WebElement toolbarCaretLink = toolbarCaretLinks.get(0);
 			Assert.assertNotNull(toolbarCaretLink);
-			toolbarCaretLink.click();
-			OOGraphene.waitingTransition(browser);
+			try {
+				toolbarCaretLink.click();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			OOGraphene.waitNavBarTransition(browser);
 			OOGraphene.waitElement(mySettingsClassName, browser);
 		}
 		assertOnUserTools();
@@ -116,15 +147,14 @@ public class UserToolsPage {
 		return new UserSettingsPage(browser);
 	}
 	
-	public PortfolioPage openPortfolio() {
-		By linkBy = By.className("o_sel_user_tools-Portfolio");
-		WebElement passwordLink = browser.findElement(linkBy);
-		Assert.assertTrue(passwordLink.isDisplayed());
-		passwordLink.click();
+	public PortfolioV2HomePage openPortfolioV2() {
+		By linkBy = By.className("o_sel_user_tools-PortfolioV2");
+		browser.findElement(linkBy).click();
 		OOGraphene.waitBusy(browser);
-		
-		WebElement main = browser.findElement(By.id("o_main"));
-		return Graphene.createPageFragment(PortfolioPage.class, main);
+		OOGraphene.closeOffCanvas(browser);
+		PortfolioV2HomePage page = new PortfolioV2HomePage(browser);
+		page.assertHome();
+		return page;
 	}
 	
 	/**
@@ -135,8 +165,7 @@ public class UserToolsPage {
 		openUserToolsMenu();
 
 		By logoutBy = By.className("o_logout");
-		WebElement logoutLink = browser.findElement(logoutBy);
-		Graphene.guardHttp(logoutLink).click();
-		OOGraphene.waitElement(LoginPage.loginFormBy, browser);
+		browser.findElement(logoutBy).click();
+		OOGraphene.waitElement(LoginPage.loginFormBy, 5, browser);
 	}
 }

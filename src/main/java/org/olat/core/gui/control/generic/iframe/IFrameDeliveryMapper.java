@@ -28,6 +28,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.dispatcher.mapper.Mapper;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSSDelegate;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.gui.media.StringMediaResource;
@@ -37,6 +38,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.SimpleHtmlParser;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
@@ -54,7 +56,7 @@ public class IFrameDeliveryMapper implements Mapper {
 	private static final String DEFAULT_CONTENT_TYPE = "text/html";
 	private static final String XHTML_EXTENSION = "xhtml";
 	private static final String XHTML_CONTENT_TYPE = "application/xhtml+xml";
-	private static final Pattern PATTERN_ENCTYPE = Pattern.compile("<meta.*charset=([^\"\']*)[\"\']", Pattern.CASE_INSENSITIVE);
+	private static final Pattern PATTERN_ENCTYPE = Pattern.compile("<meta[^>]*charset=[\"\']?([A-Za-z0-9.:\\-_]*)", Pattern.CASE_INSENSITIVE);
 	private static final Pattern PATTERN_XML_ENCTYPE = Pattern.compile("<\\?xml.*encoding=[\"\']([^\"\']*)[\"\']", Pattern.CASE_INSENSITIVE);
 	private static final Pattern PATTERN_CONTTYPE = Pattern.compile("<meta.*content-type\"?\\s*content\\s*=\\s*[\"]?+(.+?)([\"]?+\\s*/>)", Pattern.CASE_INSENSITIVE);
 	private static final Pattern PATTERN_DOCTYPE = Pattern.compile("<!DOCTYPE\\s*html\\s*PUBLIC\\s*[\"\']\\s*-//W3C//DTD\\s*(.+?)(//EN)", Pattern.CASE_INSENSITIVE);
@@ -74,6 +76,7 @@ public class IFrameDeliveryMapper implements Mapper {
 
 	private String frameId;
 	private String customCssURL;
+	private transient CustomCSSDelegate customCssDelegate;
 	private String themeBaseUri;
 	private String customHeaderContent;
 	
@@ -167,6 +170,13 @@ public class IFrameDeliveryMapper implements Mapper {
 
 	public void setCustomCssURL(String customCssURL) {
 		this.customCssURL = customCssURL;
+	}
+	
+	public void setCustomCssDelegate(CustomCSSDelegate customCssDelegate) {
+		this.customCssDelegate = customCssDelegate;
+		if(customCssDelegate.getCustomCSS() != null) {
+			customCssURL = customCssDelegate.getCustomCSS().getCSSURLIFrame();
+		}
 	}
 
 	@Override
@@ -321,10 +331,14 @@ public class IFrameDeliveryMapper implements Mapper {
 				//add olat content css as used in html editor
 				sb.appendOpenolatCss();//css only loaded once in HtmlOutput
 			}
-			if (customCssURL != null) {
+			if(customCssDelegate != null && customCssDelegate.getCustomCSS() != null
+					&& customCssDelegate.getCustomCSS().getCSSURLIFrame() != null) {
+				String  customCssURL = customCssDelegate.getCustomCSS().getCSSURLIFrame();
+				sb.appendCss(customCssURL, "customcss");	
+			} else if (customCssURL != null) {
 				// add the custom  CSS, e.g. the course css that overrides the standard content css
 				sb.appendCss(customCssURL, "customcss");				
-			}
+			} 
 		}
 		
 		if (enableTextmarking) {
@@ -387,7 +401,7 @@ public class IFrameDeliveryMapper implements Mapper {
 		// jsMath brute force approach to render latex formulas: add library if
 		// a jsmath class is found in the code and the library is not already in
 		// the header of the page
-		if ((page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
+		if ((page.indexOf("<math") > -1 || page.indexOf("class=\"math\"") != -1 || page.indexOf("class='math'") != -1) && (origHTMLHead == null || origHTMLHead.indexOf("jsMath/easy/load.js") == -1)) {
 			sb.appendJsMath();		
 		}
 
@@ -515,7 +529,7 @@ public class IFrameDeliveryMapper implements Mapper {
 			// use found char set
 			String htmlcharset = m.group(1);
 			//if longer than 50 the regexp did fail
-			if (htmlcharset.length() < 50 ) {
+			if (htmlcharset.length() < 50 && htmlcharset.length() != 0) {
 				return htmlcharset;
 			}
 		}
@@ -584,9 +598,21 @@ public class IFrameDeliveryMapper implements Mapper {
 		}
 		
 		public void appendJsMath() {
-			appendStaticJs("js/jsMath/easy/load.js");
-			// don't show jsmath info box, already visible in parent window
-			append("<style type='text/css'>#jsMath_button {display:none}</style>");	
+			append("<script type=\"text/javascript\" src=\"");
+			append(WebappHelper.getMathJaxCdn());
+			append("2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML\"></script>\n");
+			append("<script type=\"text/javascript\">\n");
+			append("MathJax.Hub.Config({\n");	
+			append(" extensions: [\"jsMath2jax.js\"],\n");
+			append(" showProcessingMessages: false,\n");
+			append(" jsMath2jax: {\n");
+			append("   preview: \"none\"\n");
+			append(" },\n");
+			append(" tex2jax: {\n");
+			append("   ignoreClass: \"math\"\n");
+			append(" }\n");
+			append("});");
+			append("</script>");
 		}
 		
 		public void appendGlossary() {

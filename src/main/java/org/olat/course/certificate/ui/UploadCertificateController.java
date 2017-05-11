@@ -83,7 +83,7 @@ public class UploadCertificateController extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		fileEl = uifactory.addFileElement("template.file", formLayout);
+		fileEl = uifactory.addFileElement(getWindowControl(), "template.file", formLayout);
 		fileEl.addActionListener(FormEvent.ONCHANGE);
 		
 		String[] orientationValues = new String[]{
@@ -171,6 +171,9 @@ public class UploadCertificateController extends FormBasicController {
 				allOk = validatePdf(template);
 			} else if(filename.endsWith(".zip")) {
 				allOk = validateHtml(filename, template);
+			} else {
+				fileEl.setErrorKey("upload.wrong.mimetype", null);
+				allOk &= false;
 			}
 		}
 		

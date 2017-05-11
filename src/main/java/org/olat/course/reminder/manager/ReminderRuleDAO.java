@@ -31,8 +31,8 @@ import javax.persistence.TypedQuery;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.id.Identity;
-import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.nodes.CourseNode;
+import org.olat.repository.RepositoryEntryRef;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -48,33 +48,28 @@ public class ReminderRuleDAO {
 	@Autowired
 	private DB dbInstance;
 
-	public Map<Long,Float> getScores(Long courseResourceId, CourseNode node, List<Identity> identities) {
+
+	public Map<Long,Float> getScores(RepositoryEntryRef entry, CourseNode node, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Float>();
 		}
 
-		List<Long> identityKeys = PersistenceHelper.toKeys(identities);
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("select p.identity.key, p.floatValue from org.olat.properties.Property as p")
-		  .append(" where p.resourceTypeId = :resId and p.resourceTypeName='CourseModule'")
-		  .append(" and p.name='").append(AssessmentManager.SCORE).append("'")
-		  .append(" and p.category=:category");
-
 		Set<Long> identityKeySet = null;
-		if(identityKeys.size() < 100) {
-			sb.append(" and p.identity.key in (:identityKeys)");
-		} else {
-			identityKeySet = new HashSet<Long>(identityKeys);
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data.identity.key, data.score from assessmententry data")
+		  .append(" where data.repositoryEntry.key=:courseEntryKey and data.subIdent=:subIdent");
+		if(identities.size() < 50) {
+			sb.append(" and data.identity.key in (:identityKeys)");
 		}
-		String myCategory = buildCourseNodePropertyCategory(node);
 
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Object[].class)
-				.setParameter("resId", courseResourceId)
-				.setParameter("category", myCategory);
-		if(identityKeys.size() < 100) {
-			query.setParameter("identityKeys", identityKeys);
+				.setParameter("courseEntryKey", entry.getKey())
+				.setParameter("subIdent", node.getIdent());
+		if(identities.size() < 50) {
+			query.setParameter("identityKeys", PersistenceHelper.toKeys(identities));
+		} else {
+			identityKeySet = new HashSet<>(PersistenceHelper.toKeys(identities));
 		}
 
 		List<Object[]> infoList = query.getResultList();
@@ -82,40 +77,36 @@ public class ReminderRuleDAO {
 		for(Object[] infos:infoList) {
 			Long identityKey = (Long)infos[0];
 			if(identityKeySet == null || identityKeySet.contains(identityKey)) {
-				Float score = (Float)infos[1];
-				dateMap.put(identityKey, score);
+				Number score = (Number)infos[1];
+				if(score != null) {
+					dateMap.put(identityKey, score.floatValue());
+				}
 			}
 		}
 		return dateMap;
 	}
 	
-	public Map<Long,Integer> getAttempts(Long courseResourceId, CourseNode node, List<Identity> identities) {
+	public Map<Long,Integer> getAttempts(RepositoryEntryRef entry, CourseNode node, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Integer>();
 		}
 
-		List<Long> identityKeys = PersistenceHelper.toKeys(identities);
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("select p.identity.key, p.longValue from org.olat.properties.Property as p")
-		  .append(" where p.resourceTypeId = :resId and p.resourceTypeName='CourseModule'")
-		  .append(" and p.name='").append(AssessmentManager.ATTEMPTS).append("'")
-		  .append(" and p.category=:category");
-
 		Set<Long> identityKeySet = null;
-		if(identityKeys.size() < 100) {
-			sb.append(" and p.identity.key in (:identityKeys)");
-		} else {
-			identityKeySet = new HashSet<Long>(identityKeys);
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data.identity.key, data.attempts from assessmententry data")
+		  .append(" where data.repositoryEntry.key=:courseEntryKey and data.subIdent=:subIdent");
+		if(identities.size() < 50) {
+			sb.append(" and data.identity.key in (:identityKeys)");
 		}
-		String myCategory = buildCourseNodePropertyCategory(node);
 
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Object[].class)
-				.setParameter("resId", courseResourceId)
-				.setParameter("category", myCategory);
-		if(identityKeys.size() < 100) {
-			query.setParameter("identityKeys", identityKeys);
+				.setParameter("courseEntryKey", entry.getKey())
+				.setParameter("subIdent", node.getIdent());
+		if(identities.size() < 50) {
+			query.setParameter("identityKeys", PersistenceHelper.toKeys(identities));
+		} else {
+			identityKeySet = new HashSet<>(PersistenceHelper.toKeys(identities));
 		}
 
 		List<Object[]> infoList = query.getResultList();
@@ -123,40 +114,34 @@ public class ReminderRuleDAO {
 		for(Object[] infos:infoList) {
 			Long identityKey = (Long)infos[0];
 			if(identityKeySet == null || identityKeySet.contains(identityKey)) {
-				Long attempts = (Long)infos[1];
+				Number attempts = (Number)infos[1];
 				dateMap.put(identityKey, new Integer(attempts.intValue()));
 			}
 		}
 		return dateMap;
 	}
 	
-	public Map<Long,Date> getInitialAttemptDates(Long courseResourceId, CourseNode node, List<Identity> identities) {
+	public Map<Long,Date> getInitialAttemptDates(RepositoryEntryRef entry, CourseNode node, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Date>();
 		}
 
-		List<Long> identityKeys = PersistenceHelper.toKeys(identities);
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("select p.identity.key, p.creationDate from org.olat.properties.Property as p")
-		  .append(" where p.resourceTypeId = :resId and p.resourceTypeName='CourseModule'")
-		  .append(" and p.name='").append(AssessmentManager.ATTEMPTS).append("'")
-		  .append(" and p.category=:category");
-
 		Set<Long> identityKeySet = null;
-		if(identityKeys.size() < 100) {
-			sb.append(" and p.identity.key in (:identityKeys)");
-		} else {
-			identityKeySet = new HashSet<Long>(identityKeys);
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data.identity.key, data.creationDate from assessmententry data")
+		  .append(" where data.repositoryEntry.key=:courseEntryKey and data.subIdent=:subIdent");
+		if(identities.size() < 50) {
+			sb.append(" and data.identity.key in (:identityKeys)");
 		}
-		String myCategory = buildCourseNodePropertyCategory(node);
 
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Object[].class)
-				.setParameter("resId", courseResourceId)
-				.setParameter("category", myCategory);
-		if(identityKeys.size() < 100) {
-			query.setParameter("identityKeys", identityKeys);
+				.setParameter("courseEntryKey", entry.getKey())
+				.setParameter("subIdent", node.getIdent());
+		if(identities.size() < 50) {
+			query.setParameter("identityKeys", PersistenceHelper.toKeys(identities));
+		} else {
+			identityKeySet = new HashSet<>(PersistenceHelper.toKeys(identities));
 		}
 
 		List<Object[]> infoList = query.getResultList();
@@ -171,33 +156,27 @@ public class ReminderRuleDAO {
 		return dateMap;
 	}
 	
-	public Map<Long,Boolean> getPassed(Long courseResourceId, CourseNode node, List<Identity> identities) {
+	public Map<Long,Boolean> getPassed(RepositoryEntryRef entry, CourseNode node, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Boolean>();
 		}
 
-		List<Long> identityKeys = PersistenceHelper.toKeys(identities);
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("select p.identity.key, p.stringValue from org.olat.properties.Property as p")
-		  .append(" where p.resourceTypeId = :resId and p.resourceTypeName='CourseModule'")
-		  .append(" and p.name='").append(AssessmentManager.PASSED).append("'")
-		  .append(" and p.category=:category");
-
 		Set<Long> identityKeySet = null;
-		if(identityKeys.size() < 100) {
-			sb.append(" and p.identity.key in (:identityKeys)");
-		} else {
-			identityKeySet = new HashSet<Long>(identityKeys);
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data.identity.key, data.passed from assessmententry data")
+		  .append(" where data.repositoryEntry.key=:courseEntryKey and data.subIdent=:subIdent");
+		if(identities.size() < 50) {
+			sb.append(" and data.identity.key in (:identityKeys)");
 		}
-		String myCategory = buildCourseNodePropertyCategory(node);
 
 		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Object[].class)
-				.setParameter("resId", courseResourceId)
-				.setParameter("category", myCategory);
-		if(identityKeys.size() < 100) {
-			query.setParameter("identityKeys", identityKeys);
+				.setParameter("courseEntryKey", entry.getKey())
+				.setParameter("subIdent", node.getIdent());
+		if(identities.size() < 50) {
+			query.setParameter("identityKeys", PersistenceHelper.toKeys(identities));
+		} else {
+			identityKeySet = new HashSet<>(PersistenceHelper.toKeys(identities));
 		}
 
 		List<Object[]> infoList = query.getResultList();
@@ -205,16 +184,10 @@ public class ReminderRuleDAO {
 		for(Object[] infos:infoList) {
 			Long identityKey = (Long)infos[0];
 			if(identityKeySet == null || identityKeySet.contains(identityKey)) {
-				String passed = (String)infos[1];
-				dateMap.put(identityKey, new Boolean(passed));
+				Boolean passed = (Boolean)infos[1];
+				dateMap.put(identityKey, passed);
 			}
 		}
 		return dateMap;
 	}
-	
-	private String buildCourseNodePropertyCategory(CourseNode node) {
-		String type = (node.getType().length() > 4 ? node.getType().substring(0, 4) : node.getType());
-		return ("NID:" + type + "::" + node.getIdent());
-	}
-
 }

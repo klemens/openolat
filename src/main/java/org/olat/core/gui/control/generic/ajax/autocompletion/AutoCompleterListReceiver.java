@@ -25,7 +25,6 @@ import org.json.JSONObject;
 import org.olat.core.gui.util.CSSHelper;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.LogDelegator;
-import org.olat.core.util.StringHelper;
 
 /**
  * 
@@ -42,7 +41,6 @@ public class AutoCompleterListReceiver extends LogDelegator implements ListRecei
 	private static final String VALUE = "value";
 	private static final String CSS_CLASS = "cssClass";
 	private static final String CSS_CLASS_EMPTY = "";
-	private static final String CSS_CLASS_WITH_ICON = "o_icon ";
 	private static final String DISPLAY_KEY = "displayKey";
 	private static final String DISPLAY_KEY_NO_RESULTS = "-";
 	
@@ -57,7 +55,7 @@ public class AutoCompleterListReceiver extends LogDelegator implements ListRecei
 	 * @param showDisplayKey true: add displayKey in result; false: don't add
 	 *          displayKey in results (e.g. to protect privacy)
 	 */
-	AutoCompleterListReceiver(String noresults, boolean showDisplayKey) {
+	public AutoCompleterListReceiver(String noresults, boolean showDisplayKey) {
 		this.noresults = noresults;
 		this.showDisplayKey = showDisplayKey;
 	}
@@ -98,12 +96,12 @@ public class AutoCompleterListReceiver extends LogDelegator implements ListRecei
 				}
 			}
 			// add value to be displayed
-			object.put(VALUE, StringHelper.escapeHtml(displayText));
+			object.put(VALUE, displayText);
 			// add optional css class
 			if (iconCssClass == null) {
 				object.put(CSS_CLASS, CSS_CLASS_EMPTY);								
 			} else {
-				object.put(CSS_CLASS, CSS_CLASS_WITH_ICON + iconCssClass);				
+				object.put(CSS_CLASS, iconCssClass);				
 			}
 			// JSCON object finished
 			list.put(object);

@@ -221,12 +221,52 @@ public class FolderRunController extends BasicController implements Activateable
 			boolean displayWebDAVLink, boolean displaySearch, boolean canMail, UserRequest ureq,
 			WindowControl wControl, VFSItemFilter filter,
 			CustomLinkTreeModel customLinkTreeModel, VFSContainer externContainerForCopy) {
+		this(rootContainer, displayWebDAVLink, displaySearch, canMail, false, ureq, wControl, filter, customLinkTreeModel, externContainerForCopy);
+	}
+
+
+	/**
+	 * Constructor for a folder controller with an optional file filter and an
+	 * optional custom link model for editor. Use this one if you don't wan't to
+	 * display all files in the file browser or if you want to use a custom link
+	 * tree model in the editor.
+	 *
+	 * @param rootContainer
+	 *            The folder base. User can not navigate out of this container.
+	 * @param displayWebDAVLink
+	 *            true: show the webDAV link; false: hide the webDAV link
+	 * @param displaySearch
+	 *            true: display the search field; false: omit the search field.
+	 *            Note: for guest users the search is always omitted.
+	 * @param canMail
+	 * 			  true: allow sending document / link to document via email to other users
+	 *            false: don't use mail feature
+	 * @param isCourseFolder
+	 * 			  true: the FolderRunController is used for display a courseFolder and show contextHelp
+	 *            false: the FolderRunController is used for other occasions
+	 * @param ureq
+	 *            The user request object
+	 * @param wControl
+	 *            The window control object
+	 * @param filter
+	 *            A file filter or NULL to not use a filter
+	 * @param customLinkTreeModel
+	 *            A custom link tree model used in the HTML editor or NULL to
+	 *            not use this feature.
+	 * @param externContainerForCopy
+	 *            A container to copy files from
+	 */
+	public FolderRunController(VFSContainer rootContainer,
+			boolean displayWebDAVLink, boolean displaySearch, boolean canMail, boolean isCourseFolder, UserRequest ureq,
+			WindowControl wControl, VFSItemFilter filter,
+			CustomLinkTreeModel customLinkTreeModel, VFSContainer externContainerForCopy) {
 
 		super(ureq, wControl);
 
 		folderContainer = createVelocityContainer("run");
 		editQuotaButton = LinkFactory.createButtonSmall("editQuota", folderContainer, this);
-		
+
+		folderContainer.contextPut("showCourseFolderHelp", isCourseFolder);
 		BusinessControl bc = getWindowControl().getBusinessControl();
 		// --- subscription ---
 		VFSSecurityCallback secCallback = VFSManager.findInheritedSecurityCallback(rootContainer);
@@ -250,11 +290,12 @@ public class FolderRunController extends BasicController implements Activateable
 		}
 		
 		
+		boolean isGuest = ureq.getUserSession().getRoles().isGuestOnly();
 		folderComponent = new FolderComponent(ureq, "foldercomp", rootContainer, filter, customLinkTreeModel, externContainerForCopy);
-		folderComponent.setCanMail(ureq.getUserSession().getRoles().isGuestOnly() ? false : canMail); // guests can never send mail
+		folderComponent.setCanMail(isGuest ? false : canMail); // guests can never send mail
 		folderComponent.addListener(this);
 		folderContainer.put("foldercomp", folderComponent);
-		if (displayWebDAVLink) {
+		if (displayWebDAVLink && !isGuest) {
 			WebDAVModule webDAVModule = CoreSpringFactory.getImpl(WebDAVModule.class);
 			if (webDAVModule.isEnabled() && webDAVModule.isLinkEnabled() && displayWebDAVLink) {
 				folderContainer.contextPut("webdavhttp", FolderManager.getWebDAVHttp());
@@ -297,6 +338,7 @@ public class FolderRunController extends BasicController implements Activateable
 		}
 	}
 
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == folderCommandController) {			
 			if (event == FolderCommand.FOLDERCOMMAND_FINISHED) {
@@ -395,12 +437,15 @@ public class FolderRunController extends BasicController implements Activateable
 	 *      null; .UserRequest, org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == folderComponent || source == folderContainer || source == editQuotaButton) {
 			// we catch events from both folderComponent and folderContainer
 			// and process them through the generic folder command implementations
 			String cmd = event.getCommand();
-			if (cmd.equals(FORM_ACTION)) cmd = getFormAction(ureq);
+			if (cmd.equals(FORM_ACTION)) {
+				cmd = getFormAction(ureq);
+			}
 			
 			folderCommand = FolderCommandFactory.getInstance().getCommand(cmd, ureq, getWindowControl());
 			if (folderCommand != null) {
@@ -481,6 +526,11 @@ public class FolderRunController extends BasicController implements Activateable
 			String key = params.nextElement();
 			if (key.startsWith(ACTION_PRE)) {
 				return key.substring(ACTION_PRE.length());
+			} else if("multi_action_identifier".equals(key)) {
+				String actionKey = ureq.getParameter("multi_action_identifier");
+				if (actionKey.startsWith(ACTION_PRE)) {
+					return actionKey.substring(ACTION_PRE.length());
+				}
 			}
 		}
 		return null;
@@ -490,12 +540,12 @@ public class FolderRunController extends BasicController implements Activateable
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {		
-    //folderCommandController is registerd with listenTo and gets disposed in BasicController
+		//
 	}
 
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
 		

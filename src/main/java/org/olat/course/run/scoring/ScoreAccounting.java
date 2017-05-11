@@ -25,17 +25,32 @@
 
 package org.olat.course.run.scoring;
 
+import java.math.BigDecimal;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.olat.core.logging.OLATRuntimeException;
-import org.olat.core.util.Util;
+import org.hibernate.LazyInitializationException;
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
+import org.olat.course.condition.interpreter.ConditionInterpreter;
+import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
+import org.olat.course.nodes.CalculatedAssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.PersistentAssessableCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.model.RepositoryEntryLifecycle;
 
 /**
  * Description:<BR/>
@@ -45,15 +60,13 @@ import org.olat.course.run.userview.UserCourseEnvironment;
  *
  * @author Felix Jost
  */
-public class ScoreAccounting implements Visitor {
-	private UserCourseEnvironment userCourseEnvironment;
+public class ScoreAccounting {
+	
+	private static final OLog log = Tracing.createLoggerFor(ScoreAccounting.class);
 
 	private boolean error;
-	private CourseNode evaluatingCourseNode;
-	private String wrongChildID;
-
-	private Map<AssessableCourseNode, ScoreEvaluation> cachedScoreEvals = new HashMap<AssessableCourseNode, ScoreEvaluation>();
-	private int recursionCnt;
+	private final UserCourseEnvironment userCourseEnvironment;
+	private final Map<AssessableCourseNode, AssessmentEvaluation> cachedScoreEvals = new HashMap<>();
 
 	/**
 	 * Constructor of the user score accounting object
@@ -67,8 +80,15 @@ public class ScoreAccounting implements Visitor {
 	 * Retrieve all the score evaluations for all course nodes
 	 */
 	public void evaluateAll() {
-		cachedScoreEvals.clear();
-		recursionCnt = 0;
+		evaluateAll(false);
+	}
+	
+	public boolean evaluateAll(boolean update) {
+		Identity identity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+		List<AssessmentEntry> entries = userCourseEnvironment.getCourseEnvironment()
+				.getAssessmentManager().getAssessmentEntries(identity);
+
+		AssessableTreeVisitor visitor = new AssessableTreeVisitor(entries, update);
 		// collect all assessable nodes and eval 'em
 		CourseNode root = userCourseEnvironment.getCourseEnvironment().getRunStructure().getRootNode();
 		// breadth first traversal gives an easier order of evaluation for debugging
@@ -76,18 +96,198 @@ public class ScoreAccounting implements Visitor {
 		// the score accoutings local cache hash map will never be used. this can slow down things like 
 		// crazy (course with 10 tests, 300 users and some crazy score and passed calculations will have
 		// 10 time performance differences) 
-		TreeVisitor tv = new TreeVisitor(this, root, true); // true=depth first
+
+		cachedScoreEvals.clear();
+		for(AssessmentEntry entry:entries) {
+			String nodeIdent = entry.getSubIdent();
+			CourseNode courseNode = userCourseEnvironment.getCourseEnvironment().getRunStructure().getNode(nodeIdent);
+			if(courseNode instanceof AssessableCourseNode) {
+				AssessableCourseNode acn = (AssessableCourseNode)courseNode;
+				AssessmentEvaluation se = AssessmentEvaluation.toAssessmentEvalutation(entry, acn);
+				cachedScoreEvals.put(acn, se);
+			}
+		}
+		
+		TreeVisitor tv = new TreeVisitor(visitor, root, true); // true=depth first
 		tv.visitAll();
+		return visitor.hasChanges();
+	}
+	
+	private class AssessableTreeVisitor implements Visitor {
+		
+		private final boolean update;
+		private boolean changes = false;
+		private int recursionLevel = 0;
+		private final Map<String,AssessmentEntry> identToEntries = new HashMap<>();
+		
+		public AssessableTreeVisitor(List<AssessmentEntry> entries, boolean update) {
+			this.update = update;
+			for(AssessmentEntry entry:entries) {
+				String ident = entry.getSubIdent();
+				if(identToEntries.containsKey(ident)) {
+					AssessmentEntry currentEntry = identToEntries.get(ident);
+					if(entry.getLastModified().after(currentEntry.getLastModified())) {
+						identToEntries.put(ident, entry);
+					}
+				} else {
+					identToEntries.put(ident, entry);
+				}
+			}
+		}
+		
+		public boolean hasChanges() {
+			return changes;
+		}
+
+		@Override
+		public void visit(INode node) {
+			CourseNode cn = (CourseNode) node;
+			if (cn instanceof AssessableCourseNode) {
+				evalCourseNode((AssessableCourseNode)cn);
+			}
+		}
+		
+		public AssessmentEvaluation evalCourseNode(AssessableCourseNode cn) {
+			// make sure we have no circular calculations
+			recursionLevel++;
+			AssessmentEvaluation se = null;
+			if (recursionLevel <= 15) {
+				se = cachedScoreEvals.get(cn);
+				if (se == null) { // result of this node has not been calculated yet, do it
+					AssessmentEntry entry = identToEntries.get(cn.getIdent());
+					if(cn instanceof PersistentAssessableCourseNode) {
+						se = ((PersistentAssessableCourseNode)cn).getUserScoreEvaluation(entry);
+					} else if(cn instanceof CalculatedAssessableCourseNode) {
+						if(update) {
+							se = calculateScoreEvaluation(entry, (CalculatedAssessableCourseNode)cn);
+						} else {
+							se = ((CalculatedAssessableCourseNode)cn).getUserScoreEvaluation(entry);
+						}
+					} else {
+						se = cn.getUserScoreEvaluation(userCourseEnvironment);
+					}
+					cachedScoreEvals.put(cn, se);
+				} else if(update && cn instanceof CalculatedAssessableCourseNode) {
+					AssessmentEntry entry = identToEntries.get(cn.getIdent());
+					se = calculateScoreEvaluation(entry, (CalculatedAssessableCourseNode)cn);
+					cachedScoreEvals.put(cn, se);
+				}
+			}
+			recursionLevel--;
+			return se;
+		}
+		
+		/**
+		 * Recalculate the score of structure nodes.
+		 * 
+		 * @param entry
+		 * @param cNode
+		 * @return
+		 */
+		private AssessmentEvaluation calculateScoreEvaluation(AssessmentEntry entry, CalculatedAssessableCourseNode cNode) {
+			AssessmentEvaluation se;
+			if(cNode.hasScoreConfigured() || cNode.hasPassedConfigured()) {
+				ScoreCalculator scoreCalculator = cNode.getScoreCalculator();
+				String scoreExpressionStr = scoreCalculator.getScoreExpression();
+				String passedExpressionStr = scoreCalculator.getPassedExpression();
+
+				Float score = null;
+				Boolean passed = null;
+				Boolean userVisibility = entry == null ? null : entry.getUserVisibility();
+				Long assessmendId = entry == null ? null : entry.getAssessmentId();
+				AssessmentEntryStatus assessmentStatus = AssessmentEntryStatus.inProgress;
+				ConditionInterpreter ci = userCourseEnvironment.getConditionInterpreter();
+				if (cNode.hasScoreConfigured() && scoreExpressionStr != null) {
+					score = new Float(ci.evaluateCalculation(scoreExpressionStr));
+				}
+				if (cNode.hasPassedConfigured() && passedExpressionStr != null) {
+					boolean hasPassed = ci.evaluateCondition(passedExpressionStr);
+					if(hasPassed) {
+						passed = Boolean.TRUE;
+						assessmentStatus = AssessmentEntryStatus.done;
+					} else {
+						//some rules to set -> failed
+						FailedEvaluationType failedType = scoreCalculator.getFailedType();
+						if(failedType == null || failedType == FailedEvaluationType.failedAsNotPassed) {
+							passed = Boolean.FALSE;
+						} else if(failedType == FailedEvaluationType.failedAsNotPassedAfterEndDate) {
+							RepositoryEntryLifecycle lifecycle = getRepositoryEntryLifecycle();
+							if(lifecycle != null && lifecycle.getValidTo() != null && lifecycle.getValidTo().compareTo(new Date()) < 0) {
+								passed = Boolean.FALSE;
+							}
+						} else if(failedType == FailedEvaluationType.manual) {
+							passed = entry == null ? null : entry.getPassed();
+						}
+					}
+				}
+				se = new AssessmentEvaluation(score, passed, null, assessmentStatus, userVisibility, null, assessmendId, null, null);
+				
+				if(entry == null) {
+					Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+					userCourseEnvironment.getCourseEnvironment().getAssessmentManager()
+						.createAssessmentEntry(cNode, assessedIdentity, se);
+					changes = true;
+				} else if(!same(se, entry)) {
+					if(score != null) {
+						entry.setScore(new BigDecimal(score));
+					} else {
+						entry.setScore(null);
+					}
+					entry.setPassed(passed);
+					entry = userCourseEnvironment.getCourseEnvironment().getAssessmentManager().updateAssessmentEntry(entry);
+					identToEntries.put(cNode.getIdent(), entry);
+					changes = true;
+				}
+			} else {
+				se = AssessmentEvaluation.EMPTY_EVAL;
+			}
+			return se;
+		}
+		
+		private RepositoryEntryLifecycle getRepositoryEntryLifecycle() {
+			CourseGroupManager cgm = userCourseEnvironment.getCourseEnvironment().getCourseGroupManager();
+			try {
+				RepositoryEntryLifecycle lifecycle = cgm.getCourseEntry().getLifecycle();
+				if(lifecycle != null) {
+					lifecycle.getValidTo();//
+				}
+				return lifecycle;
+			} catch (LazyInitializationException e) {
+				//OO-2667: only seen in 1 instance but as it's a critical place, secure the system
+				RepositoryEntry reloadedEntry = CoreSpringFactory.getImpl(RepositoryService.class)
+						.loadByKey(cgm.getCourseEntry().getKey());
+				userCourseEnvironment.getCourseEnvironment().updateCourseEntry(reloadedEntry);
+				return reloadedEntry.getLifecycle();
+			}
+		}
+		
+		private boolean same(AssessmentEvaluation se, AssessmentEntry entry) {
+			boolean same = true;
+			
+			if((se.getPassed() == null && entry.getPassed() != null)
+					|| (se.getPassed() != null && entry.getPassed() == null)
+					|| (se.getPassed() != null && !se.getPassed().equals(entry.getPassed()))) {
+				same &= false;
+			}
+			
+			if((se.getScore() == null && entry.getScore() != null)
+					|| (se.getScore() != null && entry.getScore() == null)
+					|| (se.getScore() != null && entry.getScore() != null
+							&& Math.abs(se.getScore().floatValue() - entry.getScore().floatValue()) > 0.00001)) {
+				same &= false;
+			}
+			
+			return same;
+		}
 	}
 
 	/**
-	 * FIXME:fj: cmp this method and evalCourseNode
-	 * Get the score evaluation for a given course node
+	 * Get the score evaluation for a given course node without using the cache.
 	 * @param courseNode
 	 * @return The score evaluation
 	 */
-	public ScoreEvaluation getScoreEvaluation(CourseNode courseNode) {
-		ScoreEvaluation se = null;
+	public AssessmentEvaluation getScoreEvaluation(CourseNode courseNode) {
+		AssessmentEvaluation se = null;
 		if (courseNode instanceof AssessableCourseNode) {
 			AssessableCourseNode acn = (AssessableCourseNode) courseNode;
 			se = acn.getUserScoreEvaluation(userCourseEnvironment);
@@ -96,33 +296,26 @@ public class ScoreAccounting implements Visitor {
 	}
 
 	/**
-	 * evals the coursenode or simply returns the evaluation from the cache
+	 * Evaluates the course node or simply returns the evaluation from the cache.
 	 * @param cn
 	 * @return ScoreEvaluation
 	 */
-	public ScoreEvaluation evalCourseNode(AssessableCourseNode cn) {
-		// make sure we have no circular calculations
-		recursionCnt++;
-		if (recursionCnt > 15) throw new OLATRuntimeException("scoreaccounting.stackoverflow", 
-				new String[]{cn.getIdent(), cn.getShortTitle()},
-				Util.getPackageName(ScoreAccounting.class), 
-				"stack overflow in scoreaccounting, probably circular logic: acn ="
-				+ cn.toString(), null);
-
-		ScoreEvaluation se = cachedScoreEvals.get(cn);
+	public AssessmentEvaluation evalCourseNode(AssessableCourseNode cn) {
+		AssessmentEvaluation se = cachedScoreEvals.get(cn);
 		if (se == null) { // result of this node has not been calculated yet, do it
 			se = cn.getUserScoreEvaluation(userCourseEnvironment);
 			cachedScoreEvals.put(cn, se);
-			//System.out.println("cn eval: "+cn+" = "+ se);
 		}
-		recursionCnt--;
 		return se;
 	}
 
 	/**
-	 * ----- to called by getScoreFunction only -----
-	 * @param childId
-	 * @return Float
+	 * Evaluate the score of the course element. The method
+	 * takes the visibility of the results in account and will
+	 * return 0.0 if the results are not visiblity.
+	 * 
+	 * @param childId The specified course element ident
+	 * @return A float (never null)
 	 */
 	public Float evalScoreOfCourseNode(String childId) {
 		CourseNode foundNode = findChildByID(childId);
@@ -131,15 +324,19 @@ public class ScoreAccounting implements Visitor {
 		if (foundNode instanceof AssessableCourseNode) {
 			AssessableCourseNode acn = (AssessableCourseNode) foundNode;
 			ScoreEvaluation se = evalCourseNode(acn);
-			if(se != null) { // the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
-				score = se.getScore();
+			if(se != null) {
+				// the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
+				if(se.getUserVisible() == null || se.getUserVisible().booleanValue()) {
+					score = se.getScore();
+				} else {
+					score = new Float(0.0f);
+				}
 			}
 			if (score == null) { // a child has no score yet
 				score = new Float(0.0f); // default to 0.0, so that the condition can be evaluated (zero points makes also the most sense for "no results yet", if to be expressed in a number)
 			}
 		} else {
 			error = true;
-			wrongChildID = childId;
 			score = new Float(0.0f);
 		}
 		
@@ -147,30 +344,32 @@ public class ScoreAccounting implements Visitor {
 	}
 
 	/**
-	 * ----- to be called by getPassedFunction only -----
-	 * @param childId
-	 * @return Boolean
+	 * Evaluate the passed / failed state of a course element. The method
+	 * takes the visibility of the results in account and will return false
+	 * if the results are not visible.
+	 * 
+	 * @param childId The specified course element ident
+	 * @return true/false never null
 	 */
 	public Boolean evalPassedOfCourseNode(String childId) {
 		CourseNode foundNode = findChildByID(childId);
 		if (foundNode == null) {
 			error = true;
-			wrongChildID = childId;
 			return Boolean.FALSE;
 		}
 		if (!(foundNode instanceof AssessableCourseNode)) {
 			error = true;
-			wrongChildID = childId;
 			return Boolean.FALSE;
 		}
 		AssessableCourseNode acn = (AssessableCourseNode) foundNode;
 		ScoreEvaluation se = evalCourseNode(acn);
 		if (se == null) { // the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
-			String msg = "could not evaluate node '" + acn.getShortTitle() + "' (" + acn.getClass().getName() + "," + childId + ")";
-			new OLATRuntimeException(ScoreAccounting.class, "scoreaccounting.evaluationerror.score", 
-					new String[]{acn.getIdent(), acn.getShortTitle()},
-					Util.getPackageName(ScoreAccounting.class), 
-					msg, null);
+			log.error("could not evaluate node '" + acn.getShortTitle() + "' (" + acn.getClass().getName() + "," + childId + ")", null);
+			return Boolean.FALSE;
+		}
+		// check if the results are visible
+		if(se.getUserVisible() != null && !se.getUserVisible().booleanValue()) {
+			return Boolean.FALSE;
 		}
 		Boolean passed = se.getPassed();
 		if (passed == null) { // a child has no "Passed" yet
@@ -179,52 +378,8 @@ public class ScoreAccounting implements Visitor {
 		return passed;
 	}
 
-	/**
-	 * Change the score information for the given course node
-	 * @param acn
-	 * @param se
-	 */
-	public void scoreInfoChanged(AssessableCourseNode acn, ScoreEvaluation se) {
-
-		//FIXME:fj:b use cache infos
-		/*
-		 // either add a new entry if this is the first score that is provided,
-		 // or overwrite the entry in the cache if a scoreeval existed
-		 cachedScoreEvals.put(cn, se);
-		 // go up the ladder and force each parent to recalulate the score
-		 while ((cn = (CourseNode) cn.getParent()) != null) {
-		 ScoreEvaluation sceval = cn.evalScore(userCourseEnvironment);
-		 cachedScoreEvals.put(cn, sceval);
-		 }*/
-		//System.out.println("scoreInfoChanged - calc anew:\n"+cachedScoreEvals.toString());
-		evaluateAll();
-	}
-
 	private CourseNode findChildByID(String id) {
-		CourseNode foundNode = userCourseEnvironment.getCourseEnvironment().getRunStructure().getNode(id);
-		return foundNode;
-	}
-
-	/**
-	 * used for error msg and debugging. denotes the coursenode which started a calculation.
-	 * when an error occurs, we know which coursenode contains a faulty formula
-	 * @param evaluatingCourseNode
-	 */
-	public void setEvaluatingCourseNode(CourseNode evaluatingCourseNode) {
-		this.evaluatingCourseNode = evaluatingCourseNode;
-	}
-
-	/**
-	 * @see org.olat.core.util.tree.Visitor#visit(org.olat.core.util.nodes.INode)
-	 */
-	public void visit(INode node) {
-		CourseNode cn = (CourseNode) node;
-		if (cn instanceof AssessableCourseNode) {
-			AssessableCourseNode acn = (AssessableCourseNode) cn;
-			evalCourseNode(acn);
-			// evalCourseNode will cache all infos
-		}
-		// else: non assessable nodes are not interesting here
+		return userCourseEnvironment.getCourseEnvironment().getRunStructure().getNode(id);
 	}
 
 	/**
@@ -232,27 +387,6 @@ public class ScoreAccounting implements Visitor {
 	 */
 	public boolean isError() {
 		return error;
-	}
-
-	/** 
-	 * @return CourseNode
-	 */
-	public CourseNode getEvaluatingCourseNode() {
-		return evaluatingCourseNode;
-	}
-
-	/**
-	 * @return int
-	 */
-	public int getRecursionCnt() {
-		return recursionCnt;
-	}
-	
-	/**
-	 * @return String
-	 */
-	public String getWrongChildID() {
-		return wrongChildID;
 	}
 }
 

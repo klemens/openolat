@@ -47,6 +47,7 @@ import org.olat.core.util.nodes.GenericNode;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.KeyAndNameConverter;
 import org.olat.course.condition.additionalconditions.AdditionalCondition;
 import org.olat.course.condition.interpreter.ConditionErrorMessage;
 import org.olat.course.condition.interpreter.ConditionExpression;
@@ -63,8 +64,6 @@ import org.olat.course.run.userview.TreeFilter;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.statistic.StatisticResourceOption;
 import org.olat.course.statistic.StatisticResourceResult;
-import org.olat.group.model.BGAreaReference;
-import org.olat.group.model.BusinessGroupReference;
 import org.olat.ims.qti.statistics.QTIType;
 import org.olat.modules.ModuleConfiguration;
 
@@ -440,7 +439,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	}
 
 	@Override
-	public void postImport(CourseEnvironmentMapper envMapper, Processing processType) {
+	public void postImport(File importDirectory, ICourse course, CourseEnvironmentMapper envMapper, Processing processType) {
 		postImportCopyConditions(envMapper);
 	}
 	
@@ -459,8 +458,8 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		if(condition.isExpertMode()) {
 			String expression = condition.getConditionExpression();
 			if(StringHelper.containsNonWhitespace(expression)) {
-				String processExpression = convertExpressionNameToKey(expression, envMapper);
-				processExpression = convertExpressionKeyToKey(processExpression, envMapper);
+				String processExpression = KeyAndNameConverter.convertExpressionNameToKey(expression, envMapper);
+				processExpression = KeyAndNameConverter.convertExpressionKeyToKey(processExpression, envMapper);
 				if(!expression.equals(processExpression)) {
 					condition.setConditionExpression(processExpression);
 				}
@@ -512,14 +511,14 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 				condition.setEasyModeGroupAreaAccess(areaNames);
 				String condString = condition.getConditionFromEasyModeConfiguration();
 				if(backwardsCompatible) {
-					condString = convertExpressionKeyToName(condString, envMapper);
+					condString = KeyAndNameConverter.convertExpressionKeyToName(condString, envMapper);
 				}
 				condition.setConditionExpression(condString);
 			}
 		} else if(condition.isExpertMode() && backwardsCompatible) {
 			String expression = condition.getConditionExpression();
 			if(StringHelper.containsNonWhitespace(expression)) {
-				String processExpression = convertExpressionKeyToName(expression, envMapper);
+				String processExpression = KeyAndNameConverter.convertExpressionKeyToName(expression, envMapper);
 				if(!expression.equals(processExpression)) {
 					condition.setConditionExpression(processExpression);
 				}
@@ -533,47 +532,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 		}
 	}
 	
-	protected String convertExpressionKeyToName(String expression, CourseEnvironmentMapper envMapper) {
-		for(BusinessGroupReference group:envMapper.getGroups()) {
-			String strToMatch = "\"" + group.getKey() + "\"";
-			String replacement = "\"" + group.getName() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		for(BGAreaReference area:envMapper.getAreas()) {
-			String strToMatch = "\"" + area.getKey() + "\"";
-			String replacement = "\"" + area.getName() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		return expression;
-	}
-	
-	protected String convertExpressionNameToKey(String expression, CourseEnvironmentMapper envMapper) {
-		for(BusinessGroupReference group:envMapper.getGroups()) {
-			String strToMatch = "\"" + group.getOriginalName() + "\"";
-			String replacement = "\"" + group.getKey() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		for(BGAreaReference area:envMapper.getAreas()) {
-			String strToMatch = "\"" + area.getOriginalName() + "\"";
-			String replacement = "\"" + area.getKey() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		return expression;
-	}
-	
-	protected String convertExpressionKeyToKey(String expression, CourseEnvironmentMapper envMapper) {
-		for(BusinessGroupReference group:envMapper.getGroups()) {
-			String strToMatch = "\"" + group.getOriginalKey() + "\"";
-			String replacement = "\"" + group.getKey() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		for(BGAreaReference area:envMapper.getAreas()) {
-			String strToMatch = "\"" + area.getOriginalKey() + "\"";
-			String replacement = "\"" + area.getKey() + "\"";
-			expression = StringHelper.replaceAllCaseInsensitive(expression, strToMatch, replacement);
-		}
-		return expression;
-	}
+
 
 	/**
 	 * @see org.olat.core.gui.ShortName#getShortName()
@@ -584,7 +543,7 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	}
 	
 	@Override
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course) {
+	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course, Identity author) {
 		CourseNode copyInstance = (CourseNode) XStreamHelper.xstreamClone(this);
 		copyInstance.setIdent(String.valueOf(CodeHelper.getForeverUniqueID()));
 		copyInstance.setPreConditionVisibility(null);
@@ -617,8 +576,11 @@ public abstract class GenericCourseNode extends GenericNode implements CourseNod
 	/**
 	 * @see java.lang.Object#toString()
 	 */
+	@Override
 	public String toString() {
-		return "Id: " + getIdent() + ", '" + getShortTitle() + "' " + super.toString();
+		StringBuilder sb = new StringBuilder(64);
+		sb.append("courseNode[id=").append(getIdent()).append(":title=").append(getShortTitle()).append("]");
+		return sb.toString();
 	}
 
 	/**

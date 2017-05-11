@@ -21,13 +21,9 @@ package org.olat.group.ui.main;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 import org.olat.NewControllerFactory;
@@ -35,7 +31,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
-import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.commons.services.mark.MarkManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -84,21 +79,21 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupModule;
+import org.olat.group.BusinessGroupRef;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupShort;
-import org.olat.group.BusinessGroupView;
 import org.olat.group.GroupLoggingAction;
 import org.olat.group.area.BGAreaManager;
 import org.olat.group.manager.BusinessGroupMailing;
 import org.olat.group.manager.BusinessGroupMailing.MailType;
-import org.olat.group.model.BGRepositoryEntryRelation;
+import org.olat.group.model.BusinessGroupQueryParams;
+import org.olat.group.model.BusinessGroupRow;
 import org.olat.group.model.BusinessGroupSelectionEvent;
 import org.olat.group.model.LeaveOption;
 import org.olat.group.model.MembershipModification;
-import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.group.right.BGRightManager;
 import org.olat.group.ui.NewBGController;
-import org.olat.group.ui.main.BusinessGroupTableModelWithType.Cols;
+import org.olat.group.ui.main.BusinessGroupListFlexiTableModel.Cols;
 import org.olat.group.ui.wizard.BGConfigBusinessGroup;
 import org.olat.group.ui.wizard.BGConfigToolsStep;
 import org.olat.group.ui.wizard.BGCopyBusinessGroup;
@@ -113,8 +108,6 @@ import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryShort;
 import org.olat.resource.accesscontrol.ACService;
-import org.olat.resource.accesscontrol.model.OLATResourceAccess;
-import org.olat.resource.accesscontrol.model.PriceMethodBundle;
 import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -139,8 +132,8 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	protected static final BusinessGroupMembershipComparator MEMBERSHIP_COMPARATOR = new BusinessGroupMembershipComparator();
 
 	protected FlexiTableElement tableEl;
-	protected BusinessGroupFlexiTableModel groupTableModel;
-	protected SearchBusinessGroupParams lastSearchParams;
+	protected BusinessGroupListFlexiTableModel groupTableModel;
+	protected BusinessGroupQueryParams lastSearchParams;
 	
 	private DialogBoxController leaveDialogBox;
 	
@@ -152,11 +145,12 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	private BGUserManagementController userManagementController;
 	private BGMailNotificationEditController userManagementSendMailController;
 	private BusinessGroupDeleteDialogBoxController deleteDialogBox;
-	private StepsMainRunController businessGroupWizard;
+	private StepsMainRunController emailWizard, businessGroupWizard;
 	protected BusinessGroupSearchController searchCtrl;
 	protected CloseableModalController cmc;
 
 	private final boolean admin;
+	protected final boolean readOnly;
 	private final boolean showAdminTools;
 	private final boolean startExtendedSearch;
 	@Autowired
@@ -181,37 +175,39 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	private final String prefsKey;
 	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page, String prefsKey) {
-		this(ureq, wControl, page, false, false, prefsKey, null);
+		this(ureq, wControl, page, false, false, false, prefsKey, null);
 	}
 	
 	public AbstractBusinessGroupListController(UserRequest ureq, WindowControl wControl, String page,
-			boolean showAdminTools, boolean startExtendedSearch, String prefsKey, Object userObject) {
+			boolean showAdminTools, boolean startExtendedSearch, boolean readOnly, String prefsKey, Object userObject) {
 		super(ureq, wControl, page);
 		setTranslator(Util.createPackageTranslator(AbstractBusinessGroupListController.class, ureq.getLocale(), getTranslator()));
 
 		Roles roles = ureq.getUserSession().getRoles();
 		admin = roles.isOLATAdmin() || roles.isGroupManager();
+		this.readOnly = readOnly;
 		this.showAdminTools = showAdminTools && admin;
 		this.userObject = userObject;
 		this.startExtendedSearch = startExtendedSearch;
 		this.prefsKey = prefsKey;
 
 		initForm(ureq);
-	}
+	} 
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FlexiTableColumnModel columnModel = initColumnModel();
 		
-		groupTableModel = new BusinessGroupFlexiTableModel(getTranslator(), columnModel);
+		groupTableModel = initTableModel(columnModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", groupTableModel, 20, false, getTranslator(), formLayout);
-
+		tableEl.setElementCssClass("o_group_list");
+		
 		FlexiTableSortOptions options = new FlexiTableSortOptions();
 		options.setFromColumnModel(true);
 		tableEl.setSortSettings(options);
 		tableEl.setAndLoadPersistedPreferences(ureq, "gbg-list-" + prefsKey);
 		
-		searchCtrl = new BusinessGroupSearchController(ureq, getWindowControl(), isAdmin(), true, showAdminTools, mainForm);
+		searchCtrl = new BusinessGroupSearchController(ureq, getWindowControl(), isAdmin(), true, showAdminTools, isAdmin(), mainForm);
 		searchCtrl.setEnabled(false);
 		listenTo(searchCtrl);
 		
@@ -225,6 +221,10 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	}
 	
 	protected abstract FlexiTableColumnModel initColumnModel();
+
+	protected final BusinessGroupListFlexiTableModel initTableModel(FlexiTableColumnModel columnModel) {
+		return new BusinessGroupListFlexiTableModel(columnModel, getLocale());
+	}
 
 	public Object getUserObject() {
 		return userObject;
@@ -306,11 +306,11 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		//
 	}
 	
-	protected List<BGTableItem> getSelectedItems() {
+	protected List<BusinessGroupRow> getSelectedItems() {
 		Set<Integer> selections = tableEl.getMultiSelectedIndex();
-		List<BGTableItem> rows = new ArrayList<>(selections.size());
+		List<BusinessGroupRow> rows = new ArrayList<>(selections.size());
 		for(Integer i:selections) {
-			BGTableItem row = groupTableModel.getObject(i.intValue());
+			BusinessGroupRow row = groupTableModel.getObject(i.intValue());
 			if(row != null) {
 				rows.add(row);
 			}
@@ -340,7 +340,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			FormLink link = (FormLink)source;
 			String cmd = link.getCmd();
 			if("mark".equals(cmd)) {
-				BGTableItem row = (BGTableItem)link.getUserObject();
+				BusinessGroupRow row = (BusinessGroupRow)link.getUserObject();
 				boolean marked = toogleMark(row);
 				link.setIconLeftCSS(marked ? "o_icon o_icon_bookmark o_icon-lg" : "o_icon o_icon_bookmark_add o_icon-lg");
 				link.getComponent().setDirty(true);
@@ -350,9 +350,9 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			} else if("resource".equals(cmd)) {
 				RepositoryEntryShort re = (RepositoryEntryShort)link.getUserObject();
 				NewControllerFactory.getInstance().launch("[RepositoryEntry:" + re.getKey() + "]", ureq, getWindowControl());
-			} else if(link.getUserObject() instanceof BGTableItem) {
-				BGTableItem item = (BGTableItem)link.getUserObject();
-				Long businessGroupKey = item.getBusinessGroupKey();
+			} else if(link.getUserObject() instanceof BusinessGroupRef) {
+				BusinessGroupRef item = (BusinessGroupRef)link.getUserObject();
+				Long businessGroupKey = item.getKey();
 				BusinessGroup businessGroup = businessGroupService.loadBusinessGroup(businessGroupKey);
 				if(businessGroup == null) {
 					groupTableModel.removeBusinessGroup(businessGroupKey);
@@ -369,8 +369,8 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
 				if(se.getIndex() >= 0 && se.getIndex() < groupTableModel.getRowCount()) {
-					BGTableItem item = groupTableModel.getObject(se.getIndex());
-					Long businessGroupKey = item.getBusinessGroupKey();
+					BusinessGroupRef item = groupTableModel.getObject(se.getIndex());
+					Long businessGroupKey = item.getKey();
 					BusinessGroup businessGroup = businessGroupService.loadBusinessGroup(businessGroupKey);
 					//prevent rs after a group is deleted by someone else
 					if(businessGroup == null) {
@@ -403,14 +403,14 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * Add/remove as favorite
 	 * @param item
 	 */
-	private boolean toogleMark(BGTableItem item) {
-		OLATResourceable bgResource = OresHelper.createOLATResourceableInstance("BusinessGroup", item.getBusinessGroupKey());
+	private boolean toogleMark(BusinessGroupRow item) {
+		OLATResourceable bgResource = OresHelper.createOLATResourceableInstance("BusinessGroup", item.getKey());
 		//		item.getBusinessGroup().getResource();
 		if(markManager.isMarked(bgResource, getIdentity(), null)) {
 			markManager.removeMark(bgResource, getIdentity(), null);
 			item.setMarked(false);
 		} else {
-			String businessPath = "[BusinessGroup:" + item.getBusinessGroupKey() + "]";
+			String businessPath = "[BusinessGroup:" + item.getKey() + "]";
 			markManager.setMark(bgResource, getIdentity(), null, businessPath);
 			item.setMarked(true);
 		}
@@ -461,6 +461,15 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 					reloadModel();
 				}
 			}
+		} else if(source == emailWizard) {
+			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				getWindowControl().pop();
+				removeAsListenerAndDispose(emailWizard);
+				emailWizard = null;
+				if(event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+					tableEl.deselectAll();
+				}
+			}
 		} else if (source == userManagementController) {
 			cmc.deactivate();
 			if(event == Event.DONE_EVENT) {
@@ -495,7 +504,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	}
 	
 	@Override
-	protected void propagateDirtinessToContainer(FormItem fiSrc) {
+	protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent event) {
 		//
 	}
 	
@@ -637,14 +646,22 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param items
 	 */
-	private void doCopy(UserRequest ureq, List<BGTableItem> items) {
+	private void doCopy(UserRequest ureq, List<? extends BusinessGroupRef> items) {
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(items == null || items.isEmpty()) {
 			showWarning("error.select.one");
 			return;
 		}
 		
-		List<BusinessGroup> groups = toBusinessGroups(ureq, items, false);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, items, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		}
+		if(items.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
+			return;
+		}
 		
 		boolean enableCoursesCopy = businessGroupService.hasResources(groups);
 		boolean enableAreasCopy = areaManager.countBGAreasOfBusinessGroups(groups) > 0;
@@ -699,7 +716,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param items
 	 */
-	private void doConfiguration(UserRequest ureq, List<BGTableItem> selectedItems) {
+	private void doConfiguration(UserRequest ureq, List<? extends BusinessGroupRef> selectedItems) {
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(selectedItems == null || selectedItems.isEmpty()) {
 			showWarning("error.select.one");
@@ -710,7 +727,13 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
 			return;
-		} else if(CollaborationToolsFactory.getInstance().getAvailableTools() == null) {
+		}
+		if(selectedItems.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
+			return;
+		}
+		
+		if(CollaborationToolsFactory.getInstance().getAvailableTools() == null) {
 			//init the available tools
 			CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(groups.get(0));
 		}
@@ -783,14 +806,22 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param items
 	 */
-	private void doEmails(UserRequest ureq, List<BGTableItem> selectedItems) {
-		removeAsListenerAndDispose(businessGroupWizard);
+	private void doEmails(UserRequest ureq, List<? extends BusinessGroupRef> selectedItems) {
+		removeAsListenerAndDispose(emailWizard);
 		if(selectedItems == null || selectedItems.isEmpty()) {
 			showWarning("error.select.one");
 			return;
 		}
 		
-		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, false);
+		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
+		if(groups.isEmpty()) {
+			showWarning("msg.alleastone.editable.group");
+			return;
+		}
+		if(selectedItems.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
+			return;
+		}
 
 		Step start = new BGEmailSelectReceiversStep(ureq, groups);
 		StepRunnerCallback finish = new StepRunnerCallback() {
@@ -801,9 +832,9 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 			}
 		};
 		
-		businessGroupWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null, translate("email.group"), "o_sel_groups_email_wizard");
-		listenTo(businessGroupWizard);
-		getWindowControl().pushAsModalDialog(businessGroupWizard.getInitialComponent());
+		emailWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null, translate("email.group"), "o_sel_groups_email_wizard");
+		listenTo(emailWizard);
+		getWindowControl().pushAsModalDialog(emailWizard.getInitialComponent());
 	}
 	
 	/**
@@ -811,7 +842,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param items
 	 */
-	private void doUserManagement(UserRequest ureq, List<BGTableItem> selectedItems) {
+	private void doUserManagement(UserRequest ureq, List<? extends BusinessGroupRef> selectedItems) {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(userManagementController);
 		if(selectedItems == null || selectedItems.isEmpty()) {
@@ -822,6 +853,10 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
+			return;
+		}
+		if(selectedItems.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
 			return;
 		}
 		
@@ -890,30 +925,30 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	}
 	
 	protected void doSearch(FlexiTableSearchEvent event) {
-		SearchBusinessGroupParams params = getDefaultSearchParams();
+		BusinessGroupQueryParams params = getDefaultSearchParams();
 		params.setNameOrDesc(event.getSearch());
-		updateTableModel(params, false);
+		loadModel(params);
 	}
 
 	private void search(SearchEvent event) {
 		if(event == null) {
-			updateTableModel(null, false);
+			loadModel(null);
 		} else {
-			SearchBusinessGroupParams params = getSearchParams(event);
-			updateTableModel(params, false);
+			BusinessGroupQueryParams params = getSearchParams(event);
+			loadModel(params);
 		}
 	}
 	
-	protected abstract SearchBusinessGroupParams getSearchParams(SearchEvent event);
+	protected abstract BusinessGroupQueryParams getSearchParams(SearchEvent event);
 	
-	protected abstract SearchBusinessGroupParams getDefaultSearchParams();
+	protected abstract BusinessGroupQueryParams getDefaultSearchParams();
 	
 	protected boolean doDefaultSearch() {
-		SearchBusinessGroupParams params = getDefaultSearchParams();
-		return updateTableModel(params, false).isEmpty();
+		BusinessGroupQueryParams params = getDefaultSearchParams();
+		return loadModel(params) > 0;
 	}
 	
-	private void doSelect(UserRequest ureq, List<BGTableItem> items) {
+	private void doSelect(UserRequest ureq, List<? extends BusinessGroupRef> items) {
 		List<BusinessGroup> selection = toBusinessGroups(ureq, items, false);
 		fireEvent(ureq, new BusinessGroupSelectionEvent(selection));
 	}
@@ -928,7 +963,7 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param items
 	 */
-	private void doMerge(UserRequest ureq, List<BGTableItem> selectedItems) {
+	private void doMerge(UserRequest ureq, List<? extends BusinessGroupRef> selectedItems) {
 		removeAsListenerAndDispose(businessGroupWizard);
 		if(selectedItems == null || selectedItems.size() < 2) {
 			showWarning("error.select.one");
@@ -936,8 +971,12 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		}
 
 		final List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
-		if(groups.isEmpty()) {
-			showWarning("msg.alleastone.editable.group");
+		if(groups.size() < 2) {
+			showWarning("msg.alleasttwo.editable.group");
+			return;
+		}
+		if(selectedItems.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
 			return;
 		}
 		
@@ -977,10 +1016,14 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	 * @param ureq
 	 * @param selectedItems
 	 */
-	private void confirmDelete(UserRequest ureq, List<BGTableItem> selectedItems) {
+	private void confirmDelete(UserRequest ureq, List<? extends BusinessGroupRef> selectedItems) {
 		List<BusinessGroup> groups = toBusinessGroups(ureq, selectedItems, true);
 		if(groups.isEmpty()) {
 			showWarning("msg.alleastone.editable.group");
+			return;
+		}
+		if(selectedItems.size() != groups.size()) {
+			showWarning("msg.only.editable.group");
 			return;
 		}
 		
@@ -1009,16 +1052,37 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 		}
 	}
 	
-	protected List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<BGTableItem> items, boolean editableOnly) {
+	protected final List<BusinessGroup> toBusinessGroups(UserRequest ureq, List<? extends BusinessGroupRef> items, boolean editableOnly) {
 		List<Long> groupKeys = new ArrayList<Long>();
-		for(BGTableItem item:items) {
-			groupKeys.add(item.getBusinessGroupKey());
+		for(BusinessGroupRef item:items) {
+			groupKeys.add(item.getKey());
 		}
 		if(editableOnly) {
-			groupTableModel.filterEditableGroupKeys(ureq, groupKeys);
+			filterEditableGroupKeys(ureq, groupKeys);
 		}
+
 		List<BusinessGroup> groups = businessGroupService.loadBusinessGroups(groupKeys);
 		return groups;
+	}
+	
+	protected boolean filterEditableGroupKeys(UserRequest ureq, List<Long> groupKeys) {
+		if(ureq.getUserSession().getRoles().isOLATAdmin() || ureq.getUserSession().getRoles().isGroupManager()) {
+			return false;
+		}
+		
+		int countBefore = groupKeys.size();
+
+		for(BGTableItem item:groupTableModel.getObjects()) {
+			Long groupKey = item.getBusinessGroupKey();
+			if(groupKeys.contains(groupKey)) {
+				BusinessGroupMembership membership = item.getMembership();
+				if(membership == null || !membership.isOwner()) {
+					groupKeys.remove(groupKey);
+				}
+			}
+		}
+		
+		return groupKeys.size() != countBefore;
 	}
 	
 	/**
@@ -1049,172 +1113,35 @@ public abstract class AbstractBusinessGroupListController extends FormBasicContr
 	}
 	
 	protected void reloadModel() {
-		updateTableModel(lastSearchParams, false);
+		loadModel(lastSearchParams);
 	}
 	
 	protected RepositoryEntryRef getResource() {
 		return null;
 	}
+
+	protected abstract List<BGTableItem> searchTableItems(BusinessGroupQueryParams params);
 	
-	protected List<BusinessGroupView> searchBusinessGroupViews(SearchBusinessGroupParams params) {
-		List<BusinessGroupView> groups;
+	protected final int loadModel(BusinessGroupQueryParams params) {
+		this.lastSearchParams = params;
 		if(params == null) {
-			groups = new ArrayList<BusinessGroupView>();
+			groupTableModel.setEntries(Collections.<BGTableItem>emptyList());
+			tableEl.reset(true, true, true);
+			return 0;
 		} else {
-			groups = businessGroupService.findBusinessGroupViews(params, getResource(), 0, -1);
-			
+			List<BGTableItem> items = searchTableItems(params);
 			if(filter != null) {
-				for(Iterator<BusinessGroupView> groupIt=groups.iterator(); groupIt.hasNext(); ) {
+				for(Iterator<BGTableItem> groupIt=items.iterator(); groupIt.hasNext(); ) {
 					if(!filter.accept(groupIt.next())) {
 						groupIt.remove();
 					}
 				}
 			}
-		}
-		return groups;
-	}
-	
-	protected List<BusinessGroupView> updateTableModel(SearchBusinessGroupParams params, boolean alreadyMarked) {
-		List<BusinessGroupView> groups = searchBusinessGroupViews(params);
-		lastSearchParams = params;
-		if(groups.isEmpty()) {
-			groupTableModel.setEntries(Collections.<BGTableItem>emptyList());
-			tableEl.reset();
-			return groups;
-		}
-
-		List<Long> groupKeysWithMembers;
-		if(groups.size() > 50) {
-			groupKeysWithMembers = null;
-		} else {
-			groupKeysWithMembers = new ArrayList<Long>(groups.size());
-			for(BusinessGroupView view:groups) {
-				groupKeysWithMembers.add(view.getKey());
-			}
-		}
-
-		//retrieve all user's membership if there are more than 50 groups
-		List<BusinessGroupMembership> groupsAsOwner = businessGroupService.getBusinessGroupMembership(groupKeysWithMembers, getIdentity());
-		Map<Long, BusinessGroupMembership> memberships = new HashMap<Long, BusinessGroupMembership>();
-		for(BusinessGroupMembership membership: groupsAsOwner) {
-			memberships.put(membership.getGroupKey(), membership);
-		}
-		
-		//find resources / courses
-		List<Long> groupKeysWithRelations = new ArrayList<Long>();
-		for(BusinessGroupView view:groups) {
-			if(view.getNumOfRelations() > 0) {
-				groupKeysWithRelations.add(view.getKey());
-			}
-		}
-		List<BGRepositoryEntryRelation> resources = businessGroupService.findRelationToRepositoryEntries(groupKeysWithRelations, 0, -1);
-
-		//find offers
-		List<Long> groupWithOfferKeys = new ArrayList<Long>(groups.size());
-		for(BusinessGroupView view:groups) {
-			if(view.getNumOfOffers() > 0) {
-				groupWithOfferKeys.add(view.getResource().getKey());
-			}
-		}
-		List<OLATResourceAccess> resourcesWithAC;
-		if(groupWithOfferKeys.isEmpty()) {
-			resourcesWithAC = Collections.emptyList();
-		} else {
-			resourcesWithAC	= acService.getAccessMethodForResources(groupWithOfferKeys, "BusinessGroup", true, new Date());
-		}
-		
-		Set<Long> markedResources = new HashSet<Long>(groups.size() * 2 + 1);
-		for(BusinessGroupView group:groups) {
-			markedResources.add(group.getResource().getResourceableId());
-		}
-		if(!alreadyMarked) {
-			markManager.filterMarks(getIdentity(), "BusinessGroup", markedResources);
-		}
-		
-		List<BGTableItem> items = new ArrayList<BGTableItem>();
-		Map<Long, BGTableItem> groupKeyToItems = new HashMap<>();
-		for(BusinessGroupView group:groups) {
-			Long oresKey = group.getResource().getKey();
-			List<PriceMethodBundle> accessMethods = null;
-			for(OLATResourceAccess access:resourcesWithAC) {
-				if(oresKey.equals(access.getResource().getKey())){
-					accessMethods = access.getMethods();
-					break;
-				}
-			}
 			
-			BusinessGroupMembership membership =  memberships.get(group.getKey());
-			Boolean allowLeave =  membership != null;
-			Boolean allowDelete = admin ? Boolean.TRUE : (membership == null ? null : new Boolean(membership.isOwner()));
-			
-			boolean marked = markedResources.contains(group.getResource().getResourceableId());
-			FormLink markLink = uifactory.addFormLink("mark_" + group.getKey(), "mark", "", null, null, Link.NONTRANSLATED);
-			markLink.setIconLeftCSS(marked ? Mark.MARK_CSS_LARGE : Mark.MARK_ADD_CSS_LARGE);
-
-			BGTableItem tableItem = new BGTableItem(group, markLink, marked, membership, allowLeave, allowDelete, accessMethods);
-			//tableItem.setUnfilteredRelations(resources);
-			items.add(tableItem);
-			markLink.setUserObject(tableItem);
-			
-			if(group.getNumOfValidOffers() > 0l) {
-				addAccessLink(tableItem);
-			}
-			groupKeyToItems.put(group.getKey(), tableItem);
+			groupTableModel.setEntries(items);
+			tableEl.reset(true, true, true);
+			return items.size();
 		}
-		
-		for(BGRepositoryEntryRelation relation:resources) {
-			BGTableItem tableItem = groupKeyToItems.get(relation.getGroupKey());
-			if(tableItem != null) {
-				tableItem.addRelation(relation);
-			}
-		}
-
-		groupTableModel.setObjects(items);
-		tableEl.reset();
-		return groups;
-	}
-	
-	protected void addAccessLink(BGTableItem item) {
-		String action;
-		BusinessGroupMembership membership = item.getMembership();
-		if(membership != null && membership.isOwner()) {
-			return;
-		} else if(membership != null && (membership.isParticipant() || membership.isWaiting())) {
-			action = TABLE_ACTION_LEAVE;
-		} else if(item.isFull() && !item.isWaitingListEnabled()) {
-			action = null;
-		} else {
-			action = TABLE_ACTION_ACCESS;
-		}
-		
-		String i18nKey;
-		if (membership != null && membership.isParticipant()) {
-			i18nKey = "table.header.leave";
-		} else if (membership != null && membership.isWaiting()) {
-			i18nKey = "table.header.leave.waiting";
-		} if(item.isFull()) {
-			if(item.isWaitingListEnabled()) {
-				i18nKey = "table.access.waitingList";
-			} else {
-				i18nKey = "table.header.group.full";
-			}
-		} else if(item.isWaitingListEnabled()) {
-			if(item.isFull()) {
-				i18nKey = "table.access.waitingList";
-			}	else {
-				i18nKey = "table.access";
-			}
-		} else {
-			i18nKey = "table.access";
-		}
-		
-		FormLink accessLink = uifactory.addFormLink("open_" + item.getBusinessGroupKey(), action, i18nKey,
-				null, null, Link.LINK);
-		if(action == null) {
-			accessLink.setEnabled(false);
-		}
-		accessLink.setUserObject(item);
-		item.setAccessLink(accessLink);
 	}
 	
 	protected static class RoleColumnDescriptor extends CustomRenderColumnDescriptor {

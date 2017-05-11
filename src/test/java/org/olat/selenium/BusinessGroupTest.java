@@ -37,11 +37,14 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.selenium.page.LoginPage;
 import org.olat.selenium.page.NavigationPage;
 import org.olat.selenium.page.Participant;
 import org.olat.selenium.page.Student;
 import org.olat.selenium.page.User;
+import org.olat.selenium.page.core.AdministrationPage;
+import org.olat.selenium.page.core.CalendarPage;
 import org.olat.selenium.page.core.IMPage;
 import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
@@ -52,7 +55,6 @@ import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.group.MembersWizardPage;
-import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
@@ -77,12 +79,39 @@ public class BusinessGroupTest {
 	@Drone
 	private WebDriver browser;
 	@ArquillianResource
-	private URL deploymentUrl;	
-
-	@Page
-	private UserToolsPage userTools;
+	private URL deploymentUrl;
 	@Page
 	private NavigationPage navBar;
+
+	/**
+	 * Create a group, search it and delete it.
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void createDeleteBusinessGroup(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage
+			.loginAs(author.getLogin(), author.getPassword())
+			.resume();
+		
+		//go to groups
+		String groupName = "Delete-1-" + UUID.randomUUID();
+		navBar
+			.openGroups(browser)
+			.createGroup(groupName, "A very little group to delete");
+		
+		//return to group list and delete it
+		navBar
+			.openGroups(browser)
+			.deleteGroup(groupName)
+			.assertDeleted(groupName);
+	}
 
 	/**
 	 * An author create a group, set the visibility to
@@ -158,7 +187,6 @@ public class BusinessGroupTest {
 	@RunAsClient
 	public void collaborativeTools(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createRandomUser("Selena");
 		
 		loginPage
@@ -171,17 +199,19 @@ public class BusinessGroupTest {
 			.openGroups(browser)
 			.createGroup(groupName, "A very little group");
 		
-		String news = "Welcome members ( " + UUID.randomUUID() + " )";
 		group
 			.openAdministration()
 			.openAdminTools()
-			.enableTools()
-			.setMembersInfos(news);
+			.enableTools();
 		
 		//check the news
 		group
 			.openNews()
-			.assertNews(news);
+			.createMessage()
+			.setMessage("Information 0", "A very important info")
+			.next()
+			.finish()
+		.	assertOnMessageTitle("Information 0");
 		
 		//check calendar
 		group
@@ -209,7 +239,7 @@ public class BusinessGroupTest {
 		String threadBodyMarker = UUID.randomUUID().toString();
 		group
 			.openForum()
-			.createThread("New thread in a group", "Very interessant discussion in a group" + threadBodyMarker)
+			.createThread("New thread in a group", "Very interessant discussion in a group" + threadBodyMarker, null)
 			.assertMessageBody(threadBodyMarker);
 		
 		//check chat @see other selenium test dedicated to this one
@@ -223,16 +253,19 @@ public class BusinessGroupTest {
 		
 		//check portfolio
 		String pageTitle = "Portfolio page " + UUID.randomUUID();
-		String structureElementTitle = "Structure " + UUID.randomUUID();
+		String sectionTitle = "Section " + UUID.randomUUID();
 		group
 			.openPortfolio()
-			.openEditor()
-			.selectMapInEditor()
-			.selectFirstPageInEditor()
-			.setPage(pageTitle, "With a little description")
-			.createStructureElement(structureElementTitle, "Structure description")
-			.closeEditor()
-			.assertStructure(structureElementTitle);
+			.assertOnBinder()
+			.selectTableOfContent()
+			.selectEntries()
+			.createSection(sectionTitle)
+			.assertOnSectionTitleInEntries(sectionTitle)
+			.createEntry(pageTitle)
+			.selectEntries()
+			.assertOnPageInEntries(pageTitle)
+			.selectTableOfContent()
+			.assertOnPageInToc(pageTitle);
 	}
 	
 	/**
@@ -259,7 +292,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver participantBrowser,
 			@Drone @Student WebDriver studentBrowser)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createRandomUser("Selena");
 		UserVO participant = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
 		UserVO student = new UserRestClient(deploymentUrl).createRandomUser("Asuka");
@@ -340,6 +372,106 @@ public class BusinessGroupTest {
 	}
 	
 	/**
+	 * First, an administrator make in administration part
+	 * the confirmation of group's membership mandatory if
+	 * the group is created by a standard user.<br>
+	 * 
+	 * A standard user create a group and add a participant.
+	 * The participant log-in and confirm its membership and
+	 * visit the group.<br>
+	 * 
+	 * A first user log in, confirm the membership and search
+	 * the group.<br>
+	 * 
+	 * A second user log in but with a rest url to the group
+	 * and jump to the group after confirming the membership.
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void confirmMembershipByGroup(@InitialPage LoginPage loginPage,
+			@Drone @User WebDriver ryomouBrowser,
+			@Drone @Participant WebDriver participantBrowser,
+			@Drone @Student WebDriver reiBrowser)
+	throws IOException, URISyntaxException {
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		UserVO participant = new UserRestClient(deploymentUrl).createRandomUser();
+		
+		//admin make the confirmation of membership mandatory
+		//for groups created by standard users.
+		loginPage
+			.loginAs("administrator", "openolat")
+			.resume();
+		AdministrationPage administration = new NavigationPage(browser)
+			.openAdministration()
+			.openGroupSettings()
+			.setGroupConfirmationForUser(true);
+		
+		//a standard user create a group
+		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
+		ryomouLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		
+		//go to groups
+		String groupName = "Group-1-" + UUID.randomUUID();
+		NavigationPage rymouNavBar = new NavigationPage(ryomouBrowser);
+		GroupPage group = rymouNavBar
+			.openGroups(ryomouBrowser)
+			.createGroup(groupName, "Confirmation group");
+		
+		String groupUrl = group
+			.openAdministration()
+			.getGroupURL();
+		
+		group.openAdminMembers()
+			.addMember()
+			.searchMember(participant, false)
+			.next()
+			.next()
+			.next()
+			.finish();
+		
+		group.addMember()
+			.searchMember(rei, false)
+			.next()
+			.next()
+			.next()
+			.finish();
+		
+		//participant login
+		LoginPage participantLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		participantLoginPage
+			.loginAs(participant.getLogin(), participant.getPassword())
+			.assertOnMembershipConfirmation()
+			.confirmMembership();
+		NavigationPage participantNavBar = new NavigationPage(participantBrowser);
+		participantNavBar
+			.openGroups(participantBrowser)
+			.selectGroup(groupName)
+			.assertOnInfosPage(groupName);
+		
+		//second participant log in with rest url
+		reiBrowser.get(groupUrl);
+		new LoginPage(reiBrowser)
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.assertOnMembershipConfirmation()
+			.confirmMembership();
+		NavigationPage reiNavBar = new NavigationPage(reiBrowser);
+		reiNavBar
+			.openGroups(reiBrowser)
+			.selectGroup(groupName)
+			.assertOnInfosPage(groupName);
+		
+		//reset the settings
+		administration.setGroupConfirmationForUser(false);
+	}
+	
+	/**
 	 * An author create a group, set the visibility to true for owners
 	 * and participants, enable the tools and add 2 users to it. The 2
 	 * users joins the chat. All three send some messages and read them.
@@ -356,7 +488,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver kanuBrowser,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO kanu = new UserRestClient(deploymentUrl).createRandomUser("Kanu");
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -443,6 +574,119 @@ public class BusinessGroupTest {
 			.assertOnMessage(msg3);
 	}
 	
+
+	/**
+	 * A coach create a group, enable the calendar, create an event
+	 * and save it. Reopen it, edit it and save it.
+	 * 
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void groupCalendar_addEditEvent(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		UserVO coach = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage
+			.loginAs(coach.getLogin(), coach.getPassword())
+			.resume();
+		
+		//go to groups
+		String groupName = "iCal-1-" + UUID.randomUUID();
+		GroupPage group = navBar
+			.openGroups(browser)
+			.createGroup(groupName, "A very little group to delete");
+		
+		group
+			.openAdministration()
+			.openAdminTools()
+			.enableCalendarTool();
+		
+		//add an event to the calendar
+		CalendarPage calendar = group
+			.openCalendar()
+			.assertOnCalendar()
+			.addEvent(2)
+			.setDescription("Hello", "Very important event", "here or there")
+			.save()
+			.assertOnEvent("Hello");
+		//edit the event
+		calendar
+			.openDetails("Hello")
+			.edit()
+			.setDescription("Bye", null, null)
+			.save();
+		//check the changes
+		calendar
+			.assertOnEvent("Bye");
+	}
+	
+	/**
+	 * A coach create a group, enable the calendar, create a recurring event
+	 * and save it. Reopen it, edit it and save it, confirm that it will
+	 * only change a single occurence of the recurring event. After change
+	 * the begin and end hour of all others events.
+	 * 
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void groupCalendar_recurringEvent(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		UserVO coach = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage
+			.loginAs(coach.getLogin(), coach.getPassword())
+			.resume();
+		
+		//go to groups
+		String groupName = "iCal-2-" + UUID.randomUUID();
+		GroupPage group = navBar
+			.openGroups(browser)
+			.createGroup(groupName, "Calendar with a recurring event");
+		
+		group
+			.openAdministration()
+			.openAdminTools()
+			.enableCalendarTool();
+		
+		int startdDate = 2;
+		//add an event to the calendar
+		CalendarPage calendar = group
+			.openCalendar()
+			.assertOnCalendar()
+			.addEvent(startdDate)
+			.setDescription("Recurring", "Very important event 4-5 times", "In the way")
+			.setAllDay(false)
+			.setBeginEnd(10, 11)
+			.setRecurringEvent(KalendarEvent.WEEKLY, 28)
+			.save()
+			.assertOnEvents("Recurring", 4);
+		
+		//pick an occurence of the recurring event and modify it
+		calendar
+			.openDetailsOccurence("Recurring", 9)
+			.edit()
+			.setDescription("Special", null, null)
+			.save()
+			.confirmModifyOneOccurence()
+			.assertOnEvents("Special", 1)
+			.assertOnEvents("Recurring", 3);
+		
+		//pick the first occurence and change all events but the modified above
+		calendar
+			.openDetailsOccurence("Recurring", 2)
+			.edit()
+			.setBeginEnd(11, 12).assertOnEvents("Special", 1)
+			.save()
+			.confirmModifyAllOccurences()
+			.assertOnEventsAt("Recurring", 3, 11);
+	}
+	
 	/**
 	 * An author create a course, with an enrollment course element. It
 	 * configure it and create a group with max. participant set to 1 and
@@ -465,7 +709,6 @@ public class BusinessGroupTest {
 			@Drone @Participant WebDriver reiBrowser,
 			@Drone @Student WebDriver kanuBrowser)
 	throws IOException, URISyntaxException {
-		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");

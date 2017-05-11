@@ -63,6 +63,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	private static final String LAYOUT_DEFAULT = VELOCITY_ROOT + "/form_default.html";
 	private static final String LAYOUT_DEFAULT_6_6 = VELOCITY_ROOT + "/form_default_6_6.html";
 	private static final String LAYOUT_DEFAULT_9_3 = VELOCITY_ROOT + "/form_default_9_3.html";
+	private static final String LAYOUT_DEFAULT_2_10 = VELOCITY_ROOT + "/form_default_2_10.html";
 	private static final String LAYOUT_HORIZONTAL = VELOCITY_ROOT + "/form_horizontal.html";
 	private static final String LAYOUT_VERTICAL = VELOCITY_ROOT + "/form_vertical.html";
 	private static final String LAYOUT_BAREBONE = VELOCITY_ROOT + "/form_barebone.html";
@@ -167,6 +168,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		add(formComp.getName(), formComp);
 	}
 
+	@Override
 	public void add(String name, FormItem formComp) {
 		if(!hasRootForm){
 			throw new AssertionError("first ensure that the layout container knows about its rootform!!");
@@ -198,11 +200,11 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 		// Check for multipart data, add upload limit to form
 		if (formComp instanceof FormMultipartItem) {
-			FormMultipartItem mpItem = (FormMultipartItem) formComp;
-			getRootForm().setMultipartEnabled(true, mpItem.getMaxUploadSizeKB());
+			getRootForm().setMultipartEnabled(true);
 		}
-		
 	}
+	
+	@Override
 	public void add(String name, Collection<FormItem> foItems){
 		
 		//remove if already in
@@ -297,8 +299,7 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 
 		// Check for multipart data, add upload limit to form
 		if (with instanceof FormMultipartItem) {
-			FormMultipartItem mpItem = (FormMultipartItem) with;
-			getRootForm().setMultipartEnabled(true, mpItem.getMaxUploadSizeKB());
+			getRootForm().setMultipartEnabled(true);
 		}
 	}
 	
@@ -435,25 +436,6 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 	 * Set an optional context help link for this form. If you use a custom
 	 * template this will have no effect
 	 * 
-	 * @param packageName The bundle name, e.g. org.olat.core
-	 * @param pageName The page name, e.g. my-helppage.html
-	 * @param hoverTextKey The hover text to indicate what this help is about
-	 *          (i18nkey)
-	 */
-	public void setFormContextHelp(String packageName, String pageName, String hoverTextKey) {
-		if (packageName == null) {
-			formLayoutContainer.contextRemove("off_chelp_package");
-		} else {
-			formLayoutContainer.contextPut("off_chelp_package", packageName);
-			formLayoutContainer.contextPut("off_chelp_page", pageName);
-			formLayoutContainer.contextPut("off_chelp_hover", hoverTextKey);
-		}
-	}
-	
-	/**
-	 * Set an optional context help link for this form. If you use a custom
-	 * template this will have no effect
-	 * 
 	 * @param url The page in confluence 
 	 */
 	public void setFormContextHelp(String url) {
@@ -557,6 +539,16 @@ public class FormLayoutContainer extends FormItemImpl implements FormItemContain
 		return tmp;
 	}
 	
+	/**
+	 * This a variant of the default form layout but with a ration 2 to 10 for label and field.
+	 * @param name
+	 * @param formTranslator
+	 * @return
+	 */
+	public static FormLayoutContainer createDefaultFormLayout_2_10(String name, Translator formTranslator){
+		FormLayoutContainer tmp = new FormLayoutContainer(name, formTranslator, LAYOUT_DEFAULT_2_10);
+		return tmp;
+	}
 	
 	/**
 	 * Create a layout container that renders the form elements and its labels vertically. 

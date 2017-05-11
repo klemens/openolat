@@ -22,14 +22,13 @@ package org.olat.resource.accesscontrol.manager;
 import java.util.Date;
 import java.util.List;
 
-import javax.persistence.EntityManager;
 import javax.persistence.TemporalType;
 
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.id.Identity;
 import org.olat.resource.OLATResource;
-import org.olat.resource.accesscontrol.model.ResourceReservation;
+import org.olat.resource.accesscontrol.ResourceReservation;
 import org.olat.resource.accesscontrol.model.ResourceReservationImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -130,10 +129,11 @@ public class ACReservationDAO {
 		return count.intValue();
 	}
 	
-	public void deleteReservation(ResourceReservation reservation) {
-		EntityManager em = dbInstance.getCurrentEntityManager();
-		ResourceReservation reloaded = em.getReference(ResourceReservationImpl.class, reservation.getKey());
-		em.remove(reloaded);
+	public int deleteReservation(ResourceReservation reservation) {
+		String sb = "delete from resourcereservation as reservation where reservation.key=:reservationKey";
+		return dbInstance.getCurrentEntityManager().createQuery(sb)
+			.setParameter("reservationKey", reservation.getKey())
+			.executeUpdate();
 	}
 	
 	public void deleteReservations(OLATResource resource) {

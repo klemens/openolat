@@ -46,6 +46,7 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.portfolio.EPSecurityCallback;
@@ -84,7 +85,7 @@ public class PortfolioHandler implements RepositoryHandler {
 	
 	@Override
 	public boolean isCreate() {
-		return true;
+		return false;
 	}
 	
 	@Override
@@ -129,12 +130,14 @@ public class PortfolioHandler implements RepositoryHandler {
 		EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
 		EPStructureManager eSTMgr = CoreSpringFactory.getImpl(EPStructureManager.class);
 		
+		RepositoryEntry re = null;
 		PortfolioStructure structure = EPXStreamHandler.getAsObject(file, false);
-		OLATResource resource = eSTMgr.createPortfolioMapTemplateResource();
-		RepositoryEntry re = CoreSpringFactory.getImpl(RepositoryService.class)
-				.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
-		
-		ePFMgr.importPortfolioMapTemplate(structure, resource);
+		if(structure != null) {
+			OLATResource resource = eSTMgr.createPortfolioMapTemplateResource();
+			re = CoreSpringFactory.getImpl(RepositoryService.class)
+					.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
+			ePFMgr.importPortfolioMapTemplate(structure, resource);
+		}
 		return re;
 	}
 	
@@ -159,12 +162,10 @@ public class PortfolioHandler implements RepositoryHandler {
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.embedded;
 	}
-
+	
 	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		// Apperantly, this method is used for backing up any user related content
-		// (comments etc.) on deletion. Up to now, this doesn't exist in blogs.
-		return null;
+	public boolean supportsAssessmentDetails() {
+		return false;
 	}
 	
 	@Override
@@ -221,7 +222,7 @@ public class PortfolioHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl control, TooledStackedPanel toolbar) {
+	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar) {
 		return null;
 	}
 
@@ -233,11 +234,20 @@ public class PortfolioHandler implements RepositoryHandler {
 				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
 						RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 					EPFrontendManager ePFMgr = CoreSpringFactory.getImpl(EPFrontendManager.class);
-					PortfolioStructureMap map = (PortfolioStructureMap)ePFMgr.loadPortfolioStructure(entry.getOlatResource());
+					PortfolioStructureMap map = (PortfolioStructureMap)ePFMgr
+						.loadPortfolioStructure(entry.getOlatResource());
+					CoreSpringFactory.getImpl(UserCourseInformationsManager.class)
+						.updateUserCourseInformations(entry.getOlatResource(), uureq.getIdentity());
 					EPSecurityCallback secCallback = EPSecurityCallbackFactory.getSecurityCallback(uureq, map, ePFMgr);
 					return new EPMapViewController(uureq, wwControl, map, false, false, secCallback);
 				}
 			});
+	}
+
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl,
+			TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	@Override

@@ -1,5 +1,5 @@
 #if($r.available("source.selector"))
-    <div class="o_qpool_filter_box clearfix">
+    <div class="o_block_bottom o_qpool_filter_box clearfix">
         $r.render("source.selector_LABEL") $r.render("source.selector")
     </div>
 #end
@@ -23,6 +23,9 @@ $r.render("items")
 	#end
 	#if($r.available("copy"))
 		$r.render("copy")
+	#end
+	#if($r.available("convert.item"))
+		$r.render("convert.item")
 	#end
 	#if($r.available("import.item"))
 		$r.render("import.item")

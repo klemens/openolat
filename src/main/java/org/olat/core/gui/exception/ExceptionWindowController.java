@@ -236,7 +236,17 @@ public class ExceptionWindowController extends DefaultChiefController {
 		w.setContentPane(msg);
 		setWindow(w);
 	}
-	
+
+	@Override
+	public String getWindowTitle() {
+		return null;
+	}
+
+	@Override
+	public boolean isLoginInterceptionInProgress() {
+		return false;
+	}
+
 	@Override
 	public void addBodyCssClass(String cssClass) {
 		//

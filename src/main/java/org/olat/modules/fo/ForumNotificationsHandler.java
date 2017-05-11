@@ -45,9 +45,13 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.modules.fo.manager.ForumManager;
+import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
 /**
@@ -66,6 +70,7 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 	 * @see org.olat.core.commons.services.notifications.NotificationsHandler#createSubscriptionInfo(org.olat.core.commons.services.notifications.Subscriber,
 	 *      java.util.Locale, java.util.Date)
 	 */
+	@Override
 	public SubscriptionInfo createSubscriptionInfo(final Subscriber subscriber, Locale locale, Date compareDate) {
 		try {
 			Publisher p = subscriber.getPublisher();
@@ -83,6 +88,14 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 					NotificationsManager.getInstance().deactivate(p);
 					return NotificationsManager.getInstance().getNoSubscriptionInfo();
 				}
+				
+				if("CourseModule".equals(p.getResName())) {
+					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(OresHelper.createOLATResourceableInstance(p.getResName(), p.getResId()), false);
+					if(re.getRepositoryEntryStatus().isClosed() || re.getRepositoryEntryStatus().isUnpublished()) {
+						return NotificationsManager.getInstance().getNoSubscriptionInfo();
+					}
+				}
+				
 				final List<Message> mInfos = ForumManager.getInstance().getNewMessageInfo(forumKey, compareDate);
 				final Translator translator = Util.createPackageTranslator(ForumNotificationsHandler.class, locale);
 				
@@ -97,7 +110,15 @@ public class ForumNotificationsHandler extends LogDelegator implements Notificat
 					
 					String name;
 					if(modifier != null) {
-						name = NotificationHelper.getFormatedName(modifier);
+						if(modifier.equals(creator) && StringHelper.containsNonWhitespace(mInfo.getPseudonym())) {
+							name = mInfo.getPseudonym();
+						} else {
+							name = NotificationHelper.getFormatedName(modifier);
+						}
+					} else if(StringHelper.containsNonWhitespace(mInfo.getPseudonym())) {
+						name = mInfo.getPseudonym();
+					} else if(mInfo.isGuest()) {
+						name = translator.translate("anonymous.poster");
 					} else {
 						name = NotificationHelper.getFormatedName(creator);
 					}

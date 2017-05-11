@@ -55,7 +55,6 @@ import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
@@ -64,7 +63,10 @@ import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.TACourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.scoring.AssessmentEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.properties.Property;
 
 /**
@@ -113,9 +115,10 @@ public class TaskController extends BasicController {
 	private boolean samplingWithReplacement = true;
 	private Boolean hasPreview = Boolean.FALSE;
 	private Boolean isDeselectable = Boolean.FALSE;
-	
+
+	private TACourseNode node;
 	private CourseEnvironment courseEnv;
-	private CourseNode node;
+	private UserCourseEnvironment userCourseEnv;
 	
 	private VelocityContainer myContent;
 	private Link taskLaunchButton;
@@ -133,11 +136,12 @@ public class TaskController extends BasicController {
 	 * @param courseEnv
 	 */
 	public TaskController(UserRequest ureq, WindowControl wControl, ModuleConfiguration config, 
-			CourseNode node, CourseEnvironment courseEnv) {
+			TACourseNode node, UserCourseEnvironment userCourseEnv) {
 		super(ureq, wControl);
 		
 		this.node = node;
-		this.courseEnv = courseEnv;
+		courseEnv = userCourseEnv.getCourseEnvironment();
+		this.userCourseEnv = userCourseEnv;
 		readConfig(config);
 		
 		panel = new Panel("myContentPanel");
@@ -188,7 +192,8 @@ public class TaskController extends BasicController {
 					  tableCtr.addColumnDescriptor(columnDescriptor);
 				  }
 				  //always have a select column
-				  tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("task.table.th_action", 2, ACTION_SELECT, translate("task.table.choose"), "-"));
+				  String selectCmd = userCourseEnv.isCourseReadOnly() ? null : ACTION_SELECT;
+				  tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("task.table.th_action", 2, selectCmd, translate("task.table.choose"), "-"));
 											
 				  int numCols = 0; 
 				  Boolean taskCouldBeDeselected = config.getBooleanEntry(TACourseNode.CONF_TASK_DESELECT);			
@@ -198,7 +203,8 @@ public class TaskController extends BasicController {
 					  numCols = 3;
 				  } else if (taskCouldBeDeselected) {
 					  numCols = 4;
-					  tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("task.table.th_deselect",3, ACTION_DESELECT, translate("task.table.deselect"), "-"));
+					  String deselectCmd = userCourseEnv.isCourseReadOnly() ? null : ACTION_DESELECT;
+					  tableCtr.addColumnDescriptor(new BooleanColumnDescriptor("task.table.th_deselect",3, deselectCmd, translate("task.table.deselect"), "-"));
 				  }	
 				  //the table model shows the available tasks, plus the selected one, if deselectable
 				  if(isDeselectable() && assignedTask!=null && !availableTasks.contains(assignedTask)) {
@@ -290,8 +296,8 @@ public class TaskController extends BasicController {
 			myContent.contextPut(VC_TASKTEXT, taskText);
 		}
 
-		String taskFilename = getTaskFilename(assignedTask);
-		taskLaunchButton.setModURI(taskFilename);
+		//String taskFilename = getTaskFilename(assignedTask);
+		//taskLaunchButton.setModURI(taskFilename);
 		myContent.put("task.launch", taskLaunchButton);
 		myContent.contextPut(VC_ASSIGNEDTASK, assignedTask);
 		myContent.contextPut(VC_ASSIGNEDTASK_NEWWINDOW,Boolean.TRUE);
@@ -299,7 +305,7 @@ public class TaskController extends BasicController {
 		panel.setContent(myContent);
 	}
 	
-	private String getTaskFilename(String task) {
+	/*private String getTaskFilename(String task) {
 		if(!StringHelper.containsNonWhitespace(task)) {
 			return null;
 		}
@@ -310,7 +316,7 @@ public class TaskController extends BasicController {
 		
 		String filename = assignedTask.substring(0, assignedTask.length() - extension.length());
 		return StringHelper.transformDisplayNameToFileSystemName(filename) + "." + extension;
-	}
+	}*/
 
 	/**
 	 * Auto-assign a task to an identity and mark it as sampled if necessary.
@@ -342,6 +348,12 @@ public class TaskController extends BasicController {
 		CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
 		Property p = cpm.createCourseNodePropertyInstance(node, identity, null, PROP_ASSIGNED, null, null, task, null);
 		cpm.saveProperty(p);
+		
+		AssessmentEvaluation eval = node.getUserScoreEvaluation(userCourseEnv);
+		if(eval.getAssessmentStatus() == null || eval.getAssessmentStatus() == AssessmentEntryStatus.notStarted) {
+			eval = new AssessmentEvaluation(eval, AssessmentEntryStatus.inProgress);
+			node.updateUserScoreEvaluation(eval, userCourseEnv, getIdentity(), false);
+		}
 	}
 	
 	/**

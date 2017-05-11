@@ -20,18 +20,21 @@
 package org.olat.course.nodes.gta.manager;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.persistence.Query;
 import javax.persistence.LockModeType;
+import javax.persistence.Query;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
@@ -43,9 +46,12 @@ import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.io.SystemFilenameFilter;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.AssignmentResponse;
 import org.olat.course.nodes.gta.AssignmentResponse.Status;
@@ -56,23 +62,32 @@ import org.olat.course.nodes.gta.TaskLight;
 import org.olat.course.nodes.gta.TaskList;
 import org.olat.course.nodes.gta.TaskProcess;
 import org.olat.course.nodes.gta.model.Membership;
+import org.olat.course.nodes.gta.model.Solution;
+import org.olat.course.nodes.gta.model.SolutionList;
+import org.olat.course.nodes.gta.model.TaskDefinition;
+import org.olat.course.nodes.gta.model.TaskDefinitionList;
 import org.olat.course.nodes.gta.model.TaskImpl;
 import org.olat.course.nodes.gta.model.TaskListImpl;
-import org.olat.course.nodes.gta.ui.SubmitEvent;
+import org.olat.course.nodes.gta.ui.events.SubmitEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.group.BusinessGroup;
-import org.olat.group.BusinessGroupImpl;
 import org.olat.group.BusinessGroupRef;
 import org.olat.group.BusinessGroupService;
+import org.olat.group.DeletableGroupData;
 import org.olat.group.area.BGAreaManager;
 import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.group.model.BusinessGroupRefImpl;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.manager.RepositoryEntryRelationDAO;
+import org.olat.resource.OLATResource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.thoughtworks.xstream.XStream;
 
 /**
  * 
@@ -81,14 +96,18 @@ import org.springframework.stereotype.Service;
  *
  */
 @Service
-public class GTAManagerImpl implements GTAManager {
+public class GTAManagerImpl implements GTAManager, DeletableGroupData {
 	
 	private static final OLog log = Tracing.createLoggerFor(GTAManagerImpl.class);
+	
+	private static final XStream taskDefinitionsXstream = XStreamHelper.createXStreamInstance();
 	
 	@Autowired
 	private DB dbInstance;
 	@Autowired
 	private BGAreaManager areaManager;
+	@Autowired
+	private AssessmentService assessmentService;
 	@Autowired
 	private BusinessGroupService businessGroupService;
 	@Autowired
@@ -120,6 +139,100 @@ public class GTAManagerImpl implements GTAManager {
 	}
 
 	@Override
+	public List<TaskDefinition> getTaskDefinitions(CourseEnvironment courseEnv, GTACourseNode cNode) {
+		Path taskDefinitionsPath = Paths.get(FolderConfig.getCanonicalRoot(), courseEnv.getCourseBaseContainer().getRelPath(),
+				"gtasks", cNode.getIdent(), TASKS_DEFINITIONS);
+
+		List<TaskDefinition> taskDefinitions = new ArrayList<>();
+		if(Files.exists(taskDefinitionsPath)) {
+			TaskDefinitionList taskDefinitionsList = (TaskDefinitionList)taskDefinitionsXstream.fromXML(taskDefinitionsPath.toFile());
+			if(taskDefinitionsList != null && taskDefinitionsList.getTasks() != null) {
+				taskDefinitions.addAll(taskDefinitionsList.getTasks());
+			}
+		} else {
+			syncWithTaskList(courseEnv, cNode, new TaskListSynched() {
+				@Override
+				public void sync() {
+					ModuleConfiguration config = cNode.getModuleConfiguration();
+					TaskDefinitionList tasks = (TaskDefinitionList)config.get(GTACourseNode.GTASK_TASKS);
+					if(tasks != null) {
+						taskDefinitions.addAll(tasks.getTasks());
+					}
+					storeTaskDefinitions(taskDefinitions, courseEnv, cNode);
+				}
+			});
+		}
+		return	taskDefinitions;
+	}
+
+	@Override
+	public void addTaskDefinition(TaskDefinition newTask, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				List<TaskDefinition> taskDefinitions = getTaskDefinitions(courseEnv, cNode);
+				taskDefinitions.add(newTask);
+				storeTaskDefinitions(taskDefinitions, courseEnv, cNode);
+			}
+		});
+	}
+
+	@Override
+	public void removeTaskDefinition(TaskDefinition removedTask, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				List<TaskDefinition> taskDefinitions = getTaskDefinitions(courseEnv, cNode);
+				boolean deleteFile = true;
+				for(int i=taskDefinitions.size(); i-->0; ) {
+					if(taskDefinitions.get(i).getTitle().equals(removedTask.getTitle())) {
+						taskDefinitions.remove(i);
+					} else if(taskDefinitions.get(i).getFilename().equals(removedTask.getFilename())) {
+						deleteFile = false;
+					}
+				}
+				
+				if(deleteFile) {
+					VFSContainer tasksContainer = getTasksContainer(courseEnv, cNode);
+					VFSItem item = tasksContainer.resolve(removedTask.getFilename());
+					if(item != null) {
+						item.delete();
+					}
+				}
+				storeTaskDefinitions(taskDefinitions, courseEnv, cNode);
+			}
+		});
+		
+	}
+
+	@Override
+	public void updateTaskDefinition(String currentFilename, TaskDefinition task, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				String filename = currentFilename == null ? task.getFilename() : currentFilename;
+				List<TaskDefinition> taskDefinitions = getTaskDefinitions(courseEnv, cNode);
+				for(int i=taskDefinitions.size(); i-->0; ) {
+					if(taskDefinitions.get(i).getFilename().equals(filename)) {
+						taskDefinitions.set(i, task);
+						break;
+					}
+				}
+				storeTaskDefinitions(taskDefinitions, courseEnv, cNode);
+			}
+		});
+	}
+	
+	private void storeTaskDefinitions(List<TaskDefinition> taskDefinitions, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		TaskDefinitionList list = new TaskDefinitionList();
+		list.setTasks(taskDefinitions);
+		
+		Path taskDefinitionsPath = Paths.get(FolderConfig.getCanonicalRoot(), courseEnv.getCourseBaseContainer().getRelPath(),
+				"gtasks", cNode.getIdent(), TASKS_DEFINITIONS);
+		XStreamHelper.writeObject(taskDefinitionsXstream, taskDefinitionsPath.toFile(), list);
+	}
+
+	@Override
 	public File getSolutionsDirectory(CourseEnvironment courseEnv, GTACourseNode cNode) {
 		Path path = Paths.get(FolderConfig.getCanonicalRoot(), courseEnv.getCourseBaseContainer().getRelPath(),
 				"gtasks", cNode.getIdent(), "solutions");
@@ -133,6 +246,100 @@ public class GTAManagerImpl implements GTAManager {
 	@Override
 	public VFSContainer getSolutionsContainer(CourseEnvironment courseEnv, GTACourseNode cNode) {
 		return getContainer(courseEnv, "solutions", cNode);
+	}
+
+	@Override
+	public List<Solution> getSolutions(CourseEnvironment courseEnv, GTACourseNode cNode) {
+		Path solutionDefinitionsPath = Paths.get(FolderConfig.getCanonicalRoot(), courseEnv.getCourseBaseContainer().getRelPath(),
+				"gtasks", cNode.getIdent(), SOLUTIONS_DEFINITIONS);
+
+		List<Solution> solutionsDefinitions = new ArrayList<>();
+		if(Files.exists(solutionDefinitionsPath)) {
+			SolutionList solutionDefinitionsList = (SolutionList)taskDefinitionsXstream.fromXML(solutionDefinitionsPath.toFile());
+			if(solutionDefinitionsList != null && solutionDefinitionsList.getSolutions() != null) {
+				solutionsDefinitions.addAll(solutionDefinitionsList.getSolutions());
+			}
+		} else {
+			syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+				@Override
+				public void sync() {
+					ModuleConfiguration config = cNode.getModuleConfiguration();
+					SolutionList solutions = (SolutionList)config.get(GTACourseNode.GTASK_SOLUTIONS);
+					if(solutions != null && solutions.getSolutions() != null) {
+						solutionsDefinitions.addAll(solutions.getSolutions());
+					}
+					storeSolutions(solutionsDefinitions, courseEnv, cNode);
+				}
+			});
+		}
+		return solutionsDefinitions;
+	}
+
+	@Override
+	public void addSolution(Solution newSolution, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				List<Solution> solutions = getSolutions(courseEnv, cNode);
+				solutions.add(newSolution);
+				storeSolutions(solutions, courseEnv, cNode);
+			}
+		});
+	}
+
+	@Override
+	public void removeSolution(Solution removedSolution, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				List<Solution> solutions = getSolutions(courseEnv, cNode);
+				for(int i=solutions.size(); i-->0; ) {
+					if(solutions.get(i).getFilename().equals(removedSolution.getFilename())) {
+						solutions.remove(i);
+						break;
+					}
+				}
+				storeSolutions(solutions, courseEnv, cNode);
+			}
+		});
+	}
+	
+	@Override
+	public void updateSolution(String currentFilename, Solution solution, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		syncWithTaskList( courseEnv, cNode, new TaskListSynched() {
+			@Override
+			public void sync() {
+				String filename = currentFilename == null ? solution.getFilename() : currentFilename;
+				List<Solution> solutions = getSolutions(courseEnv, cNode);
+				for(int i=solutions.size(); i-->0; ) {
+					if(solutions.get(i).getFilename().equals(filename)) {
+						solutions.set(i, solution);
+						break;
+					}
+				}
+				storeSolutions(solutions, courseEnv, cNode);
+			}
+		});
+	}
+	
+	private void storeSolutions(List<Solution> solutions, CourseEnvironment courseEnv, GTACourseNode cNode) {
+		SolutionList list = new SolutionList();
+		list.setSolutions(solutions);
+		
+		Path solutionsPath = Paths.get(FolderConfig.getCanonicalRoot(), courseEnv.getCourseBaseContainer().getRelPath(),
+				"gtasks", cNode.getIdent(), SOLUTIONS_DEFINITIONS);
+		XStreamHelper.writeObject(taskDefinitionsXstream, solutionsPath.toFile(), list);
+	}
+	
+	private void syncWithTaskList(CourseEnvironment courseEnv, GTACourseNode cNode, TaskListSynched synched) {
+		TaskList tasks = getTaskList(courseEnv.getCourseGroupManager().getCourseEntry(), cNode);
+		if(tasks != null) {
+			loadForUpdate(tasks);
+			synched.sync();
+			dbInstance.commit();
+		} else {
+			synched.sync();
+		}
 	}
 
 	@Override
@@ -286,20 +493,24 @@ public class GTAManagerImpl implements GTAManager {
 	public PublisherData getPublisherData(CourseEnvironment courseEnv, GTACourseNode cNode) {
 		RepositoryEntry re = courseEnv.getCourseGroupManager().getCourseEntry();
 		String businessPath = "[RepositoryEntry:" + re.getKey() + "][CourseNode:" + cNode.getIdent() + "]";
-		PublisherData publisherData = new PublisherData("GroupTask", "", businessPath);
-		return publisherData;
+		return new PublisherData("GroupTask", "", businessPath);
 	}
 
 	@Override
 	public SubscriptionContext getSubscriptionContext(CourseEnvironment courseEnv, GTACourseNode cNode) {
-		SubscriptionContext sc = new SubscriptionContext("CourseModule", courseEnv.getCourseResourceableId(), cNode.getIdent());
-		return sc;
+		return new SubscriptionContext("CourseModule", courseEnv.getCourseResourceableId(), cNode.getIdent());
 	}
-	
-	
+
+	@Override
+	public SubscriptionContext getSubscriptionContext(OLATResource courseResource, GTACourseNode cNode) {
+		Long courseResourceableId = courseResource.getResourceableId();
+		return new SubscriptionContext("CourseModule", courseResourceableId, cNode.getIdent());
+	}
 
 	@Override
 	public List<BusinessGroup> filterBusinessGroups(List<BusinessGroup> groups, GTACourseNode cNode) {
+		if(groups == null || groups.isEmpty()) return new ArrayList<>(1);
+		
 		List<BusinessGroup> filteredGroups = new ArrayList<>();
 
 		ModuleConfiguration config = cNode.getModuleConfiguration();
@@ -419,6 +630,34 @@ public class GTAManagerImpl implements GTAManager {
 	}
 
 	@Override
+	public String getDetails(Identity assessedIdentity, RepositoryEntryRef entry, GTACourseNode cNode) {
+		String details;
+		if(cNode.getModuleConfiguration().getBooleanSafe(GTACourseNode.GTASK_ASSIGNMENT)) {
+			List<Task> tasks = getTasks(assessedIdentity, entry, cNode);
+			if(tasks == null || tasks.isEmpty()) {
+				details = null;
+			} else {
+				StringBuilder sb = new StringBuilder();
+				for(Task task:tasks) {
+					if(sb.length() > 0) sb.append(", ");
+					if(sb.length() > 64) {
+						sb.append("...");
+						break;
+					}
+					String taskName = task.getTaskName();
+					if(StringHelper.containsNonWhitespace(taskName)) {
+						sb.append(StringHelper.escapeHtml(taskName));
+					}
+				}
+				details = sb.length() == 0 ? null : sb.toString();
+			}
+		} else {
+			details = null;
+		}
+		return details;
+	}
+
+	@Override
 	public boolean isTasksInProcess(RepositoryEntryRef entry, GTACourseNode cNode) {
 		List<Number> numOfTasks = dbInstance.getCurrentEntityManager()
 				.createNamedQuery("isTasksInProcess", Number.class)
@@ -466,6 +705,18 @@ public class GTAManagerImpl implements GTAManager {
 		return tasks.isEmpty() ? null : tasks.get(0);
 	}
 	
+	@Override
+	public boolean deleteGroupDataFor(BusinessGroup group) {
+		log.audit("Delete tasks of business group: " + group.getKey());
+		String deleteTasks = "delete from gtatask as task where task.businessGroup.key=:groupKey";
+		dbInstance.getCurrentEntityManager()
+				.createQuery(deleteTasks)
+				.setParameter("groupKey", group.getKey())
+				.executeUpdate();
+		return true;	
+
+	}
+
 	@Override
 	public int deleteTaskList(RepositoryEntryRef entry, GTACourseNode cNode) {
 		TaskList taskList = getTaskList(entry, cNode);
@@ -545,7 +796,7 @@ public class GTAManagerImpl implements GTAManager {
 		  .append(" inner join tasklist.entry rentry ")
 		  .append(" where tasklist.entry.key=:entryKey and tasklist.courseNodeIdent=:courseNodeIdent and (task.identity.key=:identityKey ")
 		  .append(" or task.businessGroup.key in (")
-		  .append("   select bgroup.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		  .append("   select bgroup.key from businessgroup as bgroup ")
 		  .append("     inner join bgroup.baseGroup as baseGroup")
 		  .append("     inner join baseGroup.members as membership")
 		  .append("     where membership.identity.key=:identityKey and membership.role='").append(GroupRoles.participant.name()).append("'")
@@ -623,6 +874,7 @@ public class GTAManagerImpl implements GTAManager {
 				task.setAssignmentDate(new Date());
 				dbInstance.getCurrentEntityManager().persist(task);
 				dbInstance.commit();
+				syncAssessmentEntry((TaskImpl)currentTask, cNode);
 				response = new AssignmentResponse(task, Status.ok);
 			}
 		} else {
@@ -630,6 +882,7 @@ public class GTAManagerImpl implements GTAManager {
 				((TaskImpl)currentTask).setTaskStatus(TaskProcess.submit);
 			}
 			currentTask = dbInstance.getCurrentEntityManager().merge(currentTask);
+			syncAssessmentEntry((TaskImpl)currentTask, cNode);
 			response = new AssignmentResponse(currentTask, Status.ok);
 		}
 		
@@ -650,18 +903,6 @@ public class GTAManagerImpl implements GTAManager {
 	}
 	
 	protected String nextSlotRoundRobin(String[] slots, List<String> usedSlots) {
-		//remove previous rounds
-		Set<String> usedOnce = new HashSet<>();
-		for(Iterator<String> usedSlotIt=usedSlots.iterator(); usedSlotIt.hasNext(); ) {
-			String usedSlot = usedSlotIt.next();
-			if(usedOnce.contains(usedSlot)) {
-				usedSlotIt.remove();
-			} else {
-				usedOnce.add(usedSlot);
-			}
-		}
-		
-		//usedSlots are cleaned and contains only current round
 		String nextSlot = null;
 		for(String slot:slots) {
 			if(!usedSlots.contains(slot)) {
@@ -670,8 +911,40 @@ public class GTAManagerImpl implements GTAManager {
 			}	
 		}
 		
+		//not found an used slot
 		if(nextSlot == null) {
-			//begin a new round
+			//statistics
+			Map<String,AtomicInteger> usages = new HashMap<>();
+			for(String usedSlot:usedSlots) {
+				if(usages.containsKey(usedSlot)) {
+					usages.get(usedSlot).incrementAndGet();
+				} else {
+					usages.put(usedSlot, new AtomicInteger(1));
+				}
+			}
+			
+			int minimum = Integer.MAX_VALUE;
+			for(AtomicInteger slotUsage:usages.values()) {
+				minimum = Math.min(minimum, slotUsage.get());	
+			}
+			Set<String> slotsWithMinimalUsage = new HashSet<>();
+			for(Map.Entry<String, AtomicInteger> slotUsage:usages.entrySet()) {
+				if(slotUsage.getValue().get() == minimum) {
+					slotsWithMinimalUsage.add(slotUsage.getKey());
+				}
+			}
+			
+			//found the next slot with minimal usage
+			for(String slot:slots) {
+				if(slotsWithMinimalUsage.contains(slot)) {
+					nextSlot = slot;
+					break;
+				}	
+			}
+		}
+		
+		//security
+		if(nextSlot == null && slots.length > 0) {
 			nextSlot = slots[0];
 		}
 		return nextSlot;
@@ -741,6 +1014,7 @@ public class GTAManagerImpl implements GTAManager {
 				((TaskImpl)currentTask).setTaskStatus(nextStep);
 			}
 			currentTask = dbInstance.getCurrentEntityManager().merge(currentTask);
+			syncAssessmentEntry((TaskImpl)currentTask, cNode);
 			response = new AssignmentResponse(currentTask, Status.ok);
 		}
 		return response;
@@ -772,12 +1046,11 @@ public class GTAManagerImpl implements GTAManager {
 		//cascade through the possible steps
 		TaskProcess nextStep = nextStep(currentStep, cNode);
 		taskImpl.setTaskStatus(nextStep);
-		TaskImpl mergedtask = dbInstance.getCurrentEntityManager().merge(taskImpl);
+		TaskImpl mergedTask = dbInstance.getCurrentEntityManager().merge(taskImpl);
 		dbInstance.commit();//make the thing definitiv
-		return mergedtask;
+		syncAssessmentEntry(mergedTask, cNode);
+		return mergedTask;
 	}
-	
-	
 	
 	@Override
 	public TaskProcess firstStep(GTACourseNode cNode) {
@@ -926,18 +1199,53 @@ public class GTAManagerImpl implements GTAManager {
 	}
 
 	@Override
-	public Task updateTask(Task task, TaskProcess newStatus) {
+	public Task updateTask(Task task, TaskProcess newStatus, GTACourseNode cNode) {
 		TaskImpl taskImpl = (TaskImpl)task;
 		taskImpl.setTaskStatus(newStatus);
-		return dbInstance.getCurrentEntityManager().merge(taskImpl);
+		taskImpl = dbInstance.getCurrentEntityManager().merge(taskImpl);
+		syncAssessmentEntry(taskImpl, cNode);
+		return taskImpl;
 	}
 
 	@Override
-	public Task updateTask(Task task, TaskProcess newStatus, int iteration) {
+	public Task updateTask(Task task, TaskProcess newStatus, int iteration, GTACourseNode cNode) {
 		TaskImpl taskImpl = (TaskImpl)task;
 		taskImpl.setTaskStatus(newStatus);
 		taskImpl.setRevisionLoop(iteration);
-		return dbInstance.getCurrentEntityManager().merge(taskImpl);
+		taskImpl = dbInstance.getCurrentEntityManager().merge(taskImpl);
+		syncAssessmentEntry(taskImpl, cNode);
+		return taskImpl;
+	}
+
+	@Override
+	public AssessmentEntryStatus convertToAssessmentEntrystatus(Task task, GTACourseNode cNode) {
+		TaskProcess status = task.getTaskStatus();
+		TaskProcess firstStep = firstStep(cNode);
+		
+		AssessmentEntryStatus assessmentStatus;
+		if(status == firstStep) {
+			assessmentStatus = AssessmentEntryStatus.notStarted;
+		} else if(status == TaskProcess.review || status == TaskProcess.correction || status == TaskProcess.grading) {
+			assessmentStatus = AssessmentEntryStatus.inReview;
+		} else if(status == TaskProcess.graded) {
+			assessmentStatus = AssessmentEntryStatus.done;
+		} else {
+			assessmentStatus = AssessmentEntryStatus.inProgress;
+		}
+		return assessmentStatus;
+	}
+	
+	private void syncAssessmentEntry(TaskImpl taskImpl, GTACourseNode cNode) {
+		if(taskImpl == null || taskImpl.getTaskStatus() == null || cNode == null) return;
+		
+		RepositoryEntry courseRepoEntry = taskImpl.getTaskList().getEntry();
+		AssessmentEntryStatus assessmentStatus = convertToAssessmentEntrystatus(taskImpl, cNode);
+		if(GTAType.group.name().equals(cNode.getModuleConfiguration().getStringValue(GTACourseNode.GTASK_TYPE))) {
+			//update whole group
+			assessmentService.updateAssessmentEntries(taskImpl.getBusinessGroup(), courseRepoEntry, cNode.getIdent(), null, assessmentStatus);
+		} else {
+			assessmentService.updateAssessmentEntry(taskImpl.getIdentity(), courseRepoEntry, cNode.getIdent(), null, assessmentStatus);
+		}	
 	}
 
 	private TaskList loadForUpdate(TaskList tasks) {
@@ -983,5 +1291,11 @@ public class GTAManagerImpl implements GTAManager {
 			courseEnv.getAuditManager()
 				.appendToUserNodeLog(cNode, actor, assessedIdentity, msg);
 		}
+	}
+	
+	private interface TaskListSynched {
+		
+		public void sync();
+		
 	}
 }

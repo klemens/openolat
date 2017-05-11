@@ -19,30 +19,47 @@
  */
 package org.olat.restapi.system;
 
-import org.olat.core.configuration.AbstractOLATModule;
+import java.io.File;
+
+import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.configuration.ConfigOnOff;
-import org.olat.core.configuration.PersistedProperties;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * 
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class MonitoringModule extends AbstractOLATModule implements ConfigOnOff {
+@Service("monitoringModule")
+public class MonitoringModule extends AbstractSpringModule implements ConfigOnOff {
+	
+	private static final OLog log = Tracing.createLoggerFor(MonitoringModule.class);
 
 	private static final String ENABLED = "monitoring.enabled";
 	private static final String MONITORED_PROBES = "probes";
 	private static final String SERVER = "dependency.server";
 	private static final String DESCRIPTION = "description";
 
+	@Value("${monitoring.enabled}")
 	private boolean enabled;
 	private String databaseHost;
+	@Value("${monitored.probes}")
 	private String monitoredProbes;
+	@Value("${monitoring.dependency.server}")
 	private String server;
+	@Value("${monitoring.instance.description}")
 	private String description;
+	@Value("${monitoring.proc.file:}")
+	private String procFile;
 	
-	public MonitoringModule() {
-		//
+	@Autowired
+	public MonitoringModule(CoordinatorManager coordinatorManager) {
+		super(coordinatorManager);
 	}
 	
 	@Override
@@ -64,24 +81,24 @@ public class MonitoringModule extends AbstractOLATModule implements ConfigOnOff 
 		if(StringHelper.containsNonWhitespace(descriptionObj)) {
 			description = descriptionObj;
 		}
+		
+		if(StringHelper.containsNonWhitespace(procFile)) {
+			File xmlFile = new File(procFile);
+			if(!xmlFile.exists()) {
+				File parent = xmlFile.getParentFile();
+				if(!parent.exists() || !parent.canWrite()) {
+					log.warn("Cannot write proc file: " + xmlFile);
+				}
+			} else if (!xmlFile.canWrite()) {
+				log.warn("Cannot write proc file: " + xmlFile);
+			}
+		}
 	}
 	
-	@Override
-	protected void initDefaultProperties() {
-		enabled = getBooleanConfigParameter(ENABLED, true);
-		monitoredProbes = getStringConfigParameter(MONITORED_PROBES, "Environment,Release", false);
-		server = getStringConfigParameter(SERVER, "local", false);
-		description = getStringConfigParameter(DESCRIPTION, "Dummy description", false);
-	}
 
 	@Override
 	protected void initFromChangedProperties() {
 		init();
-	}
-
-	@Override
-	public void setPersistedProperties(PersistedProperties persistedProperties) {
-		this.moduleConfigProperties = persistedProperties;
 	}
 	
 	@Override
@@ -125,4 +142,7 @@ public class MonitoringModule extends AbstractOLATModule implements ConfigOnOff 
 		setStringProperty(DESCRIPTION, description, true);
 	}
 
+	public String getProcFile() {
+		return procFile;
+	}
 }

@@ -2,6 +2,7 @@
 <html lang="$r.getLanguageCode()">
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="google" content="notranslate" />
 <meta name="description" content="$r.translate("meta.description")" />
 <meta name="keywords" content="$r.translate("meta.keywords")" /> 
 <meta name="dcterms.creator" content="OpenOLAT - http://www.openolat.org" />
@@ -23,22 +24,24 @@ o_info.o_winid = '$o_winid';
 o_info.uriprefix="$r.relWinLink()";
 o_info.bc="$o_bc";
 o_info.businessPath="";
+o_info.serverUri="$o_serverUri"
 o_info.dirty_form = "$r.escapeDoubleQuotes($r.translate("form.dirty"))";
 o_info.locale = "$r.getLanguageCode()";
 o_info.lastClickTime = new Date().getTime();
-##fxdiff
 o_info.drop = true;
 ## olat layout specific
 o_info.o_baseURI = "$r.staticLink("")";
 o_info.i18n_noresponse_title = "$r.escapeDoubleQuotes($r.translate("server.no.response.title"))";
 o_info.i18n_noresponse = "$r.escapeDoubleQuotes($r.translate("server.no.response"))";
 o_info.i18n_topnav_more = "$r.escapeDoubleQuotes($r.translate("header.topnav.more"))";
+o_info.oo_noresponse_title = "$r.escapeJavaScript($r.translateWithPackage("org.olat.login","timeout.title"))";
+o_info.oo_noresponse = "$r.escapeJavaScript($r.translateWithPackage("org.olat.login","timeout.message"))";
 ## Initialize zindex manager
 o_info.zseed = 0;
 #if($enforceTopFrame)
 if (top!=self){top.location=self.location+"?o_winrndo=1";}
 #end
-function o_start(){
+function o_start() {
 	o_init();
 	## js B
 	$r.renderBodyOnLoadJSFunctionCall()
@@ -47,9 +50,30 @@ function o_start(){
 	## Needed to identify if call like Ext.onRead() makes any sense (often not the case in AJAX mode)
 	o_info.initialPageLoadFinished = true;
 }
+function o_mathjax(fct_success) {
+	jQuery.ajax("${r.mathJaxCdn()}2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML", {
+		cache: true,
+		dataType: "script",
+		success: function() {
+	    	MathJax.Hub.Config({
+				extensions: ["jsMath2jax.js"],
+				messageStyle: 'none',
+				showProcessingMessages: false,
+				jsMath2jax: {
+					preview: "none"
+				},
+				tex2jax: {
+					ignoreClass: "math"
+				}
+			});
+	    	if(!(typeof fct_success === "undefined")) {
+	    		fct_success();
+	    	}
+		}
+	});
+}
 /* ]]> */
 </script>
-<script type="text/javascript" src='$r.staticLink("js/jsMath/easy/load.js")'></script>
 ## jQuery libraries
 <!--[if lt IE 9]>
 	<script type="text/javascript" src='$r.staticLink("js/jquery/jquery-1.9.1.min.js")'></script>
@@ -84,30 +108,44 @@ function o_start(){
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/modal.js")'></script>
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/tooltip.js")'></script>
 	<script type="text/javascript" src='$r.staticLink("bootstrap/javascripts/bootstrap/popover.js")'></script>
+	## The OpenOLAT video player. In separate file as it is also used in content iframes
+	<script type="text/javascript" src='$r.staticLink("movie/player.js")'></script>	
 #else
 	<script type="text/javascript" src='$r.staticLink("js/js.plugins.min.js")'></script>
+	<script type="text/javascript" src='$r.staticLink("movie/player.min.js")'></script>
 #end
-
-## The OpenOLAT video player. In separate file as it is also used in content iframes
-<script type="text/javascript" src='$r.staticLink("movie/player.js")'></script>
 
 #if($r.available("guidebug"))
 	<link type="text/css" href='$r.staticLink("js/jquery/tagsinput/bootstrap-tagsinput.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/fullcalendar/fullcalendar.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/cropper/cropper.css")' rel="stylesheet" />
+	<link type="text/css" href='$r.staticLink("js/jquery/sliderpips/jquery-ui-slider-pips.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/ui/jquery-ui-1.11.4.custom.min.css")' rel="stylesheet" />
 #else
 	<link type="text/css" href='$r.staticLink("js/js.plugins.min.css")' rel="stylesheet" />
 #end
-
 <script type="text/javascript">
 /* <![CDATA[ */ 
-  jQuery.noConflict();
-	## references to objects for later access or cleanup
-	o_info.objectMap = new Hashtable();
+	jQuery.noConflict();
+	
 	## Initialize js translator factory with the js translator mapper path
 	jQuery(document).ooTranslator().initialize("$jsTranslationMapperPath");
 	o_info.oo_translator = jQuery(document).ooTranslator();
+	## History and back button support
+	jQuery(window).on("popstate", function(e) {
+		if(e.originalEvent.state && e.originalEvent.state.businessPath) {
+			window.location.href = e.originalEvent.state.businessPath;
+		}
+	});
+## same configuration in 
+jQuery(function() {
+	if ((window.unsafeWindow == null ? window : unsafeWindow).MathJax == null) {
+		var count = jQuery('div.math,span.math,math,div.mathEntryInteraction').length;
+		if (count > 0) {
+		    o_mathjax();
+		}
+	}
+});
 /* ]]> */
 </script>
 
@@ -225,7 +263,7 @@ $r.renderForce("development")
 ## ---- START #o_navbar ---
 #if($screenMode.standardScreen)
 <div id="o_offcanvas_right" class="o_navbar o_navbar-offcanvas " role="navigation">
-	<a href="#" class="o_offcanvas_close" title="$r.translate("close")"><i class='o_icon o_icon_close o_icon-lg'></i></a>
+	<a href="javascript:;" class="o_offcanvas_close" title="$r.translate("close")"><i class='o_icon o_icon_close o_icon-lg'> </i> </a>
 	<div id="o_offcanvas_right_container" class="o_navbar-collapse">
 		#if($r.available("menuComponent"))
 			$r.render("menuComponent")

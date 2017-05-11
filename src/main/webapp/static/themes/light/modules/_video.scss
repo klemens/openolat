@@ -1,0 +1,189 @@
+.o_video_poster {
+	position: relative;
+	display: inline-block;
+	width: 400px;
+	max-width: 100%;
+	height: 225px;
+	background-size: cover;
+	background-repeat: no-repeat;
+	border: 1px solid #eee;	
+}
+
+.o_video_poster_select {
+	text-align: center;
+	
+	.o_video_poster {
+		margin: 5px;
+		
+		a {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			
+			span {
+				position: absolute;
+				bottom: 0;
+				width: 100%;
+				display: block;
+				line-height: 3em;
+				background: #f8f8f8;
+				opacity: 0.8;
+			}
+			&:hover {
+				border: 1px solid #bbb;
+				span {
+					opacity: 0.9;			
+				}
+			}
+		}			
+	}
+}
+
+.o_video_peekview {
+	text-align: center;
+}
+
+.o_video_listing {
+	
+	.o_table_body.container-fluid {
+		padding-right: 0px;
+		padding-left: 0px;
+	}
+	
+	.o_video_entry {
+		position: relative;
+		display: inline-block;
+		height: 230px;			
+		width: 250px;
+		vertical-align: top;
+		margin-right: 10px;
+	}
+	.o_video_poster {
+		width: 250px;
+		max-width: 100%;
+		height: 140px;	
+		border: 1px solid #eee;
+	}
+	.o_timecode {
+		position: absolute;
+		bottom: 2px;
+		right: 3px;
+		padding: 3px 4px;
+		background: #333;
+		color: #fff;
+		font-size: $font-size-small;
+		line-height: $font-size-small;
+	}
+	.o_meta {
+		padding: 2px;
+		font-size: ceil(($font-size-base * 0.75));
+		h5 {
+			font-size: $font-size-base;
+			margin-top: 0;
+			margin-bottom: 5px;
+			max-width: 100%;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+	}	
+	.o_date {
+		margin-left: 10px;
+		display: inline-block;
+		&:before {
+			content: '\002022';
+			margin-right: 10px;
+			display: inline-block;
+		}	
+	}
+}
+
+.o_video_run {
+	.o_author {
+		margin-top: 0.5em;
+		margin-bottom: 1em;
+		line-height: normal;
+		font-size: 90%;
+		color: $o-coursesite-meta-author-color;
+	}		
+	
+	.o_ratings_and_comments {
+		margin-top: 2em;
+		border-top: 1px solid #eee;
+		padding-top: 1em;
+	}
+}
+
+/* beautify source chooser plugin, remove radio button */
+.mejs-controls .mejs-sourcechooser-button .mejs-sourcechooser-selector {
+	visibility: visible !important;
+	width: 160px;
+	ul li {
+		label {
+			font-weight: normal;
+			width: 140px;
+			&:hover {
+				color: #eee;
+			}
+			.type {
+				display: none;
+			}
+		}
+		input {
+			/* hide ugly input radio button */
+			visibility: hidden;
+			margin: 0;
+			width: 0;
+			&:checked+label {
+				color: $brand-danger;
+			}
+		}
+	}	
+}
+
+/* beautify track plugin, remove radio button */
+.mejs-controls .mejs-captions-button .mejs-captions-selector {
+	right: -26px;
+	ul li {
+		label {
+			font-weight: normal;
+			&:hover {
+				color: #eee;
+			}
+			.type {
+				display: none;
+			}
+		}
+		input {
+			/* hide ugly input radio button */
+			visibility: hidden;
+			margin: 0;
+			width: 0;
+			&:checked+label {
+				color: $brand-danger;
+			}
+		}
+	}	
+}
+/* beautify speed plugin */
+.mejs-controls .mejs-speed-button .mejs-speed-selector {
+	ul li {
+		label {
+			font-weight: normal;
+			font-size: 10px
+		}
+	}
+}
+
+/* fix overflow of chapters when not enough space */
+.mejs-chapters .mejs-chapter .mejs-chapter-block {
+	.ch-title,
+	.ch-time {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		display: block;
+	}
+}

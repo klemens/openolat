@@ -81,7 +81,7 @@ public class CertificationNotificationHandler implements NotificationsHandler {
 			if (NotificationsManager.getInstance().isPublisherValid(p) && compareDate.before(latestNews)) {
 				Long courseId = new Long(p.getData());
 				final ICourse course = CourseFactory.loadCourse(courseId);
-				if (course != null) {
+				if (courseStatus(course)) {
 					// course admins or users with the course right to have full access to
 					// the assessment tool will have full access to user tests
 					
@@ -118,12 +118,18 @@ public class CertificationNotificationHandler implements NotificationsHandler {
 			return NotificationsManager.getInstance().getNoSubscriptionInfo();
 		}
 	}
+	
+	private boolean courseStatus(ICourse course) {
+		return course != null
+				&& !course.getCourseEnvironment().getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isUnpublished()
+				&& !course.getCourseEnvironment().getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isClosed();
+	}
 
 	@Override
 	public String createTitleInfo(Subscriber subscriber, Locale locale) {
 		try {
 			Long resId = subscriber.getPublisher().getResId();
-			String displayName = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(resId);
+			String displayName = repositoryManager.lookupDisplayNameByOLATResourceableId(resId);
 			Translator trans = Util.createPackageTranslator(CertificateController.class, locale);
 			return trans.translate("notifications.title", new String[]{ displayName });
 		} catch (Exception e) {

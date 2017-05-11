@@ -128,18 +128,31 @@ public class ReminderDAO {
 	}
 	
 	/**
+	 * Get all reminders of active repository entries (status must be
+	 * open and not "softly" deleted).
 	 * 
 	 * @param startDate
-	 * @return
+	 * @return A list of reminders
 	 */
 	public List<Reminder> getReminders(Date startDate) {
-		String q = "select rem from reminder rem inner join rem.entry entry where rem.startDate is null or rem.startDate<=:startDate";
+		StringBuilder sb = new StringBuilder();
+		sb.append("select rem from reminder rem")
+		  .append(" inner join rem.entry entry")
+		  .append(" where (rem.startDate is null or rem.startDate<=:startDate)")
+		  .append(" and entry.statusCode=0 and entry.access>").append(RepositoryEntry.DELETED);
+
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(q, Reminder.class)
+				.createQuery(sb.toString(), Reminder.class)
 				.setParameter("startDate", startDate)
 				.getResultList();
 	}
 
+	/**
+	 * Get all reminders without restrictions.
+	 * 
+	 * @param entry
+	 * @return A list of remidners
+	 */
 	public List<Reminder> getReminders(RepositoryEntryRef entry) {
 		String q = "select rem from reminder rem inner join rem.entry entry where entry.key=:entryKey";
 		return dbInstance.getCurrentEntityManager()
@@ -193,7 +206,7 @@ public class ReminderDAO {
 	}
 	
 	public List<SentReminder> getSendReminders(Reminder reminder) {
-		String q = "select sent from sentreminder sent inner join fetch sent.identity ident where sent.reminder.key=:reminderKey";
+		String q = "select sent from sentreminder sent inner join fetch sent.identity ident inner join fetch ident.user as identUser where sent.reminder.key=:reminderKey";
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(q, SentReminder.class)
 				.setParameter("reminderKey", reminder.getKey())
@@ -201,7 +214,7 @@ public class ReminderDAO {
 	}
 	
 	public List<SentReminder> getSendReminders(RepositoryEntryRef entry) {
-		String q = "select sent from sentreminder sent inner join fetch sent.reminder rem inner join fetch sent.identity ident where rem.entry.key=:entryKey";
+		String q = "select sent from sentreminder sent inner join fetch sent.reminder rem inner join fetch sent.identity ident inner join fetch ident.user as identUser where rem.entry.key=:entryKey";
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(q, SentReminder.class)
 				.setParameter("entryKey", entry.getKey())

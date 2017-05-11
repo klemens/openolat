@@ -20,9 +20,14 @@
 package org.olat.course.certificate.ui;
 
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
+import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiSortableColumnDef;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.SortableFlexiTableDataModel;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.certificate.CertificateLight;
 import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementListModel.CertificateAndEfficiencyStatement;
@@ -33,20 +38,37 @@ import org.olat.course.certificate.ui.CertificateAndEfficiencyStatementListModel
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class CertificateAndEfficiencyStatementListModel extends DefaultFlexiTableDataModel<CertificateAndEfficiencyStatement> {
+public class CertificateAndEfficiencyStatementListModel extends DefaultFlexiTableDataModel<CertificateAndEfficiencyStatement>
+	implements SortableFlexiTableDataModel<CertificateAndEfficiencyStatement> {
 	
-	public CertificateAndEfficiencyStatementListModel(FlexiTableColumnModel columnModel) {
+	private final Locale locale;
+	
+	public CertificateAndEfficiencyStatementListModel(FlexiTableColumnModel columnModel, Locale locale) {
 		super(columnModel);
+		this.locale = locale;
 	}
 
 	@Override
 	public DefaultFlexiTableDataModel<CertificateAndEfficiencyStatement> createCopyWithEmptyList() {
-		return new CertificateAndEfficiencyStatementListModel(getTableColumnModel());
+		return new CertificateAndEfficiencyStatementListModel(getTableColumnModel(), locale);
+	}
+
+	@Override
+	public void sort(SortKey orderBy) {
+		if(orderBy != null) {
+			List<CertificateAndEfficiencyStatement> views = new CertificateAndEfficiencyStatementListSort(orderBy, this, locale).sort();
+			super.setObjects(views);
+		}
 	}
 
 	@Override
 	public Object getValueAt(int row, int col) {
 		CertificateAndEfficiencyStatement statement = getObject(row);
+		return getValueAt(statement, col);
+	}
+	
+	@Override
+	public Object getValueAt(CertificateAndEfficiencyStatement statement, int col) {
 		switch(Cols.values()[col]) {
 			case displayName: return statement.getDisplayName();
 			case score:
@@ -54,31 +76,54 @@ public class CertificateAndEfficiencyStatementListModel extends DefaultFlexiTabl
 				return AssessmentHelper.getRoundedScore(score);
 			case passed: return statement.getPassed();
 			case lastModified: return statement.getLastModified();
-			case certificate:
-				return statement.getCertificate();
+			case certificate: return statement.getCertificate();
+			case recertification: {
+				if(statement.getCertificate() != null) {
+					return statement.getCertificate().getNextRecertificationDate();
+				}
+				return null;
+			}
 			case efficiencyStatement: return statement.getEfficiencyStatementKey();
+			case deleteEfficiencyStatement: return statement.getEfficiencyStatementKey() != null;
 		}
 		return null;
 	}
-	
-	public static enum Cols {
+
+	public static enum Cols implements FlexiSortableColumnDef {
 		
-		displayName("table.header.course"),
-		score("table.header.score"),
-		passed("table.header.passed"),
-		lastModified("table.header.lastScoreDate"),
-		efficiencyStatement("table.header.certificate"),
-		certificate("table.header.certificate");
+		displayName("table.header.course", true),
+		score("table.header.score", true),
+		passed("table.header.passed", true),
+		lastModified("table.header.lastScoreDate", true),
+		efficiencyStatement("table.header.certificate", true),
+		certificate("table.header.certificate", true),
+		recertification("table.header.recertification", true),
+		deleteEfficiencyStatement("table.action.delete", false);
 		
 		private final String i18n;
+		private final boolean sortable;
 		
-		private Cols(String i18n) {
+		private Cols(String i18n, boolean sortable) {
 			this.i18n = i18n;
+			this.sortable = sortable;
 		}
-		
-		public String i18n() {
+
+		@Override
+		public String i18nHeaderKey() {
 			return i18n;
 		}
+
+		@Override
+		public boolean sortable() {
+			return sortable;
+		}
+
+		@Override
+		public String sortKey() {
+			return name();
+		}
+		
+		
 	}
 	
 	public static class CertificateAndEfficiencyStatement {

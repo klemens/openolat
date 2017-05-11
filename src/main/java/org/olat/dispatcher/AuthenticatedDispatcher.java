@@ -26,6 +26,8 @@
 package org.olat.dispatcher;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.Locale;
 
 import javax.servlet.http.HttpServletRequest;
@@ -44,14 +46,17 @@ import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Window;
 import org.olat.core.gui.components.form.flexible.impl.InvalidRequestParameterException;
 import org.olat.core.gui.control.ChiefController;
+import org.olat.core.gui.control.WindowBackOffice;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.exception.MsgFactory;
+import org.olat.core.gui.media.ServletUtil;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.HistoryPoint;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.SessionInfo;
-import org.olat.core.util.URIHelper;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
@@ -67,7 +72,6 @@ import org.olat.login.LoginModule;
 public class AuthenticatedDispatcher implements Dispatcher {
 	private static final OLog log = Tracing.createLoggerFor(AuthenticatedDispatcher.class);
 	
-	protected static final String AUTHDISPATCHER_ENTRYURL = "AuthDispatcher:entryUrl";
 	protected static final String AUTHDISPATCHER_BUSINESSPATH = "AuthDispatcher:businessPath";
 	
 	protected static final String QUESTIONMARK = "?";
@@ -93,10 +97,7 @@ public class AuthenticatedDispatcher implements Dispatcher {
 	@Override
 	public void execute(HttpServletRequest request, HttpServletResponse response) {
 		String uriPrefix = DispatcherModule.getLegacyUriPrefix(request);
-		long startExecute = 0;
-		if ( log.isDebug() ) {
-			startExecute = System.currentTimeMillis();
-		}
+
 		UserSession usess = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(request);
 		UserRequest ureq = null;
 		try{
@@ -112,23 +113,17 @@ public class AuthenticatedDispatcher implements Dispatcher {
 			if(log.isDebug()){
 				log.debug("Bad Request "+request.getPathInfo());
 			}
-			DispatcherModule.sendBadRequest(request.getPathInfo(), response);
-			return;
 		}
 		
 		boolean auth = usess.isAuthenticated();
-
 		if (!auth) {
-			if (!ureq.isValidDispatchURI()) {
-				// might be a direct jump request -> remember it if not logged in yet
-				String reqUri = request.getRequestURI();
-				String query = request.getQueryString();
-				String allGet = reqUri + QUESTIONMARK + query;
-				usess.putEntryInNonClearedStore(AUTHDISPATCHER_ENTRYURL, allGet);
-			}
 			String guestAccess = ureq.getParameter(GUEST);
 			if (guestAccess == null || !CoreSpringFactory.getImpl(LoginModule.class).isGuestLoginEnabled()) {
-				DispatcherModule.redirectToDefaultDispatcher(response);
+				String businessPath = extractBusinessPath( ureq, request, uriPrefix);
+				if(businessPath != null) {
+					usess.putEntryInNonClearedStore(AUTHDISPATCHER_BUSINESSPATH, businessPath);
+				}
+				redirectToDefaultDispatcher(request, response);
 				return;
 			} else if (guestAccess.equals(TRUE)) {
 				// try to log in as anonymous
@@ -149,7 +144,7 @@ public class AuthenticatedDispatcher implements Dispatcher {
 					if (loginStatus == AuthHelper.LOGIN_NOTAVAILABLE) {
 						DispatcherModule.redirectToServiceNotAvailable(response);
 					}
-					DispatcherModule.redirectToDefaultDispatcher(response); // error, redirect to login screen
+					redirectToDefaultDispatcher(request, response); // error, redirect to login screen
 					return;
 				}
 				// else now logged in as anonymous user, continue
@@ -172,35 +167,33 @@ public class AuthenticatedDispatcher implements Dispatcher {
 						}
 					}
 				}
-				DispatcherModule.redirectToDefaultDispatcher(response);
+				redirectToDefaultDispatcher(request, response);
 				return;
 			}
 			
 			SessionInfo sessionInfo = usess.getSessionInfo();
-			if (sessionInfo==null) {
-				DispatcherModule.redirectToDefaultDispatcher(response);
+			if (sessionInfo == null) {
+				redirectToDefaultDispatcher(request,response);
 				return;
 			}
 			
-			if (userBasedLogLevelManager!=null) userBasedLogLevelManager.activateUsernameBasedLogLevel(sessionInfo.getLogin());
-			
+			if (userBasedLogLevelManager != null) {
+				userBasedLogLevelManager.activateUsernameBasedLogLevel(sessionInfo.getLogin());
+			}
 			sessionInfo.setLastClickTime();
-			String origUrl = (String) usess.removeEntryFromNonClearedStore(AUTHDISPATCHER_ENTRYURL);
-			if (origUrl != null) {
-				// we had a direct jump request
-				// to avoid a endless redirect, remove the guest parameter if any
-				// this can happen if a guest has cookies disabled
-				String url = new URIHelper(origUrl).removeParameter(GUEST).toString();
-				DispatcherModule.redirectTo(response, url);
+			
+			String businessPath = (String) usess.removeEntryFromNonClearedStore(AUTHDISPATCHER_BUSINESSPATH);
+			if (businessPath != null) {
+				processBusinessPath(businessPath, ureq, usess);
+			} else if (ureq.isValidDispatchURI()) {
+				// valid uri for dispatching (has timestamp, componentid and windowid)
+				processValidDispatchURI(ureq, usess, request, response);
 			} else {
-				String businessPath = (String) usess.removeEntryFromNonClearedStore(AUTHDISPATCHER_BUSINESSPATH);
-				if (businessPath != null) {
-					processBusinessPath(businessPath, ureq, usess);
-				} else if (ureq.isValidDispatchURI()) {
-					// valid uri for dispatching (has timestamp, componentid and windowid)
-					processValidDispatchURI(ureq, usess, request, response);
+				businessPath = extractBusinessPath(ureq, request, uriPrefix);
+				if(businessPath == null) {
+					processBusinessPath("", ureq, usess);
 				} else {
-					log.error("Invalid URI in AuthenticatedDispatcher: " + request.getRequestURI());
+					processBusinessPath(businessPath, ureq, usess);
 				}
 			}
 		} catch (InvalidRequestParameterException e) {
@@ -219,12 +212,51 @@ public class AuthenticatedDispatcher implements Dispatcher {
 			// do not dispatch (render only), since this is a new Window created as
 			// a result of another window's click.
 		} finally {
-			if (userBasedLogLevelManager!=null) userBasedLogLevelManager.deactivateUsernameBasedLogLevel();
-			if ( log.isDebug() ) {
-				long durationExecute = System.currentTimeMillis() - startExecute;
-				log.debug("Perf-Test: durationExecute=" + durationExecute);
+			if (userBasedLogLevelManager != null) {
+				userBasedLogLevelManager.deactivateUsernameBasedLogLevel();
 			}
 		}
+	}
+	
+	private String extractBusinessPath(UserRequest ureq, HttpServletRequest request, String uriPrefix) {
+		final String origUri = request.getRequestURI();
+		String restPart = origUri.substring(uriPrefix.length());
+		try {
+			restPart = URLDecoder.decode(restPart, "UTF8");
+		} catch (UnsupportedEncodingException e) {
+			log.error("Unsupported encoding", e);
+		}
+		
+		if(restPart.startsWith("repo/go")) {
+			return convertJumpInURL(ureq);
+		}
+
+		String[] split = restPart.split("/");
+		if (split.length > 0 && split.length % 2 == 0) {
+			return BusinessControlFactory.getInstance().formatFromSplittedURI(split);
+		}
+		return null;
+	}
+	
+	/**
+	 * http://localhost:8080/olat/auth/repo/go?rid=819242&amp;par=77013818723561
+	 * @param requestPart
+	 * @param ureq
+	 * @return
+	 */
+	private String convertJumpInURL(UserRequest ureq) {
+		String repoId = ureq.getParameter("rid");
+		String businessPath = "[RepositoryEntry:" + repoId + "]";
+		String par = ureq.getParameter("par");
+		if(StringHelper.containsNonWhitespace(par) && StringHelper.isLong(par)) {
+			try {
+				Long parLong = Long.parseLong(par);
+				businessPath += "[Part:" + parLong + "]";
+			} catch(NumberFormatException e) {
+				//it can happen
+			}
+		}
+		return businessPath;				
 	}
 	
 	private void processValidDispatchURI(UserRequest ureq, UserSession usess, HttpServletRequest request, HttpServletResponse response) {
@@ -233,39 +265,78 @@ public class AuthenticatedDispatcher implements Dispatcher {
 		if (window == null) {
 			//probably a 
 			if(usess.isSavedSession() && !usess.getHistoryStack().isEmpty()) {
-				DispatcherModule.redirectToDefaultDispatcher(response);
+				redirectToDefaultDispatcher(request, response);
 			} else {
 				DispatcherModule.sendNotFound(request.getRequestURI(), response);
 			}
 		} else {
-			long startDispatchRequest = 0;
-			if (log.isDebug()) {
-				startDispatchRequest = System.currentTimeMillis();
-			}
 			window.dispatchRequest(ureq);
-			if ( log.isDebug() ) {
-				long durationDispatchRequest = System.currentTimeMillis() - startDispatchRequest;
-				log.debug("Perf-Test: window=" + window);
-				log.debug("Perf-Test: durationDispatchRequest=" + durationDispatchRequest);
+		}
+	}
+	
+	private void redirectToDefaultDispatcher(HttpServletRequest request, HttpServletResponse response) {
+		if(ServletUtil.acceptJson(request)) {
+			try {
+				response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+			} catch (IOException e) {
+				log.error("", e);
 			}
+		} else {
+			DispatcherModule.redirectToDefaultDispatcher(response);
 		}
 	}
 	
 	private void processBusinessPath(String businessPath, UserRequest ureq, UserSession usess) {
-		BusinessControl bc = BusinessControlFactory.getInstance().createFromString(businessPath);
-		ChiefController cc = Windows.getWindows(usess).getChiefController();
-		WindowControl wControl = cc.getWindowControl();
-
-		String wSettings = (String) usess.removeEntryFromNonClearedStore(WINDOW_SETTINGS);
-		if(wSettings != null) {
-			WindowSettings settings = WindowSettings.parse(wSettings);
-			wControl.getWindowBackOffice().setWindowSettings(settings);
+		ChiefController chiefController = Windows.getWindows(usess).getChiefController();
+		
+		if(chiefController == null) {
+			if(usess.isAuthenticated()) {
+				AuthHelper.createAuthHome(ureq).getWindow();
+				chiefController = Windows.getWindows(usess).getChiefController();
+			} else {
+				redirectToDefaultDispatcher(ureq.getHttpReq(), ureq.getHttpResp());
+				return;
+			}
 		}
 
-		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, wControl);
-		NewControllerFactory.getInstance().launch(ureq, bwControl);	
-		// render the window
-		Window w = cc.getWindow();
-		w.dispatchRequest(ureq, true); // renderOnly
+		WindowBackOffice windowBackOffice = chiefController.getWindow().getWindowBackOffice();
+		if(chiefController.isLoginInterceptionInProgress()) {
+			Window w = windowBackOffice.getWindow();
+			w.dispatchRequest(ureq, true); // renderOnly
+		} else {
+			String wSettings = (String) usess.removeEntryFromNonClearedStore(WINDOW_SETTINGS);
+			if(wSettings != null) {
+				WindowSettings settings = WindowSettings.parse(wSettings);
+				windowBackOffice.setWindowSettings(settings);
+			}
+			
+			try {
+				BusinessControl bc = null;
+				String historyPointId = ureq.getHttpReq().getParameter("historyPointId");
+				if(StringHelper.containsNonWhitespace(historyPointId)) {
+					HistoryPoint point = ureq.getUserSession().getHistoryPoint(historyPointId);
+					bc = BusinessControlFactory.getInstance().createFromContextEntries(point.getEntries());
+				}
+				if(bc == null) {
+					bc = BusinessControlFactory.getInstance().createFromString(businessPath);
+				}
+	
+				WindowControl wControl = windowBackOffice.getChiefController().getWindowControl();
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, wControl);
+				NewControllerFactory.getInstance().launch(ureq, bwControl);	
+				// render the window
+				Window w = windowBackOffice.getWindow();
+				w.dispatchRequest(ureq, true); // renderOnly
+			} catch (Exception e) {
+				// try to render something
+				try {
+					Window w = windowBackOffice.getWindow();
+					w.dispatchRequest(ureq, true); // renderOnly
+				} catch (Exception e1) {
+					redirectToDefaultDispatcher(ureq.getHttpReq(), ureq.getHttpResp());
+				}
+				log.error("", e);
+			}
+		}
 	}
 }

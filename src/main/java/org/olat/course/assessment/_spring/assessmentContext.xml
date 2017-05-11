@@ -9,12 +9,6 @@
   http://www.springframework.org/schema/context/spring-context.xsd">
 
 	<context:component-scan base-package="org.olat.course.assessment" />
-
-	<bean id="org.olat.course.assessment.EfficiencyStatementManager" class="org.olat.course.assessment.EfficiencyStatementManager">
-		<property name="dbInstance" ref="database"/>
-		<property name="userManager" ref="userManager"/>
-		<property name="repositoryManager" ref="repositoryManager"/>
-	</bean>
 	
 	<bean id="assessmentNotificationsTrigger" class="org.springframework.scheduling.quartz.CronTriggerBean">
 	    <property name="jobDetail" ref="assessmentNotificationsJob" />
@@ -31,13 +25,13 @@
 		<property name="order" value="8206" />
 		<property name="actionController">	
 			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
-				<property name="className" value="org.olat.course.assessment.ui.AssessmentModeAdminController"/>
+				<property name="className" value="org.olat.course.assessment.ui.mode.AssessmentModeAdminController"/>
 			</bean>
 		</property>
 		<property name="navigationKey" value="certificates" />
 		<property name="i18nActionKey" value="admin.menu.title"/>
 		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
-		<property name="translationPackage" value="org.olat.course.assessment.ui"/>
+		<property name="translationPackage" value="org.olat.course.assessment.ui.mode"/>
 		<property name="parentTreeNodeIdentifier" value="modulesParent" /> 
 		<property name="extensionPoints">
 			<list>	

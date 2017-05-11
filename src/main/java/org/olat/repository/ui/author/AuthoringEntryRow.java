@@ -30,6 +30,7 @@ import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryLight;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryEntryRef;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 import org.olat.repository.ui.PriceMethod;
 
@@ -43,28 +44,32 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	private boolean marked;
 	private boolean selected;
 	
-	private Long key;
-	private String name;
-	private String author;
-	private String authors;
-	private String shortenedDescription;
+	private final Long key;
+	private final String name;
+	private final String author;
+	private final String authors;
+	private final String location;
+	private final String shortenedDescription;
 	
-	private boolean membersOnly;
-	private int access;
-	private int statusCode;
+	private final boolean membersOnly;
+	private final int access;
+	private final int statusCode;
 
-	private Date lastUsage;
-	private Date creationDate;
+	private final Date lastUsage;
+	private final Date creationDate;
 	
-	private String externalId;
-	private String externalRef;
-	private boolean managed;
-	private RepositoryEntryManagedFlag[] managedFlags;
+	private final String externalId;
+	private final String externalRef;
+	private final boolean managed;
+	private final RepositoryEntryManagedFlag[] managedFlags;
 	
 	private String lifecycleLabel;
 	private String lifecycleSoftKey;
 	private Date lifecycleStart;
 	private Date lifecycleEnd;
+	
+	private final String deletedByFullName;
+	private final Date deletionDate;
 	
 	private List<PriceMethod> accessTypes;
 
@@ -78,6 +83,7 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 		name = view.getDisplayname();
 		author = fullnameAuthor;
 		authors = view.getAuthors();
+		location = view.getLocation();
 		if(view.getDescription() != null) {
 			String shortDesc = FilterFactory.getHtmlTagsFilter().filter(view.getDescription());
 			if(shortDesc.length() > 255) {
@@ -112,6 +118,9 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 				lifecycleSoftKey = lifecycle.getSoftKey();
 			}
 		}
+		
+		deletedByFullName = view.getDeletedByFullName();
+		deletionDate = view.getDeletionDate();
 	}
 	
 	public String getCssClass() {
@@ -130,6 +139,10 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	@Override
 	public int getStatusCode() {
 		return statusCode;
+	}
+	
+	public RepositoryEntryStatus getRepositoryEntryStatus() {
+		return new RepositoryEntryStatus(statusCode);
 	}
 
 	@Override
@@ -191,7 +204,15 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 	public Date getLifecycleEnd() {
 		return lifecycleEnd;
 	}
-	
+
+	public String getDeletedByFullName() {
+		return deletedByFullName;
+	}
+
+	public Date getDeletionDate() {
+		return deletionDate;
+	}
+
 	public List<PriceMethod> getAccessTypes() {
 		return accessTypes;
 	}
@@ -225,6 +246,9 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 		return authors;
 	}
 
+	public String getLocation() {
+		return location;
+	}
 	
 	public boolean isMarked() {
 		return marked;
@@ -256,5 +280,22 @@ public class AuthoringEntryRow implements RepositoryEntryRef, RepositoryEntryLig
 
 	public void setToolsLink(FormLink toolsLink) {
 		this.toolsLink = toolsLink;
+	}
+	
+	@Override
+	public int hashCode() {
+		return key == null ? -79224867 : key.hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if(obj == this) {
+			return true;
+		}
+		if(obj instanceof AuthoringEntryRow) {
+			AuthoringEntryRow row = (AuthoringEntryRow)obj;
+			return key != null && key.equals(row.getKey());
+		}
+		return super.equals(obj);
 	}
 }

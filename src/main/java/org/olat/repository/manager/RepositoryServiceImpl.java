@@ -29,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import javax.persistence.NoResultException;
+
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.Group;
 import org.olat.basesecurity.GroupRoles;
@@ -38,6 +40,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.mark.MarkManager;
+import org.olat.core.commons.services.taskexecutor.manager.PersistentTaskDAO;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
@@ -53,9 +56,12 @@ import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.certificate.CertificatesManager;
+import org.olat.ims.qti21.manager.AssessmentTestSessionDAO;
+import org.olat.modules.assessment.manager.AssessmentEntryDAO;
 import org.olat.modules.reminder.manager.ReminderDAO;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
@@ -64,7 +70,9 @@ import org.olat.repository.RepositoryEntryAuthorView;
 import org.olat.repository.RepositoryEntryMyView;
 import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryEntryRelationType;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryModule;
 import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
@@ -119,6 +127,8 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private RepositoryHandlerFactory repositoryHandlerFactory;
 	@Autowired
+	private RepositoryModule repositoryModule;
+	@Autowired
 	private OLATResourceManager resourceManager;
 	@Autowired
 	private CertificatesManager certificatesManager;
@@ -127,7 +137,13 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Autowired
 	private AssessmentModeDAO assessmentModeDao;
 	@Autowired
+	private AssessmentTestSessionDAO assessmentTestSessionDao;
+	@Autowired
+	private PersistentTaskDAO persistentTaskDao;
+	@Autowired
 	private ReminderDAO reminderDao;
+	@Autowired
+	private AssessmentEntryDAO assessmentEntryDao;
 
 	@Autowired
 	private LifeFullIndexer lifeIndexer;
@@ -166,7 +182,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		re.setDisplayname(displayname);
 		re.setResourcename(StringHelper.containsNonWhitespace(resourceName) ? resourceName : "-");
 		re.setDescription(description == null ? "" : description);
-		re.setAllowToLeaveOption(RepositoryEntryAllowToLeaveOptions.atAnyTime);
+		re.setAllowToLeaveOption(repositoryModule.getAllowToLeaveDefaultOption());
 		if(resource == null) {
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("RepositoryEntry", CodeHelper.getForeverUniqueID());
 			resource = resourceManager.createAndPersistOLATResourceInstance(ores);
@@ -199,7 +215,7 @@ public class RepositoryServiceImpl implements RepositoryService {
 		re.setGroups(rels);
 		
 		if(initialAuthor != null) {
-			groupDao.addMembership(group, initialAuthor, GroupRoles.owner.name());
+			groupDao.addMembershipTwoWay(group, initialAuthor, GroupRoles.owner.name());
 		}
 		
 		dbInstance.getCurrentEntityManager().persist(re);
@@ -224,10 +240,16 @@ public class RepositoryServiceImpl implements RepositoryService {
 	
 		RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(sourceEntry);
 		copyEntry = handler.copy(author, sourceEntry, copyEntry);
-		
-		
+
 		//copy the image
 		RepositoryManager.getInstance().copyImage(sourceEntry, copyEntry);
+		
+		//copy media container
+		VFSContainer sourceMediaContainer = handler.getMediaContainer(sourceEntry);
+		if(sourceMediaContainer != null) {
+			VFSContainer targetMediaContainer = handler.getMediaContainer(copyEntry);
+			VFSManager.copyContent(sourceMediaContainer, targetMediaContainer);
+		}
 
 		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_CREATE, getClass(),
 				LoggingResourceable.wrap(copyEntry, OlatResourceableType.genRepoEntry));
@@ -259,6 +281,16 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public List<RepositoryEntry> loadByResourceKeys(Collection<Long> resourceKeys) {
 		return repositoryEntryDAO.loadByResourceKeys(resourceKeys);
+	}
+
+	@Override
+	public OLATResource loadRepositoryEntryResource(Long repositoryEntryKey) {
+		return repositoryEntryDAO.loadRepositoryEntryResource(repositoryEntryKey);
+	}
+
+	@Override
+	public OLATResource loadRepositoryEntryResourceBySoftKey(String softkey) {
+		return repositoryEntryDAO.loadRepositoryEntryResourceBySoftKey(softkey);
 	}
 
 	@Override
@@ -295,7 +327,47 @@ public class RepositoryServiceImpl implements RepositoryService {
 	}
 	
 	@Override
-	public ErrorList delete(RepositoryEntry entry, Identity identity, Roles roles, Locale locale) {
+	public RepositoryEntry deleteSoftly(RepositoryEntry re, Identity deletedBy, boolean owners) {
+		RepositoryEntry reloadedRe = repositoryEntryDAO.loadForUpdate(re);
+		reloadedRe.setAccess(RepositoryEntry.DELETED);
+		if(reloadedRe.getDeletionDate() == null) {
+			// don't write the name of an admin which make a restore -> delete operation
+			reloadedRe.setDeletedBy(deletedBy);
+			reloadedRe.setDeletionDate(new Date());
+		}
+		reloadedRe = dbInstance.getCurrentEntityManager().merge(reloadedRe);
+		dbInstance.commit();
+		//remove from catalog
+		catalogManager.resourceableDeleted(reloadedRe);
+		//remove participant and coach
+		if(owners) {
+			removeMembers(reloadedRe, GroupRoles.owner.name(), GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		} else {
+			removeMembers(reloadedRe, GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		}
+		//remove relation to business groups
+		List<RepositoryEntryToGroupRelation> relations = reToGroupDao.getRelations(reloadedRe);
+		for(RepositoryEntryToGroupRelation relation:relations) {
+			if(!relation.isDefaultGroup()) {
+				reToGroupDao.removeRelation(relation);
+			}
+		}
+		dbInstance.commit();
+		return reloadedRe;
+	}
+
+	@Override
+	public RepositoryEntry restoreRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedRe = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedRe.setAccess(RepositoryEntry.ACC_OWNERS);
+		reloadedRe.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+		reloadedRe = dbInstance.getCurrentEntityManager().merge(reloadedRe);
+		dbInstance.commit();
+		return reloadedRe;
+	}
+
+	@Override
+	public ErrorList deletePermanently(RepositoryEntry entry, Identity identity, Roles roles, Locale locale) {
 		ErrorList errors = new ErrorList();
 		
 		boolean debug = log.isDebug();
@@ -328,12 +400,20 @@ public class RepositoryServiceImpl implements RepositoryService {
 		reservationDao.deleteReservations(resource);
 		//delete references
 		referenceManager.deleteAllReferencesOf(resource);
+		//delete all pending tasks
+		persistentTaskDao.delete(resource);
 		dbInstance.commit();
 		
 		// inform handler to do any cleanup work... handler must delete the
 		// referenced resourceable a swell.
 		handler.cleanupOnDelete(entry, resource);
-		
+		dbInstance.commit();
+
+		//delete all test sessions
+		assessmentTestSessionDao.deleteAllUserTestSessionsByCourse(entry);
+		//nullify the reference
+		assessmentEntryDao.removeEntryForReferenceEntry(entry);
+		assessmentEntryDao.deleteEntryForRepositoryEntry(entry);
 		dbInstance.commit();
 
 		if(debug) log.debug("deleteRepositoryEntry after reload entry=" + entry);
@@ -353,19 +433,66 @@ public class RepositoryServiceImpl implements RepositoryService {
 				.getReference(RepositoryEntry.class, entry.getKey());
 		Long resourceKey = reloadedEntry.getOlatResource().getKey();
 
-		Group defaultGroup = reToGroupDao.getDefaultGroup(reloadedEntry);
-		groupDao.removeMemberships(defaultGroup);
+		Group defaultGroup = null;
+		try {
+			defaultGroup = reToGroupDao.getDefaultGroup(reloadedEntry);
+			groupDao.removeMemberships(defaultGroup);
+		} catch (NoResultException e) {
+			log.error("", e);
+		}
 		reToGroupDao.removeRelations(reloadedEntry);
 		dbInstance.commit();
 		dbInstance.getCurrentEntityManager().remove(reloadedEntry);
-		groupDao.removeGroup(defaultGroup);
+		if(defaultGroup != null) {
+			groupDao.removeGroup(defaultGroup);
+		}
 		dbInstance.commit();
 		
 		OLATResource reloadedResource = resourceManager.findResourceById(resourceKey);
 		if(reloadedResource != null) {
 			dbInstance.getCurrentEntityManager().remove(reloadedResource);
 		}
+		
 		dbInstance.commit();
+	}
+
+	@Override
+	public RepositoryEntry closeRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_CLOSED);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		return reloadedEntry;
+	}
+
+	@Override
+	public RepositoryEntry uncloseRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_OPEN);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		return reloadedEntry;
+	}
+
+	@Override
+	public RepositoryEntry unpublishRepositoryEntry(RepositoryEntry entry) {
+		RepositoryEntry reloadedEntry = repositoryEntryDAO.loadForUpdate(entry);
+		reloadedEntry.setStatusCode(RepositoryEntryStatus.REPOSITORY_STATUS_UNPUBLISHED);
+		reloadedEntry = dbInstance.getCurrentEntityManager().merge(reloadedEntry);
+		dbInstance.commit();
+		// remove catalog entries
+		catalogManager.resourceableDeleted(reloadedEntry);
+		// remove users and participants
+		//remove participant and coach
+		removeMembers(reloadedEntry, GroupRoles.coach.name(), GroupRoles.participant.name(), GroupRoles.waiting.name());
+		//remove relation to business groups
+		List<RepositoryEntryToGroupRelation> relations = reToGroupDao.getRelations(reloadedEntry);
+		for(RepositoryEntryToGroupRelation relation:relations) {
+			if(!relation.isDefaultGroup()) {
+				reToGroupDao.removeRelation(relation);
+			}
+		}
+		return reloadedEntry;
 	}
 
 	@Override
@@ -405,6 +532,11 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public boolean hasRole(Identity identity, RepositoryEntryRef re, String... roles) {
 		return reToGroupDao.hasRole(identity, re, roles);
+	}
+
+	@Override
+	public boolean hasRole(Identity identity, boolean followBusinessGroups, String... roles) {
+		return reToGroupDao.hasRole(identity, followBusinessGroups, roles);
 	}
 
 	@Override
@@ -451,9 +583,10 @@ public class RepositoryServiceImpl implements RepositoryService {
 		return reToGroupDao.countMembers(re, roles);
 	}
 
+	
 	@Override
-	public int countMembers(List<? extends RepositoryEntryRef> res) {
-		return reToGroupDao.countMembers(res);
+	public int countMembers(List<? extends RepositoryEntryRef> res, Identity excludeMe) {
+		return reToGroupDao.countMembers(res, excludeMe);
 	}
 	
 	@Override
@@ -474,6 +607,11 @@ public class RepositoryServiceImpl implements RepositoryService {
 	@Override
 	public List<Identity> getMembers(RepositoryEntryRef re, String... roles) {
 		return reToGroupDao.getMembers(re, RepositoryEntryRelationType.defaultGroup, roles);
+	}
+
+	@Override
+	public List<Identity> getIdentitiesWithRole(String role) {
+		return reToGroupDao.getIdentitiesWithRole(role);
 	}
 
 	@Override

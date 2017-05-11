@@ -178,9 +178,9 @@ public class ItemMetadataFormController extends FormBasicController {
 		}
 		
 		if (isSurvey) {
-			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-surv-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("Test and Questionnaire Editor in Detail#details_testeditor_test_konf_frage");
 		} else {
-			setFormContextHelp("org.olat.ims.qti.editor", "qed-meta-test-"+t+".html", "help.hover.qti-meta-"+t);
+			setFormContextHelp("Test and Questionnaire Editor in Detail#details_testeditor_test_konf_frage");
 		}
 		
 		// Title
@@ -252,6 +252,7 @@ public class ItemMetadataFormController extends FormBasicController {
 			// Shuffle Answers
 			shuffle = uifactory.addRadiosHorizontal("shuffle", "form.imd.shuffle", formLayout, yesnoKeys, yesnoValues);
 			shuffle.setEnabled(!isRestrictedEditMode);
+			shuffle.setVisible(t != Question.TYPE_ESSAY && t != Question.TYPE_FIB);
 			if (item.getQuestion().isShuffle()) {
 				shuffle.select("y", true);
 			} else {
@@ -263,8 +264,9 @@ public class ItemMetadataFormController extends FormBasicController {
 			showHints = uifactory.addRadiosHorizontal("showHints", "form.imd.solutionhints.show", formLayout, yesnoKeys, yesnoValues);
 			showHints.setEnabled(!isRestrictedEditMode);
 			showHints.addActionListener(FormEvent.ONCLICK); // Radios/Checkboxes need onclick because of IE bug OLAT-5753
-			
-			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1, 
+			showHints.setVisible(t != Question.TYPE_ESSAY);
+
+			hint = uifactory.addRichTextElementForStringData("hint", "form.imd.solutionhints", item.getQuestion().getHintText(), 8, -1,
 					true, qti.getBaseDir(), null, formLayout, ureq.getUserSession(), getWindowControl());
 			hint.setEnabled(!isRestrictedEditMode);
 			// set upload dir to the media dir

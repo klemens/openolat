@@ -33,7 +33,28 @@ a.o_chelp {
 	float: right;
 	display: inline-block;
 	line-height: normal;
+	margin-bottom: 10px;
+	margin-left: 10px;
 }
+
+/* context help for input element in forms, right from label and context help tooltips */
+.o_form_chelp, 
+.o_chelp_tooltip {
+	color: $o-chelp-tooltip-color;
+}
+
+/* drawing */
+.o_draw_circle {
+	border: $o-drawing-border-width solid $o-drawing-border-color;
+	border-radius: 50%;
+	position: absolute !important;
+}
+
+.o_draw_rectangle {
+	border: $o-drawing-border-width solid $o-drawing-border-color;
+	position: absolute !important;
+}
+
 
 /* iframe display controller - used to deliver all course contents */
 .o_iframedisplay {
@@ -122,6 +143,7 @@ ul.o_dropdown {
 	.o_thumbnail{
 		width:200px; 
 		height:200px;
+		display: inline-block; /* render centered if title larger than image */
 		background-color: #fff;
 		margin: 0 -5px; /* remove ugly border */
 	}
@@ -232,7 +254,15 @@ ul.o_dropdown {
 	}
 }
 
-/* Dummy user portrait (avatar) display - portrait sizes must match with DisplayPortraitManager.WIDTH_PORTRAIT_SMALL  DisplayPortraitManager.WIDTH_PORTRAIT_BIG */
+/* Dummy user portrait (avatar) display - portrait sizes must match with DisplayPortraitManager.WIDTH_PORTRAIT_SMALL  DisplayPortraitManager.WIDTH_PORTRAIT_BIG
+
+   Dummy is used for registered users which have no personal avatar image. 
+   - dummy is used if gender is not known
+   - dummy_female is used for femal users
+   - dummy_male is used for male users
+   
+   Anonymous is used for guest users and in anonymous chat / forum postings
+*/
 .o_portrait_avatar,
 .o_portrait_dummy,
 .o_portrait_dummy_female_big,
@@ -241,7 +271,7 @@ ul.o_dropdown {
 .o_portrait_dummy                {background-image: url('#{$o-images-path}portrait/dummy.png');}
 .o_portrait_dummy_female_big     {background-image: url('#{$o-images-path}portrait/dummy_female_big.png');}
 .o_portrait_dummy_male_big       {background-image: url('#{$o-images-path}portrait/dummy_male_big.png');}
-.o_portrait_anonymous 			 {background-image: url('#{$o-images-path}portrait/dummy.png'); }
+.o_portrait_anonymous 			 {background-image: url('#{$o-images-path}portrait/anonymous.png'); }
 
 .o_portrait_avatar_small,
 .o_portrait_dummy_small,
@@ -251,8 +281,7 @@ ul.o_dropdown {
 .o_portrait_dummy_small          {background-image: url('#{$o-images-path}portrait/dummy_small.png');}
 .o_portrait_dummy_female_small   {background-image: url('#{$o-images-path}portrait/dummy_female_small.png');}
 .o_portrait_dummy_male_small     {background-image: url('#{$o-images-path}portrait/dummy_male_small.png');}
-.o_portrait_anonymous_small 	 {background-image: url('#{$o-images-path}portrait/dummy_small.png'); } 
-
+.o_portrait_anonymous_small 	 {background-image: url('#{$o-images-path}portrait/anonymous_small.png'); } 
 
 /* Date component, used in info course element, blog etc */
 .o_datecomp {
@@ -330,9 +359,12 @@ ul.o_certificates li {
 /* Calendar */
 .o_cal_toptoolbar {
 	margin-bottom: $padding-base-vertical;
-	.o_cal_toptoolbar_sub, .o_cal_toptoolbar_help {
+	.o_cal_toptoolbar_help {
 		float: left;
 		margin-right: $padding-base-horizontal;
+	}
+	.o_noti {
+		margin-top:0;
 	}
 }
 .o_cal {
@@ -411,6 +443,29 @@ ul.o_certificates li {
 .o_tm_blue { background-color: #33FFFF; }
 .o_tm_red { background-color: #FF3333; }
 .o_tm_green { background-color: #99FF00; }
+
+/* Coaching */
+.o_coaching div#o_main_toolbar.o_toolbar {
+	margin-top: 0px;
+}
+
+.o_eff_statement_details .o_user_infos {
+	margin-top:20px;
+}
+
+/* Assessment */
+div.o_assessment_user_type_filter {
+	display: inline-block;
+	padding: 0.5em;
+	border: 1px solid $gray-lighter;
+	border-radius: $panel-border-radius;
+	
+	div.form-inline {
+		margin-left: 5px;
+		display: inline-block;
+	}
+}
+
 
 /* vitero */
 /* onyx   */
@@ -533,5 +588,53 @@ ul.o_certificates li {
 	.jumbotron h1 { 
 		color: $brand-danger;
 	}
-
 }
+
+/* personal mail box tool */
+.o_mail_message {
+	.o_mail_meta {
+		background: #fafafa;
+		border: 1px solid #eee;
+		padding: 5px 10px;
+		h3 {
+			margin-top: 0;
+		}
+	}
+	
+	.o_mail_date,
+	.o_mail_from,
+	.o_mail_recipients {
+		color: $text-muted;
+		font-size: 90%;
+		
+		.o_label {
+			font-weight: bold;
+			margin-right: 1em;
+		}
+		.o_group span {
+			font-weight: bold;
+			&:after {
+				content: ':';
+				margin-right: 0.5em;
+			}
+		}
+		i {
+			margin-left: 1em;
+		}
+
+		ul.list-inline {
+			display: inline;
+			li {
+				padding-right: 0;
+				padding-left: 0;
+			}
+		}	
+	}
+	.o_more {
+		margin-left: 1em;
+	}
+	.o_showAllLink {
+		float: right;
+		font-size: 80%;
+	}
+}	

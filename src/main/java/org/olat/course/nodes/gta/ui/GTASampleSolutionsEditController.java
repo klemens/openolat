@@ -27,9 +27,12 @@ import org.olat.core.commons.editor.htmleditor.HTMLEditorController;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
 import org.olat.core.commons.modules.bc.meta.MetaInfo;
 import org.olat.core.commons.modules.bc.meta.tagged.MetaTagged;
+import org.olat.core.commons.services.notifications.NotificationsManager;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -40,7 +43,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
@@ -48,12 +50,13 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
 import org.olat.course.nodes.GTACourseNode;
+import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.model.Solution;
-import org.olat.course.nodes.gta.model.SolutionList;
 import org.olat.course.nodes.gta.ui.SolutionTableModel.SolCols;
-import org.olat.modules.ModuleConfiguration;
+import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -75,25 +78,31 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 	private NewSolutionController newSolutionCtrl;
 	private HTMLEditorController newSolutionEditorCtrl, editSolutionEditorCtrl;
 	
-	private final SolutionList solutions;
 	private final File solutionDir;
+	private final boolean readOnly;
+	private final GTACourseNode gtaNode;
+	private final CourseEnvironment courseEnv;
 	private final VFSContainer solutionContainer;
+	private final SubscriptionContext subscriptionContext;
+	
+	private int linkCounter = 0;
 	
 	@Autowired
 	private UserManager userManager;
+	@Autowired
+	private GTAManager gtaManager;
+	@Autowired
+	private NotificationsManager notificationsManager;
 	
-	public GTASampleSolutionsEditController(UserRequest ureq, WindowControl wControl,
-			ModuleConfiguration config, File solutionDir, VFSContainer solutionContainer) {
+	public GTASampleSolutionsEditController(UserRequest ureq, WindowControl wControl, GTACourseNode gtaNode,
+			CourseEnvironment courseEnv, boolean readOnly) {
 		super(ureq, wControl, "edit_solution_list");
-		this.solutionDir = solutionDir;
-		this.solutionContainer = solutionContainer;
-		if(config.get(GTACourseNode.GTASK_SOLUTIONS) == null) {
-			solutions = new SolutionList();
-			config.set(GTACourseNode.GTASK_SOLUTIONS, solutions);
-		} else {
-			solutions = (SolutionList)config.get(GTACourseNode.GTASK_SOLUTIONS);
-		}
-
+		this.gtaNode = gtaNode;
+		this.readOnly = readOnly;
+		this.courseEnv = courseEnv;
+		solutionDir = gtaManager.getSolutionsDirectory(courseEnv, gtaNode);
+		solutionContainer = gtaManager.getSolutionsContainer(courseEnv, gtaNode);
+		subscriptionContext = gtaManager.getSubscriptionContext(courseEnv.getCourseGroupManager().getCourseResource(), gtaNode);
 		initForm(ureq);
 	}
 
@@ -103,19 +112,23 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 		addSolutionLink = uifactory.addFormLink("add.solution", formLayout, Link.BUTTON);
 		addSolutionLink.setElementCssClass("o_sel_course_gta_add_solution");
 		addSolutionLink.setIconLeftCSS("o_icon o_icon_upload");
+		addSolutionLink.setVisible(!readOnly);
 		createSolutionLink = uifactory.addFormLink("create.solution", formLayout, Link.BUTTON);
 		createSolutionLink.setElementCssClass("o_sel_course_gta_create_solution");
 		createSolutionLink.setIconLeftCSS("o_icon o_icon_edit");
+		createSolutionLink.setVisible(!readOnly);
 
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(SolCols.title.i18nKey(), SolCols.title.ordinal()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(SolCols.file.i18nKey(), SolCols.file.ordinal()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(SolCols.author.i18nKey(), SolCols.author.ordinal()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.edit", SolCols.edit.ordinal(), "edit",
-				new BooleanCellRenderer(
-						new StaticFlexiCellRenderer(translate("edit"), "edit"),
-						new StaticFlexiCellRenderer(translate("replace"), "edit"))));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel("table.header.edit", translate("delete"), "delete"));
+		if(!readOnly) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.edit", SolCols.edit.ordinal(), "edit",
+					new BooleanCellRenderer(
+							new StaticFlexiCellRenderer(translate("edit"), "edit"),
+							new StaticFlexiCellRenderer(translate("replace"), "edit"))));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.edit", translate("delete"), "delete"));
+		}
 
 		solutionModel = new SolutionTableModel(columnsModel);
 		solutionTable = uifactory.addTableElement(getWindowControl(), "table", solutionModel, getTranslator(), formLayout);
@@ -124,7 +137,7 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 	}
 	
 	private void updateModel() {
-		List<Solution> solutionList = solutions.getSolutions();
+		List<Solution> solutionList = gtaManager.getSolutions(courseEnv, gtaNode);
 		List<SolutionRow> rows = new ArrayList<>(solutionList.size());
 		for(Solution solution:solutionList) {
 			String filename = solution.getFilename();
@@ -137,8 +150,14 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 					author = userManager.getUserDisplayName(metaInfo.getAuthorIdentityKey());
 				}
 			}
+			
+			DownloadLink downloadLink = null;
+			if(item instanceof VFSLeaf) {
+				downloadLink = uifactory
+					.addDownloadLink("file_" + (++linkCounter), filename, null, (VFSLeaf)item, solutionTable);
+			}
 
-			rows.add(new SolutionRow(solution, author));
+			rows.add(new SolutionRow(solution, author, downloadLink));
 		}
 		solutionModel.setObjects(rows);
 		solutionTable.reset();
@@ -154,16 +173,19 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 		if(addSolutionCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				Solution newSolution = addSolutionCtrl.getSolution();
-				solutions.getSolutions().add(newSolution);
+				gtaManager.addSolution(newSolution, courseEnv, gtaNode);
 				fireEvent(ureq, Event.DONE_EVENT);
 				updateModel();
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(editSolutionCtrl == source) {
 			if(event == Event.DONE_EVENT) {
+				gtaManager.updateSolution(editSolutionCtrl.getFilenameToReplace(), editSolutionCtrl.getSolution(), courseEnv, gtaNode);
 				fireEvent(ureq, Event.DONE_EVENT);
 				updateModel();
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -173,18 +195,22 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 			cleanUp();
 			
 			if(event == Event.DONE_EVENT) {
-				solutions.getSolutions().add(newSolution);
+				gtaManager.addSolution(newSolution, courseEnv, gtaNode);
 				doCreateSolutionEditor(ureq, newSolution);
 				updateModel();
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 		} else if(newSolutionEditorCtrl == source) {
 			if(event == Event.DONE_EVENT) {
 				updateModel();
 				fireEvent(ureq, Event.DONE_EVENT);
+				notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(editSolutionEditorCtrl == source) {
+			// edit solution cannot update the title or the description
+			notificationsManager.markPublisherNews(subscriptionContext, null, false);
 			cmc.deactivate();
 			cleanUp();
 		} else if(cmc == source) {
@@ -269,14 +295,23 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 		String documentName = solution.getFilename();
 		VFSItem item = solutionContainer.resolve(documentName);
 		if(item == null) {
-			solutionContainer.createChildLeaf(documentName);
+			item = solutionContainer.createChildLeaf(documentName);
 		} else {
 			documentName = VFSManager.rename(solutionContainer, documentName);
-			solutionContainer.createChildLeaf(documentName);
+			item = solutionContainer.createChildLeaf(documentName);
+		}
+		if(item instanceof MetaTagged) {
+			MetaInfo metaInfo = ((MetaTagged)item).getMetaInfo();
+			if(metaInfo != null ) {
+				metaInfo.setAuthor(getIdentity());
+			}
+			metaInfo.write();
 		}
 
 		newSolutionEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 				solutionContainer, documentName, "media", true, true);
+		newSolutionEditorCtrl.getRichTextConfiguration().disableMedia();
+		newSolutionEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 		newSolutionEditorCtrl.setNewFile(true);
 		newSolutionEditorCtrl.setUserObject(solution);
 		listenTo(newSolutionEditorCtrl);
@@ -291,6 +326,8 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 
 		editSolutionEditorCtrl = WysiwygFactory.createWysiwygController(ureq, getWindowControl(),
 				solutionContainer, documentName, "media", true, true);
+		editSolutionEditorCtrl.getRichTextConfiguration().disableMedia();
+		editSolutionEditorCtrl.getRichTextConfiguration().setAllowCustomMediaFactory(false);
 		listenTo(editSolutionEditorCtrl);
 		
 		cmc = new CloseableModalController(getWindowControl(), "close", editSolutionEditorCtrl.getInitialComponent());
@@ -304,8 +341,7 @@ public class GTASampleSolutionsEditController extends FormBasicController {
 		if(item != null) {
 			item.delete();
 		}
-		solutions.getSolutions().remove(solution.getSolution());
-		
+		gtaManager.removeSolution(solution.getSolution(), courseEnv, gtaNode);
 		fireEvent(ureq, Event.DONE_EVENT);
 		updateModel();
 	}

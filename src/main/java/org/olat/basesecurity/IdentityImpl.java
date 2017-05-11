@@ -28,8 +28,9 @@ package org.olat.basesecurity;
 import java.io.Serializable;
 import java.util.Date;
 
-import org.olat.core.commons.persistence.PersistentObject;
+import org.olat.core.id.CreateInfo;
 import org.olat.core.id.Identity;
+import org.olat.core.id.Persistable;
 import org.olat.core.id.User;
 import org.olat.core.logging.AssertException;
 
@@ -39,13 +40,19 @@ import org.olat.core.logging.AssertException;
  * 
  * @author Felix Jost
  */
-public class IdentityImpl extends PersistentObject implements Identity, IdentityRef, Serializable {
+public class IdentityImpl implements Identity, IdentityRef, CreateInfo, Persistable, Serializable {
 
 	private static final long serialVersionUID = 1762176135363569542L;
-	private String name;
-	private User user;
+
+	private Long key;
+	
+	@SuppressWarnings("unused")
+	private int version = 0;
+	private Date creationDate;
 	private Date lastLogin;
+	private String name;
 	private String externalId;
+	private User user;
 	/** status=[activ|deleted|permanent] */
 	private int status;
 	
@@ -54,18 +61,26 @@ public class IdentityImpl extends PersistentObject implements Identity, Identity
 	 */
 	public static final int NAME_MAXLENGTH = 128;
 
-	/**
-	 * both args are mandatory (in junit test you may omit the user)
-	 */
-	protected IdentityImpl() {
-	//  
+	public IdentityImpl() {
+		//  
 	}
 
-	IdentityImpl(String name, User user) {
-		this.name = name;
-		this.user = user;
-		status = Identity.STATUS_ACTIV;
-		this.setLastLogin(new Date());
+	@Override
+	public Long getKey() {
+		return key;
+	}
+	
+	public void setKey(Long key) {
+		this.key = key;
+	}
+	
+	@Override
+	public Date getCreationDate() {
+		return creationDate;
+	}
+
+	public void setCreationDate(Date creationDate) {
+		this.creationDate = creationDate;
 	}
 
 	/**
@@ -91,7 +106,17 @@ public class IdentityImpl extends PersistentObject implements Identity, Identity
 	public Date getLastLogin() {
 		return lastLogin;
 	}
+	
+	/**
+	 * Set new last login value
+	 * 
+	 * @param newLastLogin  The new last login date
+	 */
+	public void setLastLogin(Date newLastLogin) {
+		this.lastLogin = newLastLogin;
+	}
 
+	@Override
 	public String getExternalId() {
 		return externalId;
 	}
@@ -105,10 +130,10 @@ public class IdentityImpl extends PersistentObject implements Identity, Identity
 	 * 
 	 * @param name The name to set
 	 */
-	@Override
 	public void setName(String name) {
-		if (name.length() > NAME_MAXLENGTH)
+		if (name.length() > NAME_MAXLENGTH) {
 			throw new AssertException("field name of table o_bs_identity too long");
+		}
 		this.name = name;
 	}
 
@@ -117,30 +142,15 @@ public class IdentityImpl extends PersistentObject implements Identity, Identity
 	 * 
 	 * @param user The user to set
 	 */
-	private void setUser(User user) {
+	public void setUser(User user) {
 		this.user = user;
-	}
-
-	/**
-	 * Set new last login value
-	 * 
-	 * @param newLastLogin  The new last login date
-	 */
-	public void setLastLogin(Date newLastLogin) {
-		this.lastLogin = newLastLogin;
-	}
-
-	/**
-	 * @see java.lang.Object#toString()
-	 */
-	public String toString() {
-		return "Identity[name=" + name + "], " + super.toString();
 	}
 
 	/**
 	 * Status can be [activ|deleted|permanent].
 	 * @return Returns the status.
 	 */
+	@Override
 	public Integer getStatus() {
 		return status;
 	}
@@ -149,28 +159,43 @@ public class IdentityImpl extends PersistentObject implements Identity, Identity
 	 * @param status The status to set.
 	 */
 	public void setStatus(Integer status) {
-		this.status = status;
-	}
-	
-	/**
-	 * Compares the usernames.
-	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
-	public boolean equals(Object obj) {
-		if(this == obj)
-			return true;
-		if((obj == null) || (obj.getClass() != this.getClass()))
-			return false;
-		// object must be IdentityImpl at this point
-		IdentityImpl identity = (IdentityImpl)obj;
-		return this.getName().equals(identity.getName());
+		this.status = status == null ? 0 : status.intValue();
 	}
 
+	@Override
 	public int hashCode() {
 		int hash = 7;
 		hash = 31 * hash;
 		hash = 31 * hash + (null == this.getName() ? 0 : this.getName().hashCode());
 		return hash;
 	}
+	
+	/**
+	 * Compares the usernames.
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if(this == obj) {
+			return true;
+		}
+		if(obj instanceof IdentityImpl) {
+			IdentityImpl identity = (IdentityImpl)obj;
+			return getName().equals(identity.getName());
+		}
+		return false;
+	}
 
+	@Override
+	public boolean equalsByPersistableKey(Persistable persistable) {
+		return equals(persistable);
+	}
+	
+	/**
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Identity[name=" + name + "], " + super.toString();
+	}
 }

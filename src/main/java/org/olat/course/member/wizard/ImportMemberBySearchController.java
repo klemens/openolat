@@ -19,8 +19,6 @@
  */
 package org.olat.course.member.wizard;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -44,18 +42,14 @@ import org.olat.core.id.Identity;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class ImportMemberBySearchController extends StepFormBasicController {
-	//private UserSearchFlexiController searchController;
-	private UserSearchFlexiController searchController; 
+
+	private final UserSearchFlexiController searchController; 
 
 	public ImportMemberBySearchController(UserRequest ureq, WindowControl wControl, Form rootForm, StepsRunContext runContext) {
 		super(ureq, wControl, rootForm, runContext, LAYOUT_CUSTOM, "import_search");
 
-		//searchController = new UserSearchFlexiController(ureq, wControl, rootForm);
 		searchController = new UserSearchFlexiController(ureq, wControl, rootForm);
-		
-		
 		listenTo(searchController);
-		
 		initForm (ureq);
 	}
 
@@ -63,16 +57,11 @@ public class ImportMemberBySearchController extends StepFormBasicController {
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(event instanceof SingleIdentityChosenEvent) {
 			SingleIdentityChosenEvent e = (SingleIdentityChosenEvent)event;
-			String key = e.getChosenIdentity().getKey().toString();
-			addToRunContext("keys", Collections.singletonList(key));
+			addToRunContext("keyIdentities", Collections.singletonList(e.getChosenIdentity()));
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		} else if(event instanceof MultiIdentityChosenEvent) {
 			MultiIdentityChosenEvent e = (MultiIdentityChosenEvent)event;
-			Collection<String> keys = new ArrayList<String>();
-			for(Identity identity: e.getChosenIdentities()) {
-				keys.add(identity.getKey().toString());
-			}
-			addToRunContext("keys", keys);
+			addToRunContext("keyIdentities", e.getChosenIdentities());
 			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		} else {
 			super.event(ureq, source, event);
@@ -82,12 +71,12 @@ public class ImportMemberBySearchController extends StepFormBasicController {
 	@Override
 	protected void formNext(UserRequest ureq) {
 		List<Identity> identities = searchController.getSelectedIdentities();
-		Collection<String> keys = new ArrayList<String>();
-		for(Identity identity: identities) {
-			keys.add(identity.getKey().toString());
+		if(identities.isEmpty()) {
+			searchController.doSearch();
+		} else {
+			addToRunContext("keyIdentities", identities);
+			fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 		}
-		addToRunContext("keys", keys);
-		fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 	}
 
 	@Override

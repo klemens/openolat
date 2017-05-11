@@ -100,13 +100,14 @@ public class ImportRepositoryEntryController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormDescription("cmd.import.ressource.desc");
 		
-		uploadFileEl = uifactory.addFileElement("upload", "import.file", formLayout);
+		uploadFileEl = uifactory.addFileElement(getWindowControl(), "upload", "import.file", formLayout);
 		uploadFileEl.addActionListener(FormEvent.ONCHANGE);
 		
 		spacerEl = uifactory.addSpacerElement("spacer1", formLayout, false);
 		spacerEl.setVisible(false);
 		
 		typeEl = uifactory.addStaticTextElement("cif.type", "cif.type", "", formLayout);
+		typeEl.setElementCssClass("o_sel_author_type");
 		typeEl.setVisible(false);
 		
 		selectType = uifactory.addDropdownSingleselect("cif.types", "cif.type", formLayout, new String[0], new String[0], null);
@@ -189,10 +190,8 @@ public class ImportRepositoryEntryController extends FormBasicController {
 		}
 		
 		allOk &= validLimitationOnType(handlerForUploadedResources);
-
-		return allOk & handlerForUploadedResources != null
-				& handlerForUploadedResources.size() > 0
-				& super.validateFormLogic(ureq);
+		allOk &= handlerForUploadedResources != null && handlerForUploadedResources.size() > 0;
+		return allOk & super.validateFormLogic(ureq);
 	}
 	
 	private boolean validLimitationOnType(List<ResourceHandler> handlers) {

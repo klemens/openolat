@@ -39,6 +39,8 @@ import org.olat.basesecurity.model.IdentityRefImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.course.assessment.manager.AssessmentModeDAO;
 import org.olat.group.BusinessGroup;
@@ -61,6 +63,8 @@ import org.springframework.stereotype.Service;
  */
 @Service("businessGroupRelationDao")
 public class BusinessGroupRelationDAO {
+	
+	private static final OLog log = Tracing.createLoggerFor(BusinessGroupRelationDAO.class);
 
 	@Autowired
 	private DB dbInstance;
@@ -75,14 +79,23 @@ public class BusinessGroupRelationDAO {
 		repositoryEntryRelationDao.createRelation(((BusinessGroupImpl)group).getBaseGroup(), re);
 	}
 	
-	public void addRole(Identity identity, BusinessGroupRef businessGroup, String role) {
-		Group group = getGroup(businessGroup);
-		groupDao.addMembership(group, identity, role);
+	public void addRole(Identity identity, BusinessGroup businessGroup, String role) {
+		Group group = null;
+		try {
+			group = businessGroup.getBaseGroup();
+			if(group == null) {
+				group = getGroup(businessGroup);
+			}
+		} catch(Exception e) {
+			log.warn("", e);
+			group = getGroup(businessGroup);
+		}
+		groupDao.addMembershipOneWay(group, identity, role);
 	}
 	
 	public boolean removeRole(Identity identity, BusinessGroupRef businessGroup, String role) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.identity.key=:identityKey and membership.role=:role");
@@ -100,7 +113,7 @@ public class BusinessGroupRelationDAO {
 	
 	public Group getGroup(BusinessGroupRef businessGroup) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select baseGroup from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select baseGroup from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" where bgroup.key=:businessGroupKey");
 
@@ -111,7 +124,7 @@ public class BusinessGroupRelationDAO {
 	
 	public List<String> getRoles(IdentityRef identity, BusinessGroupRef group) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.role from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership.role from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.identity.key=:identityKey");
@@ -126,7 +139,7 @@ public class BusinessGroupRelationDAO {
 		if(groups == null || groups.isEmpty()) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.role from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership.role from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key in (:businessGroupKeys) and membership.identity.key=:identityKey");
@@ -149,7 +162,7 @@ public class BusinessGroupRelationDAO {
 		if(groups == null || groups.isEmpty()) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(membership.key ), membership.identity.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select count(membership.key ), membership.identity.key from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key in (:businessGroupKeys) and membership.role='participant'")
@@ -176,7 +189,7 @@ public class BusinessGroupRelationDAO {
 	
 	public int countRoles(BusinessGroupRef group, String... role) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(membership) from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select count(membership) from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey");
@@ -196,13 +209,28 @@ public class BusinessGroupRelationDAO {
 	}
 	
 	/**
+	 * Count the number of participants.
+	 * 
+	 * @param group
+	 * @return
+	 */
+	public int countEnrollment(BusinessGroup group) {
+		Number count = dbInstance.getCurrentEntityManager()
+				.createNamedQuery("countMembersByGroupAndRole", Number.class)
+				.setParameter("groupKey", group.getBaseGroup().getKey())
+				.setParameter("role", GroupRoles.participant.name())
+				.getSingleResult();
+		return count == null ? 0 : count.intValue();
+	}
+	
+	/**
 	 * Return the number of coaches with author rights.
 	 * @param group
 	 * @return
 	 */
 	public int countAuthors(BusinessGroupRef group) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(membership) from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select count(membership) from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.role='").append(GroupRoles.coach.name()).append("'")
@@ -227,7 +255,7 @@ public class BusinessGroupRelationDAO {
 	 */
 	public boolean hasRole(IdentityRef identity, BusinessGroupRef group, String role) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(membership) from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select count(membership) from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.identity.key=:identityKey and membership.role=:role");
@@ -242,7 +270,7 @@ public class BusinessGroupRelationDAO {
 	
 	public boolean hasAnyRole(IdentityRef identity, BusinessGroupRef group) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(membership) from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select count(membership) from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.identity.key=:identityKey");
@@ -256,7 +284,7 @@ public class BusinessGroupRelationDAO {
 	
 	public void touchMembership(IdentityRef identity, BusinessGroupRef group) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.identity.key=:identityKey");
@@ -272,24 +300,31 @@ public class BusinessGroupRelationDAO {
 	
 	public List<Identity> getMembers(BusinessGroupRef group, String... roles) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.identity from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select ident from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
-		  .append(" where bgroup.key=:businessGroupKey and membership.role in (:roles)");
+		  .append(" inner join membership.identity as ident")
+		  .append(" inner join fetch ident.user as identUser")
+		  .append(" where bgroup.key=:businessGroupKey");
+		boolean withRoles = roles != null && roles.length > 0 && roles[0] != null;
+		if(withRoles) {
+			sb.append(" and membership.role in (:roles)");
+		}
 		
 		List<String> roleList = GroupRoles.toList(roles);
-		List<Identity> members = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Identity.class)
-				.setParameter("businessGroupKey", group.getKey())
-				.setParameter("roles", roleList)
-				.getResultList();
-		return members;
+		TypedQuery<Identity> members = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Identity.class)
+				.setParameter("businessGroupKey", group.getKey());
+		if(withRoles) {
+			members.setParameter("roles", roleList);
+		}
+		return members.getResultList();
 	}
 	
 	public List<Long> getMemberKeys(List<? extends BusinessGroupRef> groups, String... roles) {
 		if(groups == null || groups.isEmpty()) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.identity.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership.identity.key from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key in (:businessGroupKeys) and membership.role in (:roles)");
@@ -310,7 +345,7 @@ public class BusinessGroupRelationDAO {
 	
 	public List<Long> getMemberKeysOrderByDate(BusinessGroupRef group, String... roles) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.identity.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership.identity.key from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.role in (:roles) order by membership.creationDate");
@@ -325,7 +360,7 @@ public class BusinessGroupRelationDAO {
 	
 	public List<Identity> getMembersOrderByDate(BusinessGroupRef group, String... roles) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select membership.identity from ").append(BusinessGroupImpl.class.getName()).append(" as bgroup ")
+		sb.append("select membership.identity from businessgroup as bgroup ")
 		  .append(" inner join bgroup.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as membership")
 		  .append(" where bgroup.key=:businessGroupKey and membership.role in (:roles) order by membership.creationDate");
@@ -350,7 +385,7 @@ public class BusinessGroupRelationDAO {
 		if(businessGroups == null || businessGroups.isEmpty() || member == null) return Collections.emptyList();
 		
 		StringBuilder sb = new StringBuilder();
-		sb.append("select bgi from ").append(BusinessGroupImpl.class.getName()).append(" bgi")
+		sb.append("select bgi from businessgroup bgi")
 		  .append(" inner join fetch bgi.resource as ores ")
 		  .append(" inner join fetch bgi.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as bmember")
@@ -383,7 +418,7 @@ public class BusinessGroupRelationDAO {
 	public boolean isIdentityInBusinessGroup(IdentityRef identity, Long groupKey, boolean ownedById, boolean attendeeById,
 			RepositoryEntryRef resource) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(bgi) from ").append(BusinessGroupImpl.class.getName()).append(" bgi")
+		sb.append("select count(bgi) from businessgroup bgi")
 		  .append(" inner join bgi.baseGroup as baseGroup")
 		  .append(" inner join baseGroup.members as bmember")
 		  .append(" where bmember.identity.key=:identityKey and bmember.role in (:roles)");
@@ -418,6 +453,19 @@ public class BusinessGroupRelationDAO {
 		query.setHint("org.hibernate.cacheable", Boolean.TRUE);
 		Number count = query.getSingleResult();
 		return count.intValue() > 0;
+	}
+	
+	public List<Identity> getIdentitiesWithRole(String role) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select distinct bmember.identity from businessgroup bgi")
+		  .append(" inner join bgi.baseGroup as baseGroup")
+		  .append(" inner join baseGroup.members as bmember")
+		  .append(" where bmember.role=:role");
+
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Identity.class)
+				.setParameter("role", role)
+				.getResultList();
 	}
 
 	public List<Identity> getMembersOf(RepositoryEntryRef resource, boolean coach, boolean participant) {
@@ -468,7 +516,7 @@ public class BusinessGroupRelationDAO {
 			.append(" left join fetch v.lifecycle as lifecycle")
 			.append(" inner join v.groups as relGroup")
 			.append(" where exists (")
-			.append("   select bgi from ").append(BusinessGroupImpl.class.getName()).append(" as bgi where bgi.baseGroup=relGroup.group and bgi.key in (:groupKeys)")
+			.append("   select bgi from businessgroup as bgi where bgi.baseGroup=relGroup.group and bgi.key in (:groupKeys)")
 			.append(" )");
 
 		TypedQuery<RepositoryEntry> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), RepositoryEntry.class);
@@ -492,7 +540,7 @@ public class BusinessGroupRelationDAO {
 			.append(" inner join v.olatResource as ores ")
 			.append(" inner join v.groups as relGroup")
 			.append(" where exists (")
-			.append("   select bgi from ").append(BusinessGroupImpl.class.getName()).append(" as bgi where bgi.baseGroup=relGroup.group and bgi.key in (:groupKeys)")
+			.append("   select bgi from businessgroup as bgi where bgi.baseGroup=relGroup.group and bgi.key in (:groupKeys)")
 			.append(" )");
 
 		TypedQuery<RepositoryEntryShort> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), RepositoryEntryShort.class);
@@ -557,7 +605,7 @@ public class BusinessGroupRelationDAO {
 		if(names.isEmpty()) return Collections.emptyList();
 			
 		StringBuilder sb = new StringBuilder();
-		sb.append("select bgi.key from ").append(BusinessGroupImpl.class.getName()).append(" as bgi ")
+		sb.append("select bgi.key from businessgroup as bgi ")
 		  .append(" inner join bgi.baseGroup as baseGroup")
 		  .append(" where bgi.name in (:names)")
 		  .append(" and exists (")

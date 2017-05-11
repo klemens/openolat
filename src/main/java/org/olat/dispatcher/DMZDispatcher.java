@@ -46,7 +46,6 @@ import org.olat.core.gui.components.Window;
 import org.olat.core.gui.components.form.flexible.impl.InvalidRequestParameterException;
 import org.olat.core.gui.control.ChiefController;
 import org.olat.core.gui.control.ChiefControllerCreator;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.exception.MsgFactory;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -236,12 +235,14 @@ public class DMZDispatcher implements Dispatcher {
 					I18nManager.updateLocaleInfoToThread(usess);//update locale infos
 					
 					OAuthLoginModule oauthModule = CoreSpringFactory.getImpl(OAuthLoginModule.class);
-					if(canRedirectOAuth(request, oauthModule)) {
+					if(canRedirectConfigurableOAuth(request, response, oauthModule)) {
+						return;
+					} else if(canRedirectOAuth(request, oauthModule)) {
 						OAuthSPI oauthSpi = oauthModule.getRootProvider();
 						HttpSession session = request.getSession();
 						OAuthResource.redirect(oauthSpi, response, session);
 						return;
-					}
+					} 
 					
 					// request new windows since it is a new usersession, the old one was purged
 					ws = Windows.getWindows(usess);
@@ -259,12 +260,11 @@ public class DMZDispatcher implements Dispatcher {
 					window = occ.getWindow();
 					window.setUriPrefix(uriPrefix);
 					ws.registerWindow(window);
-					//fxdiff FXOLAT-113: business path in DMZ
+					
 					String businessPath = (String) usess.removeEntryFromNonClearedStore(DMZDISPATCHER_BUSINESSPATH);
 					if (businessPath != null) {
 						List<ContextEntry> ces = BusinessControlFactory.getInstance().createCEListFromString(businessPath);
-						DTabs dts = window.getDTabs();
-						dts.activate(ureq, null, ces);
+						window.getDTabs().activate(ureq, null, ces);
 					}
 					//apply the settings forward
 					usess.putEntryInNonClearedStore(WINDOW_SETTINGS, wSettings);
@@ -302,6 +302,19 @@ public class DMZDispatcher implements Dispatcher {
 			canRedirect = false;
 		}
 		return canRedirect;
+	}
+	
+	private boolean canRedirectConfigurableOAuth(HttpServletRequest request, HttpServletResponse response, OAuthLoginModule oauthModule) {
+		String provider = request.getParameter("provider");
+		if(StringHelper.containsNonWhitespace(provider)) {
+			OAuthSPI spi = oauthModule.getProvider(provider);
+			if(spi != null) {
+				HttpSession session = request.getSession();
+				OAuthResource.redirect(spi, response, session);
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

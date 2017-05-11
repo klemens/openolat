@@ -47,6 +47,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
 import org.olat.core.gui.control.generic.title.TitledWrapperController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -148,6 +149,15 @@ public class NavigationHandler implements Disposable {
 		if (selTN == null) {
 			selTN = treeModel.getRootNode();
 		}
+		if (!selTN.isAccessible()) {
+			// Try activating the node delegate if available. Rewrite the tree
+			// event to match the new node
+			if (selTN.getDelegate() != null) {
+				selTN = selTN.getDelegate();
+				treeNodeId = selTN.getIdent();
+				treeEvent = new TreeEvent(MenuTree.COMMAND_TREENODE_CLICKED, treeNodeId);
+			}
+		}
 
 		// check if appropriate for subtreemodelhandler
 		Object userObject = selTN.getUserObject();
@@ -208,8 +218,13 @@ public class NavigationHandler implements Disposable {
 				log.debug("delegating to handler: treeNodeId = " + treeNodeId);
 			}
 
-			// update the node and event to match the new tree model
-			selTN = subTreeModel.findNodeByUserObject(userObject);
+			// Update the node and event to match the new tree model - unless we
+			// are already on the correct node to prevent jumping to other
+			// chapters in CP's when the href (userObject) is not unique and
+			// used in multiple nodes. 
+			if (!selTN.getUserObject().equals(userObject)) {				
+				selTN = subTreeModel.findNodeByUserObject(userObject);
+			}
 			treeEvent = new TreeEvent(treeEvent.getCommand(), treeEvent.getSubCommand(), selTN.getIdent());
 
 			boolean dispatch = true;
@@ -360,7 +375,8 @@ public class NavigationHandler implements Disposable {
 			if (courseNode instanceof AbstractAccessableCourseNode) {
 				Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
 				CourseNodePasswordManager cnpm = CourseNodePasswordManagerImpl.getInstance();
-				AdditionalConditionAnswerContainer answerContainer = cnpm.getAnswerContainer(ureq.getIdentity());
+				Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
+				AdditionalConditionAnswerContainer answerContainer = cnpm.getAnswerContainer(identity);
 				addMan = new AdditionalConditionManager( (AbstractAccessableCourseNode) courseNode, courseId, answerContainer);
 			}
 			
@@ -373,7 +389,7 @@ public class NavigationHandler implements Disposable {
 				//this is the case if only one of the additional conditions failed
 
 				if (nodeEval.oldStyleConditionsOk()) {
-					controller = addMan.nextUserInputController(ureq, wControl);
+					controller = addMan.nextUserInputController(ureq, wControl, userCourseEnv);
 					if (listeningController != null) {
 						controller.addControllerListener(listeningController);
 					}
@@ -399,7 +415,6 @@ public class NavigationHandler implements Disposable {
 				nclr = new NodeClickedRef(treeModel, true, newSelectedNodeId, null, courseNode, ncr, false);
 			} else { // access ok
 				
-				// fxdiff FXOLAT-262
 				if (STCourseNode.isDelegatingSTCourseNode(courseNode) && (courseNode.getChildCount() > 0)) {
 					// the clicked node is a STCourse node and is set to "delegate", so
 					// delegate to its first visible child; if no child is visible, just skip and do normal eval
@@ -433,6 +448,16 @@ public class NavigationHandler implements Disposable {
 				if (previewMode) {
 					ncr = new NodeRunConstructionResult(courseNode.createPreviewController(ureq, bwControl, userCourseEnv, nodeEval));
 				} else {
+					// cleanup already existing controllers with external models for this node first, never disposed otherwise
+					if(externalTreeModels.containsKey(courseNode.getIdent())
+							&& !(TreeEvent.COMMAND_TREENODE_OPEN.equals(nodeSubCmd) || TreeEvent.COMMAND_TREENODE_CLOSE.equals(nodeSubCmd))) {
+						SubTree subTree = externalTreeModels.get(courseNode.getIdent());
+						ControllerEventListener existingSubtreemodelListener = subTree.getTreeModelListener();
+						if (existingSubtreemodelListener != null && currentNodeController != null && !currentNodeController.isDisposed()) {
+							currentNodeController.dispose();
+						}
+					}
+					
 					ncr = courseNode.createNodeRunConstructionResult(ureq, bwControl, userCourseEnv, nodeEval, nodecmd);
 
 					// remember as instance variable for next click

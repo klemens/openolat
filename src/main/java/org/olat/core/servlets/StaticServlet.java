@@ -38,7 +38,6 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 
 /**
@@ -52,7 +51,7 @@ public class StaticServlet extends HttpServlet {
 
 	private static final long serialVersionUID = -2430002903299685192L;
 	private static final OLog log = Tracing.createLoggerFor(StaticServlet.class);
-	private final int CACHE_DURATION_IN_SECOND = 60 * 60 * 24 * 8; // 8 days
+	private final long CACHE_DURATION_IN_SECOND = 60 * 60 * 24 * 8; // 8 days
 	private final long CACHE_DURATION_IN_MS = CACHE_DURATION_IN_SECOND  * 1000;
 
 	public static String STATIC_DIR_NAME = "/static";
@@ -67,13 +66,6 @@ public class StaticServlet extends HttpServlet {
 			resp.sendError(HttpServletResponse.SC_FORBIDDEN);
 		} else {
 			super.service(req, resp);
-		}
-		
-		if("head".equalsIgnoreCase(req.getMethod())) {
-			System.out.println("HEAD");
-			System.out.println("HEAD");
-			System.out.println("HEAD");
-			System.out.println("HEAD");
 		}
 	}
 
@@ -101,22 +93,19 @@ public class StaticServlet extends HttpServlet {
 			CustomStaticFolderManager folderManager = CoreSpringFactory.getImpl(CustomStaticFolderManager.class);
 			File file = new File(folderManager.getRootFile(), staticRelPath);
 			if(file.exists()) {
-				MediaResource resource = new FileMediaResource(file);
-		    	ServletUtil.serveResource(request, response, resource);
+				if(file.isDirectory()) {
+					response.sendError(HttpServletResponse.SC_FORBIDDEN);
+				} else {
+					MediaResource resource = new FileMediaResource(file);
+		    		ServletUtil.serveResource(request, response, resource);
+				}
 			} else {
 				response.sendError(HttpServletResponse.SC_NOT_FOUND);
 			}
 		} else {
 			// version provided - remove it
-			String version;
-			if(StringHelper.containsNonWhitespace(WebappHelper.getRevisionNumber())) {
-				version = WebappHelper.getRevisionNumber() + ":" + WebappHelper.getChangeSet();
-			} else {
-				version = Settings.getBuildIdentifier();
-			}	
-			int start = version.length() + 1;
+			int start = pathInfo.indexOf("/", 2);
 			int end = pathInfo.length();
-			
 			if(start <= end) {
 				String staticRelPath = pathInfo.substring(start, end);
 				String normalizedRelPath = ServletUtil.normalizePath(staticRelPath);
@@ -144,6 +133,9 @@ public class StaticServlet extends HttpServlet {
 			expiration &= false;
 		} else {
 			staticAbsPath = WebappHelper.getContextRealPath(STATIC_DIR_NAME);
+			if(staticAbsPath == null) {
+				staticAbsPath = WebappHelper.getContextRoot() + STATIC_DIR_NAME;
+			}
 			expiration &= true;
 		}
 
@@ -184,6 +176,9 @@ public class StaticServlet extends HttpServlet {
 		
 		if(notFound) {
 			response.sendError(HttpServletResponse.SC_NOT_FOUND);
+		} else if(staticFile.isDirectory()) {
+			//directory listing is forbidden
+			response.sendError(HttpServletResponse.SC_FORBIDDEN);
 		} else {
 			deliverFile(request, response, staticFile, expiration);
 		}
@@ -205,7 +200,7 @@ public class StaticServlet extends HttpServlet {
 			
 			String mimeType = WebappHelper.getMimeType(file.getName());
 			response.setContentType(mimeType);
-			response.setContentLength((int)file.length());
+			response.setContentLengthLong(file.length());
 
 			try(InputStream in = new FileInputStream(file)) {
 				FileUtils.cpio(in, response.getOutputStream(), "static");

@@ -42,6 +42,7 @@ import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.FileResource;
 import org.olat.fileresource.types.PodcastFileResource;
@@ -131,13 +132,6 @@ public class PodcastHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		// Apperantly, this method is used for backing up any user related content
-		// (comments etc.) on deletion. Up to now, this doesn't exist in podcasts.
-		return null;
-	}
-
-	@Override
 	public boolean cleanupOnDelete(RepositoryEntry entry, OLATResourceable res) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(new OLATResourceableJustBeforeDeletedEvent(res), res);
 		// For now, notifications are not implemented since a podcast feed is meant
@@ -174,10 +168,17 @@ public class PodcastHandler implements RepositoryHandler {
 				@Override
 				public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
 						RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
+					CoreSpringFactory.getImpl(UserCourseInformationsManager.class)
+						.updateUserCourseInformations(entry.getOlatResource(), uureq.getIdentity());
 					return new FeedMainController(entry.getOlatResource(), uureq, wwControl, null, null,
 						PodcastUIFactory.getInstance(uureq.getLocale()), callback, null);
 				}
 		});
+	}
+	
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	@Override
@@ -211,6 +212,11 @@ public class PodcastHandler implements RepositoryHandler {
 	@Override
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.embedded;
+	}
+	
+	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
 	}
 
 	@Override

@@ -49,8 +49,8 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableSearchEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.rating.RatingFormEvent;
@@ -76,6 +76,9 @@ import org.olat.course.CorruptedCourseException;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryModule;
+import org.olat.repository.RepositoryService;
+import org.olat.repository.controllers.EntryChangedEvent;
+import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams.Filter;
 import org.olat.repository.model.SearchMyRepositoryEntryViewParams.OrderBy;
@@ -118,6 +121,8 @@ public class RepositoryEntryListController extends FormBasicController
 	private MapperService mapperService;
 	@Autowired
 	private RepositoryModule repositoryModule;
+	@Autowired
+	private RepositoryService repositoryService;
 	
 	private final boolean guestOnly;
 	
@@ -146,6 +151,14 @@ public class RepositoryEntryListController extends FormBasicController
 	
 	public boolean isEmpty() {
 		return dataSource.getRowCount() == 0;
+	}
+	
+	public String getName() {
+		return name;
+	}
+	
+	public void reloadRows() {
+		tableEl.reloadData();
 	}
 
 	@Override
@@ -179,7 +192,9 @@ public class RepositoryEntryListController extends FormBasicController
 				true, OrderBy.lifecycleStart.name(), FlexiColumnModel.ALIGNMENT_LEFT, new DateFlexiCellRenderer(getLocale())));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.lifecycleEnd.i18nKey(), Cols.lifecycleEnd.ordinal(),
 				true, OrderBy.lifecycleEnd.name(), FlexiColumnModel.ALIGNMENT_LEFT, new DateFlexiCellRenderer(getLocale())));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false,Cols.details.i18nKey(), Cols.details.ordinal(), false, null));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.location.i18nKey(), Cols.location.ordinal(),
+				true, OrderBy.location.name()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.details.i18nKey(), Cols.details.ordinal(), false, null));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.start.i18nKey(), Cols.start.ordinal()));
 		if(repositoryModule.isRatingEnabled()) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.ratings.i18nKey(), Cols.ratings.ordinal(),
@@ -210,7 +225,7 @@ public class RepositoryEntryListController extends FormBasicController
 	
 	private void initFilters(FlexiTableElement tableElement) {
 		List<FlexiTableFilter> filters = new ArrayList<>(16);
-		filters.add(new FlexiTableFilter(translate("filter.show.all"), Filter.showAll.name()));
+		filters.add(new FlexiTableFilter(translate("filter.show.all"), Filter.showAll.name(), true));
 		filters.add(FlexiTableFilter.SPACER);
 		filters.add(new FlexiTableFilter(translate("filter.current.courses"), Filter.currentCourses.name()));
 		filters.add(new FlexiTableFilter(translate("filter.upcoming.courses"), Filter.upcomingCourses.name()));
@@ -226,7 +241,7 @@ public class RepositoryEntryListController extends FormBasicController
 		filters.add(new FlexiTableFilter(translate("filter.passed"), Filter.passed.name()));
 		filters.add(new FlexiTableFilter(translate("filter.not.passed"), Filter.notPassed.name()));
 		filters.add(new FlexiTableFilter(translate("filter.without.passed.infos"), Filter.withoutPassedInfos.name()));
-		tableElement.setFilters(null, filters);
+		tableElement.setFilters(null, filters, false);
 	}
 	
 	private void initSorters(FlexiTableElement tableElement) {
@@ -293,7 +308,7 @@ public class RepositoryEntryListController extends FormBasicController
 			
 			if("mark".equals(cmd)) {
 				RepositoryEntryRow row = (RepositoryEntryRow)link.getUserObject();
-				boolean marked = doMark(row);
+				boolean marked = doMark(ureq, row);
 				link.setIconLeftCSS(marked ? "o_icon o_icon_bookmark o_icon-lg" : "o_icon o_icon_bookmark_add o_icon-lg");
 				link.setTitle(translate(marked ? "details.bookmark.remove" : "details.bookmark"));
 				link.getComponent().setDirty(true);
@@ -327,7 +342,7 @@ public class RepositoryEntryListController extends FormBasicController
 						doOpenDetails(ureq, row);
 					}
 				}
-			} else if(event instanceof FlexiTableEvent) {
+			} else if(event instanceof FlexiTableSearchEvent) {
 				RepositoryEntryListState state = new RepositoryEntryListState();
 				state.setTableState(tableEl.getStateEntry());
 				addToHistory(ureq, state);
@@ -441,7 +456,7 @@ public class RepositoryEntryListController extends FormBasicController
 	}
 
 	@Override
-	protected void propagateDirtinessToContainer(FormItem fiSrc) {
+	protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent event) {
 		//do not update the 
 	}
 
@@ -457,7 +472,7 @@ public class RepositoryEntryListController extends FormBasicController
 		searchParams.setAuthor(se.getAuthor());
 		searchParams.setText(se.getDisplayname());
 		searchParams.setMembershipMandatory(se.isMembershipMandatory());
-		tableEl.reset();
+		tableEl.reset(true, true, true);
 		
 		RepositoryEntryListState state = new RepositoryEntryListState();
 		state.setTableState(tableEl.getStateEntry());
@@ -502,12 +517,18 @@ public class RepositoryEntryListController extends FormBasicController
 			
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Infos", 0l);
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			detailsCtrl = new RepositoryEntryDetailsController(ureq, bwControl, row);
-			listenTo(detailsCtrl);
-			addToHistory(ureq, detailsCtrl);
-			
-			String displayName = row.getDisplayName();
-			stackPanel.pushController(displayName, detailsCtrl);			
+
+			RepositoryEntry entry = repositoryService.loadByKey(row.getKey());
+			if(entry == null) {
+				showWarning("repositoryentry.not.existing");
+			} else {
+				detailsCtrl = new RepositoryEntryDetailsController(ureq, bwControl, entry, row, false);
+				listenTo(detailsCtrl);
+				addToHistory(ureq, detailsCtrl);
+				
+				String displayName = row.getDisplayName();
+				stackPanel.pushController(displayName, detailsCtrl);	
+			}
 		}
 	}
 	
@@ -524,14 +545,20 @@ public class RepositoryEntryListController extends FormBasicController
 		cmc.activate();
 	}
 	
-	protected boolean doMark(RepositoryEntryRow row) {
+	protected boolean doMark(UserRequest ureq, RepositoryEntryRow row) {
 		OLATResourceable item = OresHelper.createOLATResourceableInstance("RepositoryEntry", row.getKey());
 		if(markManager.isMarked(item, getIdentity(), null)) {
 			markManager.removeMark(item, getIdentity(), null);
+			
+			EntryChangedEvent e = new EntryChangedEvent(row, getIdentity(), Change.removeBookmark, name);
+			ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(e, RepositoryService.REPOSITORY_EVENT_ORES);
 			return false;
 		} else {
 			String businessPath = "[RepositoryEntry:" + item.getResourceableId() + "]";
 			markManager.setMark(item, getIdentity(), null, businessPath);
+			
+			EntryChangedEvent e = new EntryChangedEvent(row, getIdentity(), Change.addBookmark, name);
+			ureq.getUserSession().getSingleUserEventCenter().fireEventToListenersOf(e, RepositoryService.REPOSITORY_EVENT_ORES);
 			return true;
 		}
 	}

@@ -90,8 +90,7 @@ public class VersionMaintenanceForm extends FormBasicController implements Progr
 		// First add title and context help
 		setFormTitle("version.maintenance.title");
 		setFormDescription("version.maintenance.intro");
-		setFormContextHelp(VersionMaintenanceForm.class.getPackage().getName(), "maintenance.html", "help.hover.version");
-		
+
 		orphanSizeEl = uifactory.addStaticTextElement("version.orphan.size", "version.orphan.size", "???", formLayout);
 		
 		FormLayoutContainer buttonsLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
@@ -204,8 +203,8 @@ public class VersionMaintenanceForm extends FormBasicController implements Progr
 		taskExecutorManager.execute(new Runnable() {
 			public void run() {
 				waitASecond();
-				Long numOfVersions = getNumOfVersions();
-				versionsManager.pruneHistory(numOfVersions.longValue(), VersionMaintenanceForm.this);
+				int numOfVersions = getNumOfVersions();
+				versionsManager.pruneHistory(numOfVersions, VersionMaintenanceForm.this);
 			}
 		});
 
@@ -226,7 +225,7 @@ public class VersionMaintenanceForm extends FormBasicController implements Progr
 		}
 	}
 	
-	public Long getNumOfVersions() {
+	public int getNumOfVersions() {
 		SimpleVersionConfig config = (SimpleVersionConfig) CoreSpringFactory.getBean(SimpleVersionConfig.class);
 		return config.getMaxNumberOfVersionsProperty();
 	}

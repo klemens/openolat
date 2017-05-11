@@ -26,8 +26,10 @@
 
 package org.olat.core.gui;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -36,7 +38,9 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -64,8 +68,8 @@ public class UserRequestImpl implements UserRequest {
 	 */
 	public static final String PARAM_DELIM = ":";
 
-	private HttpServletRequest httpReq;
-	private HttpServletResponse httpResp;
+	private final HttpServletRequest httpReq;
+	private final HttpServletResponse httpResp;
 
 	private String uriPrefix;
 	private String moduleURI;
@@ -83,9 +87,11 @@ public class UserRequestImpl implements UserRequest {
 
 	private boolean isValidDispatchURI;
 
-	private String uuid;
-	private static int count = 0;
+	private final String uuid;
+	private final Date requestTimestamp;
+	private static AtomicInteger count = new AtomicInteger(0);
 
+	private final UserSessionManager userSessionMgr;
 
 	/**
 	 * @param uriPrefix
@@ -97,16 +103,23 @@ public class UserRequestImpl implements UserRequest {
 		this.httpResp = httpResp;
 		this.uriPrefix = uriPrefix;
 		isValidDispatchURI = false;
+		userSessionMgr = CoreSpringFactory.getImpl(UserSessionManager.class);
 		params = new HashMap<String,String>(4);
 		dispatchResult = new DispatchResult();
 		parseRequest(httpReq);
-
-		uuid = Integer.toString(++count);
+		
+		requestTimestamp = new Date();
+		uuid = Integer.toString(count.incrementAndGet());
 	}
 
 	@Override
 	public String getUuid() {
 		return uuid;
+	}
+
+	@Override
+	public Date getRequestTimestamp() {
+		return requestTimestamp;
 	}
 
 	@Override
@@ -144,7 +157,7 @@ public class UserRequestImpl implements UserRequest {
 	 */
 	@Override
 	public UserSession getUserSession() {
-		UserSession result = CoreSpringFactory.getImpl(UserSessionManager.class).getUserSession(getHttpReq());
+		UserSession result = userSessionMgr.getUserSession(getHttpReq());
 		if (result == null) {
 			log.warn("getUserSession: null, this="+this, new RuntimeException("getUserSession"));
 		}
@@ -253,7 +266,7 @@ public class UserRequestImpl implements UserRequest {
 		String contentType = hreq.getContentType();
 
 		// do not waste inputstream on file uploads
-		if (contentType == null || !contentType.startsWith("multipart/form-data")) {
+		if (contentType == null || !contentType.startsWith("multipart/")) {
 			//if you encouter problems with content in url like german umlauts
 			//make sure you set <Connector port="8080" URIEncoding="utf-8" /> to utf-8 encoding
 			//this will decode content in get requests like request.getParameter(...
@@ -262,6 +275,12 @@ public class UserRequestImpl implements UserRequest {
 				String key = ksi.next();
 				String val = hreq.getParameterValues(key)[0];
 				params.put(key, val);
+			}
+		} else if(contentType.startsWith("multipart/")) {
+			try {
+				hreq.getParts();
+			} catch (IOException | ServletException e) {
+				log.error("", e);
 			}
 		}
 
@@ -407,10 +426,4 @@ public class UserRequestImpl implements UserRequest {
 	public int getMode() {
 		return mode;
 	}
-
-	/* TODO: offer businesspath via hash part of url
-	 * public String getBusinessControlPath() {
-		return businessControlPath;
-	}*/
-
 }

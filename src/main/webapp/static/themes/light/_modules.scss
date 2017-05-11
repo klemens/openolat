@@ -53,9 +53,14 @@
 @import "modules/course";
 @import "modules/courseeditor";
 @import "modules/qti";
+@import "modules/qti21";
 @import "modules/devel";
 @import "modules/wiki";
 @import "modules/portfolio";
+@import "modules/portfolio_v2";
+@import "modules/evaluation_form";
+@import "modules/citation";
+@import "modules/video";
 @import "modules/admin";
 @import "modules/qpool";
 @import "modules/dmz";
@@ -70,4 +75,6 @@
 @import "modules/thirdparty";
 
 @import "modules/print";
+
+@import "modules/highscore";
 

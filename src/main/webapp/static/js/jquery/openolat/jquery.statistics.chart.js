@@ -4,7 +4,9 @@
             values: [],
             colors: [],
             cut: null,
+            step: null,
             participants: -1,
+            mapperUrl: '-',
             barHeight: 40,
             xTopLegend: 'x Top',
             xBottomLegend: 'x Bottom',
@@ -27,6 +29,8 @@
         		horizontalBarMultipleChoice(this, settings);
         	} else if(type == 'horizontalBarMultipleChoiceSurvey') {
         		horizontalBarMultipleChoiceSurvey(this, settings);
+        	} else if(type == 'highScore') {
+        		highScore(this, settings);
         	}
     	} catch(e) {
     		if(window.console) console.log(e);
@@ -205,8 +209,6 @@
     	
     	var sum =  settings.participants;
     	var max = sum;
-    	
-    	console.log(settings.colors);
 
     	var x = d3.scale.linear()
     	  .domain([0, max])
@@ -496,17 +498,22 @@
     	var values = settings.values;
     	var minTime = d3.min(values, function(d) { return d; });
     	var maxTime = d3.max(values, function(d) { return d; });
+
+    	var ref = new Date(2012, 0, 1, 0, 0),
+    	  formatCount = d3.format(',.f');
     	
     	var timeFormat = '%M:%S';
+    	var formatMinutes;
     	if(maxTime < 10) {
-    		timeFormat += ':%L';
+    		var formatTime = d3.time.format('%M:%S:%L'),
+    		formatMinutes = function(d) { return formatTime(new Date(ref.getTime() + (d * 1000))); };
+    	} else if(maxTime < 3600) {
+    		var formatTime = d3.time.format('%M:%S'),
+    		formatMinutes = function(d) { return formatTime(new Date(ref.getTime() + (d * 1000))); };
+    	} else {
+    		formatMinutes = function(d) { return Math.round( d / 60 ); }
     	}
-    	
-    	var ref = new Date(2012, 0, 1, 0, 0),
-    	  formatCount = d3.format(',.f'),
-    	  formatTime = d3.time.format(timeFormat),
-    	  formatMinutes = function(d) { return formatTime(new Date(ref.getTime() + (d * 1000))); };
-    	
+    	  
     	var margin = {top: 10, right: 60, bottom: 40, left: 60},
     	  width = placeholderwidth - margin.left - margin.right,
     	  height = placeholderheight - margin.top - margin.bottom;
@@ -537,7 +544,8 @@
     	var yAxis = d3.svg.axis()
     	  .scale(y)
     	  .orient('right')
-    	  .ticks(y.domain()[1]).tickSubdivide(0);
+    	  .ticks(10)
+    	  .tickSubdivide(0);
     	
     	var y2Axis = d3.svg.axis()
     	  .scale(y2)
@@ -635,8 +643,9 @@
     	var yAxis = d3.svg.axis()
     	  .scale(y)
     	  .orient('right')
-    	  .ticks(y.domain()[1]).tickSubdivide(0);
-    	
+    	  .ticks(10)
+    	  .tickSubdivide(0);
+
     	var y2Axis = d3.svg.axis()
     	  .scale(y2)
     	  .orient('left')
@@ -697,5 +706,135 @@
     	  .text(settings.yRightLegend);
     }
     
+    highScore = function($obj, settings) {
+    	var placeholderheight = $obj.height();
+    	var placeholderwidth = $obj.width();
+    	var values = settings.values;
+    	
+    	var lquartile = d3.quantile(values, 0.25);
+    	var hquartile = d3.quantile(values, 0.75);
+    	var means = d3.mean(values);
+    	    	
+    	var margin = {top: 20, right: 60, bottom: 40, left: 60},
+    	  width = placeholderwidth - margin.left - margin.right,
+    	  height = placeholderheight - margin.top - margin.bottom;
+    	
+    	var cut = settings.cut;
+     	var maxScore = d3.max(values, function(d) { return d; });
+    	var minScore = d3.min(values, function(d) { return d; });
 
+    	var step = 1;
+    	if (settings.step != null) {
+    		step = settings.step;
+    	}
+    	var max = maxScore + step;
+    	var min = minScore - step;
+    	
+    	if(maxScore < 1.0) {
+    		maxScore = 1.0;
+    	}
+    	var x = d3.scale.linear()
+    	  .domain([min, max])
+    	  .range([0, width]);
+    	  	
+    	var range = d3.range(min, max + step, step)
+    	
+    	var data = d3.layout.histogram()
+    	  .bins(range)
+    	  (values);
+    	
+    	var sum = d3.sum(data, function(d) { return d.y; });
+    	
+    	var y = d3.scale.linear()
+    	  .domain([0, d3.max(data, function(d) { return d.y; })])
+    	  .range([height, 0]);
+    	
+    	var y2 = d3.scale.linear()
+    	  .domain([0, d3.max(data, function(d) { return d.y / sum; })])
+    	  .range([height, 0]);
+    	
+    	var xAxis = d3.svg.axis()
+    	  .tickValues(range)
+    	  .scale(x)
+    	  .orient('bottom')
+    	  .tickFormat(d3.format("d"));
+    	
+	    var yAxis = d3.svg.axis()
+	  	  .scale(y)
+	  	  .orient('right')
+	  	  .ticks(10)
+	  	  .tickSubdivide(0);
+	
+	  	var y2Axis = d3.svg.axis()
+	  	  .scale(y2)
+	  	  .orient('left')
+	  	  .ticks(10, '%');
+	  	
+	  	var svg = d3.select('#' + $obj.attr('id')).append('svg')
+	  	  .attr('width', width + margin.left + margin.right)
+	  	  .attr('height', height + margin.top + margin.bottom)
+	  	  .append('g')
+	  	  .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+	  	var value = d3.range(min, max + step, step);
+  		var bar = svg.selectAll('.bar')
+	  		.data(data)
+	  		.enter().append('g')
+	  		.attr('class', function(d, i) {
+	  			if(cut == null) return 'o_empty';
+	  			else if(data[i].x == cut) return 'o_myself';
+	  			else return 'o_other';	  		  
+	  		})
+	  		.attr('transform', function(d) { return 'translate(' + x(d.x) + ',' + y(d.y) + ')'; })
+	  		.append('rect')
+	  		.attr('x', function (d,i){ return - (width / value.length)/2;})
+	  		.attr('y', function (d){return height - y(d.y);})
+	  		.attr('width', (width / range.length))
+	  		.attr('height', function (d){return 0;})
+	  		.style('opacity', 0)
+	  		 .transition().delay(function (d,i){ return i*200/(max-min);})
+	  		 .duration(800)
+	 	  	.attr('y', function(d) { return 0; })
+	 	  	.attr('height', function(d) { return height - y(d.y); })
+	 	  	.style('opacity', 1);
+	  	
+
+	  	
+	  	svg.append('g')
+	  	  .attr('class', 'y axis')
+	  	  .call(y2Axis)
+	  	 .append('text')
+	  	  .attr('transform', 'rotate(-90)')
+	  	  .attr('y', 0 - margin.left)
+	  	  .attr('x', 0 - (height / 2))
+	  	  .attr('dy', '1em')
+	  	  .style('text-anchor', 'middle')
+	  	  .text(settings.yLeftLegend);
+	  	
+	  	svg.append('g')
+	  	  .attr('class', 'x axis')
+	  	  .attr('transform', 'translate(0,' + height + ')')
+	  	  .call(xAxis)
+	  	 .append('text')
+	  	  .attr('y', (margin.bottom / 1.1))
+	  	  .attr('x', (width / 2))
+	  	  .attr('dx', '1em')
+	  	  .style('text-anchor', 'middle')
+	  	  .text(settings.xBottomLegend);
+	  	
+	  	svg.append('g')
+	  	  .attr('class', 'y axis')
+	  	  .attr('transform', 'translate(' + width + ',0)')
+	  	 .call(yAxis)
+	  	 .append('text')
+	  	  .attr('transform', 'rotate(90)')
+	  	  .attr('y', 0 - (margin.right))
+	  	  .attr('x', (height / 2))
+	  	  .attr('dy', '1em')
+	  	  .style('text-anchor', 'middle')
+	  	  .text(settings.yRightLegend);
+	        
+
+  }
+    
 }( jQuery ));

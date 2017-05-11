@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipOutputStream;
 
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
@@ -40,9 +41,11 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.OLATRuntimeException;
+import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
@@ -71,9 +74,10 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumCallback;
-import org.olat.modules.fo.ForumManager;
+import org.olat.modules.fo.ForumModule;
 import org.olat.modules.fo.archiver.ForumArchiveManager;
 import org.olat.modules.fo.archiver.formatters.ForumStreamedRTFFormatter;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 
@@ -84,6 +88,8 @@ import org.olat.repository.RepositoryEntry;
  * @author BPS (<a href="http://www.bps-system.de/">BPS Bildungsportal Sachsen GmbH</a>)
  */
 public class FOCourseNode extends AbstractAccessableCourseNode {
+	
+	private static final OLog log = Tracing.createLoggerFor(FOCourseNode.class);
 
 	private static final long serialVersionUID = 2281715263255594865L;
 	private static final String PACKAGE_FO = Util.getPackageName(FOCourseNodeRunController.class);
@@ -123,12 +129,14 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			final UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		
+		updateModuleConfigDefaults(false);
+		Roles roles = ureq.getUserSession().getRoles();
 		Forum theForum = loadOrCreateForum(userCourseEnv.getCourseEnvironment());
-		boolean isOlatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
-		boolean isGuestOnly = ureq.getUserSession().getRoles().isGuestOnly();
+		boolean isOlatAdmin = roles.isOLATAdmin();
+		boolean isGuestOnly = roles.isGuestOnly();
 		// Add message id to business path if nodemcd is available
 		if (nodecmd != null) {
 			try {
@@ -138,13 +146,33 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 				wControl = bcf.createBusinessWindowControl(businessControl, wControl);
 			} catch (NumberFormatException e) {
 				// ups, nodecmd is not a message, what the heck is it then?
-				Tracing.createLoggerFor(this.getClass()).warn("Could not create message ID from given nodemcd::" + nodecmd, e);
+				log.warn("Could not create message ID from given nodemcd::" + nodecmd, e);
+			}
+		}
+
+		//for guests, check if posting is allowed
+		boolean pseudonymPostAllowed = false;
+		boolean defaultPseudonym = false;
+		boolean guestPostAllowed = false;
+		if(roles.isGuestOnly()) {
+			String config = getModuleConfiguration().getStringValue(FOCourseNodeEditController.GUEST_POST_ALLOWED);
+			guestPostAllowed = "true".equals(config);
+		} else {
+			ForumModule forumModule = CoreSpringFactory.getImpl(ForumModule.class);
+			String config = getModuleConfiguration().getStringValue(FOCourseNodeEditController.PSEUDONYM_POST_ALLOWED);
+			pseudonymPostAllowed = forumModule.isAnonymousPostingWithPseudonymEnabled()
+					&& "true".equals(config);
+			if(pseudonymPostAllowed) {
+				defaultPseudonym = getModuleConfiguration().getBooleanSafe(FOCourseNodeEditController.PSEUDONYM_POST_DEFAULT,
+						forumModule.isPseudonymForMessageEnabledByDefault());
 			}
 		}
 		// Create subscription context and run controller
 		SubscriptionContext forumSubContext = CourseModule.createSubscriptionContext(userCourseEnv.getCourseEnvironment(), this);
-		FOCourseNodeRunController forumC = new FOCourseNodeRunController(ureq, userCourseEnv, wControl, theForum, 
-				new ForumNodeForumCallback(ne, isOlatAdmin, isGuestOnly, forumSubContext), this);
+		ForumCallback foCallback = userCourseEnv.isCourseReadOnly() ?
+				new ReadOnlyForumCallback(ne, isOlatAdmin, isGuestOnly) :
+				new ForumNodeForumCallback(ne, isOlatAdmin, isGuestOnly, guestPostAllowed, pseudonymPostAllowed, defaultPseudonym, forumSubContext);
+		FOCourseNodeRunController forumC = new FOCourseNodeRunController(ureq, wControl, theForum, foCallback, this);
 		return new NodeRunConstructionResult(forumC);
 	}
 
@@ -157,51 +185,95 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public Forum loadOrCreateForum(final CourseEnvironment courseEnv) {
 		updateModuleConfigDefaults(false);				
-		final ForumManager fom = ForumManager.getInstance();
-		final CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
-		final CourseNode thisCourseNode = this;
-		Forum theForum = null;
-			
-		Property forumKeyProp = cpm.findCourseNodeProperty(thisCourseNode, null, null, FORUM_KEY);
-		//System.out.println("System.out.println - findCourseNodeProperty");
-		if(forumKeyProp!=null) {
-      // Forum does already exist, load forum with key from properties
-		  Long forumKey = forumKeyProp.getLongValue();
-		  theForum = fom.loadForum(forumKey);
-		  if (theForum == null) { throw new OLATRuntimeException(FOCourseNode.class, "Tried to load forum with key " + forumKey.longValue() + " in course "
-				+ courseEnv.getCourseResourceableId() + " for node " + thisCourseNode.getIdent()
-				+ " as defined in course node property but forum manager could not load forum.", null); }
-		} else {
-      //creates resourceable from FOCourseNode.class and the current node id as key
-			OLATResourceable courseNodeResourceable = OresHelper.createOLATResourceableInstance(FOCourseNode.class, new Long(this.getIdent()));
-      //o_clusterOK by:ld 
-		  theForum = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(courseNodeResourceable, new SyncerCallback<Forum>(){
-			  public Forum execute() {
-			  Forum forum = null;
-			  Long forumKey;
-			  Property forumKeyProperty = cpm.findCourseNodeProperty(thisCourseNode, null, null, FORUM_KEY);			  
-			  if (forumKeyProperty == null) {
-				  // First call of forum, create new forum and save forum key as property			  	
-				  forum = fom.addAForum();
-				  forumKey = forum.getKey();
-				  forumKeyProperty = cpm.createCourseNodePropertyInstance(thisCourseNode, null, null, FORUM_KEY, null, forumKey, null, null);
-				  cpm.saveProperty(forumKeyProperty);	
-				  //System.out.println("Forum added");
-			  } else {
-			    // Forum does already exist, load forum with key from properties
-					forumKey = forumKeyProperty.getLongValue();
-					forum = fom.loadForum(forumKey);
-					if (forum == null) { throw new OLATRuntimeException(FOCourseNode.class, "Tried to load forum with key " + forumKey.longValue() + " in course "
-							+ courseEnv.getCourseResourceableId() + " for node " + thisCourseNode.getIdent()
-							+ " as defined in course node property but forum manager could not load forum.", null); }
-					}
-			  //System.out.println("Forum already exists");
-			  return forum;
-		  }});
+
+		Forum forum = null;	
+		List<Property> forumKeyProps = courseEnv.getCoursePropertyManager()
+				.findCourseNodeProperties(this, null, null, FORUM_KEY);
+		if(forumKeyProps == null || forumKeyProps.isEmpty()) {
+			forum = createForum(courseEnv);
+		} else if(forumKeyProps.size() == 1) {
+			forum = loadForum(courseEnv, forumKeyProps.get(0));
+		} else if (forumKeyProps.size() > 1) {
+			forum = saveMultiForums(courseEnv);
 		}
-		return theForum;
+		return forum;
+	}
+	
+	private Forum saveMultiForums(final CourseEnvironment courseEnv) {
+		final ForumManager fom = CoreSpringFactory.getImpl(ForumManager.class);
+		final OLATResourceable courseNodeResourceable = OresHelper.createOLATResourceableInstance(FOCourseNode.class, new Long(getIdent()));
+		return CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(courseNodeResourceable, new SyncerCallback<Forum>(){
+			@Override
+			public Forum execute() {
+				List<Property> forumKeyProps = courseEnv.getCoursePropertyManager()
+						.findCourseNodeProperties(FOCourseNode.this, null, null, FORUM_KEY);
+				Forum masterForum;
+				if(forumKeyProps.size() == 1) {
+					masterForum = loadForum(courseEnv, forumKeyProps.get(0));
+				} else if(forumKeyProps.size() > 1) {
+					Long masterForumKey = forumKeyProps.get(0).getLongValue();
+					List<Long> forumsToMerge = new ArrayList<>();
+					for(int i=1; i<forumKeyProps.size(); i++) {
+						forumsToMerge.add(forumKeyProps.get(i).getLongValue());
+					}
+					fom.mergeForums(masterForumKey, forumsToMerge);
+					masterForum = fom.loadForum(masterForumKey);
+					for(int i=1; i<forumKeyProps.size(); i++) {
+						courseEnv.getCoursePropertyManager().deleteProperty(forumKeyProps.get(i));
+					}
+				} else {
+					masterForum = null;
+				}
+				return masterForum;
+			}
+		});
+	}
+	
+	private Forum loadForum(CourseEnvironment courseEnv, Property prop) {
+		final ForumManager fom = CoreSpringFactory.getImpl(ForumManager.class);
+		Long forumKey = prop.getLongValue();
+		Forum forum = fom.loadForum(forumKey);
+		if (forum == null) {
+			throw new OLATRuntimeException(FOCourseNode.class, "Tried to load forum with key " + forumKey.longValue() + " in course "
+					+ courseEnv.getCourseResourceableId() + " for node " + getIdent()
+					+ " as defined in course node property but forum manager could not load forum.", null);
+		}
+		return forum;
+	}
+	
+	private Forum createForum(final CourseEnvironment courseEnv) {
+		final ForumManager fom = CoreSpringFactory.getImpl(ForumManager.class);
+		//creates resourceable from FOCourseNode.class and the current node id as key
+		OLATResourceable courseNodeResourceable = OresHelper.createOLATResourceableInstance(FOCourseNode.class, new Long(getIdent()));
+		//o_clusterOK by:ld 
+		return CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(courseNodeResourceable, new SyncerCallback<Forum>(){
+			@Override
+			public Forum execute() {
+				Forum forum;
+				CoursePropertyManager cpm = courseEnv.getCoursePropertyManager();
+				Property forumKeyProperty = cpm.findCourseNodeProperty(FOCourseNode.this, null, null, FORUM_KEY);			  
+				if (forumKeyProperty == null) {
+					// First call of forum, create new forum and save forum key as property			  	
+					forum = fom.addAForum();
+					Long forumKey = forum.getKey();
+					forumKeyProperty = cpm.createCourseNodePropertyInstance(FOCourseNode.this, null, null, FORUM_KEY, null, forumKey, null, null);
+					cpm.saveProperty(forumKeyProperty);	
+				} else {
+					// Forum does already exist, load forum with key from properties
+					Long forumKey = forumKeyProperty.getLongValue();
+					forum = fom.loadForum(forumKey);
+					if (forum == null) {
+						throw new OLATRuntimeException(FOCourseNode.class, "Tried to load forum with key " + forumKey.longValue() + " in course "
+								+ courseEnv.getCourseResourceableId() + " for node " + getIdent()
+								+ " as defined in course node property but forum manager could not load forum.", null);
+					}
+				}
+				return forum;
+			}
+		});
 	}
 
+	@Override
 	protected void calcAccessAndVisibility(ConditionInterpreter ci, NodeEvaluation nodeEval) {
 		// evaluate the preconditions
 		boolean reader = (getPreConditionReader().getConditionExpression() == null ? true : ci.evaluateCondition(getPreConditionReader()));
@@ -225,6 +297,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
 		return new FOPreviewController(ureq, wControl, ne);
 	}
@@ -241,7 +314,8 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		if (ne.isAtLeastOneAccessible()) {
 			// Create a forum peekview controller that shows the latest two messages		
 			Forum theForum = loadOrCreateForum(userCourseEnv.getCourseEnvironment());
-			Controller peekViewController = new FOPeekviewController(ureq, wControl, theForum, getIdent(), 3);
+			RepositoryEntry courseEntry = userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			Controller peekViewController = new FOPeekviewController(ureq, wControl, courseEntry, theForum, getIdent(), 3);
 			return peekViewController;			
 		} else {
 			// use standard peekview
@@ -318,6 +392,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		/*
 		 * first check the one click cache
@@ -329,10 +404,10 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		return StatusDescription.NOERROR;
 	}
 
-
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev) {
 		oneClickStatusCache = null;
 		//only here we know which translator to take for translating condition error messages
@@ -344,6 +419,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	/**
 	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
 	 */
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		return null;
 	}
@@ -351,6 +427,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	/**
 	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
 	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
 	}
@@ -369,7 +446,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		
 		String forumName = "forum_" + Formatter.makeStringFilesystemSave(getShortTitle())
 				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()));
-		ForumStreamedRTFFormatter rtff = new ForumStreamedRTFFormatter(exportStream, forumName, false);	
+		ForumStreamedRTFFormatter rtff = new ForumStreamedRTFFormatter(exportStream, forumName, false, locale);	
 		ForumArchiveManager.getInstance().applyFormatter(rtff, forumKey, null);
 		return true;
 	}
@@ -378,6 +455,7 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	 * @see org.olat.course.nodes.CourseNode#informOnDelete(org.olat.core.gui.UserRequest,
 	 *      org.olat.course.ICourse)
 	 */
+	@Override
 	public String informOnDelete(Locale locale, ICourse course) {
 		CoursePropertyManager cpm = PersistingCoursePropertyManager.getInstance(course);
 		Property forumKeyProperty = cpm.findCourseNodeProperty(this, null, null, FORUM_KEY);
@@ -396,10 +474,11 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		// delete the forum, if there is one (is created on demand only)
 		CoursePropertyManager cpm = PersistingCoursePropertyManager.getInstance(course);
 		Property forumKeyProperty = cpm.findCourseNodeProperty(this, null, null, FORUM_KEY);
-		if (forumKeyProperty == null) return; // no forum created yet
-		Long forumKey = forumKeyProperty.getLongValue();
-		ForumManager.getInstance().deleteForum(forumKey); // delete the forum
-		cpm.deleteProperty(forumKeyProperty); // delete the property
+		if (forumKeyProperty != null) {
+			Long forumKey = forumKeyProperty.getLongValue();
+			ForumManager.getInstance().deleteForum(forumKey); // delete the forum
+			cpm.deleteProperty(forumKeyProperty); // delete the property
+		}
 	}
 
 	/**
@@ -413,10 +492,29 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		ModuleConfiguration config = getModuleConfiguration();
+		if(isNewNode) {
+			ForumModule forumModule = CoreSpringFactory.getImpl(ForumModule.class);
+			boolean pseudonymAllowed = forumModule.isAnonymousPostingWithPseudonymEnabled()
+					&& forumModule.isPseudonymForCourseEnabledByDefault();
+			config.setStringValue(FOCourseNodeEditController.PSEUDONYM_POST_ALLOWED, pseudonymAllowed ? "true" : "false");
+			boolean pseudonymDefault = pseudonymAllowed
+					&& forumModule.isPseudonymForMessageEnabledByDefault();
+			config.setStringValue(FOCourseNodeEditController.PSEUDONYM_POST_DEFAULT, pseudonymDefault ? "true" : "false");
+			config.setStringValue(FOCourseNodeEditController.GUEST_POST_ALLOWED, "false");
+		}
 		if (isNewNode || config.getConfigurationVersion() < 2) {
 			// use defaults for new course building blocks
 			config.setBooleanEntry(NodeEditController.CONFIG_STARTPAGE, Boolean.FALSE.booleanValue());
 			config.setConfigurationVersion(2);
+		}
+		if (config.getConfigurationVersion() < 3) {
+			if(config.getStringValue(FOCourseNodeEditController.PSEUDONYM_POST_ALLOWED) == null) {
+				config.setStringValue(FOCourseNodeEditController.PSEUDONYM_POST_ALLOWED, "false");	
+			}
+			if(config.getStringValue(FOCourseNodeEditController.GUEST_POST_ALLOWED) == null) {
+				config.setStringValue(FOCourseNodeEditController.GUEST_POST_ALLOWED, "false");
+			}
+			config.setConfigurationVersion(3);
 		}
 		// else node is up-to-date - nothing to do
 		config.remove(NodeEditController.CONFIG_INTEGRATION);
@@ -475,6 +573,71 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
 		return retVal;
 	}
 }
+
+class ReadOnlyForumCallback implements ForumCallback {
+
+	private final boolean isGuestOnly;
+	private final boolean isOlatAdmin;
+	private final NodeEvaluation ne;
+	
+	public ReadOnlyForumCallback(NodeEvaluation ne, boolean isOlatAdmin, boolean isGuestOnly) {
+		this.ne = ne;
+		this.isOlatAdmin = isOlatAdmin;
+		this.isGuestOnly = isGuestOnly;
+	}
+
+	@Override
+	public boolean mayUsePseudonym() {
+		return false;
+	}
+
+	@Override
+	public boolean mayOpenNewThread() {
+		return false;
+	}
+
+	@Override
+	public boolean mayReplyMessage() {
+		return false;
+	}
+	
+	@Override
+	public boolean mayEditOwnMessage() {
+		return false;
+	}
+
+	@Override
+	public boolean mayDeleteOwnMessage() {
+		return false;
+	}
+
+	@Override
+	public boolean mayEditMessageAsModerator() {
+		return false;
+	}
+
+	@Override
+	public boolean mayDeleteMessageAsModerator() {
+		return false;
+	}
+
+	@Override
+	public boolean mayArchiveForum() {
+		return !isGuestOnly;
+	}
+
+	@Override
+	public boolean mayFilterForUser() {
+		if (isGuestOnly) return false;
+		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
+	}
+
+	@Override
+	public SubscriptionContext getSubscriptionContext() {
+		return null;
+	}
+}
+
 /**
  * 
  * Description:<br>
@@ -483,9 +646,12 @@ public class FOCourseNode extends AbstractAccessableCourseNode {
  */
 class ForumNodeForumCallback implements ForumCallback {
 
-	private NodeEvaluation ne;
-	private boolean isOlatAdmin;
-	private boolean isGuestOnly;
+	private final NodeEvaluation ne;
+	private final boolean isOlatAdmin;
+	private final boolean isGuestOnly;
+	private final boolean guestPostAllowed;
+	private final boolean anonymousPostAllowed;
+	private final boolean anonymousPostDefault;
 	private final SubscriptionContext subscriptionContext;
 
 	/**
@@ -494,32 +660,63 @@ class ForumNodeForumCallback implements ForumCallback {
 	 * @param isGuestOnly true if the user is olat-guest
 	 * @param subscriptionContext
 	 */
-	public ForumNodeForumCallback(NodeEvaluation ne, boolean isOlatAdmin, boolean isGuestOnly, SubscriptionContext subscriptionContext) {
+	public ForumNodeForumCallback(NodeEvaluation ne, boolean isOlatAdmin, boolean isGuestOnly,
+			boolean guestPostAllowed, boolean anonymousPostAllowed, boolean anonymousPostDefault,
+			SubscriptionContext subscriptionContext) {
 		this.ne = ne;
 		this.isOlatAdmin = isOlatAdmin;
 		this.isGuestOnly = isGuestOnly;
+		this.guestPostAllowed = guestPostAllowed;
+		this.anonymousPostAllowed = anonymousPostAllowed;
+		this.anonymousPostDefault = anonymousPostDefault;
 		this.subscriptionContext = subscriptionContext;
+	}
+
+	@Override
+	public boolean mayUsePseudonym() {
+		if (isGuestOnly) return false;
+		return anonymousPostAllowed;
+	}
+
+	@Override
+	public boolean pseudonymAsDefault() {
+		return anonymousPostDefault;
 	}
 
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayOpenNewThread()
 	 */
+	@Override
 	public boolean mayOpenNewThread() {
-		if (isGuestOnly) return false;
+		if (isGuestOnly && !guestPostAllowed) return false;
 		return ne.isCapabilityAccessible("poster") || ne.isCapabilityAccessible("moderator") || isOlatAdmin;
 	}
 
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayReplyMessage()
 	 */
+	@Override
 	public boolean mayReplyMessage() {
-		if (isGuestOnly) return false;
+		if (isGuestOnly && !guestPostAllowed) return false;
 		return ne.isCapabilityAccessible("poster") || ne.isCapabilityAccessible("moderator") || isOlatAdmin;
+	}
+	
+	@Override
+	public boolean mayEditOwnMessage() {
+		if (isGuestOnly && !guestPostAllowed) return false;
+		return true;
+	}
+
+	@Override
+	public boolean mayDeleteOwnMessage() {
+		if (isGuestOnly && !guestPostAllowed) return false;
+		return true;
 	}
 
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayEditMessageAsModerator()
 	 */
+	@Override
 	public boolean mayEditMessageAsModerator() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -528,6 +725,7 @@ class ForumNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayDeleteMessageAsModerator()
 	 */
+	@Override
 	public boolean mayDeleteMessageAsModerator() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -537,14 +735,15 @@ class ForumNodeForumCallback implements ForumCallback {
 	 * 
 	 * @see org.olat.modules.fo.ForumCallback#mayArchiveForum()
 	 */
+	@Override
 	public boolean mayArchiveForum() {
-		if (isGuestOnly) return false;
-		else return true;
+		return !isGuestOnly;
 	}
 	
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayFilterForUser()
 	 */
+	@Override
 	public boolean mayFilterForUser() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -553,11 +752,11 @@ class ForumNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#getSubscriptionContext()
 	 */
+	@Override
 	public SubscriptionContext getSubscriptionContext() {
 	// SubscriptionContext sc = new SubscriptionContext("coourseli", new
 	// Long(123), "subident", "Einfuehrung in die Blabla", "Knoten gugus");
 	// do not offer subscription to forums for guests
 		return (isGuestOnly ? null : subscriptionContext);
 	}
-
 }

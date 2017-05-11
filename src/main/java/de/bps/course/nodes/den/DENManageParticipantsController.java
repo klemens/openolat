@@ -30,7 +30,6 @@ import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.MultiIdentityChosenEvent;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.commons.calendar.model.KalendarEvent;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -58,10 +57,14 @@ import org.olat.core.util.mail.MailNotificationEditController;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.modules.co.ContactFormController;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import de.bps.course.nodes.DENCourseNode;
 
 public class DENManageParticipantsController extends BasicController {
+
+	public static final String ADD_ACTION = "denAddParticipants";
+	public static final String REMOVE_ACTION = "denRemoveParticipants";
 
 	private DENCourseNode courseNode;
 	private OLATResourceable ores;
@@ -82,28 +85,28 @@ public class DENManageParticipantsController extends BasicController {
 	private KalendarEvent selectedEvent;
 	
 	//mail notification
-	private MailNotificationEditController addedNotificationCtr, removedNotificationCtr;
+	private MailNotificationEditController notificationCtr;
 	private ContactFormController contactCtr;
 	private CloseableModalController notificationCmc;
-	private List<Identity> added = new ArrayList<Identity>();
-	private List<Identity> removed = new ArrayList<Identity>();
+	private List<Identity> selectedIds = new ArrayList<Identity>();
 	
 	private CloseableModalController manageParticipantsModalCntrl;
 	
 	private DENManager denManager;
+	@Autowired
 	private MailManager mailManager;
 	
-	public DENManageParticipantsController(UserRequest ureq, WindowControl wControl, OLATResourceable ores, DENCourseNode courseNode) {
+	public DENManageParticipantsController(UserRequest ureq, WindowControl wControl,
+			OLATResourceable ores, DENCourseNode courseNode, boolean readOnly) {
 		super(ureq, wControl);
 		
 		this.ores = ores;
 		this.courseNode = courseNode;
 		denManager = DENManager.getInstance();
-		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 		
 		//prepare list of enrolled participants
 		dateList = denManager.getDENEvents(ores.getResourceableId(), courseNode.getIdent());
-		listTableData = new DENListTableDataModel(dateList, getTranslator());
+		listTableData = new DENListTableDataModel(dateList, getTranslator(), readOnly);
 		tableListParticipants = denManager.createListParticipantsTable(ureq, wControl, getTranslator(), listTableData);
 		listenTo(tableListParticipants);
 		
@@ -156,11 +159,11 @@ public class DENManageParticipantsController extends BasicController {
 				BitSet selection = tmse.getSelection();
 				//delete all users from the selected dates
 				if(tmse.getAction().equals(DENListTableDataModel.DELETE_ACTION) && selection.cardinality() > 0) {
-					removed = denManager.getSelectedEventParticipants(dateList, selection);
+					selectedIds = denManager.getSelectedEventParticipants(dateList, selection);
 					dateList = denManager.deleteParticipants(ores, courseNode, denManager.getSelectedEventIDs(dateList, selection));
 					listTableData.setObjects(dateList);
 					//send notification mail
-					createRemovedNotificationMail(ureq, dateList.get(0).getSubject());
+					createNotificationMail(ureq, courseNode.getShortTitle(), REMOVE_ACTION);
 				} else if(tmse.getAction().equals(DENListTableDataModel.MAIL_ACTION) && selection.cardinality() > 0) {
 					//send email to all users from the selected dates
 					List<Identity> participants = denManager.getSelectedEventParticipants(dateList, selection);
@@ -174,7 +177,7 @@ public class DENManageParticipantsController extends BasicController {
 				userSearchCMC.deactivate();
 			} else {
 				List<Identity> toAdd = null;
-				added = new ArrayList<Identity>();
+				selectedIds = new ArrayList<Identity>();
 				if (event instanceof SingleIdentityChosenEvent) {
 					SingleIdentityChosenEvent singleEvent = (SingleIdentityChosenEvent) event;
 					Identity choosenIdentity = singleEvent.getChosenIdentity();
@@ -191,16 +194,16 @@ public class DENManageParticipantsController extends BasicController {
 						if(!status.isEnrolled() && status.getErrorMessage().equals(DENStatus.ERROR_ALREADY_ENROLLED))
 							showMessage = true;
 						else
-							added.add(identity);
+							selectedIds.add(identity);
 					}
 					if(showMessage)
 						showWarning("enrollment.warning.manual");
 					refreshTables();
 				}
 				userSearchCMC.deactivate();
-				if(added.size() > 0) {
+				if(selectedIds.size() > 0) {
 					//write notification mail
-					createAddedNotificationMail(ureq, dateList.get(0).getSubject());
+					createNotificationMail(ureq, selectedEvent.getSubject(), ADD_ACTION);
 				}
 			}
 			
@@ -214,9 +217,9 @@ public class DENManageParticipantsController extends BasicController {
 					if(!status.isCancelled()) showError();
 					//send notification mail
 					else {
-						removed.clear();
-						removed.add(identity);
-						createRemovedNotificationMail(ureq, dateList.get(0).getSubject());
+						selectedIds.clear();
+						selectedIds.add(identity);
+						createNotificationMail(ureq, selectedEvent.getSubject(), REMOVE_ACTION);
 					}
 					refreshTables();
 				//write email to single user
@@ -226,40 +229,22 @@ public class DENManageParticipantsController extends BasicController {
 					createParticipantsMail(ureq, participants);
 				}
 			}
-		} else if(source == addedNotificationCtr && event == Event.DONE_EVENT) {
-			if(addedNotificationCtr.getMailTemplate() != null) {
+		} else if(source == notificationCtr && event == Event.DONE_EVENT) {
+			if(notificationCtr.getMailTemplate() != null) {
 				Identity sender = ureq.getIdentity();
 				MailerResult result = new MailerResult();
 				String metaId = UUID.randomUUID().toString().replace("-", "");
 				MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-				MailBundle[] bundles = mailManager.makeMailBundles(context, added, addedNotificationCtr.getMailTemplate(), sender, metaId, result);
+				MailBundle[] bundles = mailManager.makeMailBundles(context, selectedIds, notificationCtr.getMailTemplate(), sender, metaId, result);
 				result.append(mailManager.sendMessage(bundles));
-				if(addedNotificationCtr.getMailTemplate().getCpfrom()) {
-					MailBundle ccBundles = mailManager.makeMailBundle(context, sender, addedNotificationCtr.getMailTemplate(), sender, metaId, result);
+				if(notificationCtr.getMailTemplate().getCpfrom()) {
+					MailBundle ccBundles = mailManager.makeMailBundle(context, sender, notificationCtr.getMailTemplate(), sender, metaId, result);
 					result.append(mailManager.sendMessage(ccBundles));
 				}
 				MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
 			}
 			notificationCmc.deactivate();
-			added.clear();
-		} else if(source == removedNotificationCtr && event == Event.DONE_EVENT) {
-			if(removedNotificationCtr.getMailTemplate() != null) {
-
-				//fxdiff VCRP-16: intern mail system
-				Identity sender = ureq.getIdentity();
-				MailerResult result = new MailerResult();
-				String metaId = UUID.randomUUID().toString().replace("-", "");
-				MailContext context = new MailContextImpl(getWindowControl().getBusinessControl().getAsString());
-				MailBundle[] bundles = mailManager.makeMailBundles(context, added, addedNotificationCtr.getMailTemplate(), sender, metaId, result);
-				result.append(mailManager.sendMessage(bundles));
-				if(addedNotificationCtr.getMailTemplate().getCpfrom()) {
-					MailBundle ccBundle = mailManager.makeMailBundle(context, sender, addedNotificationCtr.getMailTemplate(), sender, metaId, result);
-					result.append(mailManager.sendMessage(ccBundle));
-				}
-				MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
-			}
-			notificationCmc.deactivate();
-			removed.clear();
+			selectedIds.clear();
 		} else if(source == contactCtr) {
 			notificationCmc.deactivate();
 		}
@@ -270,7 +255,7 @@ public class DENManageParticipantsController extends BasicController {
 		if(source == addParticipantButton) {
 			//open user search controller to manually add users in date
 			removeAsListenerAndDispose(userSearchCntrl);
-			userSearchCntrl = new UserSearchController(ureq, getWindowControl(), true, true);
+			userSearchCntrl = new UserSearchController(ureq, getWindowControl(), true, true, false);
 			listenTo(userSearchCntrl);
 			
 			removeAsListenerAndDispose(userSearchCMC);
@@ -303,28 +288,21 @@ public class DENManageParticipantsController extends BasicController {
 		tableListParticipants.setTableDataModel(listTableData);
 	}
 
-	private void createAddedNotificationMail(UserRequest ureq, String subjectStr) {
-		MailTemplate mailTempl = denManager.getAddedMailTemplate(ureq, subjectStr, getTranslator());
-		removeAsListenerAndDispose(addedNotificationCtr);
+	private void createNotificationMail(UserRequest ureq, String subjectStr, String action) {
+		MailTemplate mailTempl;
+		if (action.equals(REMOVE_ACTION)) {
+			mailTempl = denManager.getRemovedMailTemplate(ureq, subjectStr, getTranslator());
+		} else { 
+			mailTempl = denManager.getAddedMailTemplate(ureq, subjectStr, getTranslator());
+		}
+		
+		removeAsListenerAndDispose(notificationCtr);
 
-		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
-		listenTo(addedNotificationCtr);
+		notificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
+		listenTo(notificationCtr);
 		
 		removeAsListenerAndDispose(notificationCmc);
-		notificationCmc = new CloseableModalController(getWindowControl(), "close", addedNotificationCtr.getInitialComponent());
-		listenTo(notificationCmc);
-		
-		notificationCmc.activate();
-	}
-
-	private void createRemovedNotificationMail(UserRequest ureq, String subjectStr) {
-		MailTemplate mailTempl = denManager.getRemovedMailTemplate(ureq, subjectStr, getTranslator());
-		removeAsListenerAndDispose(addedNotificationCtr);
-		addedNotificationCtr = new MailNotificationEditController(getWindowControl(), ureq, mailTempl, false, false, true);
-		listenTo(addedNotificationCtr);
-		
-		removeAsListenerAndDispose(notificationCmc);
-		notificationCmc = new CloseableModalController(getWindowControl(), "close", addedNotificationCtr.getInitialComponent());
+		notificationCmc = new CloseableModalController(getWindowControl(), "close", notificationCtr.getInitialComponent());
 		listenTo(notificationCmc);
 		
 		notificationCmc.activate();

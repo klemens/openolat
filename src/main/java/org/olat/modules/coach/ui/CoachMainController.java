@@ -24,7 +24,7 @@ import java.util.List;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.GenericTreeModel;
 import org.olat.core.gui.components.tree.GenericTreeNode;
 import org.olat.core.gui.components.tree.MenuTree;
@@ -56,15 +56,15 @@ import org.olat.util.logging.activity.LoggingResourceable;
  */
 public class CoachMainController extends MainLayoutBasicController implements Activateable2 {
 
-	private Panel content;
-	private MenuTree menu;
+	private final MenuTree menu;
+	private final TooledStackedPanel content;
 	
 	private GroupListController groupListCtrl;
 	private UserSearchController userSearchCtrl;
 	private CourseListController courseListCtrl;
 	private StudentListController studentListCtrl;
 	private LayoutMain3ColsController columnLayoutCtr;
-
+	
 	public CoachMainController(UserRequest ureq, WindowControl control) {
 		super(ureq, control);
 
@@ -72,8 +72,10 @@ public class CoachMainController extends MainLayoutBasicController implements Ac
 		menu.setExpandSelectedNode(false);
 		menu.setRootVisible(false);
 		menu.setTreeModel(buildTreeModel(ureq));
-		
-		content = new Panel("content");
+
+		content = new TooledStackedPanel("coaching-stack", getTranslator(), this);
+		content.setNeverDisposeRootController(true);
+		content.setToolbarAutoEnabled(true);
 
 		columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), menu, content, "coaching");
 		columnLayoutCtr.addCssClassToMain("o_coaching");
@@ -100,43 +102,55 @@ public class CoachMainController extends MainLayoutBasicController implements Ac
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) {
-			selectMenuItem(ureq, "students");
+			selectMenuItem(ureq, "Members");
 		} else {
 			ContextEntry currentEntry = entries.get(0);
 			String cmd = currentEntry.getOLATResourceable().getResourceableTypeName();
-			Controller selectedCtrl = selectMenuItem(ureq, cmd);
-			if(selectedCtrl instanceof Activateable2) {
+			Activateable2 selectedCtrl = selectMenuItem(ureq, cmd);
+			if(selectedCtrl == null) {
+				selectMenuItem(ureq, "Members");
+			} else {
 				List<ContextEntry> subEntries = entries.subList(1, entries.size());
-				((Activateable2)selectedCtrl).activate(ureq, subEntries, currentEntry.getTransientState());
-			} else if(selectedCtrl == null) {
-				selectMenuItem(ureq, "students");
-			}
+				selectedCtrl.activate(ureq, subEntries, currentEntry.getTransientState());
+			}  
 		}
 	}
 	
-	private Controller selectMenuItem(UserRequest ureq, String cmd) {
+	private Activateable2 selectMenuItem(UserRequest ureq, String cmd) {
 		Controller selectedCtrl = null;
-		if("students".equals(cmd)) {
+		if("members".equalsIgnoreCase(cmd) || "students".equalsIgnoreCase(cmd)) {
 			if(studentListCtrl == null) {
-				studentListCtrl = new StudentListController(ureq, getWindowControl());
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Members", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				studentListCtrl = new StudentListController(ureq, bwControl, content);
 				listenTo(studentListCtrl);
 			}
 			selectedCtrl = studentListCtrl;
-		} else if("groups".equals(cmd)) {
+		} else if("groups".equalsIgnoreCase(cmd)) {
 			if(groupListCtrl == null) {
-				groupListCtrl = new GroupListController(ureq, getWindowControl());
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Groups", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				groupListCtrl = new GroupListController(ureq, bwControl, content);
 				listenTo(groupListCtrl);
 			}
 			selectedCtrl = groupListCtrl;
-		} else if("courses".equals(cmd)) {
+		} else if("courses".equalsIgnoreCase(cmd)) {
 			if(courseListCtrl == null) {
-				courseListCtrl = new CourseListController(ureq, getWindowControl());
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Courses", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				courseListCtrl = new CourseListController(ureq, bwControl, content);
 				listenTo(courseListCtrl);
 			}
 			selectedCtrl = courseListCtrl;
-		} else if("search".equals(cmd)) {
+		} else if("search".equalsIgnoreCase(cmd)) {
 			if(userSearchCtrl == null) {
-				userSearchCtrl = new UserSearchController(ureq, getWindowControl());
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Search", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+				userSearchCtrl = new UserSearchController(ureq, bwControl, content);
 				listenTo(userSearchCtrl);
 			}
 			selectedCtrl = userSearchCtrl;
@@ -147,15 +161,11 @@ public class CoachMainController extends MainLayoutBasicController implements Ac
 			if (selTreeNode != null && !selTreeNode.getIdent().equals(menu.getSelectedNodeId())) {
 				menu.setSelectedNodeId(selTreeNode.getIdent());
 			}
-			columnLayoutCtr.setCol3(selectedCtrl.getInitialComponent());
 			
-			//history
-			OLATResourceable ores = OresHelper.createOLATResourceableInstance(cmd, 0l);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			addToHistory(ureq, bwControl);
+			content.rootController(selTreeNode.getTitle(), selectedCtrl);
+			addToHistory(ureq, selectedCtrl);
 		}
-		return selectedCtrl;
+		return (Activateable2)selectedCtrl;
 	}
 	
 	private TreeModel buildTreeModel(UserRequest ureq) {
@@ -164,19 +174,19 @@ public class CoachMainController extends MainLayoutBasicController implements Ac
 		gtm.setRootNode(root);
 
 		GenericTreeNode students = new GenericTreeNode();
-		students.setUserObject("students");
+		students.setUserObject("Members");
 		students.setTitle(translate("students.menu.title"));
 		students.setAltText(translate("students.menu.title.alt"));
 		root.addChild(students);
 		
 		GenericTreeNode groups = new GenericTreeNode();
-		groups.setUserObject("groups");
+		groups.setUserObject("Groups");
 		groups.setTitle(translate("groups.menu.title"));
 		groups.setAltText(translate("groups.menu.title.alt"));
 		root.addChild(groups);
 		
 		GenericTreeNode courses = new GenericTreeNode();
-		courses.setUserObject("courses");
+		courses.setUserObject("Courses");
 		courses.setTitle(translate("courses.menu.title"));
 		courses.setAltText(translate("courses.menu.title.alt"));
 		root.addChild(courses);
@@ -184,7 +194,7 @@ public class CoachMainController extends MainLayoutBasicController implements Ac
 		Roles roles = ureq.getUserSession().getRoles();
 		if(roles.isUserManager() || roles.isOLATAdmin()) {
 			GenericTreeNode search = new GenericTreeNode();
-			search.setUserObject("search");
+			search.setUserObject("Search");
 			search.setTitle(translate("search.menu.title"));
 			search.setAltText(translate("search.menu.title.alt"));
 			root.addChild(search);

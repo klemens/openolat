@@ -35,13 +35,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.configuration.AbstractOLATModule;
-import org.olat.core.configuration.PersistedProperties;
+import org.olat.core.configuration.AbstractSpringModule;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.site.model.CourseSiteConfiguration;
 import org.olat.course.site.model.LanguageConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -55,13 +58,18 @@ import com.thoughtworks.xstream.XStream;
  * @author Felix Jost
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class SiteDefinitions extends AbstractOLATModule {
+@Service("olatsites")
+public class SiteDefinitions extends AbstractSpringModule {
+	
+	private static final OLog log = Tracing.createLoggerFor(SiteDefinitions.class);
 
 	private Map<String,SiteDefinition> siteDefMap;
 	private Map<String,SiteConfiguration> siteConfigMap = new ConcurrentHashMap<String,SiteConfiguration>();
 	
 	private String configSite1;
 	private String configSite2;
+	private String configSite3;
+	private String configSite4;
 	private String sitesSettings;
 	
 	@Autowired
@@ -73,6 +81,13 @@ public class SiteDefinitions extends AbstractOLATModule {
 		xStream.alias("languageConfig", LanguageConfiguration.class);
 		xStream.alias("siteconfig", SiteConfiguration.class);
 	}
+	
+	@Autowired
+	public SiteDefinitions(CoordinatorManager coordinatorManager) {
+		super(coordinatorManager);
+	}
+	
+	
 	
 	public String getConfigCourseSite1() {
 		return configSite1;
@@ -88,6 +103,22 @@ public class SiteDefinitions extends AbstractOLATModule {
 
 	public void setConfigCourseSite2(String config) {
 		setStringProperty("site.2.config", config, true);
+	}
+	
+	public String getConfigCourseSite3() {
+		return configSite3;
+	}
+
+	public void setConfigCourseSite3(String config) {
+		setStringProperty("site.3.config", config, true);
+	}
+	
+	public String getConfigCourseSite4() {
+		return configSite4;
+	}
+
+	public void setConfigCourseSite4(String config) {
+		setStringProperty("site.4.config", config, true);
 	}
 	
 	public SiteConfiguration getConfigurationSite(String id) {
@@ -140,6 +171,38 @@ public class SiteDefinitions extends AbstractOLATModule {
 			setConfigCourseSite2(configStr);
 		}
 	}
+	
+	public CourseSiteConfiguration getConfigurationCourseSite3() {
+		if(StringHelper.containsNonWhitespace(configSite3)) {
+			return (CourseSiteConfiguration)xStream.fromXML(configSite3);
+		}
+		return null;
+	}
+
+	public void setConfigurationCourseSite3(CourseSiteConfiguration config) {
+		if(config == null) {
+			setConfigCourseSite3("");
+		} else {
+			String configStr = xStream.toXML(config);
+			setConfigCourseSite3(configStr);
+		}
+	}
+	
+	public CourseSiteConfiguration getConfigurationCourseSite4() {
+		if(StringHelper.containsNonWhitespace(configSite4)) {
+			return (CourseSiteConfiguration)xStream.fromXML(configSite4);
+		}
+		return null;
+	}
+
+	public void setConfigurationCourseSite4(CourseSiteConfiguration config) {
+		if(config == null) {
+			setConfigCourseSite4("");
+		} else {
+			String configStr = xStream.toXML(config);
+			setConfigCourseSite4(configStr);
+		}
+	}
 
 	public String getSitesSettings() {
 		return sitesSettings;
@@ -160,17 +223,13 @@ public class SiteDefinitions extends AbstractOLATModule {
 		String configStr = xStream.toXML(configs);
 		setSitesSettings(configStr);
 	}
-
-	/**
-	 * 
-	 */
-	public SiteDefinitions() {
-		// Does NOT call initSiteDefinitionList() here because we are not sure if all SiteDef-beans are loaded !
-		// and we won't to define spring depends-on
-	}
 	
 	@Override
 	public void init() {
+		if(configurers != null) {
+			log.debug(configurers.size() + " sites configurers found.");
+		}
+		
 		String sitesObj = getStringPropertyValue("sites.config", true);
 		if(StringHelper.containsNonWhitespace(sitesObj)) {
 			sitesSettings = sitesObj;
@@ -191,12 +250,16 @@ public class SiteDefinitions extends AbstractOLATModule {
 		if(StringHelper.containsNonWhitespace(site2Obj)) {
 			configSite2 = site2Obj;
 		}
-	}
-
-	@Override
-	public void setPersistedProperties(PersistedProperties persistedProperties) {
-		this.moduleConfigProperties = persistedProperties;
 		
+		String site3Obj = getStringPropertyValue("site.3.config", true);
+		if(StringHelper.containsNonWhitespace(site3Obj)) {
+			configSite3 = site3Obj;
+		}
+		
+		String site4Obj = getStringPropertyValue("site.4.config", true);
+		if(StringHelper.containsNonWhitespace(site4Obj)) {
+			configSite4 = site4Obj;
+		}
 	}
 
 	@Override

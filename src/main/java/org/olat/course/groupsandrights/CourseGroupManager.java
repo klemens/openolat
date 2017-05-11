@@ -56,6 +56,8 @@ public interface CourseGroupManager {
 	public OLATResource getCourseResource();
 	
 	public RepositoryEntry getCourseEntry();
+	
+	//public void refreshRepositoryEntry(RepositoryEntry entry);
 
 	/**
 	 * Checks users course rights in any of the available right group context of
@@ -106,7 +108,7 @@ public interface CourseGroupManager {
 	public boolean isIdentityInLearningArea(Identity identity, Long areaKey);
 
 	/**
-	 * Checks if user is coach in any of the courses learning groups
+	 * Checks if user is coach in the course (of the repository entry or of a business group)
 	 * 
 	 * @param identity
 	 * @return true if user is coach
@@ -128,6 +130,31 @@ public interface CourseGroupManager {
 	 * @return boolean
 	 */
 	public boolean isIdentityCourseParticipant(Identity identity);
+	
+	
+	/**
+	 * Checks if user is coach in any course.
+	 * 
+	 * @param identity
+	 * @return true if user is coach
+	 */
+	public boolean isIdentityAnyCourseCoach(Identity identity);
+
+	/**
+	 * Checks if user is course administrator in any course.
+	 * 
+	 * @param identity
+	 * @return boolean
+	 */
+	public boolean isIdentityAnyCourseAdministrator(Identity identity);
+	
+	/**
+	 * Checks if user is participant in any course.
+	 * 
+	 * @param identity
+	 * @return boolean
+	 */
+	public boolean isIdentityAnyCourseParticipant(Identity identity);
 	
 	/**
 	 * @return True if there are some business groups linked to this resource
@@ -206,6 +233,8 @@ public interface CourseGroupManager {
 	 */
 	public void exportCourseBusinessGroups(File fExportDirectory, CourseEnvironmentMapper env,
 			boolean runtimeDatas, boolean backwardsCompatible);
+	
+	public CourseEnvironmentMapper getBusinessGroupEnvironment();
 
 	/**
 	 * Import course internal groups fa previous export.
@@ -213,6 +242,8 @@ public interface CourseGroupManager {
 	 * @param fImportDirectory
 	 */
 	public CourseEnvironmentMapper importCourseBusinessGroups(File fImportDirectory);
+	
+	public void archiveCourseGroups(File exportDirectory);
 
 	/**
 	 * List with identities being coaches in learning groups of this course. If
@@ -224,8 +255,7 @@ public interface CourseGroupManager {
 	public List<Identity> getCoachesFromBusinessGroups();
 	
 	public List<Identity> getCoachesFromBusinessGroups(List<Long> groupKeys);
-	
-	//fxdiff VCRP-1,2: access control of resources
+
 	public List<Identity> getCoaches();
 
 	/**
@@ -250,9 +280,6 @@ public interface CourseGroupManager {
 	
 	public List<Identity> getParticipantsFromBusinessGroups(List<Long> groupKeys);
 	
-	
-	
-	//fxdiff VCRP-1,2: access control of resources
 	public List<Identity> getParticipants();
 
 	/**
@@ -271,4 +298,5 @@ public interface CourseGroupManager {
 	 * @return A list of all waiting-list groups where this identity is in
 	 */
 	public List<BusinessGroup> getWaitingListGroups(Identity identity);
+
 }

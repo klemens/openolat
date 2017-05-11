@@ -28,6 +28,7 @@ package org.olat.core.gui.components.form.flexible.impl;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.SpacerElement;
+import org.olat.core.gui.render.StringOutput;
 import org.olat.core.util.StringHelper;
 
 /**
@@ -88,6 +89,24 @@ public class FormDecorator {
 	}
 
 	/**
+	 * Check if there is a help text available
+	 * @return true if help is available, false otherwise
+	 */
+	public boolean hasHelpText(String formItemName) {
+		FormItem foco = getFormItem(formItemName);
+		return foco == null ? false : foco.getHelpText() != null;
+	}
+
+	/**
+	 * Get the translated context help text string for this form item
+	 * @return The help text or NULL if no help text is available
+	 */
+	public String getHelpText(String formItemName) {
+		FormItem foco = getFormItem(formItemName);
+		return foco == null ? null : foco.getHelpText();
+	}
+
+	/**
 	 * @see org.olat.core.gui.components.form.flexible.FormDecorator#isEnabled(java.lang.String)
 	 */
 	public boolean isEnabled(String formItemName) {
@@ -125,7 +144,25 @@ public class FormDecorator {
 	public String ffXHREvent(String key, String value) {
 		Form theForm = container.getRootForm();
 		String elementId = "o_fi" + container.getComponent().getDispatchID();
-		return FormJSHelper.getXHRFnCallFor(theForm, elementId, 1, new NameValuePair(key, value));
+		return FormJSHelper.getXHRFnCallFor(theForm, elementId, 1, true, true, new NameValuePair(key, value));
+	}
+	
+	public String appendFlexiFormDirty(String id) {
+		StringOutput sb = new StringOutput(256);
+		FormJSHelper.appendFlexiFormDirty(sb, container.getRootForm(), id);
+		return sb.toString();
+	}
+	
+	public String appendFlexiFormDirtyForCheckbox(String id) {
+		StringOutput sb = new StringOutput(256);
+		FormJSHelper.appendFlexiFormDirtyForCheckbox(sb, container.getRootForm(), id);
+		return sb.toString();
+	}
+	
+	public String appendFlexiFormDirtyForClick(String id) {
+		StringOutput sb = new StringOutput(256);
+		FormJSHelper.appendFlexiFormDirtyForClick(sb, container.getRootForm(), id);
+		return sb.toString();
 	}
 	
 	public String getContainerCssClass() {
@@ -142,6 +179,10 @@ public class FormDecorator {
 		}
 		return "";
 	}
+	
+	public Form getForm() {
+		return container.getRootForm();
+	}
 
 	/**
 	 * Internal helper to get a form item for the given name
@@ -149,7 +190,7 @@ public class FormDecorator {
 	 * @param formItemName
 	 * @return
 	 */
-	private FormItem getFormItem(String formItemName) {
+	public FormItem getFormItem(String formItemName) {
 		return container.getFormComponent(formItemName);
 	}
 

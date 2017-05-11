@@ -23,6 +23,8 @@ import org.olat.NewControllerFactory;
 import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.SiteContextEntryControllerCreator;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.course.site.CourseSite;
@@ -46,6 +48,8 @@ import org.springframework.stereotype.Service;
  */
 @Service("repositoryModule")
 public class RepositoryModule extends AbstractSpringModule {
+	
+	private static final OLog log = Tracing.createLoggerFor(RepositoryModule.class);
 
 	private static final String MANAGED_REPOENTRY_ENABLED = "managedRepositoryEntries";
 	private static final String CATALOG_SITE_ENABLED = "site.catalog.enable";
@@ -56,6 +60,12 @@ public class RepositoryModule extends AbstractSpringModule {
 	
 	private static final String COMMENT_ENABLED = "repo.comment.enabled";
 	private static final String RATING_ENABLED = "repo.rating.enabled";
+	
+	private static final String ALLOW_TO_LEAVE_DEFAULT_OPTION = "repo.allow.to.leave";
+	
+	private static final String LIFECYCLE_AUTO_CLOSE = "repo.lifecycle.auto.close";
+	private static final String LIFECYCLE_AUTO_UNPUBLISH = "repo.lifecycle.auto.unpublish";
+	private static final String LIFECYCLE_AUTO_DELETE = "repo.lifecycle.auto.delete";
 	
 	@Value("${site.catalog.enable:true}")
 	private boolean catalogSiteEnabled;
@@ -74,6 +84,16 @@ public class RepositoryModule extends AbstractSpringModule {
 	private boolean commentEnabled;
 	@Value("${repo.rating.enabled:true}")
 	private boolean ratingEnabled;
+
+	@Value("${repo.lifecycle.auto.close:}")
+	private String lifecycleAutoClose;
+	@Value("${repo.lifecycle.auto.unpublish:}")
+	private String lifecycleAutoUnpublish;
+	@Value("${repo.lifecycle.auto.delete:}")
+	private String lifecycleAutoDelete;
+	
+	@Value("${repo.allow.to.leave:atAnyTime}")
+	private String defaultAllowToLeaveOption;
 	
 	@Autowired
 	private BusinessGroupModule groupModule;
@@ -96,6 +116,8 @@ public class RepositoryModule extends AbstractSpringModule {
 				new CourseSiteContextEntryControllerCreator());
 		
 		NewControllerFactory.getInstance().addContextEntryControllerCreator(CatalogEntry.class.getSimpleName(),
+				new CatalogContextEntryControllerCreator(this));
+		NewControllerFactory.getInstance().addContextEntryControllerCreator("Catalog",
 				new CatalogContextEntryControllerCreator(this));
 		NewControllerFactory.getInstance().addContextEntryControllerCreator("CatalogAdmin",
 				new SiteContextEntryControllerCreator(CatalogAdminSite.class));
@@ -157,6 +179,26 @@ public class RepositoryModule extends AbstractSpringModule {
 		if(StringHelper.containsNonWhitespace(rating)) {
 			ratingEnabled = "true".equals(rating);
 		}
+		
+		String leaveOption = getStringPropertyValue(ALLOW_TO_LEAVE_DEFAULT_OPTION, true);
+		if(StringHelper.containsNonWhitespace(leaveOption)) {
+			defaultAllowToLeaveOption = leaveOption;
+		}
+		
+		String autoClose = getStringPropertyValue(LIFECYCLE_AUTO_CLOSE, true);
+		if(StringHelper.containsNonWhitespace(autoClose)) {
+			lifecycleAutoClose = autoClose;
+		}
+		
+		String autoUnpublish = getStringPropertyValue(LIFECYCLE_AUTO_UNPUBLISH, true);
+		if(StringHelper.containsNonWhitespace(autoUnpublish)) {
+			lifecycleAutoUnpublish = autoUnpublish;
+		}
+		
+		String autoDelete = getStringPropertyValue(LIFECYCLE_AUTO_DELETE, true);
+		if(StringHelper.containsNonWhitespace(autoDelete)) {
+			lifecycleAutoDelete = autoDelete;
+		}
 	}
 
 	/**
@@ -180,6 +222,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 	
 	public void setListAllResourceTypes(boolean enabled) {
+		listAllResourceTypes = enabled;
 		setStringProperty(MYCOURSES_ALL_RESOURCES_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -188,6 +231,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setManagedRepositoryEntries(boolean enabled) {
+		managedRepositoryEntries = enabled;
 		setStringProperty(MANAGED_REPOENTRY_ENABLED, Boolean.toString(enabled), true);
 	}
 	
@@ -196,6 +240,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setCatalogSiteEnabled(boolean enabled) {
+		catalogSiteEnabled = enabled;
 		setStringProperty(CATALOG_SITE_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -204,6 +249,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setCatalogEnabled(boolean enabled) {
+		catalogEnabled = enabled;
 		setStringProperty(CATALOG_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -212,6 +258,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setCatalogBrowsingEnabled(boolean enabled) {
+		catalogBrowsingEnabled = enabled;
 		setStringProperty(CATALOG_BROWSING_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -220,6 +267,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setMyCoursesSearchEnabled(boolean enabled) {
+		myCoursesSearchEnabled = enabled;
 		setStringProperty(MYCOURSES_SEARCH_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -228,6 +276,7 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setCommentEnabled(boolean enabled) {
+		commentEnabled = enabled;
 		setStringProperty(COMMENT_ENABLED, Boolean.toString(enabled), true);
 	}
 
@@ -236,6 +285,71 @@ public class RepositoryModule extends AbstractSpringModule {
 	}
 
 	public void setRatingEnabled(boolean enabled) {
+		ratingEnabled = enabled;
 		setStringProperty(RATING_ENABLED, Boolean.toString(enabled), true);
 	}
+	
+	public RepositoryEntryAllowToLeaveOptions getAllowToLeaveDefaultOption() {
+		if(StringHelper.containsNonWhitespace(defaultAllowToLeaveOption)) {
+			try {
+				return RepositoryEntryAllowToLeaveOptions.valueOf(defaultAllowToLeaveOption);
+			} catch (Exception e) {
+				log.error("Unrecognised option for repo.allow.to.leave: " + defaultAllowToLeaveOption);
+				return RepositoryEntryAllowToLeaveOptions.atAnyTime;
+			}
+		}
+		return RepositoryEntryAllowToLeaveOptions.atAnyTime;
+	}
+	
+	public void setAllowToLeaveDefaultOption(RepositoryEntryAllowToLeaveOptions option) {
+		if(option == null) {
+			defaultAllowToLeaveOption = null;
+			setStringProperty(ALLOW_TO_LEAVE_DEFAULT_OPTION, "", true);
+		} else {
+			defaultAllowToLeaveOption = option.name();
+			setStringProperty(ALLOW_TO_LEAVE_DEFAULT_OPTION, option.name(), true);
+		}
+	}
+
+	public String getLifecycleAutoClose() {
+		return lifecycleAutoClose;
+	}
+	
+	public RepositoryEntryLifeCycleValue getLifecycleAutoCloseValue() {
+		return RepositoryEntryLifeCycleValue.parse(lifecycleAutoClose);
+	}
+
+	public void setLifecycleAutoClose(String lifecycleAutoClose) {
+		this.lifecycleAutoClose = lifecycleAutoClose;
+		setStringProperty(LIFECYCLE_AUTO_CLOSE, lifecycleAutoClose, true);
+	}
+
+	public String getLifecycleAutoUnpublish() {
+		return lifecycleAutoUnpublish;
+	}
+	
+	public RepositoryEntryLifeCycleValue getLifecycleAutoUnpublishValue() {
+		return RepositoryEntryLifeCycleValue.parse(lifecycleAutoUnpublish);
+	}
+
+	public void setLifecycleAutoUnpublish(String lifecycleAutoUnpublish) {
+		this.lifecycleAutoUnpublish = lifecycleAutoUnpublish;
+		setStringProperty(LIFECYCLE_AUTO_UNPUBLISH, lifecycleAutoUnpublish, true);
+	}
+
+	public String getLifecycleAutoDelete() {
+		return lifecycleAutoDelete;
+	}
+	
+	public RepositoryEntryLifeCycleValue getLifecycleAutoDeleteValue() {
+		return RepositoryEntryLifeCycleValue.parse(lifecycleAutoDelete);
+	}
+
+	public void setLifecycleAutoDelete(String lifecycleAutoDelete) {
+		this.lifecycleAutoDelete = lifecycleAutoDelete;
+		setStringProperty(LIFECYCLE_AUTO_DELETE, lifecycleAutoDelete, true);
+	}
+	
+
+	
 }

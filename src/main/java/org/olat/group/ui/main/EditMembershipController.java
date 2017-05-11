@@ -26,7 +26,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import org.olat.core.commons.persistence.PersistenceHelper;
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -57,12 +57,13 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupManagedFlag;
 import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
-import org.olat.group.BusinessGroupView;
 import org.olat.group.model.BusinessGroupMembershipChange;
-import org.olat.group.model.SearchBusinessGroupParams;
+import org.olat.group.model.BusinessGroupQueryParams;
+import org.olat.group.model.BusinessGroupRow;
+import org.olat.group.model.StatisticsBusinessGroupRow;
+import org.olat.group.model.comparator.BusinessGroupRowComparator;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
-import org.olat.repository.RepositoryEntryRef;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,8 +85,10 @@ public class EditMembershipController extends FormBasicController {
 	private List<RepositoryEntryMembership> memberships;
 	private List<BusinessGroupMembership> groupMemberships;
 	
+	private final boolean overrideManaged;
 	private final BusinessGroup businessGroup;
 	private final RepositoryEntry repoEntry;
+	
 	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
@@ -95,13 +98,14 @@ public class EditMembershipController extends FormBasicController {
 	private static final String[] values = new String[] {""};
 	
 	public EditMembershipController(UserRequest ureq, WindowControl wControl, Identity member,
-			RepositoryEntry repoEntry, BusinessGroup businessGroup) {
+			RepositoryEntry repoEntry, BusinessGroup businessGroup, boolean overrideManaged) {
 		super(ureq, wControl, "edit_member");
 		this.member = member;
 		this.members = null;
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = true;
+		this.overrideManaged = overrideManaged;
 		
 		memberships = repositoryManager.getRepositoryEntryMembership(repoEntry, member);
 		initForm(ureq);
@@ -128,7 +132,7 @@ public class EditMembershipController extends FormBasicController {
 	}
 	
 	public EditMembershipController(UserRequest ureq, WindowControl wControl, List<Identity> members,
-			RepositoryEntry repoEntry, BusinessGroup businessGroup) {
+			RepositoryEntry repoEntry, BusinessGroup businessGroup, boolean overrideManaged) {
 		super(ureq, wControl, "edit_member");
 		
 		this.member = null;
@@ -136,6 +140,7 @@ public class EditMembershipController extends FormBasicController {
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = true;
+		this.overrideManaged = overrideManaged;
 		
 		memberships = Collections.emptyList();
 
@@ -144,7 +149,7 @@ public class EditMembershipController extends FormBasicController {
 	}
 	
 	public EditMembershipController(UserRequest ureq, WindowControl wControl, List<Identity> members,
-			RepositoryEntry repoEntry, BusinessGroup businessGroup, Form rootForm) {
+			RepositoryEntry repoEntry, BusinessGroup businessGroup, boolean overrideManaged, Form rootForm) {
 		super(ureq, wControl, LAYOUT_CUSTOM, "edit_member", rootForm);
 		
 		this.member = null;
@@ -152,6 +157,7 @@ public class EditMembershipController extends FormBasicController {
 		this.repoEntry = repoEntry;
 		this.businessGroup = businessGroup;
 		this.withButtons = false;
+		this.overrideManaged = overrideManaged;
 		
 		memberships = Collections.emptyList();
 
@@ -160,53 +166,60 @@ public class EditMembershipController extends FormBasicController {
 	}
 	
 	private void loadModel(Identity memberToLoad) {
-		RepositoryEntryRef resource = null;
-		SearchBusinessGroupParams params = new SearchBusinessGroupParams();
+		BusinessGroupQueryParams params = new BusinessGroupQueryParams();
 		if(repoEntry == null) {
-			params.setGroupKeys(Collections.singletonList(businessGroup.getKey()));
+			params.setBusinessGroupKey(businessGroup.getKey());
 		} else {
-			resource = repoEntry;
+			params.setRepositoryEntry(repoEntry);
 		}
-		List<BusinessGroupView> groups = businessGroupService.findBusinessGroupViews(params, resource, 0, -1);
-	
+
+		List<StatisticsBusinessGroupRow> groups = businessGroupService.findBusinessGroupsStatistics(params);
+		if(groups.size() > 1) {
+			Collections.sort(groups, new BusinessGroupRowComparator(getLocale()));
+		}
+
 		boolean defaultMembership = false;
 		if(memberToLoad == null) {
 			if(repoEntry != null && groups.isEmpty()) {
-				boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
+				boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement) && !overrideManaged;
 				if(!managed) {
 					repoRightsEl.select("participant", true);
 				}
 			} else if(repoEntry == null && groups.size() == 1) {
-				boolean managed = BusinessGroupManagedFlag.isManaged(groups.get(0).getManagedFlags(), BusinessGroupManagedFlag.membersmanagement);
+				boolean managed = BusinessGroupManagedFlag.isManaged(groups.get(0).getManagedFlags(), BusinessGroupManagedFlag.membersmanagement) && !overrideManaged;
 				if(!managed) {
 					defaultMembership = true;
 				}
 			}
 		}
 
-		List<Long> businessGroupKeys = PersistenceHelper.toKeys(groups);
+		List<Long> businessGroupKeys = new ArrayList<>(groups.size());
+		groups.forEach(group -> businessGroupKeys.add(group.getKey()));
+		
 		groupMemberships = memberToLoad == null ?
 				Collections.<BusinessGroupMembership>emptyList() : businessGroupService.getBusinessGroupMembership(businessGroupKeys, memberToLoad);
+		
 		List<MemberOption> options = new ArrayList<MemberOption>();
-		for(BusinessGroupView group:groups) {
-			boolean managed = BusinessGroupManagedFlag.isManaged(group.getManagedFlags(), BusinessGroupManagedFlag.membersmanagement);
+		for(StatisticsBusinessGroupRow group:groups) {
+			boolean managed = BusinessGroupManagedFlag.isManaged(group.getManagedFlags(), BusinessGroupManagedFlag.membersmanagement) && !overrideManaged;
 			MemberOption option = new MemberOption(group);
 			BGPermission bgPermission = PermissionHelper.getPermission(group.getKey(), memberToLoad, groupMemberships);
-			option.setTutor(createSelection(bgPermission.isTutor(), !managed));
-			option.setParticipant(createSelection(bgPermission.isParticipant() || defaultMembership, !managed));
-			boolean waitingListEnable = !managed && group.getWaitingListEnabled() != null && group.getWaitingListEnabled().booleanValue();
-			option.setWaiting(createSelection(bgPermission.isWaitingList(), waitingListEnable));
+			option.setTutor(createSelection(bgPermission.isTutor(), !managed, GroupRoles.coach.name()));
+			option.setParticipant(createSelection(bgPermission.isParticipant() || defaultMembership, !managed, GroupRoles.participant.name()));
+			boolean waitingListEnable = !managed && group.isWaitingListEnabled();
+			option.setWaiting(createSelection(bgPermission.isWaitingList(), waitingListEnable, GroupRoles.waiting.name()));
 			options.add(option);
 		}
 		
 		tableDataModel.setObjects(options);
 	}
 	
-	private MultipleSelectionElement createSelection(boolean selected, boolean enabled) {
+	private MultipleSelectionElement createSelection(boolean selected, boolean enabled, String role) {
 		String name = "cb" + UUID.randomUUID().toString().replace("-", "");
 		MultipleSelectionElement selection = new MultipleSelectionElementImpl(name, Layout.horizontal);
+		selection.setElementCssClass("o_sel_role");
 		selection.addActionListener(FormEvent.ONCHANGE);
-		selection.setKeysAndValues(keys, values);
+		selection.setKeysAndValues(keys, values, new String[]{ "o_sel_role_".concat(role) }, null);
 		flc.add(name, selection);
 		selection.select(keys[0], selected);
 		selection.setEnabled(enabled);
@@ -228,7 +241,7 @@ public class EditMembershipController extends FormBasicController {
 			String[] repoValues = new String[] {
 					translate("role.repo.owner"), translate("role.repo.tutor"), translate("role.repo.participant")
 			};
-			boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement);
+			boolean managed = RepositoryEntryManagedFlag.isManaged(repoEntry, RepositoryEntryManagedFlag.membersmanagement) && !overrideManaged;
 			repoRightsEl = uifactory.addCheckboxesVertical("repoRights", null, formLayout, repoRightsKeys, repoValues, 1);
 			repoRightsEl.setEnabled(!managed);
 			if(member != null) {
@@ -348,16 +361,16 @@ public class EditMembershipController extends FormBasicController {
 	}
 
 	private static class MemberOption {
-		private final BusinessGroupView group;
+		private final StatisticsBusinessGroupRow group;
 		private MultipleSelectionElement tutor;
 		private MultipleSelectionElement participant;
 		private MultipleSelectionElement waiting;
 		
-		public MemberOption(BusinessGroupView group) {
+		public MemberOption(StatisticsBusinessGroupRow group) {
 			this.group = group;
 		}
 		
-		public BusinessGroupView getGroup() {
+		public BusinessGroupRow getGroup() {
 			return group;
 		}
 		
@@ -370,7 +383,7 @@ public class EditMembershipController extends FormBasicController {
 		}
 
 		public long getTutorCount() {
-			return group.getNumOfOwners();
+			return group.getNumOfCoaches();
 		}
 		
 		public long getParticipantCount() {
@@ -378,7 +391,7 @@ public class EditMembershipController extends FormBasicController {
 		}
 		
 		public long getNumOfPendings() {
-			return group.getNumOfPendings();
+			return group.getNumPending();
 		}
 		
 		public Integer getMaxParticipants() {
