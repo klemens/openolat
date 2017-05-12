@@ -16,7 +16,7 @@ public class ExamAdminSiteDef extends AbstractSiteDefinition implements SiteDefi
 	protected SiteInstance createSite(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
 		if ( ureq.getUserSession().getRoles().isInstitutionalResourceManager() ||  ureq.getUserSession().getRoles().isOLATAdmin()) {
 			// only open for olat-usermanagers
-			return new ExamAdminSite(ureq.getLocale());
+			return new ExamAdminSite(ureq.getLocale(), this);
 		} 
 		return null;
 	}

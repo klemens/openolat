@@ -1,5 +1,7 @@
 package de.unileipzig.xman.admin.controller;
 
+import java.util.List;
+
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -12,28 +14,38 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.core.util.tree.TreeHelper;
+import org.olat.util.logging.activity.LoggingResourceable;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 
 import de.unileipzig.xman.admin.ExamAdminSite;
 
-public class ExamAdminMainController extends MainLayoutBasicController {
-	private MenuTree menuTree;
+public class ExamAdminMainController extends MainLayoutBasicController implements Activateable2 {
+	private MenuTree menu;
 	private LayoutMain3ColsController mainLayout;
-	private Controller currentSite;
+
+	private ExamAdminESFController esfCtr;
+	private ExamAdminStudyPathController studyPathCtr;
+	private AdminArchiveController archiveCtr;
 
 	public ExamAdminMainController(UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl);
 
 		setTranslator(Util.createPackageTranslator(ExamAdminSite.class, getLocale()));
 
-		TreeModel tm = buildTreeModel(ureq);
-		menuTree = new MenuTree("examAdminMenuTree");
-		menuTree.setTreeModel(tm);
-		menuTree.setRootVisible(false);
-		menuTree.setSelectedNodeId(tm.getRootNode().getChildAt(0).getIdent());
-		menuTree.addListener(this);
+		menu = new MenuTree(null, "examAdminMenuTree", this);
+		menu.setTreeModel(buildTreeModel(ureq));
+		menu.setRootVisible(false);
 
-		mainLayout = new LayoutMain3ColsController(ureq, wControl, menuTree, null, null, "examAdminMain");
+		mainLayout = new LayoutMain3ColsController(ureq, getWindowControl(), menu, null, "examAdminMain");
+		listenTo(mainLayout);
 		putInitialPanel(mainLayout.getInitialComponent());
 
 		activateSite("studyPath", ureq);
@@ -41,48 +53,72 @@ public class ExamAdminMainController extends MainLayoutBasicController {
 
 	@Override
 	protected void doDispose() {
-		removeAsListenerAndDispose(currentSite);
-		if(mainLayout != null){
-			mainLayout.dispose();
-			mainLayout = null;
-		}
+		// auto-dispose for listenTo()
 	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
-		if (source == menuTree) {
+		if (source == menu) {
 			if (event.getCommand().equals(MenuTree.COMMAND_TREENODE_CLICKED)) {
-				TreeNode selTreeNode = menuTree.getSelectedNode();
+				TreeNode selTreeNode = menu.getSelectedNode();
 				String cmd = (String) selTreeNode.getUserObject();
 				activateSite(cmd, ureq);
 			}
 		}
 	}
 
-	private void activateSite(String cmd, UserRequest ureq) {
-		if(cmd.equals("esf")) {
-			ExamAdminESFController esfCtr = new ExamAdminESFController(ureq, getWindowControl());
-			mainLayout.setCol3(esfCtr.getInitialComponent());
-
-			removeAsListenerAndDispose(currentSite);
-			currentSite = esfCtr;
-			listenTo(currentSite);
-		} else if(cmd.equals("studyPath")) {
-			ExamAdminStudyPathController studyPathCtr = new ExamAdminStudyPathController(ureq, getWindowControl());
-			mainLayout.setCol3(studyPathCtr.getInitialComponent());
-
-			removeAsListenerAndDispose(currentSite);
-			currentSite = studyPathCtr;
-			listenTo(currentSite);
-		} else if(cmd.equals("archive")) {
-			AdminArchiveController archiveCtr = new AdminArchiveController(ureq, getWindowControl());
-			mainLayout.setCol2(null);
-			mainLayout.setCol3(archiveCtr.getInitialComponent());
-
-			removeAsListenerAndDispose(currentSite);
-			currentSite = archiveCtr;
-			listenTo(archiveCtr);
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) {
+			activateSite("StudyPath", ureq);
+		} else {
+			String cmd = entries.get(0).getOLATResourceable().getResourceableTypeName();
+			activateSite(cmd, ureq);
 		}
+	}
+
+	private void activateSite(String cmd, UserRequest ureq) {
+		Controller selectedController = null;
+
+		if(cmd.equals("Esf")) {
+			if(esfCtr == null) {
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Esf", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+
+				esfCtr = new ExamAdminESFController(ureq, bwControl);
+				listenTo(esfCtr);
+			}
+			selectedController = esfCtr;
+		} else if(cmd.equals("Archive")) {
+			if(archiveCtr == null) {
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("Archive", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+
+				archiveCtr = new AdminArchiveController(ureq, bwControl);
+				listenTo(archiveCtr);
+			}
+			selectedController = archiveCtr;
+		} else { // default: StudyPath
+			if(studyPathCtr == null) {
+				OLATResourceable ores = OresHelper.createOLATResourceableInstance("StudyPath", 0l);
+				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+
+				studyPathCtr = new ExamAdminStudyPathController(ureq, bwControl);
+				listenTo(studyPathCtr);
+			}
+			selectedController = studyPathCtr;
+		}
+
+		TreeNode selectedTreeNode = TreeHelper.findNodeByUserObject(cmd, menu.getTreeModel().getRootNode());
+		if (selectedTreeNode != null && !selectedTreeNode.getIdent().equals(menu.getSelectedNodeId())) {
+			menu.setSelectedNodeId(selectedTreeNode.getIdent());
+		}
+
+		mainLayout.setCol3(selectedController.getInitialComponent());
+		addToHistory(ureq, selectedController);
 	}
 
 	private TreeModel buildTreeModel(UserRequest ureq){
@@ -94,19 +130,19 @@ public class ExamAdminMainController extends MainLayoutBasicController {
 
 		node = new GenericTreeNode();
 		node.setTitle(translate("ExamAdminMainController.menu.esf.studyPath"));
-		node.setUserObject("studyPath");
+		node.setUserObject("StudyPath");
 		node.setAltText(translate("ExamAdminMainController.menu.esf.studyPath.alt"));
 		root.addChild(node);
 
 		node = new GenericTreeNode();
 		node.setTitle(translate("ExamAdminMainController.menu.esf"));
-		node.setUserObject("esf");
+		node.setUserObject("Esf");
 		node.setAltText(translate("ExamAdminMainController.menu.esf.alt"));
 		root.addChild(node);
 
 		node = new GenericTreeNode();
 		node.setTitle(translate("ExamAdminMainController.menu.archive"));
-		node.setUserObject("archive");
+		node.setUserObject("Archive");
 		node.setAltText(translate("ExamAdminMainController.menu.archive.alt"));
 		root.addChild(node);
 

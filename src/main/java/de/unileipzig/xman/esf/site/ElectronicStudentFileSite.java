@@ -9,6 +9,12 @@ import org.olat.core.gui.control.navigation.NavElement;
 import org.olat.core.gui.control.navigation.SiteConfiguration;
 import org.olat.core.gui.control.navigation.SiteDefinition;
 import org.olat.core.gui.control.navigation.SiteInstance;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.StateSite;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.util.logging.activity.LoggingResourceable;
 
 import de.unileipzig.xman.esf.controller.ESFLaunchController;
 
@@ -38,6 +44,10 @@ public class ElectronicStudentFileSite extends AbstractSiteInstance implements S
 
 	@Override
 	protected Controller createController(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
-		return new ESFLaunchController(ureq, wControl);
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ElectronicStudentFileSite.class, 0l);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ureq, ores, new StateSite(this), wControl, true);
+
+		return new ESFLaunchController(ureq, bwControl);
 	}
 }
