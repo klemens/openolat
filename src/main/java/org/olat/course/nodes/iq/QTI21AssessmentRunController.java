@@ -42,7 +42,6 @@ import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
@@ -54,9 +53,11 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.course.CourseModule;
 import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
+import org.olat.course.assessment.manager.AssessmentNotificationsHandler;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.AssessableCourseNode;
@@ -127,6 +128,10 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 	
 	@Autowired
 	private QTI21Service qtiService;
+	@Autowired
+	private CourseModule courseModule;
+	@Autowired
+	private AssessmentNotificationsHandler assessmentNotificationsHandler;
 	
 	public QTI21AssessmentRunController(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, QTICourseNode courseNode) {
@@ -143,6 +148,9 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 		mainVC = createVelocityContainer("assessment_run");
 						
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
+		
+		mainVC.contextPut("infobox", courseModule.isDisplayInfoBox());
+		mainVC.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
 		
 		if(courseNode instanceof IQTESTCourseNode) {
 			mainVC.contextPut("type", "test");
@@ -227,6 +235,10 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 				mainVC.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 				mainVC.contextPut("passed", scoreEval.getPassed());
 				mainVC.contextPut("attempts", attempts); //at least one attempt
+				mainVC.contextPut("showChangeLog", Boolean.TRUE && enableScoreInfo);
+				exposeResults(true);
+			} else {
+				exposeResults(false);
 			}
 		} else if(courseNode instanceof IQTESTCourseNode) {
 			IQTESTCourseNode testCourseNode = (IQTESTCourseNode)courseNode;
@@ -238,6 +250,7 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 				mainVC.contextPut("passed", Boolean.FALSE);
 				mainVC.contextPut("comment", null);
 				mainVC.contextPut("attempts", 0);
+				mainVC.contextPut("showChangeLog", Boolean.FALSE);
 			} else {
 				Boolean passed = assessmentEntry.getPassed();
 				//block if test passed (and config set to check it)
@@ -248,7 +261,6 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 				}
 				mainVC.contextPut("blockAfterSuccess", blocked);
 				
-				Identity identity = userCourseEnv.getIdentityEnvironment().getIdentity();
 				boolean resultsVisible = assessmentEntry.getUserVisibility() == null || assessmentEntry.getUserVisibility().booleanValue();
 				mainVC.contextPut("resultsVisible", resultsVisible);
 				mainVC.contextPut("score", AssessmentHelper.getRoundedScore(assessmentEntry.getScore()));
@@ -262,11 +274,8 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 				}
 				Integer attempts = assessmentEntry.getAttempts();
 				mainVC.contextPut("attempts", attempts == null ? new Integer(0) : attempts);
-				
-				if(!anonym) {
-					UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
-					mainVC.contextPut("log", am.getUserNodeLog(courseNode, identity));
-				}
+				boolean showChangelog = (!anonym && enableScoreInfo && resultsVisible && isResultVisible(config));
+				mainVC.contextPut("showChangeLog", showChangelog);
 				
 				if(deliveryOptions.isDigitalSignature()) {
 					AssessmentTestSession session = qtiService.getAssessmentTestSession(assessmentEntry.getAssessmentId());
@@ -284,10 +293,11 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 						}
 					}
 				}
+
+				exposeResults(resultsVisible);
 			}
 		}
 		
-		exposeResults();
 	}
 	
 	private void checkChats (UserRequest ureq) {
@@ -305,19 +315,19 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 	}
 	
 	/**
-	 * WARNING! The variables showResultsOnHomePage, showResultsVisible and showChangelog are not used 
+	 * WARNING! The variables  and are not used 
 	 * in the velocity template and the CONFIG_KEY_RESULT_ON_HOME_PAGE is not editable
 	 * in the configuration of the course element for QTI 2.1!!!!
 	 * 
 	 * Provides the show results button if results available or a message with the visibility period.
+	 * 
 	 * @param ureq
 	 */
-	private void exposeResults() {
+	private void exposeResults(boolean resultsVisible) {
 		//migration: check if old tests have no summary configured
 		boolean showResultsOnHomePage = config.getBooleanSafe(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);
-		
 		QTI21AssessmentResultsOptions showSummary = deliveryOptions.getAssessmentResultsOptions();
-		if(!showSummary.none()) {
+		if(resultsVisible && !showSummary.none()) {
 			mainVC.contextPut("showResultsOnHomePage", new Boolean(showResultsOnHomePage));			
 			boolean dateRelatedVisibility = isResultVisible(config);		
 			if(showResultsOnHomePage && dateRelatedVisibility) {
@@ -342,12 +352,17 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 				String visibilityPeriod = getTranslator().translate("showResults.visibility", new String[] { visibilityStartDate, visibilityEndDate});
 				mainVC.contextPut("visibilityPeriod", visibilityPeriod);
 				mainVC.contextPut("showResultsVisible", Boolean.FALSE);
+			} else {
+				mainVC.contextPut("showResultsVisible", Boolean.FALSE);
 			}
+		} else {
+			mainVC.contextPut("showResultsVisible", Boolean.FALSE);
 		}
 		
-		UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
-		mainVC.contextPut("log", am.getUserNodeLog(courseNode, getIdentity()));	
-		mainVC.contextPut("showChangelog", showResultsOnHomePage);
+		if(!anonym && resultsVisible) {
+			UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
+			mainVC.contextPut("log", am.getUserNodeLog(courseNode, getIdentity()));	
+		}
 	}
 	
 	private boolean isResultVisible(ModuleConfiguration modConfig) {
@@ -410,11 +425,11 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 		if (source == displayCtrl) {
 			if(event == Event.CANCELLED_EVENT) {
 				doExitAssessment(ureq, event, false);
-				exposeResults();
+				initAssessment(ureq);
 				showInfo("assessment.test.cancelled");
 			} else if("suspend".equals(event.getCommand())) {
 				doExitAssessment(ureq, event, false);
-				exposeResults();
+				initAssessment(ureq);
 				showInfo("assessment.test.suspended");
 			} else if(event instanceof QTI21Event) {
 				QTI21Event qe = (QTI21Event)event;
@@ -457,7 +472,7 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 			File fUnzippedDirRoot = frm.unzipFileResource(session.getTestEntry().getOlatResource());
 			URI assessmentObjectUri = qtiService.createAssessmentTestUri(fUnzippedDirRoot);
 			File submissionDir = qtiService.getAssessmentResultFile(session);
-			String mapperUri = registerCacheableMapper(null, "QTI21CNResults::" + session.getTestEntry().getKey(),
+			String mapperUri = registerCacheableMapper(ureq, "QTI21CNResults::" + session.getTestEntry().getKey(),
 					new ResourcesMapper(assessmentObjectUri, submissionDir));
 
 			resultCtrl = new AssessmentResultController(ureq, getWindowControl(), getIdentity(), true, session,
@@ -633,7 +648,10 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 
 	@Override
 	public void submit(Float score, Boolean pass, Long assessmentId) {
-		if(anonym) return;
+		if(anonym) {
+			assessmentNotificationsHandler.markPublisherNews(getIdentity(), userCourseEnv.getCourseEnvironment().getCourseResourceableId());
+			return;
+		}
 		
 		if(courseNode instanceof IQTESTCourseNode) {
 			Boolean visibility;
@@ -652,6 +670,8 @@ public class QTI21AssessmentRunController extends BasicController implements Gen
 			if(increment) {
 				ThreadLocalUserActivityLogger.log(QTI21LoggingAction.QTI_CLOSE_IN_COURSE, getClass());
 			}
+
+			assessmentNotificationsHandler.markPublisherNews(getIdentity(), userCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		} else if(courseNode instanceof SelfAssessableCourseNode) {
 			boolean increment = incrementAttempts.getAndSet(false);
 			if(increment) {
