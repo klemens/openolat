@@ -225,14 +225,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				updateExam(ureq, exam);
 			} else if(event == Event.CLOSE_EVENT) {
-				// close the tab we are in
-				DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
-				if (tabs != null) {
-					DTab tab = tabs.getDTab(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam).getOlatResource());
-					if (tab != null) {
-						tabs.removeDTab(ureq, tab);
-					}
-				}
+				// close the tab we are in (without providing a previous history point)
+				getWindowControl().getWindowBackOffice().getWindow().getDTabs()
+					.closeDTab(ureq, ExamDBManager.getInstance().findRepositoryEntryOfExam(exam).getOlatResource(), null);
 			}
 		} else if (source == editorLink) {
 			try {

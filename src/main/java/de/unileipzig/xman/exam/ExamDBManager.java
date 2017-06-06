@@ -121,6 +121,15 @@ public class ExamDBManager {
 	
 	/**
 	 * @param exam
+	 * @return the RepositoryEntry key of the given exam
+	 */
+	public Long findRepositoryEntryKey(Exam exam) {
+		OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
+		return RepositoryManager.getInstance().lookupRepositoryEntryKey(ores, true);
+	}
+
+	/**
+	 * @param exam
 	 * @return true if exam is closed 
 	 */
 	public boolean isClosed(Exam exam){
