@@ -6,6 +6,8 @@ import java.util.List;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.panel.StackedPanel;
+import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
@@ -46,11 +48,6 @@ import de.unileipzig.xman.esf.table.ESFTableModel;
  * @author gerb
  */
 public class ExamAdminESFController extends BasicController {
-
-	private static final String VELOCITY_ROOT = Util
-			.getPackageVelocityRoot(ExamAdminSite.class);
-
-	private Translator translator;
 	private VelocityContainer mainVC;
 
 	private TableController esfTableCtr;
@@ -63,6 +60,8 @@ public class ExamAdminESFController extends BasicController {
 	private DialogBoxController deleteDialog;
 	private List<ElectronicStudentFile> esfList;
 
+	private BreadcrumbedStackedPanel stack;
+
 	/**
 	 * 
 	 * @param ureq
@@ -70,11 +69,15 @@ public class ExamAdminESFController extends BasicController {
 	 * @param provideLaunchButton
 	 *            - true, for showing all esf which are NOT validated yet
 	 */
-	protected ExamAdminESFController(UserRequest ureq, WindowControl wControl) {
+	protected ExamAdminESFController(UserRequest ureq, WindowControl wControl, BreadcrumbedStackedPanel stack) {
 		super(ureq, wControl);
 
-		this.translator = Util.createPackageTranslator(ExamAdminSite.class, ureq.getLocale());
-		this.mainVC = new VelocityContainer("examCategories", VELOCITY_ROOT + "/esf.html", translator, this);
+		setTranslator(Util.createPackageTranslator(ExamAdminSite.class, ureq.getLocale()));
+
+		this.stack = stack;
+
+		setVelocityRoot(Util.getPackageVelocityRoot(ExamAdminSite.class));
+		this.mainVC = createVelocityContainer("examCategories", "esf");
 
 		init(ureq, wControl);
 		
@@ -100,14 +103,14 @@ public class ExamAdminESFController extends BasicController {
 		esfTableConfig.setMultiSelect(true);
 		esfTableConfig.setDownloadOffered(true);
 		esfTableConfig.setPageingEnabled(true);
-		esfTableConfig.setTableEmptyMessage(translator.translate("ExamAdminESFController.emptyTableMessage"));
+		esfTableConfig.setTableEmptyMessage(translate("ExamAdminESFController.emptyTableMessage"));
 		esfTableConfig.setShowAllLinkEnabled(true);
 		esfTableConfig.setPreferencesOffered(true, "pref");
-		esfTableCtr = new TableController(esfTableConfig, ureq, wControl, translator, true /*enableTableSearch*/);
+		esfTableCtr = new TableController(esfTableConfig, ureq, wControl, getTranslator(), true /*enableTableSearch*/);
 		esfTableCtr.setMultiSelect(true);
 		esfTableCtr.addMultiSelectAction("ExamAdminESFController.delete", ESFTableModel.COMMAND_DELETE);
 		esfTableCtr.addMultiSelectAction("ExamAdminESFController.sendMail", ESFTableModel.COMMAND_SENDMAIL);
-		esfTableMdl = new ESFTableModel(translator.getLocale(), esfList);
+		esfTableMdl = new ESFTableModel(getLocale(), esfList);
 		esfTableMdl.setTable(esfTableCtr);
 		esfTableCtr.setTableDataModel(esfTableMdl);
 		// 0+1 because multiselection counts as 1 (0 is username)
@@ -125,7 +128,6 @@ public class ExamAdminESFController extends BasicController {
 		this.esfTableCtr = null;
 		this.esfTableMdl = null;
 		this.mainVC = null;
-		this.translator = null;
 	}
 
 	/**
@@ -153,23 +155,11 @@ public class ExamAdminESFController extends BasicController {
 
 				// somebody wants to open an esf
 				if (actionID.equals(ESFTableModel.COMMAND_OPEN)) {
-
 					ElectronicStudentFile esf = (ElectronicStudentFile) esfTableCtr.getTableDataModel().getObject(te.getRowId());
-					OLATResourceable ores = OLATResourceManager.getInstance()
-							.findResourceable(esf.getResourceableId(),
-									ElectronicStudentFile.ORES_TYPE_NAME);
 
-					// add the esf in a dtab
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						ESFEditController esfLaunchCtr = new ESFEditController(ureq, getWindowControl(), esf);
-						dt = dts.createDTab(ores, null, esfLaunchCtr, esf.getIdentity().getName());
-						if (dt == null) return;
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
+					// add the esf to stack
+					ESFEditController esfEditCtr = new ESFEditController(ureq, getWindowControl(), esf);
+					stack.pushController(esf.getIdentity().getName(), esfEditCtr);
 				}
 			}
 
@@ -185,11 +175,11 @@ public class ExamAdminESFController extends BasicController {
 
 				if (tmse.getAction().equals(ESFTableModel.COMMAND_DELETE)) {
 					if (esfList.size() == 0) {
-						getWindowControl().setWarning(translator.translate("ExamAdminESFController.nobodySelected"));
+						getWindowControl().setWarning(translate("ExamAdminESFController.nobodySelected"));
 					} else {
 						deleteDialog = DialogBoxUIFactory.createOkCancelDialog(ureq, this.getWindowControl(),
-										translator.translate("ExamAdminESFController.deleteESF.title"),
-										translator.translate("ExamAdminESFController.deleteESF.text"));
+										translate("ExamAdminESFController.deleteESF.title"),
+										translate("ExamAdminESFController.deleteESF.text"));
 						deleteDialog.addControllerListener(this);
 						deleteDialog.activate();
 					}
@@ -248,8 +238,7 @@ public class ExamAdminESFController extends BasicController {
 			ContactMessage contactMsg = new ContactMessage(ureq.getIdentity());
 
 			// create the recipients list
-			ContactList emailList = new ContactList(translator
-					.translate("ExamAdminESFController.sendMails.recipients"));
+			ContactList emailList = new ContactList(translate("ExamAdminESFController.sendMails.recipients"));
 
 			// add selected students to to-list of email
 			for (ElectronicStudentFile esf : esfList) {
@@ -263,7 +252,7 @@ public class ExamAdminESFController extends BasicController {
 			listenTo(contactFormController);
 
 			sendMailCtr = new CloseableModalController(getWindowControl(),
-					translator.translate("close"), contactFormController
+					translate("close"), contactFormController
 							.getInitialComponent());
 			this.listenTo(sendMailCtr);
 			sendMailCtr.activate();
@@ -271,9 +260,7 @@ public class ExamAdminESFController extends BasicController {
 
 			this
 					.getWindowControl()
-					.setInfo(
-							translator
-									.translate("ExamAdminESFController.sendEmail.nothingSelected"));
+					.setInfo(translate("ExamAdminESFController.sendEmail.nothingSelected"));
 		}
 	}
 }

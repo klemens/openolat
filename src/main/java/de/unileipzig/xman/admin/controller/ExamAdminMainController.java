@@ -31,7 +31,7 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 	private MenuTree menu;
 	private LayoutMain3ColsController mainLayout;
 
-	private ExamAdminESFController esfCtr;
+	private ExamAdminESFMainController esfCtr;
 	private ExamAdminStudyPathController studyPathCtr;
 	private AdminArchiveController archiveCtr;
 
@@ -86,7 +86,7 @@ public class ExamAdminMainController extends MainLayoutBasicController implement
 				ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
 
-				esfCtr = new ExamAdminESFController(ureq, bwControl);
+				esfCtr = new ExamAdminESFMainController(ureq, bwControl);
 				listenTo(esfCtr);
 			}
 			selectedController = esfCtr;
