@@ -16,6 +16,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
+import org.olat.core.gui.components.stack.BreadcrumbedStackedPanel;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
@@ -26,8 +27,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -36,6 +35,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.util.Util;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
+import org.olat.user.UserManager;
 
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.admin.mail.form.MailForm;
@@ -56,6 +56,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	
 	private Exam exam;
 	private VelocityContainer mainVC;
+	private BreadcrumbedStackedPanel stack;
 	
 	private TableController appointmentTable;
 	private AppointmentLecturerOralTableModel appointmentTableModel;
@@ -86,7 +87,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	 * @param exam The oral exam to manage
 	 * @throws InvalidParameterException
 	 */
-	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, Exam exam) {
+	protected ExamLecturerOralController(UserRequest ureq, WindowControl wControl, Exam exam, BreadcrumbedStackedPanel stack) {
 		super(ureq, wControl);
 		
 		if(!exam.getIsOral())
@@ -94,6 +95,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 		
 		setTranslator(Util.createPackageTranslator(Exam.class, ureq.getLocale()));
 		this.exam = exam;
+		this.stack = stack;
 		
 		mainVC = new VelocityContainer("examStudentView", Exam.class, "examLecturerOralView", getTranslator(), this);
 
@@ -155,19 +157,9 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				 */
 				if(tableEvent.getActionId().equals(AppointmentLecturerOralTableModel.ACTION_USER)) {
 					Protocol p = appointmentTableModel.getProtocol(appointmentTableModel.getObject(tableEvent.getRowId()));
-					
-					OLATResourceable ores = HomePageConfigManagerImpl.getInstance().loadConfigFor(p.getIdentity().getName());
 
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist
-						UserInfoMainController uimc = new UserInfoMainController(ureq, getWindowControl(), p.getIdentity(), false, false);
-						dt = dts.createDTab(ores, null, uimc, p.getIdentity().getName());
-						if (dt == null) return;
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
+					UserInfoMainController uimc = new UserInfoMainController(ureq, getWindowControl(), p.getIdentity(), false, false);
+					stack.pushController(UserManager.getInstance().getUserDisplayName(p.getIdentity()), uimc);
 				}
 			} else if(event instanceof TableMultiSelectEvent) {
 				TableMultiSelectEvent tableEvent = (TableMultiSelectEvent) event;

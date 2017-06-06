@@ -15,8 +15,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
@@ -130,9 +128,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			toolbarStack.rootController(exam.getName(), examController);
 		} else if(view == View.LECTURER) {
 			if(exam.getIsOral()) {
-				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam);
+				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam, toolbarStack);
 			} else {
-				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam);
+				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam, toolbarStack);
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.rootController(exam.getName(), examController);
