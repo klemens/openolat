@@ -47,6 +47,7 @@ import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.config.CourseConfig;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.nodes.ObjectivesHelper;
@@ -96,6 +97,13 @@ public class STCourseNodeRunController extends BasicController {
 		myContent = createVelocityContainer("run");
 		myContent.setDomReplacementWrapperRequired(false); // we provide our own DOM replacement ID
 		
+		if (se != null){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, wControl, userCourseEnv, stCourseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				myContent.put("highScore", highScoreComponent);							
+			}
+		}
 		// read display configuration
 		ModuleConfiguration config = stCourseNode.getModuleConfiguration();
 		// configure number of display rows

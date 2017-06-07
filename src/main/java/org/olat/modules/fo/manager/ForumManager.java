@@ -27,6 +27,7 @@ package org.olat.modules.fo.manager;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -228,6 +229,19 @@ public class ForumManager {
 				.getResultList();
 		
 	}
+	
+	public List<Message> getTopMessageChildren(Message topMessage) {
+		StringBuilder query = new StringBuilder();
+		query.append("select msg from fomessage as msg")
+	     .append(" left join fetch msg.creator as creator")
+	     .append(" left join fetch msg.modifier as modifier")
+	     .append(" where msg.threadtop.key=:messageKey")
+	     .append(" order by msg.creationDate asc");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(query.toString(), Message.class)
+				.setParameter("messageKey", topMessage.getKey())
+				.getResultList();		
+	}	
 	
 	private int countMessagesByForumID(Long forumKey, boolean onlyThreads) {
 		StringBuilder query = new StringBuilder();
@@ -905,6 +919,16 @@ public class ForumManager {
 				.getResultList();
 		return count == null || count.isEmpty() || count.get(0) == null ? 0 : count.get(0).intValue();
 	}
+	
+	public void countMessageChildrenRecursively(Message message, Set<Long> messageKeys) {
+		List<Message> children = getMessageChildren(message);
+		for (Message child : children) {
+			messageKeys.add(child.getKey());
+			if (hasChildren(child)){
+				countMessageChildrenRecursively(child, messageKeys);
+			}
+		}	
+	}
 
 	/**
 	 * deletes entry of one message
@@ -1042,26 +1066,176 @@ public class ForumManager {
 		}
 
 		final Message oldMessage = getMessageById(msg.getKey());
-		Message message = createMessage(oldMessage.getForum(), oldMessage.getCreator(), oldMessage.isGuest());
-		((MessageImpl)message).setCreationDate(oldMessage.getCreationDate());
-		message.setLastModified(oldMessage.getLastModified());
-		message.setModifier(oldMessage.getModifier());
-		message.setTitle(oldMessage.getTitle());
-		message.setBody(oldMessage.getBody());
-		message.setPseudonym(oldMessage.getPseudonym());
-		message.setThreadtop(targetThread);
-		message.setParent(topMsg);
-		Status status = Status.getStatus(oldMessage.getStatusCode());
-		status.setMoved(true);
-		message.setStatusCode(Status.getStatusCode(status));
-		message = saveMessage(message);
-		
+		Message message = persistMessageInAnotherLocation(msg, oldMessage.getForum(), targetThread, topMsg);
+	
 		//move marks
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Forum.class, msg.getForum().getKey());
 		markingService.getMarkManager().moveMarks(ores, msg.getKey().toString(), message.getKey().toString());
 		
 		moveMessageContainer(oldMessage.getForum().getKey(), oldMessage.getKey(), message.getForum().getKey(), message.getKey());
 		deleteMessageRecursion(oldMessage.getForum().getKey(), oldMessage);
+		return message;
+	}
+	
+	
+	/**
+	 * Collect message children recursively.
+	 *
+	 * @param oldParent
+	 * @param setOfIdentity 
+	 */
+	public void collectThreadMembersRecursively(Message oldParent, Set<Identity> setOfIdentity, Map<Identity, String> pseudonymes) {
+		List<Message> children = getMessageChildren(oldParent);
+		children.sort(new Comparator<Message>() {
+			@Override
+			public int compare(Message o1, Message o2) {
+				if (o1 == null) return 1;
+				if (o2 == null) return -1;
+				// move posts with pseudonyms toward low indices in list
+				if (o1.getPseudonym() == null && o2.getPseudonym() != null) {
+					return 1;
+				} else if (o1.getPseudonym() != null && o2.getPseudonym() == null) {
+					return -1;
+				} else {
+					return o1.getCreationDate().compareTo(o2.getCreationDate());
+				}
+			}
+		});
+		for (Message child : children) {
+			if (!child.isGuest()) {
+				Identity creator = child.getCreator();
+				if (creator != null) {
+					setOfIdentity.add(creator);
+					String pseudonym = child.getPseudonym();
+					if(pseudonym != null) {
+						pseudonymes.put(creator, pseudonym);
+					} else if (pseudonymes.containsKey(creator)) {
+						// remove entry if thread also contains same identity without pseudonym 
+						pseudonymes.remove(creator);
+					}
+				}
+				Identity modifier = child.getModifier();
+				if (creator != null && modifier != null) {
+					setOfIdentity.add(modifier);
+				}
+			}
+			if (hasChildren(child)) {
+				collectThreadMembersRecursively(child, setOfIdentity, pseudonymes);
+			}			
+		}
+	}
+
+	/**
+	 * Move thread to another forum recursively.
+	 *
+	 * @param oldParent the OLD parent message
+	 * @param newParent the NEW parent message
+	 * @param topMsg the top message
+	 * @return the message
+	 */
+	private Message moveThreadToAnotherForumRecursively(Message oldParent, Message newParent, Message topMsg) {
+		// 1) get direct children of the old top message
+		List<Message> children = getMessageChildren(oldParent);
+		Message message = null;
+		// 2) iterate all first level children
+		for (Message child : children) {
+			Message oldMessage = getMessageById(child.getKey());
+			topMsg = getMessageById(topMsg.getKey());
+			message = persistMessageInAnotherLocation(oldMessage, topMsg.getForum(), topMsg, newParent);
+			// 3) move the message container to a new destination
+			moveMessageContainer(oldMessage.getForum().getKey(), oldMessage.getKey(), 
+					message.getForum().getKey(), message.getKey());
+			// 4) do recursion if children are available
+			if (hasChildren(child)) {
+				moveThreadToAnotherForumRecursively(child, message, topMsg);				
+			}
+		}
+		return message;
+	}	
+	
+	/**
+	 * Creates new thread in another forum or appends selected thread to another thread in another forum.
+	 *
+	 * @param msg the OLD parent message
+	 * @param the destination forum
+	 * @param topMsg the top message
+	 * @return the message
+	 */
+	public Message createOrAppendThreadInAnotherForum(Message msg, Forum forum, Message topMsg) {
+		Message oldMessage = getMessageById(msg.getKey());
+		Message message = persistMessageInAnotherLocation(oldMessage, forum, topMsg, topMsg);
+		// reload message from database
+		message = getMessageById(message.getKey());
+		moveMessageContainer(oldMessage.getForum().getKey(), oldMessage.getKey(), 
+				message.getForum().getKey(), message.getKey());
+		
+		if (hasChildren(oldMessage)) {
+			if (topMsg != null) {
+				// if added to an existing thread choose its top message
+				message = moveThreadToAnotherForumRecursively(oldMessage, message, message.getThreadtop());
+			} else {
+				// if a new thread is created in a forum the parent message is also the top message
+				message = moveThreadToAnotherForumRecursively(oldMessage, message, message);
+			}
+		}
+		// deletes all children of the old top message recursively
+		deleteMessageRecursion(oldMessage.getForum().getKey(), oldMessage);
+		
+		return message;
+	}	
+	
+
+	/**
+	 * Move single message to another forum.
+	 *
+	 * @param msg the OLD parent message
+	 * @param topMsg the NEW top message
+	 * @return the message
+	 */
+	public Message moveMessageToAnotherForum(Message msg, Forum forum, Message topMsg) {
+		Message targetThread = null;
+		if (topMsg != null) {
+			targetThread = topMsg.getThreadtop();
+			if (targetThread == null) {
+				targetThread = topMsg;
+			}
+			targetThread = getMessageById(targetThread.getKey());
+		}
+		final Message oldParent = getMessageById(msg.getKey());
+		// one has to set a new parent for all children of the moved message
+		Message newParent = persistMessageInAnotherLocation(oldParent, forum, targetThread, topMsg);		
+		moveMessageContainer(oldParent.getForum().getKey(), oldParent.getKey(), newParent.getForum().getKey(), newParent.getKey());
+		targetThread = targetThread == null ? newParent : targetThread;
+		if (hasChildren(oldParent)) {
+			moveThreadToAnotherForumRecursively(oldParent, newParent, targetThread);
+		}
+		deleteMessageRecursion(oldParent.getForum().getKey(), oldParent);
+		return newParent;
+	}
+	
+	/**
+	 * Persist message in another location.
+	 */
+	private Message persistMessageInAnotherLocation(Message oldMessage, Forum forum, Message top, Message parent) {
+		// 1) take the new top messages forum to create a new child
+		Message message = createMessage(forum, oldMessage.getCreator(), oldMessage.isGuest());
+		((MessageImpl)message).setCreationDate(oldMessage.getCreationDate());
+		message.setLastModified(oldMessage.getLastModified());
+		message.setModifier(oldMessage.getModifier());
+		message.setTitle(oldMessage.getTitle());
+		message.setBody(oldMessage.getBody());
+		message.setPseudonym(oldMessage.getPseudonym());
+		// 2) set the thread top to the new top message
+		message.setThreadtop(top);
+		// 3) maintain the hierarchy, parent and top message can be equal 
+		message.setParent(parent);
+		Status status = Status.getStatus(oldMessage.getStatusCode());
+		if (status != null){
+			status.setMoved(true);
+			message.setStatusCode(Status.getStatusCode(status));
+		}
+		// 4) save the new massage in the new destination
+		message = saveMessage(message);
 		return message;
 	}
 	

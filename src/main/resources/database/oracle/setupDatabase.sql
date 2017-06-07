@@ -259,6 +259,7 @@ CREATE TABLE o_user (
    u_telprivate varchar2(255 char),
    u_telmobile varchar2(255 char),
    u_teloffice varchar2(255 char),
+   u_smstelmobile varchar2(255 char),
    u_skype varchar2(255 char),
    u_msn varchar2(255 char),
    u_xing varchar2(255 char),
@@ -1193,6 +1194,7 @@ create table o_as_entry (
    a_status varchar2(16 char) default null,
    a_details varchar2(1024 char) default null,
    a_fully_assessed number default null,
+   a_user_visibility number default 1,
    a_assessment_id number(20) default null,
    a_completion float,
    a_comment clob,
@@ -1341,6 +1343,19 @@ create table o_vid_transcoding (
    primary key (id)
 );
 
+create table o_vid_metadata (
+  id number(20) GENERATED ALWAYS AS IDENTITY,
+  creationdate date not null,
+  lastmodified date not null,
+  vid_width number(20) default null,
+  vid_height number(20) default null,
+  vid_size number(20) default null,
+  vid_format varchar2(32 char) default null,
+  vid_length varchar2(32 char) default null,
+  fk_resource_id number(20) not null,
+  primary key (id)
+);
+
 -- calendar
 create table o_cal_use_config (
    id number(20) not null,
@@ -1452,7 +1467,7 @@ create table o_qti_assessmenttest_session (
    q_storage varchar2(1024 char),
    fk_reference_entry number(20) not null,
    fk_entry number(20),
-   q_subident varchar2(64 char),
+   q_subident varchar2(255 char),
    fk_identity number(20) default null,
    q_anon_identifier varchar2(128 char) default null,
    fk_assessment_entry number(20) not null,
@@ -1463,9 +1478,9 @@ create table o_qti_assessmentitem_session (
    id number(20) GENERATED ALWAYS AS IDENTITY,
    creationdate date not null,
    lastmodified date not null,
-   q_itemidentifier varchar2(64 char) not null,
-   q_sectionidentifier varchar2(64 char) default null,
-   q_testpartidentifier varchar2(64 char) default null,
+   q_itemidentifier varchar2(255 char) not null,
+   q_sectionidentifier varchar2(255 char) default null,
+   q_testpartidentifier varchar2(255 char) default null,
    q_duration number(20),
    q_score decimal default null,
    q_manual_score decimal default null,
@@ -1933,6 +1948,18 @@ create table o_co_db_entry (
    longvalue number(20),
    stringvalue varchar(255 char),
    textvalue varchar2(4000 char),
+   primary key (id)
+);
+
+-- sms
+create table o_sms_message_log (
+   id number(20) GENERATED ALWAYS AS IDENTITY,
+   creationdate date not null,
+   lastmodified date not null,
+   s_message_uuid varchar2(256 char) not null,
+   s_server_response varchar2(256 char),
+   s_service_id varchar2(32 char) not null,
+   fk_identity number(20) not null,
    primary key (id)
 );
 
@@ -2668,6 +2695,8 @@ alter table o_vid_transcoding add constraint fk_resource_id_idx foreign key (fk_
 create index idx_vid_trans_resource_idx on o_vid_transcoding(fk_resource_id);
 create index vid_status_trans_idx on o_vid_transcoding(vid_status);
 create index vid_transcoder_trans_idx on o_vid_transcoding(vid_transcoder);
+alter table o_vid_metadata add constraint vid_meta_rsrc_idx foreign key (fk_resource_id) references o_olatresource (resource_id);
+create index idx_vid_meta_rsrc_idx on o_vid_metadata(fk_resource_id);
 
 -- calendar
 alter table o_cal_use_config add constraint cal_u_conf_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
@@ -2869,6 +2898,10 @@ alter table o_cer_certificate add constraint cer_to_resource_idx foreign key (fk
 create index cer_resource_idx on o_cer_certificate (fk_olatresource);
 create index cer_archived_resource_idx on o_cer_certificate (c_archived_resource_id);
 create index cer_uuid_idx on o_cer_certificate (c_uuid);
+
+-- sms
+alter table o_sms_message_log add constraint sms_log_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_sms_log_to_identity_idx on o_sms_message_log(fk_identity);
 
 -- o_logging_table
 create index log_target_resid_idx on o_loggingtable(targetresid);

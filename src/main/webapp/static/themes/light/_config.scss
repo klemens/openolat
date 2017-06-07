@@ -25,6 +25,7 @@
 	Add your custom font sizes and other bootstrap overrides here. 
 	Full spec here: http://getbootstrap.com/customize/
 */
+$input-bg-disabled				: #fafafa !default; /* lighter than default bootstrap */
 
 /* 	Add standard bootstrap variables to the mix */
 @import "../../bootstrap/stylesheets/bootstrap/variables";
@@ -358,6 +359,50 @@ $o-portfolio-lead-border-color						: darken($o-portfolio-lead-background-color,
 $o-portfolio-lead-border-radius						: $border-radius-small !default;
 $o-portfolio-page-summary-font-size					: $font-size-large !default;
 
+/* QTI2 eAssessment */
+$o-qti-status-notPresented-color					: lighten($text-muted,40%) !default;
+$o-qti-status-notAnswered-color						: $brand-warning !default;
+$o-qti-status-answered-color						: $brand-success !default;
+$o-qti-status-ended-color							: $brand-info !default;
+$o-qti-status-invalid-color							: $brand-danger !default;
+$o-qti-status-review-color							: $brand-info !default;
+$o-qti-attempts-color								: $text-muted !default;
+$o-qti-attempts-limited-color						: $brand-warning !default;
+$o-qti-attempts-nomore-color						: $brand-info !default;
+$o-qti-menu-link-color								: $o-tree-link-color !default;
+$o-qti-menu-link-hover-color						: $o-tree-link-hover-color !default;
+$o-qti-menu-link-active-color						: $o-tree-link-active-color !default;
+$o-qti-menu-link-active-hover-color					: $o-tree-link-active-hover-color !default;
+$o-qti-menu-link-active-hover-bg					: $o-tree-link-active-hover-bg !default;
+$o-qti-menu-link-active-font-weight					: $o-tree-link-active-font-weight !default;
+$o-qti-menu-bg										: $o-toolbar-bg-color !default;
+$o-qti-menu-border-color							: $o-toolbar-border-color !default;
+$o-qti-menu-border-radius							: $border-radius-base !default;
+$o-qti-item-title-bg								: $o-qti-menu-bg !default;
+$o-qti-item-title-border-color						: $o-qti-menu-border-color !default;
+$o-qti-item-title-border-radius						: $o-qti-menu-border-radius !default;
+$o-qti-item-min-height								: 200px !default;
+$o-qti-item-border-color							: $o-qti-menu-border-color !default;
+$o-qti-item-controls-bg								: $o-qti-menu-bg !default;
+$o-qti-item-controls-border-color					: $o-qti-menu-border-color !default;
+$o-qti-item-controls-border-radius					: $o-qti-menu-border-radius !default;
+$o-qti-run-infos-bg									: $o-qti-menu-bg !default;
+$o-qti-run-infos-border-color						: $o-qti-menu-border-color !default;
+$o-qti-run-infos-border-radius						: $o-qti-menu-border-radius !default;
+$o-qti-run-infos-progress-bg						: #eee !default;
+$o-qti-badResponse-color							: $brand-danger !default;
+$o-qti-highlight-color								: $brand-danger !default;
+$o-qti-bar-green									: $brand-success !default;
+$o-qti-bar-red										: $brand-danger !default;
+$o-qti-success										: $brand-success !default;
+$o-qti-failure										: $brand-warning !default;
+$o-qti-error										: $brand-danger !default;
+$o-qti-box-bg										: #eee !default;
+$o-qti-box-color									: #666 !default;
+$o-qti-choice-tablelayout-bg						: #e7e7e7 !default;
+$o-qti-gap-border-color								: #999 !default;
+$o-qti-gap-drag-border-color						: $brand-primary !default;
+$o-qti-gap-selected-border-color					: $brand-primary !default;
 
 
 /* Chat and other floating window */
@@ -454,6 +499,50 @@ $o-datecomp-month-bg			: $brand-primary !default;
 $o-datecomp-month-color			: #fff !default;
 $o-datecomp-day-bg				: $body-bg !default;
 $o-datecomp-day-color			: $text-color !default;
+
+/* Highscore component */
+$o-hs-position-title-color			: gradient !default;
+$o-hs-position-title-size			: 3em !default;
+$o-hs-position-title-weight			: 700 !default;
+$o-hs-position-size					: 1.2em !default;
+$o-hs-position-weight				: bold !default;
+$o-hs-position-relative-size		: 1em !default;	
+$o-hs-position-relative-weight		: normal !default;	
+
+$o-hs-podium-border					: 1px solid #d9d9d9 !default;
+$o-hs-podium-border-radius			: $panel-border-radius !default;
+$o-hs-podium-bg-gradientstyle		: true !default;
+$o-hs-podium-first-bg				: #FFD700 !default;
+$o-hs-podium-second-bg				: #C0C0C0 !default;
+$o-hs-podium-third-bg				: #cd7f32 !default;
+
+$o-hs-score-color					: $text-muted !default;
+$o-hs-score-size					: 90% !default;
+$o-hs-rank-first-color				: #666 !default;
+$o-hs-rank-second-color				: #666 !default;
+$o-hs-rank-third-color				: #666 !default;
+
+$o-hs-podium-height					: 300px !default;
+$o-hs-podium-margin-bottom			: 50px !default;
+$o-hs-podium-first-height			: 150px !default;
+$o-hs-podium-second-height			: 100px !default;
+$o-hs-podium-third-height			: 80px !default;
+
+$o-hs-singleportrait-vertical-align	: -125px !default;
+$o-hs-position-height				: 30px !default;
+$o-hs-position-fontsize				: 130% !default;
+
+$o-hs-histogram-height				: 300px !default;
+$o-hs-histogram-bottom				: -40px !default;
+$o-hs-histogram-margin-bottom		: 40px !default;
+
+$o-hs-histogram-axis-color				: #888 !default;
+$o-hs-histogram-text-color				: #888 !default;
+$o-hs-histogram-bar-myself-color		: $brand-primary !default;
+$o-hs-histogram-bar-myself-hover-color	: lighten($brand-primary,10%) !default;
+$o-hs-histogram-bar-other-color			: $gray-light !default;
+$o-hs-histogram-bar-other-hover-color	: lighten($gray-light, 10%) !default;
+$o-hs-histogram-bar-empty-color			: black !default;
 
 /* Process step component */
 $o-step-border-width		: 4px !default;

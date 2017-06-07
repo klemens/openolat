@@ -19,6 +19,8 @@
  */
 package org.olat.ims.qti21.ui.editor;
 
+import java.io.File;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
@@ -28,6 +30,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.Util;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.ims.qti21.model.xml.AssessmentTestBuilder;
 import org.olat.ims.qti21.ui.AssessmentTestDisplayController;
 import org.olat.ims.qti21.ui.editor.events.AssessmentTestEvent;
@@ -46,8 +49,13 @@ public class AssessmentTestEditorController extends BasicController {
 	private final TabbedPane tabbedPane;
 	private final VelocityContainer mainVC;
 	
-	private Controller optionsCtrl;
+	private AssessmentTestOptionsEditorController optionsCtrl;
+	private AssessmentTestPartEditorController testPartOptionsCtrl;
 	private AssessmentTestFeedbackEditorController feedbackCtrl;
+	
+	private final File testFile;
+	private final File rootDirectory;
+	private final VFSContainer rootContainer;
 	
 	private final boolean restrictedEdit;
 	private final TestPart testPart;
@@ -55,11 +63,15 @@ public class AssessmentTestEditorController extends BasicController {
 	private final AssessmentTestBuilder testBuilder;
 	
 	public AssessmentTestEditorController(UserRequest ureq, WindowControl wControl,
-			AssessmentTestBuilder testBuilder, TestPart testPart, boolean restrictedEdit) {
+			AssessmentTestBuilder testBuilder, TestPart testPart,
+			File rootDirectory, VFSContainer rootContainer, File testFile,boolean restrictedEdit) {
 		super(ureq, wControl, Util.createPackageTranslator(AssessmentTestDisplayController.class, ureq.getLocale()));
 		this.testBuilder = testBuilder;
 		this.testPart = testPart;
 		this.assessmentTest = testBuilder.getAssessmentTest();
+		this.testFile = testFile;
+		this.rootDirectory = rootDirectory;
+		this.rootContainer = rootContainer;
 		this.restrictedEdit = restrictedEdit;
 		
 		mainVC = createVelocityContainer("assessment_test_editor");
@@ -78,19 +90,26 @@ public class AssessmentTestEditorController extends BasicController {
 	}
 	
 	private void initTestEditor(UserRequest ureq) {
-		if(testPart != null) {
-			optionsCtrl = new AssessmentTestAndTestPartOptionsEditorController(ureq, getWindowControl(), assessmentTest, testPart, testBuilder, restrictedEdit);
+		if(testPart != null) {//combined test and single part editor
+			optionsCtrl = new AssessmentTestOptionsEditorController(ureq, getWindowControl(), assessmentTest, testBuilder, restrictedEdit);
+			testPartOptionsCtrl = new AssessmentTestPartEditorController(ureq, getWindowControl(), testPart, restrictedEdit, testBuilder.isEditable());
+			testPartOptionsCtrl.setFormTitle(null);
+			listenTo(testPartOptionsCtrl);
 		} else {
 			optionsCtrl = new AssessmentTestOptionsEditorController(ureq, getWindowControl(), assessmentTest, testBuilder, restrictedEdit);
 		}
 		listenTo(optionsCtrl);
 		
-		feedbackCtrl = new AssessmentTestFeedbackEditorController(ureq, getWindowControl(), testBuilder, restrictedEdit);
+		feedbackCtrl = new AssessmentTestFeedbackEditorController(ureq, getWindowControl(), testBuilder,
+				rootDirectory, rootContainer, testFile, restrictedEdit);
 		listenTo(feedbackCtrl);
 		
 		tabbedPane.addTab(translate("assessment.test.config"), optionsCtrl.getInitialComponent());
 		if(testBuilder.isEditable()) {
 			tabbedPane.addTab(translate("form.feedback"), feedbackCtrl.getInitialComponent());
+		}
+		if(testPartOptionsCtrl != null) {
+			tabbedPane.addTab(translate("assessment.test.expert.config"), testPartOptionsCtrl.getInitialComponent());
 		}
 	}
 
@@ -101,7 +120,7 @@ public class AssessmentTestEditorController extends BasicController {
 	
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(optionsCtrl == source || feedbackCtrl == source) {
+		if(optionsCtrl == source || feedbackCtrl == source || testPartOptionsCtrl == source) {
 			if(AssessmentTestEvent.ASSESSMENT_TEST_CHANGED_EVENT.equals(event)) {
 				testBuilder.build();
 				if(optionsCtrl == source) {

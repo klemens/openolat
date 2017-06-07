@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
@@ -52,6 +53,7 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.auditing.UserNodeAuditManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.CheckListCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.MSCourseNode;
@@ -141,6 +143,15 @@ public class CheckListRunController extends FormBasicController implements Contr
 			}
 			layoutCont.contextPut("withScore", new Boolean(withScore));
 			
+			if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+				HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(),
+						userCourseEnv, courseNode, this.mainForm);
+				if (highScoreCtr.isViewHighscore()) {
+					Component highScoreComponent = highScoreCtr.getInitialComponent();
+					layoutCont.put("highScore", highScoreComponent);							
+				}
+			}
+			
 			List<DBCheck> checks = checkboxManager.loadCheck(getIdentity(), courseOres, courseNode.getIdent());
 			Map<String, DBCheck> uuidToCheckMap = new HashMap<>();
 			for(DBCheck check:checks) {
@@ -188,11 +199,15 @@ public class CheckListRunController extends FormBasicController implements Contr
 			layoutCont.contextPut("passed", null);
 			layoutCont.contextPut("comment", null);
 		} else {
+			boolean resultsVisible = scoreEval.getUserVisibility() == null || scoreEval.getUserVisibility().booleanValue();
+			layoutCont.contextPut("resultsVisible", resultsVisible);
 			layoutCont.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
 			layoutCont.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			layoutCont.contextPut("passed", scoreEval.getPassed());
-			StringBuilder comment = Formatter.stripTabsAndReturns(scoreEval.getComment());
-			layoutCont.contextPut("comment", StringHelper.xssScan(comment));
+			if(resultsVisible) {
+				StringBuilder comment = Formatter.stripTabsAndReturns(scoreEval.getComment());
+				layoutCont.contextPut("comment", StringHelper.xssScan(comment));
+			}
 		}
 
 		UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();

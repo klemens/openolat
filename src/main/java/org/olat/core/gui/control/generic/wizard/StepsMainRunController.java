@@ -260,9 +260,11 @@ public class StepsMainRunController extends FormBasicController implements Gener
 		prevButton = new FormLinkImpl("back");
 		prevButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_prev");
 		prevButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_prev");
+		prevButton.setIconLeftCSS("o_icon o_icon_previous_step o_icon-fw");
 		nextButton = new FormLinkImpl("next");
 		nextButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_next");
 		nextButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_next");
+		nextButton.setIconRightCSS("o_icon o_icon_next_step o_icon-fw");
 		finishButton = new FormLinkImpl("finish");
 		finishButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_finish");
 		finishButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_finish");
@@ -415,6 +417,10 @@ public class StepsMainRunController extends FormBasicController implements Gener
 					addNextStep((StepFormController) nextChildCreator.createController(null, getWindowControl()), nextStep);
 				}
 			} else if (lastEvent == StepsEvent.ACTIVATE_PREVIOUS) {
+				if(currentStepIndex <= 0) {
+					return;// the case is possible with FireFox and users who use the keyboard and the enter key.
+				}
+				
 				stepPages.pop();
 				steps.pop();
 				currentStepIndex--;

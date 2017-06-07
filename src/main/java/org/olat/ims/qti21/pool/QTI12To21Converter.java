@@ -24,14 +24,23 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.DoubleAdder;
+
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 
 import org.apache.commons.lang.StringEscapeUtils;
 import org.cyberneko.html.parsers.SAXParser;
@@ -83,6 +92,7 @@ import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.EntryT
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.TextEntry;
 import org.olat.ims.qti21.model.xml.interactions.KPrimAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MultipleChoiceAssessmentItemBuilder;
+import org.olat.ims.qti21.model.xml.interactions.SimpleChoiceAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.SimpleChoiceAssessmentItemBuilder.ScoreEvaluation;
 import org.olat.ims.qti21.model.xml.interactions.SingleChoiceAssessmentItemBuilder;
 import org.olat.modules.qpool.QuestionType;
@@ -110,6 +120,7 @@ import uk.ac.ed.ph.jqtiplus.node.test.TestPart;
 import uk.ac.ed.ph.jqtiplus.node.test.TimeLimits;
 import uk.ac.ed.ph.jqtiplus.serialization.QtiSerializer;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
+import uk.ac.ed.ph.jqtiplus.value.Orientation;
 
 /**
  * 
@@ -128,6 +139,7 @@ public class QTI12To21Converter {
 	
 	private final ManifestBuilder manifest;
 	private List<String> materialPath = new ArrayList<>();
+	private Map<String,String> materialMappings = new HashMap<>();
 	private List<String> errors = new ArrayList<>();
 	private final DoubleAdder atomicMaxScore = new DoubleAdder();
 	
@@ -201,14 +213,14 @@ public class QTI12To21Converter {
 	
 	private void convert(Section section, TestPart testPart)
 	throws URISyntaxException {
-		AssessmentSection assessmentSection = AssessmentTestFactory.appendAssessmentSection(testPart);
+		AssessmentSection assessmentSection = AssessmentTestFactory.appendAssessmentSection("Section", testPart);
 		assessmentSection.setTitle(section.getTitle());
 		convertDuration(section.getDuration(), assessmentSection);
 		
 		RubricBlock rubricBlock = assessmentSection.getRubricBlocks().get(0);
 		rubricBlock.getBlocks().clear();
 		String objectives = section.getObjectives();
-		htmlBuilder.appendHtml(rubricBlock, prepareContent(objectives));
+		htmlBuilder.appendHtml(rubricBlock, blockedHtml(objectives));
 
 		boolean shuffle = SelectionOrdering.RANDOM.equals(section.getSelection_ordering().getOrderType());
 		assessmentSection.getOrdering().setShuffle(shuffle);
@@ -289,6 +301,9 @@ public class QTI12To21Converter {
 				VFSItem materialItem = originalContainer.resolve(material);
 				if(materialItem instanceof VFSLeaf) {
 					try(InputStream in = ((VFSLeaf) materialItem).getInputStream()) {
+						if(materialMappings.containsKey(material)) {
+							material = materialMappings.get(material);
+						}
 						File dest = new File(unzippedDirRoot, material);
 						FileUtils.copyToFile(in, dest, "");
 					} catch(Exception e) {
@@ -397,7 +412,7 @@ public class QTI12To21Converter {
 	}
 	
 	private AssessmentItemBuilder convertSingleChoice(Item item) {
-		SingleChoiceAssessmentItemBuilder itemBuilder = new SingleChoiceAssessmentItemBuilder(qtiSerializer);
+		SingleChoiceAssessmentItemBuilder itemBuilder = new SingleChoiceAssessmentItemBuilder("Single choice", "New answer", qtiSerializer);
 		convertItemBasics(item, itemBuilder);
 		itemBuilder.clearMapping();
 		itemBuilder.clearSimpleChoices();
@@ -407,11 +422,12 @@ public class QTI12To21Converter {
 		
 		Question question = item.getQuestion();
 		itemBuilder.setShuffle(question.isShuffle());
+		convertOrientation(question, itemBuilder);
 		
 		List<Response> responses = question.getResponses();
 		for(Response response:responses) {
 			String responseText = response.getContent().renderAsHtmlForEditor();
-			responseText = prepareContent(responseText);
+			responseText = blockedHtml(responseText);
 			SimpleChoice newChoice;
 			if(StringHelper.isHtml(responseText)) {
 				newChoice = AssessmentItemFactory
@@ -438,7 +454,7 @@ public class QTI12To21Converter {
 	}
 	
 	private AssessmentItemBuilder convertMultipleChoice(Item item) {
-		MultipleChoiceAssessmentItemBuilder itemBuilder = new MultipleChoiceAssessmentItemBuilder(qtiSerializer);
+		MultipleChoiceAssessmentItemBuilder itemBuilder = new MultipleChoiceAssessmentItemBuilder("Multiple choice", "New answer", qtiSerializer);
 		convertItemBasics(item, itemBuilder);
 		itemBuilder.clearMapping();
 		itemBuilder.clearSimpleChoices();
@@ -447,6 +463,7 @@ public class QTI12To21Converter {
 		
 		Question question = item.getQuestion();
 		itemBuilder.setShuffle(question.isShuffle());
+		convertOrientation(question, itemBuilder);
 		
 		boolean hasNegative = false;
 		List<Response> responses = question.getResponses();
@@ -459,7 +476,7 @@ public class QTI12To21Converter {
 		boolean singleCorrect = question.isSingleCorrect();
 		for(Response response:responses) {
 			String responseText = response.getContent().renderAsHtmlForEditor();
-			responseText = prepareContent(responseText);
+			responseText = blockedHtml(responseText);
 
 			SimpleChoice newChoice;
 			if(StringHelper.isHtml(responseText)) {
@@ -503,8 +520,21 @@ public class QTI12To21Converter {
 		return itemBuilder;
 	}
 	
+	private void convertOrientation(Question question, SimpleChoiceAssessmentItemBuilder itemBuilder) {
+		if (question instanceof ChoiceQuestion) {
+			String flowLabel = ((ChoiceQuestion)question).getFlowLabelClass();
+			if(StringHelper.containsNonWhitespace(flowLabel)) {
+				if(ChoiceQuestion.BLOCK.equals(flowLabel)) {
+					itemBuilder.setOrientation(Orientation.HORIZONTAL);
+				} else if(ChoiceQuestion.LIST.equals(flowLabel)) {
+					itemBuilder.setOrientation(Orientation.VERTICAL);
+				}
+			}
+		}
+	}
+	
 	private AssessmentItemBuilder convertKPrim(Item item) {
-		KPrimAssessmentItemBuilder itemBuilder = new KPrimAssessmentItemBuilder(qtiSerializer);
+		KPrimAssessmentItemBuilder itemBuilder = new KPrimAssessmentItemBuilder("Kprim", "New answer", qtiSerializer);
 		convertItemBasics(item, itemBuilder);
 		
 		Question question = item.getQuestion();
@@ -517,10 +547,14 @@ public class QTI12To21Converter {
 			SimpleAssociableChoice choice = choices.get(i);
 			
 			String answer = response.getContent().renderAsHtmlForEditor();
-			answer = prepareContent(answer);
-			P firstChoiceText = AssessmentItemFactory.getParagraph(choice, answer);
-			choice.getFlowStatics().clear();
-			choice.getFlowStatics().add(firstChoiceText);
+			answer = blockedHtml(answer);
+			if(StringHelper.isHtml(answer)) {
+				htmlBuilder.appendHtml(choice, answer);
+			} else {
+				P firstChoiceText = AssessmentItemFactory.getParagraph(choice, answer);
+				choice.getFlowStatics().clear();
+				choice.getFlowStatics().add(firstChoiceText);
+			}
 			
 			if(response.isCorrect()) {
 				itemBuilder.setAssociation(choice.getIdentifier(), QTI21Constants.CORRECT_IDENTIFIER);
@@ -536,7 +570,7 @@ public class QTI12To21Converter {
 	}
 	
 	private AssessmentItemBuilder convertFIB(Item item) {
-		FIBAssessmentItemBuilder itemBuilder = new FIBAssessmentItemBuilder(EntryType.text, qtiSerializer);
+		FIBAssessmentItemBuilder itemBuilder = new FIBAssessmentItemBuilder("Gap text", EntryType.text, qtiSerializer);
 		itemBuilder.setQuestion("");
 		itemBuilder.clearTextEntries();
 		convertItemBasics(item, itemBuilder);
@@ -577,7 +611,7 @@ public class QTI12To21Converter {
 				} else if(FIBResponse.TYPE_CONTENT.equals(gap.getType())) {
 					Material text = gap.getContent();
 					String htmltext = text.renderAsHtmlForEditor();
-					htmltext = prepareContent(htmltext);
+					htmltext = blockedHtml(htmltext);
 					sb.append(htmltext);
 				}
 			}
@@ -602,7 +636,7 @@ public class QTI12To21Converter {
 	}
 	
 	private AssessmentItemBuilder convertEssay(Item item) {
-		EssayAssessmentItemBuilder itemBuilder = new EssayAssessmentItemBuilder(qtiSerializer);
+		EssayAssessmentItemBuilder itemBuilder = new EssayAssessmentItemBuilder("Essay", qtiSerializer);
 		convertItemBasics(item, itemBuilder);
 		
 		EssayQuestion question = (EssayQuestion)item.getQuestion();
@@ -630,8 +664,12 @@ public class QTI12To21Converter {
 		
 		Question question = item.getQuestion();
 		String questionText = question.getQuestion().renderAsHtmlForEditor();
-		questionText = prepareContent(questionText);
-		itemBuilder.setQuestion("<p>" + questionText + "</p>");
+		questionText = blockedHtml(questionText);
+		if(StringHelper.isHtml(questionText)) {
+			itemBuilder.setQuestion(questionText);
+		} else {
+			itemBuilder.setQuestion("<p>" + questionText + "</p>");
+		}
 		
 		String hintText = question.getHintText();
 		if(StringHelper.containsNonWhitespace(hintText)) {
@@ -639,6 +677,12 @@ public class QTI12To21Converter {
 			Translator translator = Util.createPackageTranslator(QTIModule.class, locale);
 			hint.setTitle(translator.translate("render.hint"));
 			hint.setText(hintText);
+		}
+		
+		String solutionText = question.getSolutionText();
+		if(StringHelper.containsNonWhitespace(solutionText)) {
+			ModalFeedbackBuilder solution = itemBuilder.createCorrectSolutionFeedback();
+			solution.setText(solutionText);
 		}
 		
 		String feedbackMastery = QTIEditHelper.getFeedbackMasteryText(item);
@@ -664,14 +708,35 @@ public class QTI12To21Converter {
 		}
 	}
 	
-	private String prepareContent(String text) {
+	/**
+	 * Make sure the HTML content is in block elements. Simple text
+	 * are returned as is.
+	 * 
+	 * @param text
+	 * @return
+	 */
+	protected final String blockedHtml(String text) {
 		if(StringHelper.containsNonWhitespace(text)) {
 			collectMaterial(text);
 			if(StringHelper.isHtml(text)) {
 				String trimmedText = text.trim();
-				if(!trimmedText.startsWith("<p") && !trimmedText.startsWith("<div")) {
-					text = "<p>" + trimmedText + "</p>";
-				}	
+				trimmedText = trimmedText.replace("<hr />", "<hr></hr>");
+				try {
+					Writer out = new StringWriter();
+					XMLOutputFactory xof = XMLOutputFactory.newInstance();
+					XMLStreamWriter xtw = xof.createXMLStreamWriter(out);
+						
+					SAXParser parser = new SAXParser();
+					QTI12To21HtmlHandler handler = new QTI12To21HtmlHandler(xtw);
+					parser.setContentHandler(handler);
+					parser.parse(new InputSource(new StringReader(trimmedText)));
+					String blockedHtml = out.toString();
+					text = blockedHtml.replace("<start>", "").replace("</start>", "");
+					materialMappings.putAll(handler.getMaterialsMapping());
+				} catch (FactoryConfigurationError | XMLStreamException | SAXException | IOException e) {
+					log.error("", e);
+				}
+				
 			} else {
 				text = StringEscapeUtils.unescapeHtml(text);
 			}
@@ -685,10 +750,6 @@ public class QTI12To21Converter {
 			QTI12HtmlHandler contentHandler = new QTI12HtmlHandler(materialPath);
 			parser.setContentHandler(contentHandler);
 			parser.parse(new InputSource(new StringReader(content)));
-		} catch (SAXException e) {
-			log.error("", e);
-		} catch (IOException e) {
-			log.error("", e);
 		} catch (Exception e) {
 			log.error("", e);
 		}

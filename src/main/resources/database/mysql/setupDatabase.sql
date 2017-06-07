@@ -230,6 +230,7 @@ create table if not exists o_user (
    u_telprivate varchar(255),
    u_telmobile varchar(255),
    u_teloffice varchar(255),
+   u_smstelmobile varchar(255),
    u_skype varchar(255),
    u_msn varchar(255),
    u_xing varchar(255),
@@ -1165,6 +1166,7 @@ create table o_as_entry (
    a_status varchar(16) default null,
    a_details varchar(1024) default null,
    a_fully_assessed bit default null,
+   a_user_visibility bit default 1,
    a_assessment_id bigint default null,
    a_completion float(65,30),
    a_comment text,
@@ -1312,6 +1314,19 @@ create table o_vid_transcoding (
    primary key (id)
 );
 
+create table o_vid_metadata (
+  id bigint not null auto_increment,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  vid_width bigint default null,
+  vid_height bigint default null,
+  vid_size bigint default null,
+  vid_format varchar(32) default null,
+  vid_length varchar(32) default null,
+  fk_resource_id bigint not null,
+  primary key (id)
+);
+
 -- calendar
 create table o_cal_use_config (
    id bigint not null,
@@ -1425,7 +1440,7 @@ create table o_qti_assessmenttest_session (
    q_storage varchar(1024),
    fk_reference_entry bigint not null,
    fk_entry bigint,
-   q_subident varchar(64),
+   q_subident varchar(255),
    fk_identity bigint default null,
    q_anon_identifier varchar(128) default null,
    fk_assessment_entry bigint not null,
@@ -1436,9 +1451,9 @@ create table o_qti_assessmentitem_session (
    id bigint not null auto_increment,
    creationdate datetime not null,
    lastmodified datetime not null,
-   q_itemidentifier varchar(64) not null,
-   q_sectionidentifier varchar(64) default null,
-   q_testpartidentifier varchar(64) default null,
+   q_itemidentifier varchar(255) not null,
+   q_sectionidentifier varchar(255) default null,
+   q_testpartidentifier varchar(255) default null,
    q_duration bigint,
    q_score float(65,30) default null,
    q_manual_score float(65,30) default null,
@@ -1892,6 +1907,18 @@ create table o_ex_task_modifier (
    primary key (id)
 );
 
+-- sms
+create table o_sms_message_log (
+   id bigint not null auto_increment,
+   creationdate datetime not null,
+   lastmodified datetime not null,
+   s_message_uuid varchar(256) not null,
+   s_server_response varchar(256),
+   s_service_id varchar(32) not null,
+   fk_identity bigint not null,
+   primary key (id)
+);
+
 -- user view
 create view o_bs_identity_short_v as (
    select
@@ -2208,6 +2235,7 @@ alter table o_goto_organizer ENGINE = InnoDB;
 alter table o_goto_meeting ENGINE = InnoDB;
 alter table o_goto_registrant ENGINE = InnoDB;
 alter table o_vid_transcoding ENGINE = InnoDB;
+alter table o_vid_metadata ENGINE = InnoDB;
 alter table o_pf_category_relation ENGINE = InnoDB;
 alter table o_pf_category ENGINE = InnoDB;
 alter table o_pf_media ENGINE = InnoDB;
@@ -2221,7 +2249,7 @@ alter table o_pf_assignment ENGINE = InnoDB;
 alter table o_pf_binder_user_infos ENGINE = InnoDB;
 alter table o_eva_form_session ENGINE = InnoDB;
 alter table o_eva_form_response ENGINE = InnoDB;
-
+alter table o_sms_message_log ENGINE = InnoDB;
 
 -- rating
 alter table o_userrating add constraint FKF26C8375236F20X foreign key (creator_id) references o_bs_identity (id);
@@ -2549,6 +2577,8 @@ alter table o_goto_registrant add constraint goto_regis_ident_idx foreign key (f
 alter table o_vid_transcoding add constraint fk_resource_id_idx foreign key (fk_resource_id) references o_olatresource (resource_id);
 create index vid_status_trans_idx on o_vid_transcoding(vid_status);
 create index vid_transcoder_trans_idx on o_vid_transcoding(vid_transcoder);
+alter table o_vid_metadata add constraint vid_meta_rsrc_idx foreign key (fk_resource_id) references o_olatresource (resource_id);
+
 
 -- calendar
 alter table o_cal_use_config add constraint cal_u_conf_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
@@ -2675,6 +2705,9 @@ alter table o_cer_certificate add constraint cer_to_resource_idx foreign key (fk
 
 create index cer_archived_resource_idx on o_cer_certificate (c_archived_resource_id);
 create index cer_uuid_idx on o_cer_certificate (c_uuid);
+
+-- sms
+alter table o_sms_message_log add constraint sms_log_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
 
 -- o_logging_table
 create index log_target_resid_idx on o_loggingtable(targetresid);

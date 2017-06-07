@@ -63,12 +63,14 @@ import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
+import org.olat.course.CourseModule;
 import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.manager.AssessmentNotificationsHandler;
 import org.olat.course.auditing.UserNodeAuditManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.IQSELFCourseNode;
@@ -137,6 +139,8 @@ public class IQRunController extends BasicController implements GenericEventList
 	private IQManager iqManager;
 	@Autowired
 	private AssessmentNotificationsHandler assessmentNotificationsHandler;
+	@Autowired
+	private CourseModule courseModule;
 	
 	/**
 	 * Constructor for a test run controller
@@ -172,6 +176,13 @@ public class IQRunController extends BasicController implements GenericEventList
 		if (!modConfig.get(IQEditController.CONFIG_KEY_TYPE).equals(AssessmentInstance.QMD_ENTRY_TYPE_ASSESS)) {
 			throw new OLATRuntimeException("IQRunController launched with Test constructor but module configuration not configured as test" ,null);
 		}
+		
+		HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, wControl, userCourseEnv, courseNode);
+		if (highScoreCtr.isViewHighscore()) {
+			Component highScoreComponent = highScoreCtr.getInitialComponent();
+			myContent.put("highScore", highScoreComponent);							
+		}
+		
 		init(ureq);
 		exposeUserTestDataToVC(ureq);
 		
@@ -185,6 +196,10 @@ public class IQRunController extends BasicController implements GenericEventList
 	  //if show results on test home page configured - show log
 		Boolean showResultOnHomePage = testCourseNode.getModuleConfiguration().getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
 		myContent.contextPut("showChangelog", showResultOnHomePage);
+
+		//admin setting whether to show change log and info box or not
+		myContent.contextPut("infobox", courseModule.isDisplayInfoBox());
+		myContent.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
 	}
 
 	/**
@@ -271,6 +286,9 @@ public class IQRunController extends BasicController implements GenericEventList
 		}
 		//per default change log is not open
 		myContent.contextPut("showChangelog", Boolean.FALSE);
+		//admin setting whether to show change log and info box or not
+		myContent.contextPut("infobox", courseModule.isDisplayInfoBox());
+		myContent.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
 	}
 
 	/**
@@ -314,6 +332,9 @@ public class IQRunController extends BasicController implements GenericEventList
 		}
 		//per default change log is not open
 		myContent.contextPut("showChangelog", Boolean.FALSE);
+		//admin setting whether to show change log and info box or not
+		myContent.contextPut("infobox", courseModule.isDisplayInfoBox());
+		myContent.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
 	}
 
 	
@@ -477,15 +498,18 @@ public class IQRunController extends BasicController implements GenericEventList
 			Boolean fullyAssed = am.getNodeFullyAssessed(courseNode, getIdentity());
 			
 			String correctionMode = courseNode.getModuleConfiguration().getStringValue(IQEditController.CONFIG_CORRECTION_MODE);
+			Boolean userVisibility;
 			AssessmentEntryStatus assessmentStatus;
 			if(IQEditController.CORRECTION_MANUAL.equals(correctionMode)) {
 				assessmentStatus = AssessmentEntryStatus.inReview;
+				userVisibility = Boolean.FALSE;
 			} else {
 				assessmentStatus = AssessmentEntryStatus.done;
+				userVisibility = Boolean.TRUE;
 			}
 			
-			ScoreEvaluation sceval = new ScoreEvaluation(ac.getScore(), ac.isPassed(), assessmentStatus, fullyAssed, ai.getAssessID());
-			AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assesable		
+			ScoreEvaluation sceval = new ScoreEvaluation(ac.getScore(), ac.isPassed(), assessmentStatus, userVisibility, fullyAssed, ai.getAssessID());
+			AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assessable		
 			acn.updateUserScoreEvaluation(sceval, userCourseEnv, getIdentity(), true);
 				
 			// Mark publisher for notifications
@@ -605,11 +629,15 @@ public class IQRunController extends BasicController implements GenericEventList
 	        		}
 	    		}
 	    		myContent.contextPut("blockAfterSuccess", blocked);
+	    		boolean resultsVisible = assessmentEntry.getUserVisibility() == null || assessmentEntry.getUserVisibility().booleanValue();
+	    		myContent.contextPut("resultsVisible", resultsVisible);
 	    		myContent.contextPut("score", AssessmentHelper.getRoundedScore(assessmentEntry.getScore()));
 	    		myContent.contextPut("hasPassedValue", (assessmentEntry.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 	    		myContent.contextPut("passed", assessmentEntry.getPassed());
-	    		StringBuilder comment = Formatter.stripTabsAndReturns(assessmentEntry.getComment());
-	    		myContent.contextPut("comment", StringHelper.xssScan(comment));
+	    		if(resultsVisible) {
+	    			StringBuilder comment = Formatter.stripTabsAndReturns(assessmentEntry.getComment());
+	    			myContent.contextPut("comment", StringHelper.xssScan(comment));
+	    		}
 	    		myContent.contextPut("attempts", assessmentEntry.getAttempts() == null ? 0 : assessmentEntry.getAttempts());
     		}
     	}
@@ -625,20 +653,23 @@ public class IQRunController extends BasicController implements GenericEventList
 	 * @param ureq
 	 */
 	private void exposeUserSelfTestDataToVC(UserRequest ureq) {
-    // config : show score info
+		if (!(courseNode instanceof SelfAssessableCourseNode)) {
+			throw new AssertException("exposeUserSelfTestDataToVC can only be called for selftest nodes, not for test or questionnaire");
+		}
+		
+		// config : show score info
 		Object enableScoreInfoObject = modConfig.get(IQEditController.CONFIG_KEY_ENABLESCOREINFO);
 		if (enableScoreInfoObject != null) {
 			myContent.contextPut("enableScoreInfo", enableScoreInfoObject );	
 		} else {
 			myContent.contextPut("enableScoreInfo", Boolean.TRUE );
 		}
-      
-    if ( !(courseNode instanceof SelfAssessableCourseNode))
-    	throw new AssertException("exposeUserSelfTestDataToVC can only be called for selftest nodes, not for test or questionnaire");
-    SelfAssessableCourseNode acn = (SelfAssessableCourseNode)courseNode; 
+
+		SelfAssessableCourseNode acn = (SelfAssessableCourseNode)courseNode; 
 		ScoreEvaluation scoreEval = acn.getUserScoreEvaluation(userCourseEnv);
 		if (scoreEval != null) {
 			myContent.contextPut("hasResults", Boolean.TRUE);
+			myContent.contextPut("resultsVisible", Boolean.TRUE);
 			myContent.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
 			myContent.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			myContent.contextPut("passed", scoreEval.getPassed());

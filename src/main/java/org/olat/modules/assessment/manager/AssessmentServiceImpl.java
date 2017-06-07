@@ -88,6 +88,12 @@ public class AssessmentServiceImpl implements AssessmentService, UserDataDeletab
 	public List<AssessmentEntry> loadAssessmentEntriesBySubIdent(RepositoryEntry entry, String subIdent) {
 		return assessmentEntryDao.loadAssessmentEntryBySubIdent(entry, subIdent);
 	}
+	
+	@Override
+	public List<AssessmentEntry> loadAssessmentEntriesBySubIdentWithStatus(RepositoryEntry entry, String subIdent,
+			AssessmentEntryStatus status, boolean excludeZeroScore) {
+		return assessmentEntryDao.loadAssessmentEntryBySubIdentWithStatus(entry, subIdent, status, excludeZeroScore);
+	}
 
 	@Override
 	public List<AssessmentEntry> loadAssessmentEntriesByAssessedIdentity(Identity assessedIdentity, RepositoryEntry entry) {

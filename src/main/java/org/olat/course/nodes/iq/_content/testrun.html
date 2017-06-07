@@ -22,12 +22,22 @@
 				</tr> 
 				<tr class="o_score">
 					<th>$r.translate("score.yourscore")</th>
-					<td>$score</td> 
+					<td>
+					#if($r.isNotNull($score))
+						#if($resultsVisible)
+							$score
+						#else
+							$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+						#end
+					#end
+					</td> 
 				</tr> 
-				<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+				<tr class="o_state #if(!$resultsVisible) #elseif ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
 					<th>$r.translate("passed.yourpassed")</th>
 					<td>
-					#if($hasPassedValue && $passed)	
+					#if($hasPassedValue && !$resultsVisible)
+						$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+					#elseif($hasPassedValue && $passed)	
 						<i class="o_icon o_icon_passed"></i> 
 						$r.translate("passed.yes")
 					#elseif($hasPassedValue && !$passed)		
@@ -65,7 +75,6 @@
 			/* ]]> */
 		</script>
 		#end
-
 	#else
 		<div class="o_no_scoreinfo">
 			$r.translate("score.noscoreinfoyet")
@@ -79,6 +88,9 @@
 			</p>
 		</div>
 	#end
+#end
+#if ($r.available("highScore"))
+	$r.render("highScore")
 #end
 	
 #if($showResultsOnHomePage && $attempts >0)	
@@ -154,7 +166,7 @@
   		</div></div>
 	</div>
 	#end
-		
+	#if ($infobox)		
 	<div class="o_statusinfo">
 		<p>
 		$r.translate("Intro.test")
@@ -168,7 +180,7 @@
 		</p>
 		#end
 	</div>
-		
+	#end		
 	<div class="o_button_group">
 		$r.render("start")
 	</div>
@@ -184,23 +196,25 @@
 			})
 		/* ]]> */
 	</script>
-
-#if ($log && $showChangelog)
-<div class="o_box">
-    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
-    <pre class="small">
+	
+#if ($changelogconfig)
+	#if ($log && $showChangelog)
+	<div class="o_box">
+	    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
+	    <pre class="small">
 $log
-    </pre>
-    #o_togglebox_end()
-</div>    
-#end
-    
-#if($changeLog)
-<div class="o_box">
-    #o_togglebox_start("o_course_run_changelog" $r.translate("changelog.title"))
-    <pre class="small">
+	    </pre>
+	    #o_togglebox_end()
+	</div>    
+	#end
+	    
+	#if($changeLog)
+	<div class="o_box">
+	    #o_togglebox_start("o_course_run_changelog" $r.translate("changelog.title"))
+	    <pre class="small">
 $changeLog
-    </pre>
-    #o_togglebox_end()
-</div>
+	    </pre>
+	    #o_togglebox_end()
+	</div>
+	#end
 #end

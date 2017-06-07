@@ -82,7 +82,7 @@ public class AssessmentTestFactory {
 	 * @param title
 	 * @return
 	 */
-	public static AssessmentTest createAssessmentTest(String title) {
+	public static AssessmentTest createAssessmentTest(String title, String sectionTitle) {
 		AssessmentTest assessmentTest = new AssessmentTest();
 		assessmentTest.setIdentifier(IdentifierGenerator.newAsString("test"));
 		assessmentTest.setTitle(title);
@@ -98,7 +98,7 @@ public class AssessmentTestFactory {
 		
 		//test part
 		TestPart part = createTestPart(assessmentTest);
-		appendAssessmentSection(part);
+		appendAssessmentSection(sectionTitle, part);
 		
 		//outcome processing
 		OutcomeProcessing outcomeProcessing = new OutcomeProcessing(assessmentTest);
@@ -269,11 +269,12 @@ public class AssessmentTestFactory {
 		
 		// test par item session control
 		ItemSessionControl itemSessionControl = new ItemSessionControl(part);
-		itemSessionControl.setAllowComment(Boolean.FALSE);
+		itemSessionControl.setAllowComment(Boolean.TRUE);
 		itemSessionControl.setAllowReview(Boolean.FALSE);
 		itemSessionControl.setAllowSkipping(Boolean.TRUE);//default is true
 		itemSessionControl.setShowFeedback(Boolean.FALSE);
 		itemSessionControl.setShowSolution(Boolean.FALSE);
+		itemSessionControl.setMaxAttempts(0);
 		part.setItemSessionControl(itemSessionControl);
 		return part;
 	}
@@ -284,20 +285,20 @@ public class AssessmentTestFactory {
 	 * @param part
 	 * @return
 	 */
-	public static AssessmentSection appendAssessmentSection(TestPart part) {
-		return appendAssessmentSectionInternal(part);
+	public static AssessmentSection appendAssessmentSection(String title, TestPart part) {
+		return appendAssessmentSectionInternal(title, part);
 	}
 	
-	public static AssessmentSection appendAssessmentSection(AssessmentSection part) {
-		return appendAssessmentSectionInternal(part);
+	public static AssessmentSection appendAssessmentSection(String title, AssessmentSection part) {
+		return appendAssessmentSectionInternal(title, part);
 	}
 	
-	private final static AssessmentSection appendAssessmentSectionInternal(AbstractPart part) {
+	private final static AssessmentSection appendAssessmentSectionInternal(String title, AbstractPart part) {
 		// section
 		AssessmentSection section = new AssessmentSection(part);
 		section.setFixed(Boolean.TRUE);
 		section.setVisible(Boolean.TRUE);
-		section.setTitle("New section");
+		section.setTitle(title);
 		section.setIdentifier(IdentifierGenerator.newAsIdentifier("sect"));
 		if(part instanceof TestPart) {
 			((TestPart)part).getAssessmentSections().add(section);
@@ -317,7 +318,6 @@ public class AssessmentTestFactory {
 		
 		ItemSessionControl itemSessionControl = new ItemSessionControl(section);
 		section.setItemSessionControl(itemSessionControl);
-		itemSessionControl.setMaxAttempts(0);
 		return section;
 	}
 	

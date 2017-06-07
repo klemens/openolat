@@ -32,6 +32,7 @@ import org.olat.core.id.Identity;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.model.AssessmentEntryImpl;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.vitero.model.GroupRole;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,7 @@ public class AssessmentEntryDAO {
 		data.setRepositoryEntry(entry);
 		data.setSubIdent(subIdent);
 		data.setReferenceEntry(referenceEntry);
+		data.setUserVisibility(Boolean.TRUE);
 		dbInstance.getCurrentEntityManager().persist(data);
 		return data;
 	}
@@ -76,6 +78,7 @@ public class AssessmentEntryDAO {
 		data.setRepositoryEntry(entry);
 		data.setSubIdent(subIdent);
 		data.setReferenceEntry(referenceEntry);
+		data.setUserVisibility(Boolean.TRUE);
 		if(score != null) {
 			data.setScore(new BigDecimal(score));
 		}
@@ -201,18 +204,70 @@ public class AssessmentEntryDAO {
 	
 	/**
 	 * Load all assessment entries for the specific assessed repository entry with
-	 * the specific sub identifier (it is mandatory).
+	 * the specific sub identifier (it is mandatory). The anonym users are excluded
+	 * by the query.
 	 * 
 	 * @param entry The entry (mandatory)
 	 * @param subIdent The subIdent (mandatory)
 	 * @return A list of assessment entries
 	 */
 	public List<AssessmentEntry> loadAssessmentEntryBySubIdent(RepositoryEntryRef entry, String subIdent) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data from assessmententry data ")
+		   .append(" inner join fetch data.identity ident") 
+		   .append(" inner join fetch ident.user identuser")
+		   .append(" where data.repositoryEntry.key=:repositoryEntryKey and data.subIdent=:subIdent");
+
 		return dbInstance.getCurrentEntityManager()
-				.createNamedQuery("loadAssessmentEntryByRepositoryEntryAndSubIdent", AssessmentEntry.class)
+				.createQuery(sb.toString(), AssessmentEntry.class)
 				.setParameter("repositoryEntryKey", entry.getKey())
 				.setParameter("subIdent", subIdent)
 				.getResultList();
+	}
+	
+	/**
+	 * Load all assessment entries for the specific assessed repository entry with
+	 * the specific sub identifier (it is mandatory). The anonym users are excluded
+	 * by the query. The status of the assessment entry is optional 
+	 * 
+	 * @param entry The entry (mandatory)
+	 * @param subIdent The subIdent (mandatory)
+	 * @param status The status of the assessment entry (optional)
+	 * @param excludeZeroScore disallow zero (0) scores
+	 * @return A list of assessment entries
+	 */
+	public List<AssessmentEntry> loadAssessmentEntryBySubIdentWithStatus(RepositoryEntryRef entry, String subIdent,
+			AssessmentEntryStatus status, boolean excludeZeroScore) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select data from assessmententry data ")
+		   .append(" inner join fetch data.identity ident") 
+		   .append(" inner join fetch ident.user identuser")
+		   .append(" where data.repositoryEntry.key=:repositoryEntryKey")
+		   .append(" and data.subIdent=:subIdent")
+		   .append(" and data.userVisibility is true")
+		   .append(" and data.score is not null")
+		   .append(" and ident.key in ( select membership.identity.key from repoentrytogroup as rel, bgroupmember membership ")
+		   .append(" where rel.entry.key=:repositoryEntryKey and rel.group.key=membership.group.key and membership.role='")
+		   .append(GroupRole.participant).append("'")
+		   .append(" )");
+		
+		if (status != null) {
+			sb.append(" and data.status=:status");
+		}		
+		if(excludeZeroScore) {
+			sb.append(" and data.score > 0");
+		}
+		
+		TypedQuery<AssessmentEntry> typedQuery = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), AssessmentEntry.class)
+				.setParameter("repositoryEntryKey", entry.getKey())
+				.setParameter("subIdent", subIdent);
+		
+		if (status != null) {
+			typedQuery.setParameter("status", status.name());	
+		}	
+		
+		return typedQuery.getResultList();
 	}
 	
 	public List<Identity> getAllIdentitiesWithAssessmentData(RepositoryEntryRef entry) {

@@ -27,9 +27,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
+
 import org.olat.admin.user.UserShortDescription;
+import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -37,19 +41,25 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
+import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.id.Identity;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.course.assessment.AssessmentHelper;
+import org.olat.fileresource.DownloadeableMediaResource;
 import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.fileresource.types.ImsQTI21Resource.PathResourceLocator;
 import org.olat.ims.qti21.AssessmentTestSession;
+import org.olat.ims.qti21.QTI21AssessmentResultsOptions;
 import org.olat.ims.qti21.QTI21Constants;
-import org.olat.ims.qti21.QTI21DeliveryOptions.ShowResultsOnFinish;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.ui.assessment.TerminatedStaticCandidateSessionContext;
 import org.olat.ims.qti21.ui.components.InteractionResultFormItem;
+import org.olat.ims.qti21.ui.components.ItemBodyResultFormItem;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.w3c.dom.Document;
 
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.DrawingInteraction;
@@ -75,6 +85,7 @@ import uk.ac.ed.ph.jqtiplus.state.TestPlanNode;
 import uk.ac.ed.ph.jqtiplus.state.TestPlanNode.TestNodeType;
 import uk.ac.ed.ph.jqtiplus.state.TestPlanNodeKey;
 import uk.ac.ed.ph.jqtiplus.state.TestSessionState;
+import uk.ac.ed.ph.jqtiplus.state.marshalling.ItemSessionStateXmlMarshaller;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
 import uk.ac.ed.ph.jqtiplus.value.BooleanValue;
 import uk.ac.ed.ph.jqtiplus.value.NumberValue;
@@ -88,9 +99,11 @@ import uk.ac.ed.ph.jqtiplus.xmlutils.locators.ResourceLocator;
  *
  */
 public class AssessmentResultController extends FormBasicController {
-
+	
 	private final String mapperUri;
-	private final ShowResultsOnFinish resultsOnfinish;
+	private String signatureMapperUri;
+	private final String submissionMapperUri;
+	private final QTI21AssessmentResultsOptions options;
 	
 	private final boolean anonym;
 	private final boolean withPrint;
@@ -113,23 +126,24 @@ public class AssessmentResultController extends FormBasicController {
 	private QTI21Service qtiService;
 	
 	public AssessmentResultController(UserRequest ureq, WindowControl wControl, Identity assessedIdentity, boolean anonym,
-			AssessmentTestSession candidateSession, ShowResultsOnFinish resultsOnfinish, File fUnzippedDirRoot, String mapperUri,
-			boolean withPrint, boolean withTitle) {
+			AssessmentTestSession candidateSession, File fUnzippedDirRoot, String mapperUri, String submissionMapperUri,
+			QTI21AssessmentResultsOptions options, boolean withPrint, boolean withTitle) {
 		super(ureq, wControl, "assessment_results");
 		
 		this.anonym = anonym;
+		this.options = options;
 		this.mapperUri = mapperUri;
 		this.withPrint = withPrint;
 		this.withTitle = withTitle;
-		this.resultsOnfinish = resultsOnfinish;
 		this.assessedIdentity = assessedIdentity;
 		this.candidateSession = candidateSession;
 		this.fUnzippedDirRoot = fUnzippedDirRoot;
+		this.submissionMapperUri = submissionMapperUri;
 
 		ResourceLocator fileResourceLocator = new PathResourceLocator(fUnzippedDirRoot.toPath());
 		inputResourceLocator = 
         		ImsQTI21Resource.createResolvingResourceLocator(fileResourceLocator);
-		assessmentObjectUri = qtiService.createAssessmentObjectUri(fUnzippedDirRoot);
+		assessmentObjectUri = qtiService.createAssessmentTestUri(fUnzippedDirRoot);
 		
 		if(!anonym && assessedIdentity != null) {
 			assessedIdentityInfosCtrl = new UserShortDescription(ureq, getWindowControl(), assessedIdentity);
@@ -137,6 +151,12 @@ public class AssessmentResultController extends FormBasicController {
 		}
 		
 		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(fUnzippedDirRoot, false, false);
+		
+		File signature = qtiService.getAssessmentResultSignature(candidateSession);
+		if(signature != null) {
+			signatureMapperUri = registerCacheableMapper(ureq, "QTI21Signature::" + CodeHelper.getForeverUniqueID(),
+					new SignatureMapper(signature));
+		}
 		
 		testSessionState = qtiService.loadTestSessionState(candidateSession);
 		assessmentResult = qtiService.getAssessmentResult(candidateSession);
@@ -147,7 +167,6 @@ public class AssessmentResultController extends FormBasicController {
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
 			layoutCont.contextPut("title", new Boolean(withTitle));
@@ -164,7 +183,7 @@ public class AssessmentResultController extends FormBasicController {
 				layoutCont.contextPut("anonym", Boolean.TRUE);
 			}
 			
-			Results results = new Results(false, "o_qtiassessment_icon");
+			Results results = new Results(false, "o_qtiassessment_icon", options.isMetadata());
 			results.setSessionState(testSessionState);
 			
 			layoutCont.contextPut("testResults", results);
@@ -172,10 +191,13 @@ public class AssessmentResultController extends FormBasicController {
 			if(testResult != null) {
 				extractOutcomeVariable(testResult.getItemVariables(), results);
 			}
-
-			if(resultsOnfinish == ShowResultsOnFinish.sections || resultsOnfinish == ShowResultsOnFinish.details) {
-				initFormSections(layoutCont);
+			
+			if(signatureMapperUri != null) {
+				String signatureUrl = signatureMapperUri + "/assessmentResultSignature.xml";
+				layoutCont.contextPut("signatureUrl", signatureUrl);
 			}
+
+			initFormSections(layoutCont);
 		}
 	}
 	
@@ -194,18 +216,16 @@ public class AssessmentResultController extends FormBasicController {
 			TestPlanNodeKey testPlanNodeKey = node.getKey();
 			TestNodeType testNodeType = node.getTestNodeType();
 			if(testNodeType == TestNodeType.ASSESSMENT_SECTION) {
-				Results r = new Results(true, node.getSectionPartTitle(), "o_mi_qtisection");
+				Results r = new Results(true, node.getSectionPartTitle(), "o_mi_qtisection", options.isSectionSummary());
 				AssessmentSectionSessionState sectionState = testSessionState.getAssessmentSectionSessionStates().get(testPlanNodeKey);
 				if(sectionState != null) {
 					r.setSessionState(sectionState);
 				}
 				itemResults.add(r);
 			} else if(testNodeType == TestNodeType.ASSESSMENT_ITEM_REF) {
-				if(resultsOnfinish == ShowResultsOnFinish.details) {
-					Results results = initFormItemResult(layoutCont, node, identifierToRefs);
-					if(results != null) {
-						itemResults.add(results);
-					}
+				Results results = initFormItemResult(layoutCont, node, identifierToRefs);
+				if(results != null) {
+					itemResults.add(results);
 				}
 			}
 		}
@@ -219,8 +239,7 @@ public class AssessmentResultController extends FormBasicController {
 		AssessmentItem assessmentItem = resolvedAssessmentItem.getRootNodeLookup().extractIfSuccessful();
 		QTI21QuestionType type = QTI21QuestionType.getType(assessmentItem);
 		
-		Results r = new Results(false, type.getCssClass());
-		r.setTitle(node.getSectionPartTitle());
+		Results r = new Results(false, node.getSectionPartTitle(), type.getCssClass(), options.isQuestionSummary());
 		r.setSessionStatus("");//init
 		
 		ItemSessionState sessionState = testSessionState.getItemSessionStates().get(testPlanNodeKey);
@@ -236,46 +255,92 @@ public class AssessmentResultController extends FormBasicController {
 		if(itemResult != null) {
 			extractOutcomeVariable(itemResult.getItemVariables(), r);
 		}
+		
+		if(options.isQuestions()) {
+			FormItem questionItem = initQuestionItem(layoutCont, sessionState, resolvedAssessmentItem);
+			r.setQuestionItem(questionItem);
+		}
+		
+		if(options.isUserSolutions() || options.isCorrectSolutions()) {
+			List<InteractionResults> interactionResults = initFormItemInteractions(layoutCont, sessionState, assessmentItem, resolvedAssessmentItem);
+			r.getInteractionResults().addAll(interactionResults);
+		} 
+		
+		return r;
+	}
+	
+	private FormItem initQuestionItem(FormLayoutContainer layoutCont, ItemSessionState sessionState,
+			ResolvedAssessmentItem resolvedAssessmentItem) {
+		
+		FormItem responseFormItem = null;
+		if(options.isQuestions()) {
+			String responseId = "responseBody" + count++;
+			ItemBodyResultFormItem formItem = new ItemBodyResultFormItem(responseId, resolvedAssessmentItem);
+			
+			Document clonedState = ItemSessionStateXmlMarshaller.marshal(sessionState);
+			ItemSessionState clonedSessionState = ItemSessionStateXmlMarshaller.unmarshal(clonedState.getDocumentElement());
+			clonedSessionState.resetResponses();
+			formItem.setItemSessionState(clonedSessionState);
+			formItem.setCandidateSessionContext(candidateSessionContext);
+			formItem.setResolvedAssessmentTest(resolvedAssessmentTest);
+			formItem.setResourceLocator(inputResourceLocator);
+			formItem.setAssessmentObjectUri(assessmentObjectUri);
+			formItem.setMapperUri(mapperUri);
+			layoutCont.add(responseId, formItem);
+			responseFormItem = formItem;
+		}
+		return responseFormItem;
+	}
 
+	private List<InteractionResults> initFormItemInteractions(FormLayoutContainer layoutCont, ItemSessionState sessionState,
+			AssessmentItem assessmentItem, ResolvedAssessmentItem resolvedAssessmentItem) {
 		//loop interactions, show response and solution
 		
 		List<Interaction> interactions = assessmentItem.getItemBody().findInteractions();
+		List<InteractionResults> interactionResults = new ArrayList<>();
 		for(Interaction interaction:interactions) {
 			if(interaction instanceof PositionObjectInteraction || interaction instanceof EndAttemptInteraction) {
 				continue;
 			}
 			
-			//response
-			String responseId = "responseItem" + count++;
-			InteractionResultFormItem responseFormItem = new InteractionResultFormItem(responseId, interaction, resolvedAssessmentItem);
-			initInteractionResultFormItem(responseFormItem, sessionState);
-			layoutCont.add(responseId, responseFormItem);
+			FormItem responseFormItem = null;
+			if(options.isUserSolutions()) {
+				//response
+				String responseId = "responseItem" + count++;
+				InteractionResultFormItem formItem = new InteractionResultFormItem(responseId, interaction, resolvedAssessmentItem);
+				initInteractionResultFormItem(formItem, sessionState);
+				layoutCont.add(responseId, formItem);
+				responseFormItem = formItem;
+			}
 	
 			//solution
-			InteractionResultFormItem solutionFormItem;
-			
+			FormItem solutionFormItem = null;
 			if(interaction instanceof ExtendedTextInteraction || interaction instanceof UploadInteraction || interaction instanceof DrawingInteraction) {
-				solutionFormItem = null;// no solution
-			} else {
+				// OO correct solution only for Word
+			} else if(options.isCorrectSolutions()) {
 				String solutionId = "solutionItem" + count++;
-				solutionFormItem = new InteractionResultFormItem(solutionId, interaction, resolvedAssessmentItem);
-				solutionFormItem.setShowSolution(true);
-				initInteractionResultFormItem(solutionFormItem, sessionState);
-				layoutCont.add(solutionId, solutionFormItem);
+				InteractionResultFormItem formItem = new InteractionResultFormItem(solutionId, interaction, resolvedAssessmentItem);
+				formItem.setShowSolution(true);
+				initInteractionResultFormItem(formItem, sessionState);
+				layoutCont.add(solutionId, formItem);
+				solutionFormItem = formItem;
 			}
 			
-			r.getInteractionResults().add(new InteractionResults(responseFormItem, solutionFormItem));
+			interactionResults.add(new InteractionResults(responseFormItem, solutionFormItem));
 		}
-		return r;
+		return interactionResults;
 	}
 	
-	private void initInteractionResultFormItem(InteractionResultFormItem responseFormItem, ItemSessionState sectionState) {
-		responseFormItem.setItemSessionState(sectionState);
-		responseFormItem.setCandidateSessionContext(candidateSessionContext);
-		responseFormItem.setResolvedAssessmentTest(resolvedAssessmentTest);
-		responseFormItem.setResourceLocator(inputResourceLocator);
-		responseFormItem.setAssessmentObjectUri(assessmentObjectUri);
-		responseFormItem.setMapperUri(mapperUri);
+	private void initInteractionResultFormItem(InteractionResultFormItem formItem, ItemSessionState sectionState) {
+		formItem.setItemSessionState(sectionState);
+		formItem.setCandidateSessionContext(candidateSessionContext);
+		formItem.setResolvedAssessmentTest(resolvedAssessmentTest);
+		formItem.setResourceLocator(inputResourceLocator);
+		formItem.setAssessmentObjectUri(assessmentObjectUri);
+		formItem.setMapperUri(mapperUri);
+		if(submissionMapperUri != null) {
+			formItem.setSubmissionMapperUri(submissionMapperUri);
+		}
 	}
 	
 	private void extractOutcomeVariable(List<ItemVariable> itemVariables, Results results) {
@@ -331,7 +396,7 @@ public class AssessmentResultController extends FormBasicController {
 			@Override
 			public Controller createController(UserRequest uureq, WindowControl wwControl) {
 				AssessmentResultController printViewCtrl = new AssessmentResultController(uureq, wwControl, assessedIdentity, anonym,
-						candidateSession, resultsOnfinish, fUnzippedDirRoot, mapperUri, false, true);
+						candidateSession, fUnzippedDirRoot, mapperUri, submissionMapperUri, options, false, true);
 				printViewCtrl.flc.contextPut("printCommand", Boolean.TRUE);
 				listenTo(printViewCtrl);
 				return printViewCtrl;
@@ -340,37 +405,25 @@ public class AssessmentResultController extends FormBasicController {
 		openInNewBrowserWindow(ureq, creator);
 	}
 
-	public class InteractionResults {
-		private InteractionResultFormItem responseFormItem;
-		private InteractionResultFormItem solutionFormItem;
-
-		public InteractionResults() {
-			//
-		}
+	public static class InteractionResults {
+		private final FormItem responseFormItem;
+		private final FormItem solutionFormItem;
 		
-		public InteractionResults(InteractionResultFormItem responseFormItem, InteractionResultFormItem solutionFormItem) {
+		public InteractionResults(FormItem responseFormItem, FormItem solutionFormItem) {
 			this.responseFormItem = responseFormItem;
 			this.solutionFormItem = solutionFormItem;
 		}
 		
-		public InteractionResultFormItem getResponseFormItem() {
+		public FormItem getResponseFormItem() {
 			return responseFormItem;
 		}
 		
-		public void setResponseFormItem(InteractionResultFormItem responseFormItem) {
-			this.responseFormItem = responseFormItem;
-		}
-		
-		public InteractionResultFormItem getSolutionFormItem() {
+		public FormItem getSolutionFormItem() {
 			return solutionFormItem;
-		}
-		
-		public void setSolutionFormItem(InteractionResultFormItem solutionFormItem) {
-			this.solutionFormItem = solutionFormItem;
 		}
 	}
 	
-	public class Results {
+	public static class Results {
 		
 		private Date entryTime;
 		private Date endTime;
@@ -378,32 +431,49 @@ public class AssessmentResultController extends FormBasicController {
 		
 		private String score;
 		private String maxScore;
-		
 		private Boolean pass;
 		
-		private boolean section;
-		private String title;
-		private String cssClass;
+		private final String title;
+		private final String cssClass;
+		private final boolean section;
+		private final boolean metadataVisible;
 		
 		private String sessionStatus;
 		
+		private FormItem questionItem;
 		private final List<InteractionResults> interactionResults = new ArrayList<>();
 		
-		public Results(boolean section, String cssClass) {
+		public Results(boolean section, String cssClass, boolean metadataVisible) {
 			this.section = section;
 			this.cssClass = cssClass;
+			this.metadataVisible = metadataVisible;
+			this.title = null;
 		}
 		
-		public Results(boolean section, String title, String cssClass) {
+		public Results(boolean section, String title, String cssClass, boolean metadataVisible) {
 			this.section = section;
 			this.title = title;
 			this.cssClass = cssClass;
+			this.metadataVisible = metadataVisible;
 		}
 		
 		public void setSessionState(ControlObjectSessionState sessionState) {
 			entryTime = sessionState.getEntryTime();
 			endTime = sessionState.getEndTime();
 			duration = sessionState.getDurationAccumulated();
+		}
+		
+		public boolean isMetadataVisible() {
+			return metadataVisible;
+		}
+		
+		public boolean hasInteractions() {
+			for(InteractionResults interactionResult:interactionResults) {
+				if(interactionResult.getResponseFormItem() != null || interactionResult.getSolutionFormItem() != null) {
+					return true;
+				}
+			}
+			return false;
 		}
 		
 		public String getCssClass() {
@@ -414,17 +484,10 @@ public class AssessmentResultController extends FormBasicController {
 			return title;
 		}
 		
-		public void setTitle(String title) {
-			this.title = title;
-		}
-		
 		public boolean isSection() {
 			return section;
 		}
-		
-		public void setSection(boolean section) {
-			this.section = section;
-		}
+
 
 		public Date getEntryTime() {
 			return entryTime;
@@ -482,8 +545,37 @@ public class AssessmentResultController extends FormBasicController {
 			this.sessionStatus = sessionStatus;
 		}
 
+		public FormItem getQuestionItem() {
+			return questionItem;
+		}
+
+		public void setQuestionItem(FormItem questionItem) {
+			this.questionItem = questionItem;
+		}
+
 		public List<InteractionResults> getInteractionResults() {
 			return interactionResults;
+		}
+	}
+	
+	public class SignatureMapper implements Mapper {
+		
+		private final File signature;
+		
+		public SignatureMapper(File signature) {
+			this.signature = signature;
+		}
+
+		@Override
+		public MediaResource handle(String relPath, HttpServletRequest request) {
+
+			MediaResource resource;
+			if(signature.exists()) {
+				resource = new DownloadeableMediaResource(signature);
+			} else {
+				resource = new NotFoundMediaResource(relPath);
+			}
+			return resource;
 		}
 	}
 }

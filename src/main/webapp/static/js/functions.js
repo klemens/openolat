@@ -313,6 +313,21 @@ function o2cl() {
 		return false;
 	}
 }
+
+// the method doesn't set the busy flag
+function o2cl_dirtyCheckOnly() {
+	try {
+		if (o_info.linkbusy) {
+			return false;
+		} else {
+			return (o2c==0 || confirm(o_info.dirty_form));
+		}
+	} catch(e) {
+		if(window.console) console.log(e);
+		return false;
+	}
+}
+
 //for flexi tree
 function o2cl_noDirtyCheck() {
 	if (o_info.linkbusy) {
@@ -1153,7 +1168,7 @@ function showerror(e) {
 function o_ffEvent(formNam, dispIdField, dispId, eventIdField, eventInt){
 	//set hidden fields and submit form
 	var dispIdEl, defDispId,eventIdEl,defEventId;
-	
+
 	dispIdEl = document.getElementById(dispIdField);
 	defDispId = dispIdEl.value;
 	dispIdEl.value=dispId;
@@ -1327,9 +1342,9 @@ function o_ffXHRNFEvent(formNam, dispIdField, dispId, eventIdField, eventInt) {
 	var data = new Object();
 	data['dispatchuri'] = dispId;
 	data['dispatchevent'] = eventInt;
-	if(arguments.length > 7) {
+	if(arguments.length > 5) {
 		var argLength = arguments.length;
-		for(var i=7; i<argLength; i=i+2) {
+		for(var i=5; i<argLength; i=i+2) {
 			if(argLength > i+1) {
 				data[arguments[i]] = arguments[i+1];
 			}

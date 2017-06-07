@@ -22,12 +22,22 @@
 				</tr>
 				<tr class="o_score">
 					<th>$r.translate("score.yourscore")</th>
-					<td>#if($r.isNotNull($score))$score#end</td>
+					<td>
+					#if($r.isNotNull($score))
+						#if($resultsVisible)
+							$score
+						#else
+							$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+						#end
+					#end
+					</td>
 				</tr>
-				<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+				<tr class="o_state #if(!$resultsVisible) #elseif ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
 					<th>$r.translate("passed.yourpassed")</th>
 					<td>
-					#if($hasPassedValue && $passed)	
+					#if($hasPassedValue && !$resultsVisible)
+						$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+					#elseif($hasPassedValue && $passed)	
 						<i class="o_icon o_icon_passed"></i> 
 						$r.translate("passed.yes")
 					#elseif($hasPassedValue && !$passed)		
@@ -38,6 +48,13 @@
 					#end
 					</td>
 				</tr>
+				#if($r.available("digital.signature.download.link"))
+				<tr>
+					<th>$r.translate("digital.signature.download")</th>
+					<td>$r.render("digital.signature.download.link")
+					#if($r.isNotNull($signatureIssueDate)) $r.translate("digital.signature.download.date", $signatureIssueDate)#end</td>
+				</tr>
+				#end
 			</tbody>
 			</table>
 		</div>
@@ -64,7 +81,6 @@
 			/* ]]> */
 		</script>
 		#end
-
 	#else
 		<div class="o_no_scoreinfo">
 			$r.translate("score.noscoreinfoyet")
@@ -80,6 +96,9 @@
 	#end
 #end
 
+#if ($r.available("highScore"))
+	$r.render("highScore")
+#end
 #if($showResultsOnHomePage && $attempts > 0)	
 	<div class="panel panel-default o_results">
 	  	<div class="panel-heading">
@@ -100,7 +119,6 @@
 		#end
 	</div>
 #end
-
 
 #if (($attemptsConfig && $attemptsConfig > 0 && ($attemptsConfig <= $attempts)) || $blockAfterSuccess)
 	<div class="o_statusinfo">
@@ -133,29 +151,32 @@
   		</div></div>
 	</div>
 	#end
-	
-	#if($type == "test")
-	<div class="o_statusinfo">
-		<p>$r.translate("Intro.test")</p>
-		<p>$r.translate("info.assessment")</p>
-		#if ($hasChatWindowOpen)
-		<p>$r.translate("close.chat.windows.for.test")</p>
+
+	#if($infobox)	
+		#if($type == "test")
+		<div class="o_statusinfo">
+			<p>$r.translate("Intro.test")</p>
+			<p>$r.translate("info.assessment")</p>
+			#if ($hasChatWindowOpen)
+			<p>$r.translate("close.chat.windows.for.test")</p>
+			#end
+		</div>
+		#elseif($type == "self")
+		<div class="o_statusinfo">
+			<p>$r.translate("Intro.self")</p>
+			<p>$r.translate("info.selfassessment")</p>
+		</div>
 		#end
-	</div>
-	#elseif($type == "self")
-	<div class="o_statusinfo">
-		<p>$r.translate("Intro.self")</p>
-		<p>$r.translate("info.selfassessment")</p>
-	</div>
-	#end
-	
+	#end	
 	<div class="o_button_group">$r.render("start")</div>
 #end
-
-#if($r.isNotNull($log)) ##&& $showChangelog (in QTI 1.2)
-<div class="o_box">
-    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
-    <pre class="small">$log</pre>
-    #o_togglebox_end()
-</div>    
+#if($changelogconfig)
+	#if($r.isNotNull($log) && $r.isNotNull($showChangeLog) && $showChangeLog)
+	<div class="o_box">
+	    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
+	    <pre class="small">$log</pre>
+	    #o_togglebox_end()
+	</div>    
+	#end
 #end
+

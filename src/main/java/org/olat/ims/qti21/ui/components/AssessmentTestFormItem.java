@@ -29,6 +29,8 @@ import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.reviewItem
 import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.reviewTestPart;
 import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.selectItem;
 import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.testPartNavigation;
+import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.timesUp;
+import static org.olat.ims.qti21.ui.QTIWorksAssessmentTestEvent.Event.tmpResponse;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -167,6 +169,14 @@ public class AssessmentTestFormItem extends AssessmentObjectFormItem {
 					}
 					case exitTest: {
 						event = new QTIWorksAssessmentTestEvent(exitTest, this);
+						break;
+					}
+					case timesUp: {
+						event = new QTIWorksAssessmentTestEvent(timesUp, this);
+						break;
+					}
+					case tmpResponse: {
+						event = new QTIWorksAssessmentTestEvent(tmpResponse, this);
 						break;
 					}
 					default: {

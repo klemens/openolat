@@ -142,7 +142,7 @@ public class SingleChoiceEditorController extends FormBasicController {
 
 		ChoiceInteraction interaction = itemBuilder.getChoiceInteraction();
 		if(interaction != null) {
-			List<SimpleChoice> choices = itemBuilder.getSimpleChoices();
+			List<SimpleChoice> choices = itemBuilder.getChoices();
 			for(SimpleChoice choice:choices) {
 				wrapAnswer(ureq, choice);
 			}
@@ -293,7 +293,7 @@ public class SingleChoiceEditorController extends FormBasicController {
 	
 	private void doAddSimpleChoice(UserRequest ureq) {
 		ChoiceInteraction interaction = itemBuilder.getChoiceInteraction();
-		SimpleChoice newChoice = AssessmentItemFactory.createSimpleChoice(interaction, "New answer", "sc");
+		SimpleChoice newChoice = AssessmentItemFactory.createSimpleChoice(interaction, translate("new.answer"), "sc");
 		wrapAnswer(ureq, newChoice);
 		flc.setDirty(true);
 	}

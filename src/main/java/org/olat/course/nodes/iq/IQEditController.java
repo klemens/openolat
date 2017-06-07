@@ -40,6 +40,7 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
+import org.olat.course.highscore.ui.HighScoreEditController;
 import org.olat.course.nodes.AbstractAccessableCourseNode;
 import org.olat.course.nodes.IQSELFCourseNode;
 import org.olat.course.nodes.IQSURVCourseNode;
@@ -61,10 +62,13 @@ import org.olat.repository.RepositoryManager;
 public class IQEditController extends ActivateableTabbableDefaultController implements ControllerEventListener {
 
 	public final String PANE_TAB_IQCONFIG_XXX;
+	public final String PANE_TAB_IQLAYOUTCONFIG = "pane.tab.iqconfig.layout";
+	
 	public static final String PANE_TAB_IQCONFIG_SURV = "pane.tab.iqconfig.surv";
 	public static final String PANE_TAB_IQCONFIG_SELF = "pane.tab.iqconfig.self";
 	public static final String PANE_TAB_IQCONFIG_TEST = "pane.tab.iqconfig.test";
 	public static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
+	private static final String PANE_TAB_HIGHSCORE = "pane.tab.highscore"; 
 
 	/** configuration key: repository sof key reference to qti file*/
 	public static final String CONFIG_KEY_REPOSITORY_SOFTKEY = "repoSoftkey";
@@ -124,6 +128,14 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	public final static String CONFIG_CORRECTION_MODE = "correctionMode";
 	/** Test in full window mode*/
 	public final static String CONFIG_ALLOW_ANONYM = "allowAnonym";
+	/** Digitally signed the assessment results */
+	public final static String CONFIG_DIGITAL_SIGNATURE = "digitalSignature";
+	/** Send the signature per mail */
+	public final static String CONFIG_DIGITAL_SIGNATURE_SEND_MAIL = "digitalSignatureMail";
+	/** configuration key: use configuration of the reference repository entry */
+	public static final String CONFIG_KEY_CONFIG_REF = "configFromRef";
+	/** configuration key: use a time limit for the test in seconds */
+	public static final String CONFIG_KEY_TIME_LIMIT = "timeLimit";
 	
 	public final static String CORRECTION_AUTO = "auto";
 	public final static String CORRECTION_MANUAL = "manual";
@@ -158,6 +170,8 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	
 	private ConditionEditController accessibilityCondContr;
 	private IQConfigurationController configurationCtrl;
+	private IQLayoutConfigurationController layoutConfigurationCtrl;
+	private HighScoreEditController highScoreNodeConfigController;
 
 	/**
 	 * Constructor for the IMS QTI edit controller for a test course node
@@ -262,9 +276,14 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 	}
 
 	private void init(UserRequest ureq) {		
-		configurationCtrl = new IQConfigurationController(ureq, getWindowControl(), this.stackPanel, course, courseNode, euce, type);
+		configurationCtrl = new IQConfigurationController(ureq, getWindowControl(), stackPanel, course, courseNode, type);
 		listenTo(configurationCtrl);
-
+		layoutConfigurationCtrl = new IQLayoutConfigurationController(ureq, getWindowControl(), course, courseNode, type);
+		listenTo(layoutConfigurationCtrl);	
+		if (AssessmentInstance.QMD_ENTRY_TYPE_ASSESS.equals(type)) {
+			highScoreNodeConfigController = new HighScoreEditController(ureq, getWindowControl(), moduleConfiguration);
+			listenTo(highScoreNodeConfigController);
+		}
 		Condition accessCondition = courseNode.getPreConditionAccess();
 		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), euce, accessCondition,
 				AssessmentHelper.getAssessableNodes(course.getEditorTreeModel(), courseNode));		
@@ -287,8 +306,19 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		} else if (source == configurationCtrl) {
 			if (event == NodeEditController.NODECONFIG_CHANGED_EVENT) {
 				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
+				layoutConfigurationCtrl.updateEditController(urequest);
 			}
-		} 
+		} else if (source == highScoreNodeConfigController){
+			if (event == Event.DONE_EVENT) {
+				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
+			}
+		} else if (source == layoutConfigurationCtrl) {
+			if (event == NodeEditController.NODECONFIG_CHANGED_EVENT) {
+				fireEvent(urequest, NodeEditController.NODECONFIG_CHANGED_EVENT);
+				configurationCtrl.updateEditController(urequest, false);
+				layoutConfigurationCtrl.updateEditController(urequest);
+			}
+		}
 	}
 	
 	@Override
@@ -297,8 +327,12 @@ public class IQEditController extends ActivateableTabbableDefaultController impl
 		tabbedPane.addTab(translate(PANE_TAB_ACCESSIBILITY), accessibilityCondContr.getWrappedDefaultAccessConditionVC(translate("condition.accessibility.title")));
 		//PANE_TAB_IQCONFIG_XXX is set during construction time
 		tabbedPane.addTab(translate(PANE_TAB_IQCONFIG_XXX), configurationCtrl.getInitialComponent());
+		tabbedPane.addTab(translate(PANE_TAB_IQLAYOUTCONFIG), layoutConfigurationCtrl.getInitialComponent());
+		if (AssessmentInstance.QMD_ENTRY_TYPE_ASSESS.equals(type)) {
+			tabbedPane.addTab(translate(PANE_TAB_HIGHSCORE) , highScoreNodeConfigController.getInitialComponent());
+		}
 	}
-
+	
 	/**
 	 * Ge the qti file soft key repository reference 
 	 * @param config

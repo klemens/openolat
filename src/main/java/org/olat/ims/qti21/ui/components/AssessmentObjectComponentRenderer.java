@@ -61,12 +61,15 @@ import javax.xml.transform.sax.TransformerHandler;
 import javax.xml.transform.stream.StreamResult;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.context.Context;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.DefaultComponentRenderer;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormUIFactory;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.render.RenderResult;
@@ -83,6 +86,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.QTI21Module;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.XmlUtilities;
@@ -90,7 +94,10 @@ import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
 import uk.ac.ed.ph.jqtiplus.attribute.Attribute;
+import uk.ac.ed.ph.jqtiplus.attribute.AttributeList;
+import uk.ac.ed.ph.jqtiplus.attribute.ForeignAttribute;
 import uk.ac.ed.ph.jqtiplus.attribute.value.IntegerAttribute;
+import uk.ac.ed.ph.jqtiplus.attribute.value.StringMultipleAttribute;
 import uk.ac.ed.ph.jqtiplus.node.ForeignElement;
 import uk.ac.ed.ph.jqtiplus.node.QtiNode;
 import uk.ac.ed.ph.jqtiplus.node.content.InfoControl;
@@ -109,6 +116,7 @@ import uk.ac.ed.ph.jqtiplus.node.content.variable.FeedbackInline;
 import uk.ac.ed.ph.jqtiplus.node.content.variable.PrintedVariable;
 import uk.ac.ed.ph.jqtiplus.node.content.variable.RubricBlock;
 import uk.ac.ed.ph.jqtiplus.node.content.variable.TextOrVariable;
+import uk.ac.ed.ph.jqtiplus.node.content.xhtml.hypertext.A;
 import uk.ac.ed.ph.jqtiplus.node.content.xhtml.image.Img;
 import uk.ac.ed.ph.jqtiplus.node.content.xhtml.list.Dd;
 import uk.ac.ed.ph.jqtiplus.node.content.xhtml.list.Dl;
@@ -168,6 +176,7 @@ import uk.ac.ed.ph.jqtiplus.types.ResponseData;
 import uk.ac.ed.ph.jqtiplus.utils.QueryUtils;
 import uk.ac.ed.ph.jqtiplus.value.BaseType;
 import uk.ac.ed.ph.jqtiplus.value.Cardinality;
+import uk.ac.ed.ph.jqtiplus.value.IdentifierValue;
 import uk.ac.ed.ph.jqtiplus.value.SingleValue;
 import uk.ac.ed.ph.jqtiplus.value.Value;
 import uk.ac.ed.ph.jqtiplus.xmlutils.xslt.XsltStylesheetManager;
@@ -190,37 +199,50 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
     }
 
     protected void renderTerminated(StringOutput sb, Translator translator) {
-		sb.append("<div class='o_info'>").append(translator.translate("terminated.msg")).append("</div>");
+		sb.append("<div class='o_info o_sel_assessment_test_terminated'>").append(translator.translate("terminated.msg")).append("</div>");
     }
 	
 	protected void renderItemStatus(StringOutput sb, ItemSessionState itemSessionState, RenderingRequest options, Translator translator) {
 		if(options != null && options.isSolutionMode()) {
-			sb.append("<span class='o_assessmentitem_status review'>").append(translator.translate("assessment.item.status.modelSolution")).append("</span>");
+			renderItemStatusMessage("review", "assessment.item.status.modelSolution", sb, translator);
 		} else if(options != null && options.isReviewMode()) {
 			renderItemReviewStatus(sb, itemSessionState, translator);
 		} else if(itemSessionState.getEndTime() != null) {
-			sb.append("<span class='o_assessmentitem_status ended'>").append(translator.translate("assessment.item.status.finished")).append("</span>");
+			renderItemStatusMessage("ended", "assessment.item.status.finished", sb, translator);
 		} else if(!(itemSessionState.getUnboundResponseIdentifiers().isEmpty() && itemSessionState.getInvalidResponseIdentifiers().isEmpty())) {
-			sb.append("<span class='o_assessmentitem_status invalid'>").append(translator.translate("assessment.item.status.needsAttention")).append("</span>");
-		} else if(itemSessionState.isResponded() || itemSessionState.getUncommittedResponseValues().size() > 0) {
-			sb.append("<span class='o_assessmentitem_status answered'>").append(translator.translate("assessment.item.status.answered")).append("</span>");
+			renderItemStatusMessage("invalid", "assessment.item.status.needsAttention", sb, translator);
+		} else if(itemSessionState.isResponded()) {
+			if(itemSessionState.getUncommittedResponseValues().size() > 0) {
+				renderItemStatusMessage("notAnswered", "assessment.item.status.notAnswered", sb, translator);
+			} else {
+				renderItemStatusMessage("answered", "assessment.item.status.answered", sb, translator);
+			}
 		} else if(itemSessionState.getEntryTime() != null) {
-			sb.append("<span class='o_assessmentitem_status notAnswered'>").append(translator.translate("assessment.item.status.notAnswered")).append("</span>");
+			renderItemStatusMessage("notAnswered", "assessment.item.status.notAnswered", sb, translator);
 		} else {
-			sb.append("<span class='o_assessmentitem_status notPresented'>").append(translator.translate("assessment.item.status.notSeen")).append("</span>");
+			renderItemStatusMessage("notPresented", "assessment.item.status.notSeen", sb, translator);
 		}
 	}
 	
 	protected void renderItemReviewStatus(StringOutput sb, ItemSessionState itemSessionState, Translator translator) {
 		if(!(itemSessionState.getUnboundResponseIdentifiers().isEmpty() && itemSessionState.getInvalidResponseIdentifiers().isEmpty())) {
-			sb.append("<span class='o_assessmentitem_status reviewInvalid'>").append(translator.translate("assessment.item.status.reviewInvalidAnswer")).append("</span>");
+			renderItemStatusMessage("reviewInvalid", "assessment.item.status.reviewInvalidAnswer", sb, translator);
 		} else if(itemSessionState.isResponded()) {
-			sb.append("<span class='o_assessmentitem_status review'>").append(translator.translate("assessment.item.status.review")).append("</span>");
+			renderItemStatusMessage("review", "assessment.item.status.review", sb, translator);
 		} else if(itemSessionState.getEntryTime() != null) {
-			sb.append("<span class='o_assessmentitem_status reviewNotAnswered'>").append(translator.translate("assessment.item.status.reviewNotAnswered")).append("</span>");
+			renderItemStatusMessage("reviewNotAnswered", "assessment.item.status.reviewNotAnswered", sb, translator);
 		} else {
-			sb.append("<span class='o_assessmentitem_status reviewNotSeen'>").append(translator.translate("assessment.item.status.reviewNotSeen")).append("</span>");
+			renderItemStatusMessage("reviewNotSeen", "assessment.item.status.reviewNotSeen", sb, translator);
 		}
+		// missing? see AssessmentTestComponentRenderer
+		// buildRenderStatus("reviewNotAllowed", "assessment.item.status.reviewNot", sb, translator);
+
+	}
+	
+	private void renderItemStatusMessage(String status, String i18nKey, StringOutput sb, Translator translator) {
+		String title = translator.translate(i18nKey);
+		sb.append("<span class='o_assessmentitem_status ").append(status).append(" ' title=\"").append(StringEscapeUtils.escapeHtml(title))
+		.append("\"><i class='o_icon o_icon-fw o_icon_qti_").append(status).append("'> </i><span>").append(title).append("</span></span>");
 	}
 	
 	protected void renderTestItemModalFeedback(AssessmentRenderer renderer, StringOutput sb, AssessmentObjectComponent component,
@@ -234,26 +256,137 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		}
 		
 		if(modalFeedbacks.size() > 0) {
-			sb.append("<div class='modalFeedback'>")
-			  .append("<h2>").append(translator.translate("assessment.item.modal.feedback")).append("</h2>");
+			sb.append("<div class='modalFeedback'>");
 			for(ModalFeedback modalFeedback:modalFeedbacks) {
-				sb.append("<div class='modalFeedback o_info'>");
-				Attribute<?> title = modalFeedback.getAttributes().get("title");
-				if(title != null && title.getValue() != null) {
-					String feedbackTitle = title.getValue().toString();
-					if(StringHelper.containsNonWhitespace(feedbackTitle)) {
-						sb.append("<h4>").append(StringHelper.escapeHtml(feedbackTitle)).append("</h4>");
-					}
+				Identifier outcomeIdentifier = modalFeedback.getOutcomeIdentifier();
+				if(QTI21Constants.FEEDBACKMODAL_IDENTIFIER.equals(outcomeIdentifier)) {
+					renderTestItemModalFeedback_feedbackModal(renderer, sb, modalFeedback,
+							component, resolvedAssessmentItem, itemSessionState, ubu, translator);
+				} else if(QTI21Constants.CORRECT_SOLUTION_IDENTIFIER.equals(outcomeIdentifier)) {
+					renderTestItemModalFeedback_correctSolution(renderer, sb, modalFeedback,
+							component, resolvedAssessmentItem, itemSessionState, ubu, translator);
+				} else {
+					renderTestItemModalFeedback_standard(renderer, sb, modalFeedback,
+							component, resolvedAssessmentItem, itemSessionState, ubu, translator);
 				}
-				
-				modalFeedback.getFlowStatics().forEach((flow)
-					-> renderFlow(renderer, sb, component, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
-
-				sb.append("</div>");
 			}
-			
 			sb.append("</div>");
 		}
+	}
+	
+	protected void renderTestItemModalFeedback_correctSolution(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
+			AssessmentObjectComponent component, ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState,
+			URLBuilder ubu, Translator translator) {
+		
+		sb.append("<div class='modalFeedback o_togglebox_wrapper o_block clearfix'>");
+		Attribute<?> title = modalFeedback.getAttributes().get("title");
+		String feedbackTitle = null;
+		if(title != null && title.getValue() != null) {
+			feedbackTitle = title.getValue().toString();
+		}
+		if(!StringHelper.containsNonWhitespace(feedbackTitle)) {
+			feedbackTitle = translator.translate("correct.solution");
+		}
+
+		sb.append("<h4><a href='#modal-correct-solution' data-toggle='collapse' data-target='#modal-correct-solution' class=\"o_opener\" onclick=\"jQuery(this).toggleClass('o_in'); return false;\"><i class='o_icon o_icon-fw o_icon-lg'> </i> ").append(StringHelper.escapeHtml(feedbackTitle)).append("</a></h4>");
+		sb.append("<div id='modal-correct-solution' class='collapse'><div class='o_togglebox_content clearfix'>");
+		
+		modalFeedback.getFlowStatics().forEach((flow)
+			-> renderFlow(renderer, sb, component, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
+
+		sb.append("</div></div></div>");
+		
+		/*
+		<div class="o_togglebox_wrapper o_block">
+		<a href="#$uid" data-toggle="collapse" data-target="#${uid}" class="o_opener" onclick="jQuery(this).toggleClass('o_in'); return false;">
+			<i class="o_icon o_icon-fw o_icon-lg"></i> 
+			$title
+		</a>
+		<div id="$uid" class="collapse">
+			<div class="o_togglebox_content clearfix">	
+		*/
+	}
+	
+	/**
+	 * Render the feedback modal generated by OpenOLAT editor.
+	 * 
+	 * @param renderer
+	 * @param sb
+	 * @param modalFeedback
+	 * @param component
+	 * @param resolvedAssessmentItem
+	 * @param itemSessionState
+	 * @param ubu
+	 * @param translator
+	 */
+	protected void renderTestItemModalFeedback_feedbackModal(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
+			AssessmentObjectComponent component,
+			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
+		sb.append("<div class='modalFeedback o_info clearfix");
+		
+		Value feedbackBasic = itemSessionState.getOutcomeValue(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
+		if(feedbackBasic != null && feedbackBasic.hasBaseType(BaseType.IDENTIFIER) && feedbackBasic instanceof IdentifierValue) {
+			IdentifierValue identifierValue = (IdentifierValue)feedbackBasic;
+			if(QTI21Constants.CORRECT_IDENTIFIER_VALUE.equals(identifierValue)) {
+				sb.append(" o_correct_modal_feedback");
+			} else if(QTI21Constants.INCORRECT_IDENTIFIER_VALUE.equals(identifierValue)) {
+				sb.append(" o_incorrect_modal_feedback");
+			} else if(QTI21Constants.EMPTY_IDENTIFIER_VALUE.equals(identifierValue)) {
+				sb.append(" o_empty_modal_feedback");
+			}
+		}
+
+		sb.append("'>");
+		Attribute<?> title = modalFeedback.getAttributes().get("title");
+		if(title != null && title.getValue() != null) {
+			String feedbackTitle = title.getValue().toString();
+			if(StringHelper.containsNonWhitespace(feedbackTitle)) {
+				sb.append("<h4>");
+				if(modalFeedback.getIdentifier() != null && QTI21Constants.HINT_IDENTIFIER.equals(modalFeedback.getIdentifier())) {
+					sb.append("<i class='o_icon o_icon_help'> </i> ");
+				}
+				sb.append(StringHelper.escapeHtml(feedbackTitle)).append("</h4>");
+			}
+		}
+		
+		modalFeedback.getFlowStatics().forEach((flow)
+			-> renderFlow(renderer, sb, component, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
+
+		sb.append("</div>");
+	}
+
+	/**
+	 * Render the standard feedback in an info box.
+	 * 
+	 * @param renderer
+	 * @param sb
+	 * @param modalFeedback
+	 * @param component
+	 * @param resolvedAssessmentItem
+	 * @param itemSessionState
+	 * @param ubu
+	 * @param translator
+	 */
+	protected void renderTestItemModalFeedback_standard(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
+			AssessmentObjectComponent component,
+			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
+		sb.append("<div class='modalFeedback o_info clearfix'>");
+		Attribute<?> title = modalFeedback.getAttributes().get("title");
+		if(title != null && title.getValue() != null) {
+			String feedbackTitle = title.getValue().toString();
+			if(StringHelper.containsNonWhitespace(feedbackTitle)) {
+				sb.append("<h4>");
+				if(modalFeedback.getIdentifier() != null && QTI21Constants.HINT_IDENTIFIER.equals(modalFeedback.getIdentifier())) {
+					sb.append("<i class='o_icon o_icon_help'> </i> ");
+				}
+				sb.append(StringHelper.escapeHtml(feedbackTitle)).append("</h4>");
+			}
+		}
+		
+		modalFeedback.getFlowStatics().forEach((flow)
+			-> renderFlow(renderer, sb, component, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
+
+		sb.append("</div>");
 	}
 	
 	public void renderFlow(AssessmentRenderer renderer, StringOutput sb, AssessmentObjectComponent component,
@@ -545,6 +678,10 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 				renderSpan(renderer, sb, (Span)inline, component, resolvedAssessmentItem, itemSessionState, ubu, translator);
 				break;
 			}
+			case A.QTI_CLASS_NAME: {
+				renderA(renderer, sb, (A)inline, component, resolvedAssessmentItem, itemSessionState, ubu, translator);
+				break;
+			}
 			case Object.QTI_CLASS_NAME: {
 				renderObject(sb, (Object)inline, component, resolvedAssessmentItem);
 				break;
@@ -582,6 +719,31 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 					-> renderInline(renderer, sb, component, resolvedAssessmentItem, itemSessionState, child, ubu, translator));
 			renderEndTag(sb, span);
 		}
+	}
+	
+	protected final void renderA(AssessmentRenderer renderer, StringOutput sb, A a, AssessmentObjectComponent component,
+			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
+	
+		sb.append("<a");
+		boolean target = false;
+		for(Attribute<?> attribute:a.getAttributes()) {
+			String value = getHtmlAttributeValue(component, resolvedAssessmentItem, attribute);
+			if(StringHelper.containsNonWhitespace(value)) {
+				String name = attribute.getLocalName();
+				if("target".equals(name)) {
+					target = true;
+				}
+				sb.append(" ").append(name).append("=\"").append(value).append("\"");
+			}
+		}
+		if(!target) {
+			sb.append(" target=\"_blank\"");
+		}
+		sb.append(">");
+
+		a.getInlines().forEach((child)
+				-> renderInline(renderer, sb, component, resolvedAssessmentItem, itemSessionState, child, ubu, translator));
+		renderEndTag(sb, a);
 	}
 	
 	protected final void renderObject(StringOutput sb, Object object, AssessmentObjectComponent component, ResolvedAssessmentItem resolvedAssessmentItem) {
@@ -742,9 +904,17 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		FormItem endAttemptButton = item.getFormComponent(id);
 		if(endAttemptButton == null) {
 			String title = StringHelper.escapeHtml(interaction.getTitle());
-			endAttemptButton = FormUIFactory.getInstance().addFormLink(id, id, title, null, null, Link.BUTTON | Link.NONTRANSLATED);
+			FormLink button = FormUIFactory.getInstance().addFormLink(id, id, title, null, null, Link.BUTTON | Link.NONTRANSLATED);
+			// use specific icon for known types
+			if (interaction.getResponseIdentifier().equals(QTI21Constants.HINT_REQUEST_IDENTIFIER)) {
+				button.setIconLeftCSS("o_icon o_icon-fw o_icon_qti_hint");
+				button.setElementCssClass("o_sel_assessment_item_hint");
+			}
+			endAttemptButton = button;
 			endAttemptButton.setTranslator(translator);
 			endAttemptButton.setUserObject(interaction);
+			
+			
 			if(item.getRootForm() != endAttemptButton.getRootForm()) {
 				endAttemptButton.setRootForm(item.getRootForm());
 			}
@@ -1034,7 +1204,9 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		
 		String responseUniqueId = component.getResponseUniqueIdentifier(itemSessionState, interaction);
 		sb.append("<textarea id='oo_").append(responseUniqueId).append("' name='qtiworks_response_").append(responseUniqueId).append("'");
-		if(component.isItemSessionEnded(itemSessionState, renderer.isSolutionMode())) {
+		
+		boolean ended = component.isItemSessionEnded(itemSessionState, renderer.isSolutionMode());
+		if(ended) {
 			sb.append(" disabled");
 		}
 		if(StringHelper.containsNonWhitespace(interaction.getPlaceholderText())) {
@@ -1073,11 +1245,26 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		}
 		sb.append("</textarea>");
 		
-		FormJSHelper.appendFlexiFormDirty(sb, component.getQtiItem().getRootForm(), "oo_" + responseUniqueId);
-		sb.append(FormJSHelper.getJSStartWithVarDeclaration("oo_" + responseUniqueId))
-		//plain textAreas should not propagate the keypress "enter" (keynum = 13) as this would submit the form
-		  .append("oo_").append(responseUniqueId).append(".on('keypress', function(event, target){if (13 == event.keyCode) {event.stopPropagation()} })")
-		  .append(FormJSHelper.getJSEnd());
+		if(!ended) {
+			FormJSHelper.appendFlexiFormDirty(sb, component.getQtiItem().getRootForm(), "oo_" + responseUniqueId);
+			sb.append(FormJSHelper.getJSStartWithVarDeclaration("oo_" + responseUniqueId))
+			//plain textAreas should not propagate the keypress "enter" (keynum = 13) as this would submit the form
+			  .append("oo_").append(responseUniqueId).append(".on('keypress', function(event, target){if (13 == event.keyCode) {event.stopPropagation()} })")
+			  .append(FormJSHelper.getJSEnd());
+			
+			Form form = component.getQtiItem().getRootForm();
+			sb.append(FormJSHelper.getJSStart())
+			  .append("jQuery(function() {\n")
+			  .append(" jQuery('#").append("oo_").append(responseUniqueId).append("').qtiAutosave({\n")
+			  .append("  responseUniqueId:'").append(responseUniqueId).append("',\n")
+			  .append("  formName:'").append(form.getFormName()).append("',\n")
+			  .append("  dispIdField:'").append(form.getDispatchFieldId()).append("',\n")
+			  .append("  dispId:'").append(component.getQtiItem().getFormDispatchId()).append("',\n")
+			  .append("  eventIdField:'").append(form.getEventFieldId()).append("'\n")
+			  .append(" });\n")
+			  .append("})\n")
+			  .append(FormJSHelper.getJSEnd());
+		}
 	}
 	
 	protected abstract void renderPrintedVariable(AssessmentRenderer renderer, StringOutput sb,
@@ -1356,6 +1543,23 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
             log.error("Rendering XSLT pipeline failed for request {}", e);
             throw new OLATRuntimeException("Unexpected Exception running rendering XML pipeline", e);
         }
+	}
+	
+	protected boolean containsClass(QtiNode element, String marker) {
+		AttributeList attributes = element.getAttributes();
+		for(int i=attributes.size(); i-->0; ) {
+			Attribute<?> attr = attributes.get(i);
+			if("class".equals(attr.getLocalName())) {
+				if(attr instanceof ForeignAttribute) {
+					String css = ((ForeignAttribute)attr).getValue();
+					return css != null && css.contains(marker);
+				} else if(attr instanceof StringMultipleAttribute) {
+					List<String> css = ((StringMultipleAttribute)attr).getValue();
+					return css != null && css.contains(marker);
+				}
+			}
+		}
+		return false;
 	}
 	
     public static class RenderingRequest {

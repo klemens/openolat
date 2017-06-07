@@ -55,6 +55,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -92,6 +93,11 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 	@Override
 	public List<AssessmentEntry> getAssessmentEntries(CourseNode courseNode) {
 		return assessmentService.loadAssessmentEntriesBySubIdent(cgm.getCourseEntry(), courseNode.getIdent());
+	}
+	
+	@Override
+	public List<AssessmentEntry> getAssessmentEntriesWithStatus(CourseNode courseNode, AssessmentEntryStatus status, boolean excludeZeroScore) {
+		return assessmentService.loadAssessmentEntriesBySubIdentWithStatus(cgm.getCourseEntry(), courseNode.getIdent(), status, excludeZeroScore);
 	}
 
 	@Override
@@ -261,9 +267,14 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		}
 		assessmentEntry.setPassed(passed);
 		assessmentEntry.setFullyAssessed(scoreEvaluation.getFullyAssessed());
-		assessmentEntry.setAssessmentId(assessmentId);
+		if(assessmentId != null) {
+			assessmentEntry.setAssessmentId(assessmentId);
+		}
 		if(scoreEvaluation.getAssessmentStatus() != null) {
 			assessmentEntry.setAssessmentStatus(scoreEvaluation.getAssessmentStatus());
+		}
+		if(scoreEvaluation.getUserVisible() != null) {
+			assessmentEntry.setUserVisibility(scoreEvaluation.getUserVisible());
 		}
 		Integer attempts = null;
 		if(incrementUserAttempts) {
@@ -324,7 +335,7 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		if (courseEnv.getCourseConfig().isEfficencyStatementEnabled()) {
 			List<AssessmentNodeData> data = new ArrayList<AssessmentNodeData>(50);
 			AssessmentHelper.getAssessmentNodeDataList(0, courseEnv.getRunStructure().getRootNode(),
-					scoreAccounting, userCourseEnv, true, true, data);
+					scoreAccounting, userCourseEnv, true, true, true, data);
 			efficiencyStatementManager.updateUserEfficiencyStatement(assessedIdentity, courseEnv, data, cgm.getCourseEntry());
 		}
 

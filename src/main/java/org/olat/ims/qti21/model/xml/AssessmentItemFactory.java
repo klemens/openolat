@@ -66,12 +66,14 @@ import uk.ac.ed.ph.jqtiplus.node.item.interaction.ChoiceInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.DrawingInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.ExtendedTextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.HotspotInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.TextEntryInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.UploadInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleAssociableChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleMatchSet;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.content.Hottext;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.graphic.HotspotChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.MapEntry;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.Mapping;
@@ -106,8 +108,8 @@ import uk.ac.ed.ph.jqtiplus.value.StringValue;
  */
 public class AssessmentItemFactory {
 	
-	public static AssessmentItem createSingleChoice() {
-		AssessmentItem assessmentItem = createAssessmentItem(QTI21QuestionType.sc, "Single choice");
+	public static AssessmentItem createSingleChoice(String title, String defaultAnswer) {
+		AssessmentItem assessmentItem = createAssessmentItem(QTI21QuestionType.sc, title);
 
 		//define correct answer
 		Identifier responseDeclarationId = Identifier.assumedLegal("RESPONSE_1");
@@ -121,7 +123,7 @@ public class AssessmentItemFactory {
 		//the single choice interaction
 		ItemBody itemBody = appendDefaultItemBody(assessmentItem);
 		ChoiceInteraction choiceInteraction = appendChoiceInteraction(itemBody, responseDeclarationId, 1, true);
-		appendSimpleChoice(choiceInteraction, "New answer", correctResponseId);
+		appendSimpleChoice(choiceInteraction, defaultAnswer, correctResponseId);
 
 		//response processing
 		ResponseProcessing responseProcessing = createResponseProcessing(assessmentItem, responseDeclarationId);
@@ -387,7 +389,7 @@ public class AssessmentItemFactory {
 		return responseDeclaration;
 	}
 	
-	public static MatchInteraction appendMatchInteractionForKPrim(ItemBody itemBody, Identifier responseDeclarationId) {
+	public static MatchInteraction appendMatchInteractionForKPrim(ItemBody itemBody, Identifier responseDeclarationId, String defaultAnswer) {
 		MatchInteraction matchInteraction = new MatchInteraction(itemBody);
 		matchInteraction.setResponseIdentifier(responseDeclarationId);
 		matchInteraction.setMaxAssociations(4);
@@ -406,7 +408,7 @@ public class AssessmentItemFactory {
 			correctChoice.setMatchMax(1);
 			correctChoice.setMatchMin(1);
 			correctChoice.setIdentifier(IdentifierGenerator.newNumberAsIdentifier(classic[i]));
-			P question = getParagraph(correctChoice, "New answer " + classic[i]);
+			P question = getParagraph(correctChoice, defaultAnswer + " " + classic[i]);
 			correctChoice.getFlowStatics().add(question);
 			questionMatchSet.getSimpleAssociableChoices().add(correctChoice);
 		}
@@ -492,13 +494,13 @@ public class AssessmentItemFactory {
 		SimpleMatchSet sourceMatchSet = new SimpleMatchSet(matchInteraction);
 		matchInteraction.getSimpleMatchSets().add(sourceMatchSet);
 		
-		String[] classic = new String[]{ "a", "b" };
+		String[] classic = new String[]{ "A", "B" };
 		for(int i=0; i<2; i++) {
 			SimpleAssociableChoice sourceChoice = new SimpleAssociableChoice(sourceMatchSet);
 			sourceChoice.setMatchMax(0);
 			sourceChoice.setMatchMin(0);
 			sourceChoice.setIdentifier(IdentifierGenerator.newNumberAsIdentifier(classic[i]));
-			P question = getParagraph(sourceChoice, "Source " + classic[i]);
+			P question = getParagraph(sourceChoice, classic[i]);
 			sourceChoice.getFlowStatics().add(question);
 			sourceMatchSet.getSimpleAssociableChoices().add(sourceChoice);
 		}
@@ -506,13 +508,13 @@ public class AssessmentItemFactory {
 		SimpleMatchSet targetMatchSet = new SimpleMatchSet(matchInteraction);
 		matchInteraction.getSimpleMatchSets().add(targetMatchSet);
 		
-		String[] target = new String[]{ "m", "n" };
+		String[] target = new String[]{ "M", "N" };
 		for(int i=0; i<2; i++) {
 			SimpleAssociableChoice targetChoice = new SimpleAssociableChoice(sourceMatchSet);
 			targetChoice.setMatchMax(0);
 			targetChoice.setMatchMin(0);
 			targetChoice.setIdentifier(IdentifierGenerator.newNumberAsIdentifier(target[i]));
-			P question = getParagraph(targetChoice, "Target " + target[i]);
+			P question = getParagraph(targetChoice, target[i]);
 			targetChoice.getFlowStatics().add(question);
 			targetMatchSet.getSimpleAssociableChoices().add(targetChoice);
 		}
@@ -626,12 +628,47 @@ public class AssessmentItemFactory {
 		return responseDeclaration;
 	}
 	
+	public static HottextInteraction appendHottextInteraction(ItemBody itemBody, Identifier responseDeclarationId, int maxChoices) {
+		HottextInteraction hottextInteraction = new HottextInteraction(itemBody);
+		hottextInteraction.setMaxChoices(maxChoices);
+		hottextInteraction.setResponseIdentifier(responseDeclarationId);
+		itemBody.getBlocks().add(hottextInteraction);
+		
+		PromptGroup prompts = new PromptGroup(hottextInteraction);
+		hottextInteraction.getNodeGroups().add(prompts);
+
+		return hottextInteraction;
+	}
+	
+	public static Hottext appendHottext(P parent, Identifier responseId, String text) {
+		Hottext hottext = new Hottext(parent);
+		hottext.setIdentifier(responseId);
+		hottext.getInlineStatics().add(new TextRun(hottext, text));
+		parent.getInlines().add(hottext);
+		return hottext;
+	}
+	
+	public static ResponseDeclaration createHottextCorrectResponseDeclaration(AssessmentItem assessmentItem, Identifier declarationId, List<Identifier> correctResponseIds) {
+		ResponseDeclaration responseDeclaration = new ResponseDeclaration(assessmentItem);
+		responseDeclaration.setIdentifier(declarationId);
+		responseDeclaration.setCardinality(Cardinality.MULTIPLE);
+		responseDeclaration.setBaseType(BaseType.IDENTIFIER);
+
+		CorrectResponse correctResponse = new CorrectResponse(responseDeclaration);
+		responseDeclaration.setCorrectResponse(correctResponse);
+		
+		for(Identifier correctResponseId:correctResponseIds) {
+			appendIdentifierValue(correctResponse, correctResponseId);
+		}
+		return responseDeclaration;
+	}
+	
 	//<responseDeclaration identifier="HINTREQUEST" cardinality="single" baseType="boolean"/>
 	public static ResponseDeclaration createHintRequestResponseDeclaration(AssessmentItem assessmentItem) {
 		ResponseDeclaration responseDeclaration = new ResponseDeclaration(assessmentItem);
 		responseDeclaration.setIdentifier(QTI21Constants.HINT_REQUEST_IDENTIFIER);
 		responseDeclaration.setCardinality(Cardinality.SINGLE);
-		responseDeclaration.setBaseType(BaseType.IDENTIFIER);
+		responseDeclaration.setBaseType(BaseType.BOOLEAN);
 		return responseDeclaration;
 	}
 	
@@ -915,6 +952,19 @@ public class AssessmentItemFactory {
 		return feedbackOutcomeDeclaration;
 	}
 	
+	public static OutcomeDeclaration createOutcomeDeclarationForCorrectSolutionFeedbackModal(AssessmentItem assessmentItem) {
+		OutcomeDeclaration feedbackOutcomeDeclaration = new OutcomeDeclaration(assessmentItem);
+		feedbackOutcomeDeclaration.setIdentifier(QTI21Constants.CORRECT_SOLUTION_IDENTIFIER);
+		feedbackOutcomeDeclaration.setCardinality(Cardinality.SINGLE);
+		feedbackOutcomeDeclaration.setBaseType(BaseType.IDENTIFIER);
+		
+		List<View> views = new ArrayList<>();
+		views.add(View.TEST_CONSTRUCTOR);
+		feedbackOutcomeDeclaration.setViews(views);
+
+		return feedbackOutcomeDeclaration;
+	}
+	
 	public static ChoiceInteraction createSingleChoiceInteraction(AssessmentItem assessmentItem, Identifier responseDeclarationId,
 			Orientation orientation, List<String> classAtrr) {
 		ChoiceInteraction choiceInteraction = new ChoiceInteraction(assessmentItem.getItemBody());
@@ -1060,6 +1110,102 @@ public class AssessmentItemFactory {
 			feedbackVal.setBaseTypeAttrValue(BaseType.IDENTIFIER);
 			feedbackVal.setSingleValue(new IdentifierValue(feedbackIdentifier));
 			multiple.getExpressions().add(feedbackVal);
+			
+			responseIf.getResponseRules().add(feedbackVar);
+		}
+		
+		return rule;
+	}
+	
+	
+	/**
+	 * Generate the special case for "correct solution" feedback which is almost the same as
+	 * incorrect feedback.
+	 * 
+	 * @param responseProcessing
+	 * @param feedbackIdentifier
+	 * @return
+	 */
+	public static ResponseCondition createCorrectSolutionModalFeedbackBasicRule(ResponseProcessing responseProcessing,
+			Identifier correctSolutionFeedbackIdentifier, Identifier incorrectFeedbackIdentifier, boolean hint) {
+		ResponseCondition rule = new ResponseCondition(responseProcessing);
+		/*
+		<responseIf>
+			<and>
+				<match>
+					<baseValue baseType="identifier">incorrect</baseValue>
+					<variable identifier="FEEDBACKBASIC" />
+				</match>
+			</and>
+			<setOutcomeValue identifier="FEEDBACKMODAL">
+				<multiple>
+					<variable identifier="FEEDBACKMODAL" />
+					<baseValue baseType="identifier">Feedback261171147</baseValue>
+				</multiple>
+			</setOutcomeValue>
+			<setOutcomeValue identifier="SOLUTIONMODAL">
+				<baseValue baseType="identifier">Feedback261171147</baseValue>
+			</setOutcomeValue>
+		</responseIf>
+		*/
+		
+		ResponseIf responseIf = new ResponseIf(rule);
+		rule.setResponseIf(responseIf);
+		
+		{//rule
+			And and = new And(responseIf);
+			responseIf.getExpressions().add(and);
+			
+			Match match = new Match(and);
+			and.getExpressions().add(match);
+
+			BaseValue feedbackVal = new BaseValue(match);
+			feedbackVal.setBaseTypeAttrValue(BaseType.IDENTIFIER);
+			feedbackVal.setSingleValue(new IdentifierValue(QTI21Constants.INCORRECT));
+			match.getExpressions().add(feedbackVal);
+			
+			Variable variable = new Variable(match);
+			variable.setIdentifier(ComplexReferenceIdentifier.parseString(QTI21Constants.FEEDBACKBASIC));
+			match.getExpressions().add(variable);
+			
+			//not match the HINT
+			if(hint) {
+				IsNull isNull = new IsNull(and);
+				and.getExpressions().add(isNull);
+				
+				Variable hintVar = new Variable(isNull);
+				hintVar.setIdentifier(QTI21Constants.HINT_FEEDBACKMODAL_CLX_IDENTIFIER);
+				isNull.getExpressions().add(hintVar);
+			}
+		}
+		
+		if(incorrectFeedbackIdentifier != null) {//outcome incorrect
+			SetOutcomeValue feedbackVar = new SetOutcomeValue(responseIf);
+			feedbackVar.setIdentifier(QTI21Constants.FEEDBACKMODAL_IDENTIFIER);
+			
+			Multiple multiple = new Multiple(feedbackVar);
+			feedbackVar.setExpression(multiple);
+			
+			Variable variable = new Variable(multiple);
+			variable.setIdentifier(ComplexReferenceIdentifier.parseString(QTI21Constants.FEEDBACKMODAL));
+			multiple.getExpressions().add(variable);
+			
+			BaseValue feedbackVal = new BaseValue(feedbackVar);
+			feedbackVal.setBaseTypeAttrValue(BaseType.IDENTIFIER);
+			feedbackVal.setSingleValue(new IdentifierValue(incorrectFeedbackIdentifier));
+			multiple.getExpressions().add(feedbackVal);
+			
+			responseIf.getResponseRules().add(feedbackVar);
+		}
+
+		if(correctSolutionFeedbackIdentifier != null) {//outcome correct solution
+			SetOutcomeValue feedbackVar = new SetOutcomeValue(responseIf);
+			feedbackVar.setIdentifier(QTI21Constants.CORRECT_SOLUTION_IDENTIFIER);
+
+			BaseValue feedbackVal = new BaseValue(feedbackVar);
+			feedbackVal.setBaseTypeAttrValue(BaseType.IDENTIFIER);
+			feedbackVal.setSingleValue(new IdentifierValue(correctSolutionFeedbackIdentifier));
+			feedbackVar.getExpressions().add(feedbackVal);
 			
 			responseIf.getResponseRules().add(feedbackVar);
 		}

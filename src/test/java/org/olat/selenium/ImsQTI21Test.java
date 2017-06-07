@@ -36,13 +36,17 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.olat.ims.qti21.QTI21DeliveryOptions.ShowResultsOnFinish;
+import org.olat.ims.qti21.QTI21AssessmentResultsOptions;
 import org.olat.selenium.page.LoginPage;
 import org.olat.selenium.page.NavigationPage;
+import org.olat.selenium.page.User;
 import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
+import org.olat.selenium.page.qti.QTI21ConfigurationCEPage;
 import org.olat.selenium.page.qti.QTI21EditorPage;
 import org.olat.selenium.page.qti.QTI21Page;
+import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
+import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.rest.UserRestClient;
@@ -72,9 +76,460 @@ public class ImsQTI21Test {
 	@Page
 	private NavigationPage navBar;
 	
+	/**
+	 * Test the flow of the simplest possible test with our
+	 * optimization (jump automatically to the next question,
+	 * jump automatically the close test). The test has one
+	 * part and 2 questions, no feedbacks, no review allowed...
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
 	@Test
 	@RunAsClient
-	public void qti21Test(@InitialPage LoginPage authorLoginPage)
+	public void qti21TestFlow_noParts_noFeedbacks(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "With parts QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_without_feedbacks.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.assertOnAssessmentItem()
+			.answerSingleChoice("Incorrect response")
+			.saveAnswer()
+			.assertOnAssessmentItem("Second question")
+			.selectItem("First question")
+			.assertOnAssessmentItem("First question")
+			.answerSingleChoice("Correct response")
+			.saveAnswer()
+			.answerMultipleChoice("Correct response")
+			.saveAnswer()
+			.endTest()//auto close because 1 part, no feedbacks
+			.assertOnAssessmentTestTerminated();
+	}
+	
+	/**
+	 * Test the flow of a test with questions feedbacks and test
+	 * feedback.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_noParts_withFeedbacks(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "With parts QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_with_feedbacks.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.assertOnAssessmentItem()
+			.answerSingleChoice("Wrong answer")
+			.saveAnswer()
+			.assertFeedback("Oooops")
+			.answerSingleChoice("Correct answer")
+			.saveAnswer()
+			.assertFeedback("Well done")
+			.nextAnswer()
+			.assertOnAssessmentItem("Numerical entry")
+			.answerGapText("69", "_RESPONSE_1")
+			.saveAnswer()
+			.assertFeedback("Not really")
+			.answerGapText("42", "_RESPONSE_1")
+			.saveAnswer()
+			.assertFeedback("Ok")
+			.endTest()
+			.assertOnAssessmentTestFeedback("All right")
+			.closeTest()
+			.assertOnAssessmentTestTerminated();
+	}
+	
+	/**
+	 * A test with a single part, feedback for questions and
+	 * tests and the resource options "show results at the end
+	 * of the test".
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_noParts_feedbacksAndResults(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "With parts QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_with_feedbacks.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile);
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.clickToolbarBack()
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		qtiPage
+			.clickToolbarBack()
+			.assertOnAssessmentItem()
+			.answerSingleChoice("Wrong answer")
+			.saveAnswer()
+			.assertFeedback("Oooops")
+			.nextAnswer()
+			.assertOnAssessmentItem("Numerical entry")
+			.answerGapText("42", "_RESPONSE_1")
+			.saveAnswer()
+			.assertFeedback("Ok")
+			.endTest()
+			.assertOnAssessmentTestFeedback("Not for the best")
+			.closeTest()
+			.assertOnAssessmentTestMaxScore(2)
+			.assertOnAssessmentTestScore(1)
+			.assertOnAssessmentTestNotPassed();
+	}
+	
+	/**
+	 * A test with a single part, feedback for questions and
+	 * tests and the resource options "show results at the end
+	 * of the test".
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_parts_noFeedbacksButResults(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "With parts QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_parts_without_feedbacks.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile);
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.clickToolbarBack()
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		qtiPage
+			.clickToolbarBack()
+			.startTestPart()
+			.selectItem("First question")
+			.assertOnAssessmentItem("First question")
+			.answerSingleChoice("Correct")
+			.saveAnswer()
+			.assertOnAssessmentItem("Second question")
+			.answerMultipleChoice("True")
+			.saveAnswer()
+			.endTestPart()
+			.selectItem("Third question")
+			.assertOnAssessmentItem("Third question")
+			.answerMultipleChoice("Correct")
+			.saveAnswer()
+			.answerCorrectKPrim("True", "Right")
+			.answerIncorrectKPrim("Wrong", "False")
+			.saveAnswer()
+			.endTestPart()
+			.assertOnAssessmentTestMaxScore(4)
+			.assertOnAssessmentTestScore(4)
+			.assertOnAssessmentTestPassed();
+	}
+	
+	/**
+	 * Test with 2 parts and test feedbacks.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_parts_feedbacks(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "With parts QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_with_parts_and_test_feedbacks.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+
+		qtiPage
+			.startTestPart()
+			.selectItem("First question")
+			.assertOnAssessmentItem("First question")
+			.answerSingleChoice("Correct answer")
+			.saveAnswer()
+			.assertOnAssessmentItem("Second question")
+			.answerMultipleChoice("Valid answer")
+			.saveAnswer()
+			.endTestPart()
+			.selectItem("Third question")
+			.assertOnAssessmentItem("Third question")
+			.answerSingleChoice("Right")
+			.saveAnswer()
+			.answerSingleChoice("Good")
+			.saveAnswer()
+			.endTestPart()
+			.assertOnAssessmentTestFeedback("Well done")
+			.closeTest()
+			.assertOnAssessmentTestTerminated();
+	}
+	
+	/**
+	 * Test with time limit.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_timeLimits(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "Timed QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_time_limits.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		//check simple time limit
+		qtiPage
+			.assertOnAssessmentItem("Single choice")
+			.answerSingleChoice("Correct answer")
+			.saveAnswer()
+			.assertOnAssessmentItem("Last choice")
+			.answerSingleChoice("True")
+			.saveAnswer()
+			.assertOnAssessmentTestTerminated(15);
+	}
+	
+	/**
+	 * Test with time limit and wait for the results at the end.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_timeLimits_results(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "Timed QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_time_limits.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, new QTI21AssessmentResultsOptions(true, true, false, false, false, false))
+			.save();
+		
+		//check simple time limit
+		qtiPage
+			.clickToolbarBack()
+			.assertOnAssessmentItem("Single choice")
+			.answerSingleChoice("Correct answer")
+			.saveAnswer()
+			.assertOnAssessmentItem("Last choice")
+			.answerSingleChoice("True")
+			.saveAnswer()
+			.assertOnAssessmentResults(15)
+			.assertOnAssessmentTestPassed()
+			.assertOnAssessmentTestMaxScore(2)
+			.assertOnAssessmentTestScore(2);
+	}
+	
+	/**
+	 * Test suspend. An author upload a test, set "enable suspend"
+	 * and make the test visible to registered users. A second user
+	 * open the test, does nothing, suspends and log out (check a possible red
+	 * screen in the next step), log in, answer 3 questions, suspends 
+	 * and log out. It log in a last time and finish the test successfully.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21TestFlow_suspend(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver ryomouBrowser)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "Suspend QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_4_no_skipping.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile)
+			.clickToolbarRootCrumb();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.enableSuspend()
+			.save();
+		
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.registred)
+			.clickToolbarBack();
+		
+		//check simple time limit
+		qtiPage
+			.assertOnAssessmentItem("Single choice");
+		
+		//a user search the content package
+		LoginPage userLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		NavigationPage userNavBar = new NavigationPage(ryomouBrowser);
+		userNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		QTI21Page userQtiPage = QTI21Page
+				.getQTI12Page(ryomouBrowser);
+		userQtiPage
+			.assertOnAssessmentItem("Single choice")
+			.suspendTest();
+		//log out
+		new UserToolsPage(ryomouBrowser)
+			.logout();
+		
+		//log in and resume test
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		userQtiPage = QTI21Page
+				.getQTI12Page(ryomouBrowser);
+		userQtiPage
+			.assertOnAssessmentItem("Single choice")
+			.answerSingleChoice("Correct")
+			.saveAnswer()
+			.answerMultipleChoice("Correct")
+			.saveAnswer()
+			.assertOnAssessmentItem("Kprim")
+			.answerCorrectKPrim("True", "Right")
+			.answerIncorrectKPrim("False", "Wrong")
+			.saveAnswer()
+			.suspendTest();
+		
+		//second log out
+		new UserToolsPage(ryomouBrowser)
+			.logout();
+		
+		//log in and resume test
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		userQtiPage = QTI21Page
+				.getQTI12Page(ryomouBrowser);
+		userQtiPage
+			.assertOnAssessmentItem("Numerical input")
+			.answerGapText("42", "_RESPONSE_1")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestMaxScore(4)
+			.assertOnAssessmentTestScore(4)
+			.assertOnAssessmentTestPassed();
+	}
+	
+	/**
+	 * Upload a test in QTI 2.1 format, create a course, bind
+	 * the test in a course element, run it and check if
+	 * the attempt go up.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21Course(@InitialPage LoginPage authorLoginPage)
 	throws IOException, URISyntaxException {
 		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
@@ -82,7 +537,7 @@ public class ImsQTI21Test {
 		
 		//upload a test
 		String qtiTestTitle = "Simple QTI 2.1 " + UUID.randomUUID();
-		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/simple_QTI_21_test.zip");
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/simple_QTI_21_test.zip");
 		File qtiTestFile = new File(qtiTestUrl.toURI());
 		navBar
 			.openAuthoringEnvironment()
@@ -105,6 +560,12 @@ public class ImsQTI21Test {
 			.nodeTitle(testNodeTitle)
 			.selectTabLearnContent()
 			.chooseTest(qtiTestTitle);
+		
+		QTI21ConfigurationCEPage configPage = new QTI21ConfigurationCEPage(browser);
+		configPage
+			.selectConfiguration()
+			.showScoreOnHomepage(true)
+			.saveConfiguration();
 
 		//publish the course
 		courseEditor
@@ -127,13 +588,101 @@ public class ImsQTI21Test {
 				.getQTI12Page(browser);
 		qtiPage
 			.start()
-			.answerSingleChoice(1)
+			.answerSingleChoice("Right")
 			.saveAnswer()
 			.endTest()
-			.closeTest()
-			.assertOnAttempts(1);
+			.assertOnCourseAttempts(1)
+			.assertOnCourseAssessmentTestScore(1);
+	}
+	
+
+	/**
+	 * Upload a test in QTI 2.1 format, create a course, bind
+	 * the test in a course element, customize the options
+	 * with full window mode, show scores and assessment results.
+	 * Then run it and check if the assessment results appears after
+	 * closing the test and on the start page of the test course element.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21Course_lmsHidden_results(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
 		
-		//TODO continue
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "Simple QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/simple_QTI_21_test.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile);
+		
+		//create a course
+		String courseTitle = "Course QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createCourse(courseTitle)
+			.clickToolbarBack();
+		
+		String testNodeTitle = "QTI21Test-1";
+		
+		//create a course element of type CP with the CP that we create above
+		CourseEditorPageFragment courseEditor = CoursePageFragment.getCourse(browser)
+			.edit();
+		courseEditor
+			.createNode("iqtest")
+			.nodeTitle(testNodeTitle)
+			.selectTabLearnContent()
+			.chooseTest(qtiTestTitle);
+		
+		QTI21ConfigurationCEPage configPage = new QTI21ConfigurationCEPage(browser);
+		configPage
+			.selectLayoutConfiguration()
+			.overrideConfiguration()
+			.fullWindow()
+			.saveLayoutConfiguration();
+		configPage
+			.selectConfiguration()
+			.showScoreOnHomepage(true)
+			.showResultsOnHomepage(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.saveConfiguration();
+		
+		//publish the course
+		courseEditor
+			.publish()
+			.quickPublish();
+		
+		//open the course and see the CP
+		CoursePageFragment course = courseEditor
+			.clickToolbarBack();
+		
+		course
+			.clickTree()
+			.selectWithTitle(testNodeTitle);
+		
+		//check that the title of the start page of test is correct
+		WebElement testH2 = browser.findElement(By.cssSelector("div.o_course_run h2"));
+		Assert.assertEquals(testNodeTitle, testH2.getText().trim());
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.start()
+			.answerSingleChoice("Right")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.closeAssessmentResults()
+			.assertOnCourseAttempts(1)
+			.assertOnCourseAssessmentTestScore(1)
+			.showAssessmentResults()
+			.assertOnAssessmentResults();
 	}
 	
 	/**
@@ -145,14 +694,14 @@ public class ImsQTI21Test {
 	 */
 	@Test
 	@RunAsClient
-	public void qti21GraphicInteractionTest(@InitialPage LoginPage authorLoginPage)
+	public void qti21GraphicInteraction(@InitialPage LoginPage authorLoginPage)
 	throws IOException, URISyntaxException {
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		
 		//upload a test
 		String qtiTestTitle = "Simple QTI 2.1 " + UUID.randomUUID();
-		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/simple_QTI_21_hotspot.zip");
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/simple_QTI_21_hotspot.zip");
 		File qtiTestFile = new File(qtiTestUrl.toURI());
 		navBar
 			.openAuthoringEnvironment()
@@ -162,13 +711,22 @@ public class ImsQTI21Test {
 		QTI21Page qtiPage = QTI21Page
 				.getQTI12Page(browser);
 		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		// to the test and spot it
+		qtiPage
+			.clickToolbarBack()
+			.assertOnAssessmentItem()
 			.answerHotspot("circle")
 			.saveAnswer()
 			.assertFeedback("Correct!")
-			.endTest()
-			.closeTest();
-		
-		//TODO check the results
+			.endTest();
+		//check the results
+		qtiPage
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(1)
+			.assertOnAssessmentTestMaxScore(1);
 	}
 	
 	/**
@@ -204,7 +762,7 @@ public class ImsQTI21Test {
 		// import a single choice, a multiple and 2 gap texts
 		qtiEditor
 			.importTable()
-			.importFile("import_qti21_excel.txt")
+			.importFile("qti21/import_qti21_excel.txt")
 			.next()
 			.assertOnNumberOfQuestions(5)
 			.finish();
@@ -219,7 +777,7 @@ public class ImsQTI21Test {
 		qtiPage
 			.clickToolbarBack()
 			.options()
-			.showResults(Boolean.TRUE, ShowResultsOnFinish.details)
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
 			.save();
 		
 		//go to the test
@@ -231,21 +789,142 @@ public class ImsQTI21Test {
 			.answerGapText(",", "_RESPONSE_1")
 			.answerGapText("", "_RESPONSE_2")
 			.answerGapText("", "_RESPONSE_3")
-			.saveAnswer().nextAnswer()
+			.saveAnswer()
 			.answerMultipleChoice("Deutschland", "Brasilien", "S\u00FCdafrika")
-			.saveAnswer().nextAnswer()
+			.saveAnswer()
 			.answerSingleChoice("Italien")
-			.saveAnswer().nextAnswer()
+			.saveAnswer()
 			.answerCorrectKPrim("Deutschland", "Uruguay")
 			.answerIncorrectKPrim("Frankreich", "Spanien")
 			.saveAnswer()
-			.endTest()
-			.closeTest();
+			.endTest();
 		
 		//check the results
 		qtiPage
-			.assertOnResults()
+			.assertOnAssessmentResults()
 			.assertOnAssessmentTestScore(9)
 			.assertOnAssessmentTestMaxScore(9);
+	}
+	
+
+	/**
+	 * Upload a test in QTI 2.1 format, create a course, bind
+	 * the test in a course element, customize the options
+	 * with full window mode, allow suspending the test,
+	 * show scores and assessment results.<br>
+	 * Then run it and at the middle of the test, suspend it, log out.
+	 * Return with resume to the course and resume the test, finish it
+	 * and check if the assessment results appears after
+	 * closing the test and on the start page of the test course element.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21Course_suspend(@InitialPage LoginPage authorLoginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//upload a test
+		String qtiTestTitle = "No skipping QTI 2.1 " + UUID.randomUUID();
+		URL qtiTestUrl = JunitTestHelper.class.getResource("file_resources/qti21/test_4_no_skipping.zip");
+		File qtiTestFile = new File(qtiTestUrl.toURI());
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(qtiTestTitle, qtiTestFile);
+		
+		//create a course
+		String courseTitle = "Course QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createCourse(courseTitle)
+			.clickToolbarBack();
+		
+		String testNodeTitle = "QTI21Test-1";
+		
+		//create a course element of type CP with the CP that we create above
+		CourseEditorPageFragment courseEditor = CoursePageFragment.getCourse(browser)
+			.edit();
+		courseEditor
+			.createNode("iqtest")
+			.nodeTitle(testNodeTitle)
+			.selectTabLearnContent()
+			.chooseTest(qtiTestTitle);
+		
+		QTI21ConfigurationCEPage configPage = new QTI21ConfigurationCEPage(browser);
+		configPage
+			.selectLayoutConfiguration()
+			.overrideConfiguration()
+			.fullWindow()
+			.saveLayoutConfiguration();
+		configPage
+			.selectConfiguration()
+			.showScoreOnHomepage(true)
+			.showResultsOnHomepage(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.saveConfiguration()
+			.selectLayoutConfiguration()
+			.overrideConfiguration()
+			.enableSuspend()
+			.saveLayoutConfiguration();
+		
+		//publish the course
+		courseEditor
+			.publish()
+			.quickPublish();
+		
+		//open the course and see the CP
+		CoursePageFragment course = courseEditor
+			.clickToolbarBack();
+		
+		course
+			.clickTree()
+			.selectWithTitle(testNodeTitle);
+		
+		//check that the title of the start page of test is correct
+		WebElement testH2 = browser.findElement(By.cssSelector("div.o_course_run h2"));
+		Assert.assertEquals(testNodeTitle, testH2.getText().trim());
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.start()
+			.answerSingleChoice("Correct")
+			.saveAnswer()
+			.answerMultipleChoice("Correct")
+			.saveAnswer()
+			.suspendTest();
+		
+		//log out
+		new UserToolsPage(browser)
+			.logout();
+		// return
+		authorLoginPage
+			.loginAs(author.getLogin(), author.getPassword())
+			.resume();
+		//resume the course, resume the test
+		qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		qtiPage
+			.start()
+			.assertOnAssessmentItem("Kprim")
+			.answerCorrectKPrim("True", "Right")
+			.answerIncorrectKPrim("False", "Wrong")
+			.saveAnswer()
+			.answerGapText("43", "_RESPONSE_1")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestMaxScore(4)
+			.assertOnAssessmentTestScore(4)
+			.assertOnAssessmentTestPassed()
+			.closeAssessmentResults();
+		//check the result on the start page
+		qtiPage
+			.assertOnCourseAssessmentTestScore(4)
+			.assertOnCourseAttempts(1);
 	}
 }

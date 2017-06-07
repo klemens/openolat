@@ -20,14 +20,25 @@
 package org.olat.ims.qti21.ui;
 
 import java.math.BigDecimal;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.Formatter;
+import org.olat.core.util.Util;
+import org.olat.core.util.mail.MailBundle;
+import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.OutcomesListener;
 import org.olat.ims.qti21.QTI21LoggingAction;
+import org.olat.ims.qti21.model.DigitalSignatureOptions;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentService;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.repository.RepositoryEntry;
+import org.olat.user.UserManager;
 
 /**
  * 
@@ -53,7 +64,39 @@ public class AssessmentEntryOutcomesListener implements OutcomesListener {
 		this.authorMode = authorMode;
 		this.needManualCorrection = needManualCorrection;
 	}
+
+	@Override
+	public void decorateConfirmation(AssessmentTestSession candidateSession, DigitalSignatureOptions options, Date timestamp, Locale locale) {
+		decorateResourceConfirmation(candidateSession, options, timestamp, locale);
+	}
 	
+	public static void decorateResourceConfirmation(AssessmentTestSession candidateSession, DigitalSignatureOptions options, Date timestamp, Locale locale) {
+		MailBundle bundle = new MailBundle();
+		bundle.setToId(candidateSession.getIdentity());
+		String fullname = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(candidateSession.getIdentity());
+		Date assessedDate = candidateSession.getFinishTime() == null ? timestamp : candidateSession.getFinishTime();
+
+		
+		Translator translator = Util.createPackageTranslator(QTI21RuntimeController.class, locale);
+		RepositoryEntry entry = candidateSession.getRepositoryEntry();
+		RepositoryEntry testEntry = candidateSession.getTestEntry();
+		String[] args = new String[] {
+				entry.getDisplayname(),		// {0}
+				entry.getKey().toString(),	// {1}
+				"",							// {2}
+				"",							// {3}
+				testEntry.getDisplayname(),	// {4}
+				fullname,					// {5}
+				Formatter.getInstance(locale)
+					.formatDateAndTime(assessedDate) // {6}
+		};
+
+		String subject = translator.translate("digital.signature.mail.subject", args);
+		String body = translator.translate("digital.signature.mail.body", args);
+		bundle.setContent(subject, body);
+		options.setMailBundle(bundle);
+	}
+
 	@Override
 	public void updateOutcomes(Float updatedScore, Boolean updatedPassed) {
 		AssessmentEntryStatus assessmentStatus = AssessmentEntryStatus.inProgress;

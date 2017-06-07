@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.zip.Adler32;
 
 import javax.activation.DataHandler;
@@ -71,12 +73,14 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.basesecurity.IdentityRef;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.Publisher;
 import org.olat.core.commons.services.notifications.PublisherData;
 import org.olat.core.commons.services.notifications.Subscriber;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.taskexecutor.model.DBSecureRunnable;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -104,6 +108,7 @@ import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailLight;
 import org.olat.core.util.mail.model.DBMailLightImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
+import org.olat.core.util.mail.model.SimpleMailContent;
 import org.olat.core.util.vfs.FileStorage;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
@@ -111,6 +116,7 @@ import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import com.sun.mail.smtp.SMTPMessage;
@@ -137,6 +143,8 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 
 	@Autowired
 	private DB dbInstance;
+	@Autowired @Qualifier("mailAsyncExecutorService")
+	private ExecutorService asyncExecutor;
 	@Autowired
 	private NotificationsManager notificationsManager;
 	private final MailModule mailModule;
@@ -673,6 +681,19 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	}
 
 	@Override
+	public void sendMessageAsync(MailBundle... bundles) {
+		try {
+			SendMail sendMail = new SendMail(bundles);
+			DBSecureRunnable command = new DBSecureRunnable(sendMail);
+			asyncExecutor.execute(command);
+		} catch (RejectedExecutionException e) {
+			log.error("Queue full, email lost", e);
+		} catch (Exception e) {
+			log.error("", e);
+		}
+	}
+
+	@Override
 	public MailerResult sendMessage(MailBundle... bundles) {
 		MailerResult result = new MailerResult();
 		for(MailBundle bundle:bundles) {
@@ -717,7 +738,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 		} else {
 			decoratedBody = content.getBody();
 		}
-		return new MessageContent(content.getSubject(), decoratedBody, content.getAttachments());
+		return new SimpleMailContent(content.getSubject(), decoratedBody, content.getAttachments());
 	}
 	
 	protected MailContent createWithContext(Identity recipient, MailTemplate template, MailerResult result) {
@@ -744,7 +765,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 		String body = bodyWriter.toString();
 		List<File> checkedFiles = MailHelper.checkAttachments(template.getAttachments(), result);
 		File[] attachments = checkedFiles.toArray(new File[checkedFiles.size()]);
-		return new MessageContent(subject, body, attachments);
+		return new SimpleMailContent(subject, body, attachments);
 	}
 	
 	/**
@@ -776,51 +797,6 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 		} catch (Exception e) {
 			log.warn("can't send email from user template", e);
 			mailerResult.setReturnCode(MailerResult.TEMPLATE_GENERAL_ERROR);
-		}
-	}
-	
-	private static class MessageContent implements MailContent {
-		private final String subject;
-		private final String body;
-		private final List<File> attachments;
-		
-		public MessageContent(String subject, String body, File[] attachmentArr) {
-			this.subject = subject;
-			this.body = body;
-			
-			attachments = new ArrayList<File>();
-			if(attachmentArr != null && attachmentArr.length > 0) {
-				for(File attachment:attachmentArr) {
-					if(attachment != null && attachment.exists()) {
-						attachments.add(attachment);
-					}
-				}
-			}
-		}
-		
-		public MessageContent(String subject, String body, List<File> attachmentList) {
-			this.subject = subject;
-			this.body = body;
-			if(attachmentList == null) {
-				this.attachments = new ArrayList<File>(1);
-			} else {
-				this.attachments = new ArrayList<File>(attachmentList);
-			}
-		}
-
-		@Override
-		public String getSubject() {
-			return subject;
-		}
-
-		@Override
-		public String getBody() {
-			return body;
-		}
-
-		@Override
-		public List<File> getAttachments() {
-			return attachments;
 		}
 	}
 
@@ -1751,6 +1727,20 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 				sb.append(recipient.toString());
 			}
 			log.info(type + "        : " + sb);
+		}
+	}
+	
+	public static class SendMail implements Runnable {
+		
+		private final MailBundle[] bundles;
+		
+		public SendMail(MailBundle[] bundles) {
+			this.bundles = bundles;
+		}
+
+		@Override
+		public void run() {
+			CoreSpringFactory.getImpl(MailManager.class).sendMessage(bundles);
 		}
 	}
 	

@@ -54,8 +54,10 @@ import org.olat.core.util.SortedProperties;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.BasicLTICourseNode;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
@@ -110,6 +112,14 @@ public class LTIRunController extends BasicController {
 		// push title and learning objectives, only visible on intro page
 		run.contextPut("menuTitle", courseNode.getShortTitle());
 		run.contextPut("displayTitle", courseNode.getLongTitle());
+		
+		if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, wControl, userCourseEnv, courseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				run.put("highScore", highScoreComponent);							
+			}
+		}
 
 		doBasicLTI(ureq, run);
 		mainPanel = putInitialPanel(run);
@@ -311,6 +321,14 @@ public class LTIRunController extends BasicController {
 		startPage.contextPut("menuTitle", courseNode.getShortTitle());
 		startPage.contextPut("displayTitle", courseNode.getLongTitle());
 		
+		if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(), userCourseEnv, courseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				startPage.put("highScore", highScoreComponent);							
+			}
+		}
+		
 		startButton = LinkFactory.createButton("start", startPage, this);
 		startButton.setPrimary(true);
 
@@ -327,7 +345,10 @@ public class LTIRunController extends BasicController {
 				startPage.contextPut("hasPassedValue", Boolean.TRUE);
 				startPage.contextPut("passed", eval.getPassed());
 			}
-			startPage.contextPut("score", eval.getScore()); 
+			startPage.contextPut("score", eval.getScore());
+			startPage.contextPut("hasScore", Boolean.TRUE);
+			boolean resultsVisible = eval.getUserVisible() == null || eval.getUserVisible().booleanValue();
+			startPage.contextPut("resultsVisible", resultsVisible);
 			mainPanel.setContent(startPage);
 		} else if(display == LTIDisplayOptions.window) {
 			mainPanel.setContent(startPage);

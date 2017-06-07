@@ -24,6 +24,7 @@ import java.util.Date;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
@@ -32,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -47,6 +49,8 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
+import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.PortfolioCourseNode;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeConfiguration.DeadlineType;
 import org.olat.course.run.scoring.ScoreAccounting;
@@ -138,6 +142,16 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 		assessmentInfosContainer = FormLayoutContainer.createCustomFormLayout("assessmentInfos", getTranslator(), assessmentPage);
 		assessmentInfosContainer.setVisible(false);
 		formLayout.add(assessmentInfosContainer);
+		
+		VelocityContainer mainVC = ((FormLayoutContainer) formLayout).getFormItemComponent();
+		if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(), userCourseEnv,
+					courseNode, this.mainForm);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				mainVC.put("highScore", highScoreComponent);							
+			}
+		}
 		
 		Object text = config.get(PortfolioCourseNodeConfiguration.NODE_TEXT);
 		String explanation = (text instanceof String) ? (String)text : "";
@@ -282,7 +296,7 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 	}
 	
 	private void updateAssessmentInfos(Date returnDate) {
-		if(returnDate != null) {
+		if(returnDate != null || copyBinder != null) {
 			String rDate = formatter.formatDateAndTime(returnDate);
 			uifactory.addStaticTextElement("map.returnDate", rDate, infosContainer);
 
@@ -291,6 +305,8 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 			scoreAccounting.evaluateAll();			
 			ScoreEvaluation scoreEval = scoreAccounting.evalCourseNode(courseNode);
 
+			boolean resultsVisible = scoreEval.getUserVisible() == null || scoreEval.getUserVisible().booleanValue();
+			assessmentInfosContainer.contextPut("resultsVisible", resultsVisible);
 			//score
 			assessmentInfosContainer.contextPut("hasScoreField", new Boolean(courseNode.hasScoreConfigured()));
 			if(courseNode.hasScoreConfigured()) {
@@ -313,11 +329,13 @@ public class PortfolioCourseNodeRunController extends FormBasicController {
 			}
 
 			// get comment
-			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-			String comment = am.getNodeComment(courseNode, getIdentity());
-			assessmentInfosContainer.contextPut("hasCommentField", new Boolean(comment != null));
-			if (comment != null) {
-				assessmentInfosContainer.contextPut("comment", comment);
+			if(resultsVisible) {
+				AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+				String comment = am.getNodeComment(courseNode, getIdentity());
+				assessmentInfosContainer.contextPut("hasCommentField", new Boolean(comment != null));
+				if (comment != null) {
+					assessmentInfosContainer.contextPut("comment", comment);
+				}
 			}
 			assessmentInfosContainer.setVisible(true);
 		} else {

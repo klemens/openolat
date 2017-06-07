@@ -195,7 +195,7 @@ implements Activateable2, TooledController, FlexiTableComponentDelegate {
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, PageCols.key, "select-page"));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.title, "select-page", new PortfolioElementCellRenderer()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.date, "select-page"));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.status, new StatusCellRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.status, new StatusCellRenderer(getTranslator())));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.publicationDate, "select-page"));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(PageCols.categories, new CategoriesCellRenderer()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, PageCols.section/*, "select-section"*/, null));
@@ -716,7 +716,7 @@ implements Activateable2, TooledController, FlexiTableComponentDelegate {
 		loadModel(ureq, null);
 	}
 	
-	private void doEditAssignment(UserRequest ureq, PortfolioElementRow row) {
+	protected void doEditAssignment(UserRequest ureq, PortfolioElementRow row) {
 		if(editAssignmentCtrl != null) return;
 		
 		Assignment assignment = row.getAssignment();

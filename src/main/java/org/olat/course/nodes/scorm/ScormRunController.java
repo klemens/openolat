@@ -43,14 +43,17 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.messages.MessageController;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
+import org.olat.core.gui.util.SyntheticUserRequest;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.editor.NodeEditController;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.ObjectivesHelper;
 import org.olat.course.nodes.ScormCourseNode;
@@ -96,6 +99,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	private boolean isAssessable;
 	private String assessableType;
 	private DeliveryOptions deliveryOptions;
+	private final UserSession userSession;//need for high score
 
 	/**
 	 * Use this constructor to launch a CP via Repository reference key set in
@@ -118,6 +122,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		this.userCourseEnv = userCourseEnv;
 		this.config = config;
 		this.scormNode = scormNode;
+		userSession = ureq.getUserSession(); 
 		deliveryOptions = (DeliveryOptions)config.get(ScormEditController.CONFIG_DELIVERY_OPTIONS);
 
 		addLoggingResourceable(LoggingResourceable.wrap(scormNode));
@@ -149,7 +154,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		// </OLATCE-289>
 
 		main = new Panel("scormrunmain");
-		doStartPage();
+		doStartPage(ureq);
 		putInitialPanel(main);
 
 		boolean doSkip = config.getBooleanSafe(ScormEditController.CONFIG_SKIPLAUNCHPAGE, false);
@@ -198,10 +203,10 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 				if (maxAttemptsReached()) {
 					startPage.contextPut("maxAttemptsReached", Boolean.TRUE);
 				}
-				doStartPage();
+				doStartPage(ureq);
 			} else {
 				// </OLATCE-289>
-				doStartPage();
+				doStartPage(ureq);
 				fireEvent(ureq, event);
 			}
 		} else if (source == null) { // external source
@@ -216,7 +221,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 		}
 	}
 
-	private void doStartPage() {
+	private void doStartPage(UserRequest ureq) {
 
 		// push title and learning objectives, only visible on intro page
 		startPage.contextPut("menuTitle", scormNode.getShortTitle());
@@ -240,10 +245,22 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 			}
 			startPage.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 			startPage.contextPut("passed", scoreEval.getPassed());
-
-			StringBuilder comment = Formatter.stripTabsAndReturns(scormNode.getUserUserComment(userCourseEnv));
-			startPage.contextPut("comment", StringHelper.xssScan(comment));
+			boolean resultsVisible = scoreEval.getUserVisible() == null || scoreEval.getUserVisible().booleanValue();
+			startPage.contextPut("resultsVisible", resultsVisible);
+			if(resultsVisible && scormNode.hasCommentConfigured()) {
+				StringBuilder comment = Formatter.stripTabsAndReturns(scormNode.getUserUserComment(userCourseEnv));
+				startPage.contextPut("comment", StringHelper.xssScan(comment));
+			}
 			startPage.contextPut("attempts", scormNode.getUserAttempts(userCourseEnv));
+			
+			if(ureq == null) {// High score need one
+				ureq = new SyntheticUserRequest(getIdentity(), getLocale(), userSession);
+			}
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(), userCourseEnv, scormNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				startPage.put("highScore", highScoreComponent);							
+			}
 		}
 		startPage.contextPut("isassessable", Boolean.valueOf(isAssessable));
 		main.setContent(startPage);
@@ -347,6 +364,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	 * @see org.olat.modules.scorm.ScormAPICallback#lmsCommit(java.lang.String,
 	 * java.util.Properties)
 	 */
+	@Override
 	public void lmsCommit(String olatSahsId, Properties scoreProp, Properties lessonStatusProp) {
 		//
 	}
@@ -355,9 +373,10 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	 * @see org.olat.modules.scorm.ScormAPICallback#lmsFinish(java.lang.String,
 	 *      java.util.Properties)
 	 */
+	@Override
 	public void lmsFinish(String olatSahsId, Properties scoreProp, Properties lessonStatusProp) {
 		if (config.getBooleanSafe(ScormEditController.CONFIG_CLOSE_ON_FINISH, false)) {
-			doStartPage();
+			doStartPage(null);
 			scormDispC.close();
 		}
 	}
@@ -380,6 +399,7 @@ public class ScormRunController extends BasicController implements ScormAPICallb
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		//
 	}

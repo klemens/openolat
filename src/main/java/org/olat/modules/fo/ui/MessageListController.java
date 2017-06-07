@@ -51,8 +51,13 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.gui.control.generic.wizard.Step;
+import org.olat.core.gui.control.generic.wizard.StepRunnerCallback;
+import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
+import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
@@ -73,7 +78,8 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
-import org.olat.core.util.vfs.filters.VFSItemExcludePrefixFilter;
+import org.olat.core.util.vfs.filters.VFSItemMetaFilter;
+import org.olat.course.nodes.FOCourseNode;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumCallback;
 import org.olat.modules.fo.ForumChangedEvent;
@@ -83,6 +89,9 @@ import org.olat.modules.fo.MessageLight;
 import org.olat.modules.fo.MessageRef;
 import org.olat.modules.fo.Status;
 import org.olat.modules.fo.archiver.formatters.ForumDownloadResource;
+import org.olat.modules.fo.export.FinishCallback;
+import org.olat.modules.fo.export.SendMailStepForm;
+import org.olat.modules.fo.export.Step_1_SelectCourse;
 import org.olat.modules.fo.manager.ForumManager;
 import org.olat.modules.fo.portfolio.ForumMediaHandler;
 import org.olat.modules.fo.ui.MessageEditController.EditMode;
@@ -94,6 +103,11 @@ import org.olat.modules.portfolio.PortfolioV2Module;
 import org.olat.modules.portfolio.ui.component.MediaCollectorComponent;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.portfolio.manager.EPFrontendManager;
+import org.olat.properties.Property;
+import org.olat.properties.PropertyManager;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryManager;
+import org.olat.resource.OLATResourceManager;
 import org.olat.user.DisplayPortraitController;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
@@ -130,9 +144,11 @@ public class MessageListController extends BasicController implements GenericEve
 	private MessageEditController editMessageCtrl, replyMessageCtrl;
 	private DialogBoxController confirmDeleteCtrl, confirmSplitCtrl;
 	private ForumMessageListController moveCtrl, messageTableCtrl;
+	private StepsMainRunController exportCtrl;
 	
 	private Message thread;
 	private boolean reloadList;
+	private boolean hasMarkedNewMessages;
 	
 	private final Forum forum;
 	private final boolean guestOnly;
@@ -150,6 +166,10 @@ public class MessageListController extends BasicController implements GenericEve
 	private UserManager userManager;
 	@Autowired
 	private ForumManager forumManager;
+	@Autowired
+	private RepositoryManager repositoryManager;
+	@Autowired
+	private OLATResourceManager olatManager;
 	@Autowired
 	private MarkingService markingService;
 	@Autowired
@@ -190,6 +210,13 @@ public class MessageListController extends BasicController implements GenericEve
 		
 		// Register for forum events
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, getIdentity(), forum);
+	}
+	
+	/**
+	 * @return true if the controller has marked some new messages as seen
+	 */
+	public boolean hasMarkedNewMessages() {
+		return hasMarkedNewMessages;
 	}
 	
 	@Override
@@ -476,24 +503,7 @@ public class MessageListController extends BasicController implements GenericEve
 	 */	
 	private void orderMessagesThreaded(List<MessageLight> messages, List<MessageLight> orderedList, MessageLight startMessage) {
 		if (messages == null || orderedList == null || startMessage == null) return;
-		/*
-		Iterator<MessageLight> iterMsg = messages.iterator();
-		while (iterMsg.hasNext()) {
-			MessageLight msg = iterMsg.next();
-			if (msg.getParentKey() == null) {
-				orderedList.add(msg);
-				List<MessageLight> copiedMessages = new ArrayList<>(messages);
-				copiedMessages.remove(msg);
-				messages = copiedMessages;
-				continue;
-			}
-			if ((msg.getParentKey() != null) && (msg.getParentKey().equals(startMessage.getKey()))) {
-				orderedList.add(msg);
-				orderMessagesThreaded(messages, orderedList, msg);
-			}
-		}
-		*/
-		
+
 		Map<Long, MessageNode> messagesMap = new HashMap<>();
 		if(startMessage != null) {
 			messagesMap.put(startMessage.getKey(), new MessageNode(startMessage));
@@ -544,6 +554,7 @@ public class MessageListController extends BasicController implements GenericEve
 	private void markRead(MessageLight message) {
 		if(!guestOnly) {
 			forumManager.markAsRead(getIdentity(), forum, message);
+			hasMarkedNewMessages = true;
 		}
 	}
 	
@@ -593,7 +604,7 @@ public class MessageListController extends BasicController implements GenericEve
 		// message attachments
 		VFSContainer msgContainer = forumManager.getMessageContainer(forum.getKey(), m.getKey());
 		messageView.setMessageContainer(msgContainer);
-		List<VFSItem> attachments = new ArrayList<VFSItem>(msgContainer.getItems(new VFSItemExcludePrefixFilter(MessageEditController.ATTACHMENT_EXCLUDE_PREFIXES)));				
+		List<VFSItem> attachments = new ArrayList<VFSItem>(msgContainer.getItems(new VFSItemMetaFilter()));				
 		messageView.setAttachments(attachments);
 
 		// number of children and modify/delete permissions
@@ -653,14 +664,19 @@ public class MessageListController extends BasicController implements GenericEve
 				replyLink.setUserObject(messageView);
 			}
 			
-			if(foCallback.mayEditMessageAsModerator() && !threadTop) {
-				Link splitLink = LinkFactory.createCustomLink("split_".concat(keyString), "split", "msg.split", Link.LINK, mainVC, this);
-				splitLink.setIconLeftCSS("o_icon o_icon-fw o_icon_split");
-				splitLink.setUserObject(messageView);
-				
-				Link moveLink = LinkFactory.createCustomLink("move_".concat(keyString), "move", "msg.move", Link.LINK, mainVC, this);
-				moveLink.setIconLeftCSS("o_icon o_icon-fw o_icon_move");
-				moveLink.setUserObject(messageView);
+			if(foCallback.mayEditMessageAsModerator()) {
+				if (!threadTop) { 
+					Link splitLink = LinkFactory.createCustomLink("split_".concat(keyString), "split", "msg.split", Link.LINK, mainVC, this);
+					splitLink.setIconLeftCSS("o_icon o_icon-fw o_icon_split");
+					splitLink.setUserObject(messageView);
+					
+					Link moveLink = LinkFactory.createCustomLink("move_".concat(keyString), "move", "msg.move", Link.LINK, mainVC, this);
+					moveLink.setIconLeftCSS("o_icon o_icon-fw o_icon_move");
+					moveLink.setUserObject(messageView);
+				}
+				Link exileLink = LinkFactory.createCustomLink("exile_".concat(keyString), "exile", "msg.exile", Link.LINK, mainVC, this);
+				exileLink.setIconLeftCSS("o_icon o_icon-fw o_forum_status_thread_icon");
+				exileLink.setUserObject(messageView);				
 			}
 		}
 		
@@ -763,6 +779,8 @@ public class MessageListController extends BasicController implements GenericEve
 				doConfirmSplit(ureq, (MessageView)uobject);
 			} else if (command.startsWith("move")) {
 				doMoveMessage(ureq, (MessageView)uobject);
+			} else if (command.startsWith("exile")) {
+				doExportForumItem(ureq, (MessageView)uobject);
 			}
 		} else if(mainVC == source) {
 			String cmd = event.getCommand();
@@ -801,7 +819,24 @@ public class MessageListController extends BasicController implements GenericEve
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if (source == confirmDeleteCtrl) {
+		if (source == exportCtrl) {
+			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
+				if (event == Event.CHANGED_EVENT) {
+					StepsRunContext runContext = exportCtrl.getRunContext();
+					Message originTopMessage = (Message)runContext.get(SendMailStepForm.START_THREADTOP);
+					originTopMessage = forumManager.loadMessage(originTopMessage.getKey());
+					if (originTopMessage != null) {
+						//refresh origin thread
+						fireEvent(ureq, new SelectMessageEvent(SelectMessageEvent.SELECT_THREAD, originTopMessage.getKey()));
+					} else {
+						fireEvent(ureq, Event.BACK_EVENT);
+					}					
+				}
+				getWindowControl().pop();
+				removeAsListenerAndDispose(exportCtrl);
+				exportCtrl = null;
+			} 
+		} else if (source == confirmDeleteCtrl) {
 			if (DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
 				MessageView deletedMessage = (MessageView)confirmDeleteCtrl.getUserObject();
 				doDeleteMessage(ureq, deletedMessage);
@@ -1050,6 +1085,7 @@ public class MessageListController extends BasicController implements GenericEve
 			Message newTopMessage = forumManager.splitThread(reloadedMessage);
 			//do logging
 			ThreadLocalUserActivityLogger.log(ForumLoggingAction.FORUM_THREAD_SPLIT, getClass(), LoggingResourceable.wrap(newTopMessage));
+			showInfo("new.thread.location");
 			//open the new thread
 			fireEvent(ureq, new SelectMessageEvent(SelectMessageEvent.SELECT_THREAD, newTopMessage.getKey()));
 		} else {
@@ -1318,6 +1354,40 @@ public class MessageListController extends BasicController implements GenericEve
 			listenTo(cmc);
 			
 			cmc.activate();
+		}
+	}
+	
+	private void doExportForumItem(UserRequest ureq, MessageView messageToMove) {
+		if (foCallback.mayEditMessageAsModerator()) {
+			StepRunnerCallback finish = new FinishCallback(); 
+			Translator trans = Util.createPackageTranslator(Step_1_SelectCourse.class, getLocale());
+			Step start = new Step_1_SelectCourse(ureq);
+			Message message = forumManager.getMessageById(messageToMove.getKey());
+			String wizardTitle = trans.translate("title.wizard.movethread", new String[]{message.getTitle()}); 
+			exportCtrl = new StepsMainRunController(ureq, getWindowControl(), start, finish, null, wizardTitle,
+					"o_sel_bulk_assessment_wizard");
+			StepsRunContext runContext = exportCtrl.getRunContext();
+			// can be threadtop message
+			runContext.put(SendMailStepForm.MESSAGE_TO_MOVE, message);
+			// starting thread
+			runContext.put(SendMailStepForm.START_THREADTOP, message.getThreadtop() == null ? message : message.getThreadtop());
+			// get start course
+			PropertyManager propertyManager = PropertyManager.getInstance();
+			Long forumResourceableId = forum.getResourceableId();
+			Property forumproperty = propertyManager.getPropertyByLongValue(forumResourceableId, FOCourseNode.FORUM_KEY);
+			if (forumproperty != null) {
+				Long resourcetypeId = forumproperty.getResourceTypeId();
+				String resourcetypeName = forumproperty.getResourceTypeName();
+				OLATResourceable olatResourceable = olatManager.findResourceable(resourcetypeId, resourcetypeName);
+				RepositoryEntry startCourse = repositoryManager.lookupRepositoryEntry(olatResourceable, false);
+				if (startCourse != null) {
+					runContext.put(SendMailStepForm.START_COURSE, startCourse);
+				}
+			}
+			listenTo(exportCtrl);
+			getWindowControl().pushAsModalDialog(exportCtrl.getInitialComponent());
+		} else {
+			showWarning("may.not.move.message");
 		}
 	}
 	

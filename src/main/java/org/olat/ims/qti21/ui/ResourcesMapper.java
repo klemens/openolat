@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.media.FileMediaResource;
+import org.olat.core.gui.media.ForbiddenMediaResource;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.logging.OLog;
@@ -46,6 +47,12 @@ public class ResourcesMapper implements Mapper {
 	private final URI assessmentObjectUri;
 	private final File submissionDirectory;
 	private final Map<Long,File> submissionDirectoryMaps;
+	
+	public ResourcesMapper(URI assessmentObjectUri) {
+		this.assessmentObjectUri = assessmentObjectUri;
+		submissionDirectory = null;
+		submissionDirectoryMaps = null;
+	}
 	
 	public ResourcesMapper(URI assessmentObjectUri, File submissionDirectory) {
 		this.assessmentObjectUri = assessmentObjectUri;
@@ -77,9 +84,12 @@ public class ResourcesMapper implements Mapper {
 			
 			File file = new File(root.getParentFile(), filename);
 			if(file.exists()) {
-				resource = new FileMediaResource(file);
+				if(file.getName().endsWith(".xml")) {
+					resource = new ForbiddenMediaResource(relPath);
+				} else {
+					resource = new FileMediaResource(file, true);
+				}
 			} else {
-				
 				String submissionName = null;
 				File storage = null;
 				if(filename.startsWith("submissions/")) {
@@ -105,7 +115,7 @@ public class ResourcesMapper implements Mapper {
 				if(storage != null && StringHelper.containsNonWhitespace(submissionName)) {
 					File submissionFile = new File(storage, submissionName);
 					if(submissionFile.exists()) {
-						resource = new FileMediaResource(submissionFile);
+						resource = new FileMediaResource(submissionFile, true);
 					} else {
 						resource = new NotFoundMediaResource(href);
 					}

@@ -20,7 +20,7 @@
 package org.olat.ims.qti21.ui.components;
 
 import static org.olat.ims.qti21.ui.components.AssessmentRenderFunctions.contentAsString;
-import static org.olat.ims.qti21.ui.components.AssessmentRenderFunctions.valueContains;
+import static org.olat.ims.qti21.ui.components.AssessmentRenderFunctions.testFeedbackVisible;
 
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -38,7 +38,7 @@ import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.olat.core.CoreSpringFactory;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
@@ -53,7 +53,6 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.AssessmentTestSession;
-import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.model.audit.CandidateEvent;
 import org.olat.ims.qti21.model.audit.CandidateTestEventType;
 import org.olat.ims.qti21.ui.CandidateSessionContext;
@@ -73,10 +72,8 @@ import uk.ac.ed.ph.jqtiplus.node.test.NavigationMode;
 import uk.ac.ed.ph.jqtiplus.node.test.TestFeedback;
 import uk.ac.ed.ph.jqtiplus.node.test.TestFeedbackAccess;
 import uk.ac.ed.ph.jqtiplus.node.test.TestPart;
-import uk.ac.ed.ph.jqtiplus.node.test.VisibilityMode;
 import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentItem;
 import uk.ac.ed.ph.jqtiplus.running.TestSessionController;
-import uk.ac.ed.ph.jqtiplus.serialization.QtiSerializer;
 import uk.ac.ed.ph.jqtiplus.state.AssessmentSectionSessionState;
 import uk.ac.ed.ph.jqtiplus.state.EffectiveItemSessionControl;
 import uk.ac.ed.ph.jqtiplus.state.ItemSessionState;
@@ -227,7 +224,7 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 		renderTestItemBody(renderer, sb, component, itemRefNode, ubu, translator, options);
 		
 		//controls
-		sb.append("<div class='o_button_group'>");
+		sb.append("<div class='o_button_group o_assessmentitem_controls'>");
 		
 		//submit button
 		final ItemSessionState itemSessionState = component.getItemSessionState(itemRefNode.getKey());
@@ -341,11 +338,12 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 				.getResolvedAssessmentItemBySystemIdMap().get(itemSystemId);
 		final AssessmentItem assessmentItem = resolvedAssessmentItem.getRootNodeLookup().extractIfSuccessful();
 
+		sb.append("<div class='o_assessmentitem_wrapper'>");
 		//title + status
-		sb.append("<h3 class='itemTitle'>");
+		sb.append("<h4 class='itemTitle'>");
 		renderItemStatus(sb, itemSessionState, options, translator);
 		sb.append(StringHelper.escapeHtml(itemNode.getSectionPartTitle()), component.isShowTitles())
-		  .append("</h3>")
+		  .append("</h4>")
 		  .append("<div id='itemBody' class='clearfix'>");
 
 		//render itemBody
@@ -367,6 +365,7 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 		if(component.isItemFeedbackAllowed(itemNode, assessmentItem, options)) {
 			renderTestItemModalFeedback(renderer, sb, component, resolvedAssessmentItem, itemSessionState, ubu, translator);
 		}
+		sb.append("</div>"); // end wrapper
 	}
 	
 	@Override
@@ -452,12 +451,12 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 		 // Show 'atEnd' testPart feedback 
 		TestPlanNode currentTestPartNode = component.getCurrentTestPartNode();
 		TestPart currentTestPart = component.getTestPart(currentTestPartNode.getIdentifier());
-		renderTestFeebacks(sb, currentTestPart.getTestFeedbacks(), component, TestFeedbackAccess.AT_END, translator);
+		renderTestFeebacks(renderer, sb, currentTestPart.getTestFeedbacks(), component, TestFeedbackAccess.AT_END, ubu, translator);
 
 		//Show 'atEnd' test feedback f there's only 1 testPart
-		if(!component.hasMultipleTestParts()) {
-			renderTestFeebacks(sb, component.getAssessmentTest().getTestFeedbacks(), component, TestFeedbackAccess.AT_END, translator);
-		}
+		//if(!component.hasMultipleTestParts()) {
+		renderTestFeebacks(renderer, sb, component.getAssessmentTest().getTestFeedbacks(), component, TestFeedbackAccess.AT_END, ubu, translator);
+		//}
 		
 		//test part review
 		component.getTestSessionController().getTestSessionState().getTestPlan()
@@ -499,12 +498,13 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 			if(hasReviewableItems) {
 				sb.append("<h4>").append(translator.translate("review.responses")).append("</h4>");
 				sb.append("<p>").append(translator.translate("review.responses.desc")).append("</p>");
+				sb.append("<div class='o_qti_menu_buttonstyle'>");
 				sb.append("<ul class='o_testpartnavigation'>");
 				
 				node.getChildren().forEach((childNode)
 					-> renderReview(renderer, sb, component, childNode, ubu, translator));
 		
-				sb.append("</ul>");
+				sb.append("</ul></div>");
 			}
 		}
 	}
@@ -551,55 +551,53 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 			  .append(StringHelper.escapeHtml(itemNode.getSectionPartTitle())).append("</span>");
 
 			if(!reviewable) {
-				sb.append("<span class='o_assessmentitem_status reviewNotAllowed'>").append(translator.translate("assessment.item.status.reviewNot")).append("</span>");
+				renderItemStatusMessage("reviewNotAllowed", "assessment.item.status.reviewNot", sb, translator);
 			} else if(itemSessionState.getUnboundResponseIdentifiers().size() > 0
 					|| itemSessionState.getInvalidResponseIdentifiers().size() > 0) {
-				sb.append("<span class='o_assessmentitem_status reviewInvalid'>").append(translator.translate("assessment.item.status.reviewInvalidAnswer")).append("</span>");
+				renderItemStatusMessage("reviewInvalid", "assessment.item.status.reviewInvalidAnswer", sb, translator);
 			} else if(itemSessionState.isResponded()) {
-				sb.append("<span class='o_assessmentitem_status review'>").append(translator.translate("assessment.item.status.review")).append("</span>");
+				renderItemStatusMessage("review", "assessment.item.status.review", sb, translator);
 			} else if(itemSessionState.getEntryTime() != null) {
-				sb.append("<span class='o_assessmentitem_status reviewNotAnswered'>").append(translator.translate("assessment.item.status.reviewNotAnswered")).append("</span>");
+				renderItemStatusMessage("reviewNotAnswered", "assessment.item.status.reviewNotAnswered", sb, translator);
 			} else {
-				sb.append("<span class='o_assessmentitem_status reviewNotSeen'>").append(translator.translate("assessment.item.status.reviewNotSeen")).append("</span>");
+				renderItemStatusMessage("reviewNotSeen", "assessment.item.status.reviewNotSeen", sb, translator);
 			}
 			
 			sb.append("</button></li>");
 		}
 	}
 	
-	private void renderTestFeebacks(StringOutput sb, List<TestFeedback> testFeedbacks, AssessmentTestComponent component, TestFeedbackAccess access, Translator translator) {
+	private void renderTestFeebacks(AssessmentRenderer renderer, StringOutput sb, List<TestFeedback> testFeedbacks, AssessmentTestComponent component, TestFeedbackAccess access,
+			URLBuilder ubu, Translator translator) {
 		for(TestFeedback testFeedback:testFeedbacks) {
 			if(testFeedback.getTestFeedbackAccess() == access) {
-				renderTestFeeback(sb, component, testFeedback, translator);
+				renderTestFeeback(renderer, sb, component, testFeedback, ubu, translator);
 			}
 		}
 	}
 	
-	private void renderTestFeeback(StringOutput sb, AssessmentTestComponent component, TestFeedback testFeedback, Translator translator) {
-		//<xsl:variable name="identifierMatch" select="boolean(qw:value-contains(qw:get-test-outcome-value(@outcomeIdentifier), @identifier))" as="xs:boolean"/>
-		Identifier outcomeIdentifier = testFeedback.getOutcomeIdentifier();
-		Value outcomeValue = component.getTestSessionController().getTestSessionState().getOutcomeValue(outcomeIdentifier);
-		boolean identifierMatch = valueContains(outcomeValue, testFeedback.getOutcomeValue());
-		//<xsl:if test="($identifierMatch and @showHide='show') or (not($identifierMatch) and @showHide='hide')">
-		if((identifierMatch && testFeedback.getVisibilityMode() == VisibilityMode.SHOW_IF_MATCH)
-				|| (!identifierMatch && testFeedback.getVisibilityMode() == VisibilityMode.HIDE_IF_MATCH)) {
-			sb.append("<h2>");
+	private void renderTestFeeback(AssessmentRenderer renderer, StringOutput sb, AssessmentTestComponent component, TestFeedback testFeedback,
+			URLBuilder ubu, Translator translator) {
+		TestSessionState testSessionState = component.getTestSessionController().getTestSessionState();
+		if(testFeedbackVisible(testFeedback, testSessionState)) {
+			sb.append("<div class='o_info clearfix'>");
+			sb.append("<h3>");
 			if(StringHelper.containsNonWhitespace(testFeedback.getTitle())) {
 				sb.append(StringHelper.escapeHtml(testFeedback.getTitle()));
 			} else {
 				sb.append(translator.translate("assessment.test.modal.feedback"));
 			}
-			sb.append("</h2>");
-			
-			final QtiSerializer serializer = CoreSpringFactory.getImpl(QTI21Service.class).qtiSerializer();
-			//TODO QTI flow: need to handle url, feedbackBlock... -->
-			testFeedback.getChildren().forEach((flow) -> sb.append(serializer.serializeJqtiObject(flow)));
+			sb.append("</h3>");
+
+			testFeedback.getChildren().forEach((flow)
+				-> renderFlow(renderer, sb, component, null, null, flow, ubu, translator));
+			sb.append("</div>");
 		}
 	}
 	
 	private void renderNavigation(AssessmentRenderer renderer, StringOutput sb, AssessmentTestComponent component, URLBuilder ubu, Translator translator) {
 		if(component.isRenderNavigation()) {
-			sb.append("<div id='o_qti_menu' class='qtiworks o_assessmenttest o_testpartnavigation'>");
+			sb.append("<div id='o_qti_menu' class='qtiworks o_assessmenttest o_testpartnavigation o_qti_menu_buttonstyle'>");
 			
 			//title
 			boolean multiPartTest = component.hasMultipleTestParts();
@@ -671,6 +669,13 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 		}
 	}
 	
+	private void renderItemStatusMessage(String status, String i18nKey, StringOutput sb, Translator translator) {
+		String title = translator.translate(i18nKey);
+		sb.append("<span class='o_assessmentitem_status ").append(status).append(" ' title=\"").append(StringEscapeUtils.escapeHtml(title))
+		.append("\"><i class='o_icon o_icon-fw o_icon_qti_").append(status).append("'> </i><span>").append(title).append("</span></span>");
+	}
+
+	
 	private void renderNavigationAssessmentItem(StringOutput sb, AssessmentTestComponent component, TestPlanNode itemNode, Translator translator) {
 		String key = itemNode.getKey().toString();
 		sb.append("<li class='o_assessmentitem'>");
@@ -685,16 +690,16 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
 		
 		ItemSessionState itemSessionState = component.getItemSessionState(itemNode.getKey());
 		if(itemSessionState.getEndTime() != null) {
-			sb.append("<span class='o_assessmentitem_status ended'>Finished</span>");
+			renderItemStatusMessage("ended", "assessment.item.status.finished", sb, translator);
 		} else if(itemSessionState.getUnboundResponseIdentifiers().size() > 0
 				|| itemSessionState.getInvalidResponseIdentifiers().size() > 0) {
-			sb.append("<span class='o_assessmentitem_status invalid'>Needs Attention</span>");
+			renderItemStatusMessage("invalid", "assessment.item.status.needsAttention", sb, translator);
 		} else if(itemSessionState.isResponded() || itemSessionState.hasUncommittedResponseValues()) {
-			sb.append("<span class='o_assessmentitem_status answered'>Answered</span>");
+			renderItemStatusMessage("answered", "assessment.item.status.answered", sb, translator);
 		} else if(itemSessionState.getEntryTime() != null) {
-			sb.append("<span class='o_assessmentitem_status notAnswered'>Not Answered</span>");
+			renderItemStatusMessage("notAnswered", "assessment.item.status.notAnswered", sb, translator);
 		} else {
-			sb.append("<span class='o_assessmentitem_status notPresented'>").append(translator.translate("assessment.item.status.notSeen")).append("</span>");
+			renderItemStatusMessage("notPresented", "assessment.item.status.notSeen", sb, translator);
 		}
 		
 		sb.append("</button>");
@@ -725,31 +730,5 @@ public class AssessmentTestComponentRenderer extends AssessmentObjectComponentRe
         } catch (final Exception e) {
             throw new OLATRuntimeException("Unexpected Exception parsing TestPlanNodeKey " + keyString, e);
         }
-    }
-    
-    public static class ItemRenderingRequest {
-
-    	private AssessmentItem assessmentItem;
-    	private ItemSessionState itemSessionState;
-    	
-    	public ItemRenderingRequest(AssessmentItem assessmentItem) {
-    		this.assessmentItem = assessmentItem;
-    	}
-
-		public AssessmentItem getAssessmentItem() {
-			return assessmentItem;
-		}
-
-		public void setAssessmentItem(AssessmentItem assessmentItem) {
-			this.assessmentItem = assessmentItem;
-		}
-
-		public ItemSessionState getItemSessionState() {
-			return itemSessionState;
-		}
-
-		public void setItemSessionState(ItemSessionState itemSessionState) {
-			this.itemSessionState = itemSessionState;
-		}
     }
 }

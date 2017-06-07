@@ -71,7 +71,9 @@ import org.olat.selenium.page.repository.CPPage;
 import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
+import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.repository.RepositoryEditDescriptionPage;
+import org.olat.selenium.page.repository.ScormPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.rest.UserRestClient;
@@ -592,6 +594,55 @@ public class CourseTest {
 		browser.findElement(By.xpath("//h2[text()='Lorem Ipsum']"));
 	}
 	
+	/**
+	 * This test an edge case where a course start automatically its first
+	 *  course element, which is a structure node which start itself its first
+	 *  element, which is a SCORM which launch itself automatically.
+	 * 
+	 * @param loginPage
+	 */
+	@Test
+	@RunAsClient
+	public void courseWithSCORM_fullAuto(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		URL zipUrl = JunitTestHelper.class.getResource("file_resources/scorm/SCORM_course_full_auto.zip");
+		File zipFile = new File(zipUrl.toURI());
+		//go the authoring environment to import our course
+		String zipTitle = "SCORM - " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(zipTitle, zipFile);
+		
+		// publish the course
+		new RepositoryEditDescriptionPage(browser)
+			.clickToolbarBack();
+		CoursePageFragment.getCourse(browser)
+				.edit()
+				.autoPublish();
+		
+		//scorm is auto started -> back
+		ScormPage.getScormPage(browser)
+			.back();
+		
+		//log out
+		new UserToolsPage(browser)
+			.logout();
+				
+		//log in and resume test
+		loginPage
+			.loginAs(author.getLogin(), author.getPassword())
+			.resume();
+		// direct jump in SCORM content
+		ScormPage.getScormPage(browser)
+			.passVerySimpleScorm()
+			.back()
+			.assertOnScormPassed()
+			.assertOnScormScore(33);
+	}
 	
 	/**
 	 * Create a course, create a wiki, go the the course editor,
@@ -861,7 +912,7 @@ public class CourseTest {
 		Assert.assertEquals(blogTitle, podcastH2.getText().trim());
 		
 		FeedPage feed = FeedPage.getFeedPage(browser);
-		feed.newExternalBlog("http://www.openolat.com/feed/");
+		feed.newExternalBlog("https://www.openolat.com/feed/");
 
 		//check only that the subscription link is visible
 		By subscriptionBy = By.cssSelector("div.o_subscription>a");
@@ -2237,5 +2288,29 @@ public class CourseTest {
 			.selectPage(secondPage)
 			.selectPage(firstPage)
 			.assertInIFrame(By.xpath("//h2[text()[contains(.,'Lorem Ipsum')]]"));
+	}
+	
+	/**
+	 * Try to import a typical Windows zip with encoding issues. The goal
+	 * is to check that no ugly red screen are produced.
+	 * 
+	 * @param loginPage
+	 */
+	@Test
+	@RunAsClient
+	public void tryImportOfWindowsZip(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		loginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		URL zipUrl = JunitTestHelper.class.getResource("file_resources/windows_zip.zip");
+		File zipFile = new File(zipUrl.toURI());
+		//go the authoring environment to create a CP
+		String zipTitle = "ZIP - " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.uploadResource(zipTitle, zipFile)
+			.assertOnResourceType();
 	}
 }

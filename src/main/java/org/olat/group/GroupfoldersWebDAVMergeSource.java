@@ -34,10 +34,8 @@ import org.olat.core.commons.services.webdav.manager.WebDAVMergeSource;
 import org.olat.core.commons.services.webdav.servlets.RequestUtil;
 import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.NamedContainerImpl;
-import org.olat.core.util.vfs.Quota;
-import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
+import org.olat.core.util.vfs.callbacks.FullAccessWithLazyQuotaCallback;
 import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.group.model.SearchBusinessGroupParams;
@@ -137,35 +135,11 @@ class GroupfoldersWebDAVMergeSource extends WebDAVMergeSource {
 		VFSSecurityCallback secCallback;
 		if(writeAccess) {
 			SubscriptionContext sc = new SubscriptionContext(group, "toolfolder");
-			secCallback = new FullAccessWithLazyQuotaCallback(folderPath, sc);
+			secCallback = new FullAccessWithLazyQuotaCallback(folderPath, QuotaConstants.IDENTIFIER_DEFAULT_GROUPS, sc);
 		} else {
 			secCallback = new ReadOnlyCallback();
 		}
 		grpContainer.setLocalSecurityCallback(secCallback);
 		return grpContainer;
-	}
-	
-	private static class FullAccessWithLazyQuotaCallback extends FullAccessWithQuotaCallback {
-		
-		private final String folderPath;
-		
-		public FullAccessWithLazyQuotaCallback(String folderPath, SubscriptionContext sc) {
-			super(null, sc);
-			this.folderPath = folderPath;
-		}
-		
-		@Override
-		public Quota getQuota() {
-			if(super.getQuota() == null) {
-				QuotaManager qm = QuotaManager.getInstance();
-				Quota q = qm.getCustomQuota(folderPath);
-				if (q == null) {
-					Quota defQuota = qm.getDefaultQuota(QuotaConstants.IDENTIFIER_DEFAULT_GROUPS);
-					q = QuotaManager.getInstance().createQuota(folderPath, defQuota.getQuotaKB(), defQuota.getUlLimitKB());
-				}
-				super.setQuota(q);
-			}
-			return super.getQuota();
-		}
 	}
 }

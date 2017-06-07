@@ -27,6 +27,7 @@ package org.olat.search.service.indexer.repository.course;
 
 import java.io.IOException;
 
+import org.apache.lucene.document.Document;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.core.id.Identity;
@@ -45,6 +46,7 @@ import org.olat.modules.fo.Status;
 import org.olat.modules.fo.manager.ForumManager;
 import org.olat.properties.Property;
 import org.olat.search.service.SearchResourceContext;
+import org.olat.search.service.document.CourseNodeDocument;
 import org.olat.search.service.indexer.ForumIndexer;
 import org.olat.search.service.indexer.OlatFullIndexer;
 
@@ -63,11 +65,10 @@ public class FOCourseNodeIndexer extends ForumIndexer implements CourseNodeIndex
 	@Override
 	public void doIndex(SearchResourceContext repositoryResourceContext, ICourse course, CourseNode courseNode, OlatFullIndexer indexWriter) {
 		try {
-			SearchResourceContext courseNodeResourceContext = new SearchResourceContext(repositoryResourceContext);
-			courseNodeResourceContext.setBusinessControlFor(courseNode);
-			courseNodeResourceContext.setDocumentType(TYPE);
-			courseNodeResourceContext.setTitle(courseNode.getShortTitle());
-			courseNodeResourceContext.setDescription(courseNode.getLongTitle());
+			SearchResourceContext courseNodeResourceContext = createSearchResourceContext(repositoryResourceContext, courseNode, TYPE);
+			Document document = CourseNodeDocument.createDocument(courseNodeResourceContext, courseNode);
+			indexWriter.addDocument(document);
+			
 			doIndexForum(courseNodeResourceContext, course, courseNode, indexWriter);
 		} catch(Exception ex) {
 			log.error("Exception indexing courseNode=" + courseNode, ex);
@@ -84,19 +85,25 @@ public class FOCourseNodeIndexer extends ForumIndexer implements CourseNodeIndex
 	@Override
 	public boolean checkAccess(ContextEntry contextEntry, BusinessControl businessControl, Identity identity, Roles roles) {
 		ContextEntry ce = businessControl.popLauncherContextEntry();
+		if(ce == null || ce.getOLATResourceable() == null || ce.getOLATResourceable().getResourceableId() == null) {
+			return false;
+		}
+		
 		Long resourceableId = ce.getOLATResourceable().getResourceableId();
 		Message message = ForumManager.getInstance().loadMessage(resourceableId);
-		Message threadtop = message.getThreadtop();
-		if(threadtop==null) {
-			threadtop = message;
+		if(message != null) {
+			Message threadtop = message.getThreadtop();
+			if(threadtop == null) {
+				threadtop = message;
+			}
+			boolean isMessageHidden = Status.getStatus(threadtop.getStatusCode()).isHidden(); 
+			//assumes that if is owner then is moderator so it is allowed to see the hidden forum threads
+			// TODO: (LD) fix this!!! - the contextEntry is not the right context for this check
+			if(isMessageHidden && !BaseSecurityManager.getInstance()/* isOwner */
+					.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable())) {
+				return false;
+			}
 		}
-		boolean isMessageHidden = Status.getStatus(threadtop.getStatusCode()).isHidden(); 
-		//assumes that if is owner then is moderator so it is allowed to see the hidden forum threads
-		 //TODO: (LD) fix this!!! - the contextEntry is not the right context for this check
-		boolean isOwner = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable());
-		if(isMessageHidden && !isOwner) {
-			return false;
-		}		
 		return super.checkAccess(contextEntry, businessControl, identity, roles);	
 	}
 

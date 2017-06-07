@@ -45,7 +45,7 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.modules.video.VideoManager;
-import org.olat.modules.video.VideoMetadata;
+import org.olat.modules.video.VideoMeta;
 import org.olat.modules.video.VideoModule;
 import org.olat.modules.video.VideoTranscoding;
 import org.olat.modules.video.manager.VideoMediaMapper;
@@ -91,7 +91,7 @@ public class VideoQualityTableFormController extends FormBasicController {
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.resolution));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.dimension));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.size));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.size, new TranscodingErrorIconRenderer()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.format));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(QualityTableCols.delete));
 
@@ -103,10 +103,11 @@ public class VideoQualityTableFormController extends FormBasicController {
 	
 	private void initTable(){
 		List<QualityTableRow> rows = new ArrayList<>();
-		VideoMetadata videoMetadata = videoManager.readVideoMetadataFile(videoResource);
+		VideoMeta videoMetadata = videoManager.getVideoMetadata(videoResource);
 		// Add master video file
 		FormLink previewMasterLink = uifactory.addFormLink("view", "viewQuality", "quality.master", "quality.master", flc, Link.LINK);
-		rows.add(new QualityTableRow(previewMasterLink, videoMetadata.getWidth() +"x"+ videoMetadata.getHeight(), Formatter.formatBytes(videoManager.getVideoFile(videoResource).length()), "mp4",null));
+		Object[] statusMaster = new Object[]{100, Formatter.formatBytes(videoManager.getVideoFile(videoResource).length())};
+		rows.add(new QualityTableRow(previewMasterLink, videoMetadata.getWidth() +"x"+ videoMetadata.getHeight(), statusMaster, "mp4",null));
 		// Add all the transcoded versions
 		List<VideoTranscoding> videoTranscodings = videoManager.getVideoTranscodings(videoResource);
 		for(VideoTranscoding videoTranscoding:videoTranscodings){
@@ -124,14 +125,22 @@ public class VideoQualityTableFormController extends FormBasicController {
 			int height = videoTranscoding.getHeight();
 			String dimension = width +"x"+ height;
 			String fileSize = "";
-			if (videoTranscoding.getSize() != 0) {
+			int status = videoTranscoding.getStatus();
+			if (videoTranscoding.getSize() != 0 && status > -1) {
 				fileSize = Formatter.formatBytes(videoTranscoding.getSize());
-			} else if (videoTranscoding.getStatus() == VideoTranscoding.TRANSCODING_STATUS_WAITING) {
+			} else if (status == VideoTranscoding.TRANSCODING_STATUS_WAITING) {
 				fileSize = translate("transcoding.waiting");
-			} else if (videoTranscoding.getStatus() <= VideoTranscoding.TRANSCODING_STATUS_DONE){
+			} else if (status <= VideoTranscoding.TRANSCODING_STATUS_DONE && status > -1){
 				fileSize = translate("transcoding.processing") + ": " + videoTranscoding.getStatus() + "%";					
-			}
-			rows.add(new QualityTableRow(previewVersionLink, dimension,  fileSize, videoTranscoding.getFormat(), deleteLink));
+			} else if (status == VideoTranscoding.TRANSCODING_STATUS_INEFFICIENT) {
+				fileSize = translate("transcoding.inefficient");
+			} else if (status == VideoTranscoding.TRANSCODING_STATUS_ERROR) {
+				fileSize = translate("transcoding.error");
+			} else if (status == VideoTranscoding.TRANSCODING_STATUS_TIMEOUT) {
+				fileSize = translate("transcoding.timeout");
+			} 
+			Object[] statusTranscoding = new Object[]{status, fileSize};
+			rows.add(new QualityTableRow(previewVersionLink, dimension,statusTranscoding, videoTranscoding.getFormat(), deleteLink));
 		}
 		List<Integer> missingResolutions = videoManager.getMissingTranscodings(videoResource);
 		if (videoModule.isTranscodingEnabled()) {
@@ -144,7 +153,8 @@ public class VideoQualityTableFormController extends FormBasicController {
 					
 					FormLink previewMissingLink= uifactory.addFormLink("res_" + count++, "viewQuality", title, title, flc, Link.LINK + Link.NONTRANSLATED);
 					previewMissingLink.setEnabled(false);
-					rows.add(new QualityTableRow(previewMissingLink, missingRes.toString(),  "-", "mp4", transcodeLink));
+					Object[] status = new Object[]{-1, "-"};
+					rows.add(new QualityTableRow(previewMissingLink, missingRes.toString(),status, "mp4", transcodeLink));
 				}
 			}
 		}
@@ -200,7 +210,8 @@ public class VideoQualityTableFormController extends FormBasicController {
 			VideoTranscoding videoTranscoding = (VideoTranscoding) link.getUserObject();
 			if (videoTranscoding == null) {
 				// this is the master video
-				VideoMetadata videoMetadata = videoManager.readVideoMetadataFile(videoResource);
+//				VideoMetadata videoMetadata = videoManager.readVideoMetadataFile(videoResource);
+				VideoMeta videoMetadata = videoManager.getVideoMetadata(videoResource);
 				previewVC.contextPut("width", videoMetadata.getWidth());
 				previewVC.contextPut("height", videoMetadata.getHeight());
 				previewVC.contextPut("filename", "video.mp4");

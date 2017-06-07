@@ -24,6 +24,7 @@ import java.util.List;
 import org.junit.Assert;
 import org.olat.selenium.page.NavigationPage;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.selenium.page.repository.RepositoryAccessPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -61,11 +62,20 @@ public class QTI21Page {
 		return this;
 	}
 	
-	public QTI21Page assertOnAttempts(int numOfAttemtps) {
+	public QTI21Page assertOnCourseAttempts(int numOfAttemtps) {
 		By attemptBy = By.xpath("//div[contains(@class,'o_course_run')]//table//tr[contains(@class,'o_attempts')]//td[text()[contains(.,'" + numOfAttemtps + "')]]");
 		OOGraphene.waitElement(attemptBy, 5, browser);
 		WebElement attemptEl = browser.findElement(attemptBy);
 		Assert.assertTrue(attemptEl.isDisplayed());
+		return this;
+	}
+	
+	public QTI21Page startTestPart() {
+		By startBy = By.xpath("//button[contains(@onclick,'advanceTestPart')]");
+		browser.findElement(startBy).click();
+		OOGraphene.waitBusy(browser);
+		By menuBy = By.id("o_qti_menu");
+		OOGraphene.waitElement(menuBy, 5, browser);
 		return this;
 	}
 	
@@ -75,29 +85,22 @@ public class QTI21Page {
 		return this;
 	}
 	
-	//TODO still qti 1.2
-	public QTI21Page selectItem(int position) {
-		By itemsBy = By.cssSelector("a.o_sel_qti_menu_item");
-		List<WebElement> itemList = browser.findElements(itemsBy);
-		Assert.assertTrue(itemList.size() > position);
-		WebElement itemEl = itemList.get(position);
-		itemEl.click();
-		OOGraphene.waitBusy(browser);
+	public QTI21Page assertOnAssessmentItem(String title) {
+		By itemTitleBy = By.xpath("//div[@class='o_assessmentitem_wrapper']/h4[contains(normalize-space(.),'" + title + "')]");
+		OOGraphene.waitElement(itemTitleBy, 5, browser);
 		return this;
 	}
 	
-	public QTI21Page answerSingleChoice(int selectPosition) {
-		By itemsBy = By.cssSelector("div.choiceInteraction input[type='radio']");
-		List<WebElement> optionList = browser.findElements(itemsBy);
-		Assert.assertTrue(optionList.size() > selectPosition);
-		WebElement optionEl = optionList.get(selectPosition);
-		optionEl.click();
+	public QTI21Page selectItem(String title) {
+		By itemBy = By.xpath("//div[@id='o_qti_menu']//li[contains(@class,'o_qti_menu_item')]//a[span[contains(normalize-space(.),'" + title + "')]]");
+		OOGraphene.waitElement(itemBy, 5, browser);
+		browser.findElement(itemBy).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
 	public QTI21Page answerSingleChoice(String answer) {
-		By choiceBy = By.xpath("//tr[contains(@class,'choiceinteraction')][td[contains(@class,'choiceInteraction')][p[contains(text(),'" + answer + "')]]]/td[contains(@class,'control')]/input[@type='radio']");
+		By choiceBy = By.xpath("//tr[contains(@class,'choiceinteraction')][td[contains(@class,'choiceInteraction')][p[contains(normalize-space(text()),'" + answer + "')]]]/td[contains(@class,'control')]/input[@type='radio']");
 		browser.findElement(choiceBy).click();
 		return this;
 	}
@@ -111,9 +114,11 @@ public class QTI21Page {
 	}
 	
 	public QTI21Page answerHotspot(String shape) {
-		By areaBy = By.cssSelector("div.hotspotInteraction area[shape='" + shape + "']");
-		OOGraphene.waitElement(areaBy, 5, browser);
-		browser.findElement(areaBy).click();
+		OOGraphene.waitElement(By.className("hotspotInteraction"), browser);
+		By areaBy = By.xpath("//div[contains(@class,'hotspotInteraction')]//map/area[@shape='" + shape + "']");
+		List<WebElement> elements = browser.findElements(areaBy);
+		Assert.assertEquals("Hotspot of shape " + shape, 1, elements.size()); 
+		elements.get(0).click();
 		return this;
 	}
 
@@ -165,6 +170,18 @@ public class QTI21Page {
 		return this;
 	}
 	
+	public QTI21Page endTestPart() {
+		return endTest();
+	}
+	
+	public QTI21Page suspendTest() {
+		By suspendBy = By.cssSelector("a.o_sel_suspend_test");
+		browser.findElement(suspendBy).click();
+		OOGraphene.waitBusy(browser);
+		confirm();
+		return this;
+	}
+	
 	public QTI21Page endTest() {
 		By endBy = By.cssSelector("a.o_sel_end_testpart");
 		browser.findElement(endBy).click();
@@ -174,15 +191,63 @@ public class QTI21Page {
 	}
 	
 	public QTI21Page closeTest() {
-		By endBy = By.cssSelector("a.o_sel_close_test");
-		browser.findElement(endBy).click();
+		By closeBy = By.cssSelector("a.o_sel_close_test");
+		OOGraphene.waitElement(closeBy, 5, browser);
+		browser.findElement(closeBy).click();
 		OOGraphene.waitBusy(browser);
 		confirm();
 		return this;
 	}
 	
-	public QTI21Page assertOnResults() {
+	/**
+	 * Close the report with the assessment results.
+	 * 
+	 * @return Itself
+	 */
+	public QTI21Page closeAssessmentResults() {
+		By closeBy = By.cssSelector("a.o_sel_close_results");
+		OOGraphene.waitElement(closeBy, 5, browser);
+		browser.findElement(closeBy).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	public QTI21Page showAssessmentResults() {
+		By showBy = By.cssSelector("a.o_qti_show_assessment_results");
+		OOGraphene.waitElement(showBy, 5, browser);
+		browser.findElement(showBy).click();
+		OOGraphene.waitBusy(browser);
+		
+		By hideBy = By.cssSelector("a.o_qti_hide_assessment_results");
+		OOGraphene.waitElement(hideBy, 5, browser);
+		return this;
+	}
+	
+	/**
+	 * This check specifically if the metadata of the test are visible.
+	 * 
+	 * @return Itself
+	 */
+	public QTI21Page assertOnAssessmentResults() {
 		By resultsBy = By.cssSelector("div.o_sel_results_details");
+		OOGraphene.waitElement(resultsBy, 5, browser);
+		return this;
+	}
+	
+	/**
+	 * This check specifically if the metadata of the test are visible.
+	 * 
+	 * @param timeout
+	 * @return
+	 */
+	public QTI21Page assertOnAssessmentResults(int timeout) {
+		By resultsBy = By.cssSelector("div.o_sel_results_details");
+		OOGraphene.waitElement(resultsBy, timeout, browser);
+		return this;
+	}
+	
+	public QTI21Page assertOnCourseAssessmentTestScore(int score) {
+		By resultsBy = By.xpath("//div[contains(@class,'o_personal')]//tr[contains(@class,'o_score')]/td[contains(text(),'" + score + "')]");
 		OOGraphene.waitElement(resultsBy, 5, browser);
 		return this;
 	}
@@ -193,9 +258,51 @@ public class QTI21Page {
 		return this;
 	}
 	
+	public QTI21Page assertOnAssessmentTestPassed() {
+		By notPassedBy = By.cssSelector("div.o_sel_results_details tr.o_state.o_passed ");
+		OOGraphene.waitElement(notPassedBy, 5, browser);
+		return this;
+	}
+	
+	public QTI21Page assertOnAssessmentTestNotPassed() {
+		By notPassedBy = By.cssSelector("div.o_sel_results_details tr.o_state.o_failed ");
+		OOGraphene.waitElement(notPassedBy, 5, browser);
+		return this;
+	}
+	
 	public QTI21Page assertOnAssessmentTestMaxScore(int score) {
 		By resultsBy = By.xpath("//div[contains(@class,'o_sel_results_details')]//tr[contains(@class,'o_sel_assessmenttest_maxscore')]/td[contains(text(),'" + score + "')]");
 		OOGraphene.waitElement(resultsBy, 5, browser);
+		return this;
+	}
+	
+	public QTI21Page assertOnAssessmentTestFeedback(String feedback) {
+		By feedbackBy = By.xpath("//div[contains(@class,'o_info')]/h3[contains(text(),'" + feedback + "')]");
+		OOGraphene.waitElement(feedbackBy, 5, browser);
+		List<WebElement> feedbackEls = browser.findElements(feedbackBy);
+		Assert.assertEquals(1, feedbackEls.size());
+		return this;
+	}
+	
+	/**
+	 * Check if the assessment terminated message is visible.
+	 * 
+	 * @return Itself
+	 */
+	public QTI21Page assertOnAssessmentTestTerminated() {
+		By terminatedBy = By.cssSelector("div.o_sel_assessment_test_terminated");
+		OOGraphene.waitElement(terminatedBy, 5, browser);
+		return this;
+	}
+	
+	/**
+	 * Check if the assessment terminated message is visible.
+	 * 
+	 * @return Itself
+	 */
+	public QTI21Page assertOnAssessmentTestTerminated(int timeout) {
+		By terminatedBy = By.cssSelector("div.o_sel_assessment_test_terminated");
+		OOGraphene.waitElement(terminatedBy, timeout, browser);
 		return this;
 	}
 	
@@ -233,6 +340,24 @@ public class QTI21Page {
 		browser.findElement(optionsBy).click();
 		OOGraphene.waitBusy(browser);
 		return new QTI21OptionsPage(browser);
+	}
+	
+	/**
+	 * Open the access configuration
+	 * 
+	 * @return
+	 */
+	public RepositoryAccessPage accessConfiguration() {
+		if(!browser.findElement(settingsMenu).isDisplayed()) {
+			openSettingsMenu();
+		}
+		By accessConfigBy = By.cssSelector("a.o_sel_course_access");
+		browser.findElement(accessConfigBy).click();
+		OOGraphene.waitBusy(browser);
+
+		By mainId = By.id("o_main_container");
+		OOGraphene.waitElement(mainId, 5, browser);
+		return new RepositoryAccessPage(browser);
 	}
 	
 	/**

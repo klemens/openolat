@@ -40,6 +40,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.Identity;
+import org.olat.course.archiver.ScoreAccountingHelper;
 import org.olat.course.nodes.IQTESTCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
@@ -48,6 +49,8 @@ import org.olat.ims.qti21.AssessmentItemSession;
 import org.olat.ims.qti21.AssessmentTestHelper;
 import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.QTI21Service;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.AssessmentService;
 import org.olat.modules.assessment.AssessmentToolOptions;
 import org.olat.repository.RepositoryEntry;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -81,17 +84,20 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 	private String subIdent;
 	private RepositoryEntry testEntry;
 	private RepositoryEntry courseEntry;
+	private CourseEnvironment courseEnv;
 	
 	private AssessmentItemRef currentItemRef;
 	private final List<AssessmentItemRef> itemRefs;
 	private final ResolvedAssessmentTest resolvedAssessmentTest;
 	private final AssessmentTestCorrection testCorrections;
 	
-	private final Set<Identity> assessedIdentities;
+	private final Map<Identity,AssessmentEntry> assessmentEntries;
 	private final Map<Identity,AssessmentTestSession> lastSessions;
 	
 	@Autowired
 	private QTI21Service qtiService;
+	@Autowired
+	private AssessmentService assessmentService;
 	@Autowired
 	private BusinessGroupService businessGroupService;
 	
@@ -100,6 +106,7 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 		super(ureq, wControl);
 		
 		this.asOptions = asOptions;
+		this.courseEnv = courseEnv;
 		
 		subIdent = courseNode.getIdent();
 		testEntry = courseNode.getReferencedRepositoryEntry();
@@ -109,8 +116,8 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 				.unzipFileResource(testEntry.getOlatResource());
 		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(fUnzippedDirRoot, false, false);
 
-		assessedIdentities = getAssessedIdentities();
-		lastSessions = getLastSessions(assessedIdentities);
+		lastSessions = getLastSessions();
+		assessmentEntries = getAssessmentEntries(lastSessions.keySet());
 
 		mainVC = createVelocityContainer("corrections");
 		
@@ -135,7 +142,7 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 	}
 	
 	public int getNumberOfAssessedIdentities() {
-		return assessedIdentities == null ? 0 : assessedIdentities.size();
+		return lastSessions == null ? 0 : lastSessions.size();
 	}
 	
 	public AssessmentTestCorrection getTestCorrections() {
@@ -193,7 +200,7 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 	}
 	
 	private AssessmentTestCorrection collectAssessedIdentityForItem(List<AssessmentItemRef> itemRefList) {
-		AssessmentTestCorrection corrections = new AssessmentTestCorrection();
+		AssessmentTestCorrection corrections = new AssessmentTestCorrection(assessmentEntries);
 		for(AssessmentItemRef itemRef:itemRefList) {
 			String itemRefIdentifier = itemRef.getIdentifier().toString();
 			List<AssessmentItemSession> itemSessions = qtiService.getAssessmentItemSessions(courseEntry, subIdent, testEntry, itemRefIdentifier);
@@ -230,27 +237,34 @@ public class IdentitiesAssessmentTestCorrectionController extends BasicControlle
 		return corrections;
 	}
 	
-	private Set<Identity> getAssessedIdentities() {
-		List<Identity> identities;
-		if(asOptions.getGroup() != null) {
-			identities = businessGroupService.getMembers(asOptions.getGroup(), GroupRoles.participant.name());
-		} else {
-			identities = asOptions.getIdentities();
+	private Map<Identity,AssessmentEntry> getAssessmentEntries(Set<Identity> identities) {
+		List<AssessmentEntry> entries = assessmentService.loadAssessmentEntriesBySubIdent(courseEntry, subIdent);
+		Map<Identity,AssessmentEntry> identityToAssessmentEntryMap = new HashMap<>();
+		for(AssessmentEntry assessmentEntry:entries) {
+			if(identities.contains(assessmentEntry.getIdentity())) {
+				identityToAssessmentEntryMap.put(assessmentEntry.getIdentity(), assessmentEntry);
+			}
 		}
-		Set<Identity> uniqueIdentities = new HashSet<>();
-		if(identities != null) {
-			uniqueIdentities.addAll(identities);
-		}
-		return uniqueIdentities;
+		return identityToAssessmentEntryMap;
 	}
 	
-	private Map<Identity,AssessmentTestSession> getLastSessions(Set<Identity> identitiesSet) {
+	private Map<Identity,AssessmentTestSession> getLastSessions() {
+		Set<Identity> identitiesSet;
+		if(asOptions.getGroup() != null) {
+			List<Identity> identities = businessGroupService.getMembers(asOptions.getGroup(), GroupRoles.participant.name());
+			identitiesSet = new HashSet<>(identities);
+		} else if(asOptions.getIdentities() != null) {
+			identitiesSet = new HashSet<>(asOptions.getIdentities());
+		} else {
+			identitiesSet = new HashSet<>(ScoreAccountingHelper.loadUsers(courseEnv));
+		}
+
 		List<AssessmentTestSession> sessions = qtiService.getAssessmentTestSessions(courseEntry, subIdent, testEntry);
 		Map<Identity,AssessmentTestSession> identityToSessions = new HashMap<>();
 		for(AssessmentTestSession session:sessions) {
 			//filter last session / user
 			Identity assessedIdentity = session.getIdentity();
-			if(!identitiesSet.contains(assessedIdentity)) {
+			if(identitiesSet != null && !identitiesSet.contains(assessedIdentity)) {
 				continue;
 			}
 			

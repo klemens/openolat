@@ -28,8 +28,10 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.zip.ZipOutputStream;
@@ -38,12 +40,14 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.vfs.LocalImpl;
 import org.olat.core.util.vfs.VFSContainer;
@@ -68,12 +72,14 @@ import org.olat.ims.qti21.model.xml.interactions.EssayAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.EntryType;
 import org.olat.ims.qti21.model.xml.interactions.HotspotAssessmentItemBuilder;
+import org.olat.ims.qti21.model.xml.interactions.HottextAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.KPrimAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MatchAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MultipleChoiceAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.SingleChoiceAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.UploadAssessmentItemBuilder;
 import org.olat.ims.qti21.questionimport.AssessmentItemAndMetadata;
+import org.olat.ims.qti21.ui.editor.AssessmentTestComposerController;
 import org.olat.ims.resources.IMSEntityResolver;
 import org.olat.imscp.xml.manifest.ResourceType;
 import org.olat.modules.qpool.ExportFormatOptions;
@@ -255,7 +261,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 			ResourceType resource = clonedManifestBuilder.getResourceTypeByHref(relativePathToManifest);
 			ManifestMetadataBuilder metadata = clonedManifestBuilder.getMetadataBuilder(resource, true);
 			
-			QuestionItem qitem = importAssessmentItemRef(owner, assessmentItem, itemFile, metadata, unzippedDirRoot, defaultLocale);
+			QuestionItem qitem = importAssessmentItemRef(owner, assessmentItem, itemFile, metadata, defaultLocale);
 			importedItems.add(qitem);
 		}
 		
@@ -275,7 +281,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	@Override
 	public void exportItem(QuestionItemFull item, ZipOutputStream zout, Locale locale, Set<String> names) {
 		QTI21ExportProcessor processor = new QTI21ExportProcessor(qtiService, qpoolFileStorage, locale);
-		processor.process(item, zout, names);
+		processor.process(item, zout);
 	}
 
 	@Override
@@ -332,17 +338,19 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 
 	public QuestionItem createItem(Identity identity, QTI21QuestionType type, String title, Locale locale) {
 		AssessmentItemBuilder itemBuilder = null;
+		Translator translator = Util.createPackageTranslator(AssessmentTestComposerController.class, locale);
 		switch(type) {
-			case sc: itemBuilder = new SingleChoiceAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case mc: itemBuilder = new MultipleChoiceAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case kprim: itemBuilder = new KPrimAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case match: itemBuilder = new MatchAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case fib: itemBuilder = new FIBAssessmentItemBuilder(EntryType.text, qtiService.qtiSerializer()); break;
-			case numerical: itemBuilder = new FIBAssessmentItemBuilder(EntryType.numerical, qtiService.qtiSerializer()); break;
-			case essay: itemBuilder = new EssayAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case upload: itemBuilder = new UploadAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case drawing: itemBuilder = new DrawingAssessmentItemBuilder(qtiService.qtiSerializer()); break;
-			case hotspot: itemBuilder = new HotspotAssessmentItemBuilder(qtiService.qtiSerializer()); break;
+			case sc: itemBuilder = new SingleChoiceAssessmentItemBuilder(translator.translate("new.sc"), translator.translate("new.answer"), qtiService.qtiSerializer()); break;
+			case mc: itemBuilder = new MultipleChoiceAssessmentItemBuilder(translator.translate("new.mc"), translator.translate("new.answer"), qtiService.qtiSerializer()); break;
+			case kprim: itemBuilder = new KPrimAssessmentItemBuilder(translator.translate("new.kprim"), translator.translate("new.answer"), qtiService.qtiSerializer()); break;
+			case match: itemBuilder = new MatchAssessmentItemBuilder(translator.translate("new.match"), qtiService.qtiSerializer()); break;
+			case fib: itemBuilder = new FIBAssessmentItemBuilder(translator.translate("new.fib"), EntryType.text, qtiService.qtiSerializer()); break;
+			case numerical: itemBuilder = new FIBAssessmentItemBuilder(translator.translate("new.fib.numerical"), EntryType.numerical, qtiService.qtiSerializer()); break;
+			case essay: itemBuilder = new EssayAssessmentItemBuilder(translator.translate("new.essay"), qtiService.qtiSerializer()); break;
+			case upload: itemBuilder = new UploadAssessmentItemBuilder(translator.translate("new.upload"), qtiService.qtiSerializer()); break;
+			case drawing: itemBuilder = new DrawingAssessmentItemBuilder(translator.translate("new.drawing"), qtiService.qtiSerializer()); break;
+			case hotspot: itemBuilder = new HotspotAssessmentItemBuilder(translator.translate("new.hotspot"), qtiService.qtiSerializer()); break;
+			case hottext: itemBuilder = new HottextAssessmentItemBuilder(translator.translate("new.hottext"), translator.translate("new.hottext.start"), translator.translate("new.hottext.text"), qtiService.qtiSerializer()); break;
 			default: return null;
 		}
 
@@ -408,7 +416,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	 * @return
 	 */
 	public QuestionItem importAssessmentItemRef(Identity owner, AssessmentItem assessmentItem,
-			File itemFile, ManifestMetadataBuilder clonedMetadataBuilder, File fUnzippedDirRoot, Locale defaultLocale) {
+			File itemFile, ManifestMetadataBuilder clonedMetadataBuilder, Locale defaultLocale) {
 		QTI21ImportProcessor processor =  new QTI21ImportProcessor(owner, defaultLocale,
 				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, qtiService);
 		
@@ -440,7 +448,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 		
 		//process material
 		File materialDirRoot = itemFile.getParentFile();
-		List<String> materials = processor.getMaterials(assessmentItem);
+		List<String> materials = ImportExportHelper.getMaterials(assessmentItem);
 		for(String material:materials) {
 			if(material.indexOf("://") < 0) {// material can be an external URL
 				try {
@@ -479,22 +487,34 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	}
 	
 	public void assembleTest(List<QuestionItemShort> items, Locale locale, ZipOutputStream zout) {
-		List<Long> itemKeys = new ArrayList<Long>();
-		for(QuestionItemShort item:items) {
-			itemKeys.add(item.getKey());
-		}
-
-		List<QuestionItemFull> fullItems = questionItemDao.loadByIds(itemKeys);
+		List<QuestionItemFull> fullItems = loadQuestionFullItems(items);
 		QTI21ExportProcessor processor = new QTI21ExportProcessor(qtiService, qpoolFileStorage, locale);
 		processor.assembleTest(fullItems, zout);	
 	}
 	
 	public void exportToEditorPackage(File exportDir, List<QuestionItemShort> items, Locale locale) {
-		List<Long> itemKeys = toKeys(items);
-		List<QuestionItemFull> fullItems = questionItemDao.loadByIds(itemKeys);
-
+		List<QuestionItemFull> fullItems = loadQuestionFullItems(items);
 		QTI21ExportProcessor processor = new QTI21ExportProcessor(qtiService, qpoolFileStorage, locale);
 		processor.assembleTest(fullItems, exportDir);
+	}
+	
+	private List<QuestionItemFull> loadQuestionFullItems(List<QuestionItemShort> items) {
+		List<Long> itemKeys = toKeys(items);
+		List<QuestionItemFull> fullItems = questionItemDao.loadByIds(itemKeys);
+		Map<Long, QuestionItemFull> fullItemMap = new HashMap<>();
+		for(QuestionItemFull fullItem:fullItems) {
+			fullItemMap.put(fullItem.getKey(), fullItem);
+		}
+		
+		//reorder the fullItems;
+		List<QuestionItemFull> reorderedFullItems = new ArrayList<>(fullItems.size());
+		for(QuestionItemShort item:items) {
+			QuestionItemFull itemFull = fullItemMap.get(item.getKey());
+			if(itemFull != null) {
+				reorderedFullItems.add(itemFull);
+			}
+		}
+		return reorderedFullItems;
 	}
 	
 	/**

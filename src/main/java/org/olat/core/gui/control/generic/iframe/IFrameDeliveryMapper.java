@@ -28,6 +28,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.dispatcher.mapper.Mapper;
+import org.olat.core.gui.components.htmlheader.jscss.CustomCSSDelegate;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.media.NotFoundMediaResource;
 import org.olat.core.gui.media.StringMediaResource;
@@ -75,6 +76,7 @@ public class IFrameDeliveryMapper implements Mapper {
 
 	private String frameId;
 	private String customCssURL;
+	private transient CustomCSSDelegate customCssDelegate;
 	private String themeBaseUri;
 	private String customHeaderContent;
 	
@@ -168,6 +170,13 @@ public class IFrameDeliveryMapper implements Mapper {
 
 	public void setCustomCssURL(String customCssURL) {
 		this.customCssURL = customCssURL;
+	}
+	
+	public void setCustomCssDelegate(CustomCSSDelegate customCssDelegate) {
+		this.customCssDelegate = customCssDelegate;
+		if(customCssDelegate.getCustomCSS() != null) {
+			customCssURL = customCssDelegate.getCustomCSS().getCSSURLIFrame();
+		}
 	}
 
 	@Override
@@ -322,10 +331,14 @@ public class IFrameDeliveryMapper implements Mapper {
 				//add olat content css as used in html editor
 				sb.appendOpenolatCss();//css only loaded once in HtmlOutput
 			}
-			if (customCssURL != null) {
+			if(customCssDelegate != null && customCssDelegate.getCustomCSS() != null
+					&& customCssDelegate.getCustomCSS().getCSSURLIFrame() != null) {
+				String  customCssURL = customCssDelegate.getCustomCSS().getCSSURLIFrame();
+				sb.appendCss(customCssURL, "customcss");	
+			} else if (customCssURL != null) {
 				// add the custom  CSS, e.g. the course css that overrides the standard content css
 				sb.appendCss(customCssURL, "customcss");				
-			}
+			} 
 		}
 		
 		if (enableTextmarking) {
@@ -587,7 +600,7 @@ public class IFrameDeliveryMapper implements Mapper {
 		public void appendJsMath() {
 			append("<script type=\"text/javascript\" src=\"");
 			append(WebappHelper.getMathJaxCdn());
-			append("2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML\"></script>\n");
+			append("MathJax.js?config=TeX-AMS-MML_HTMLorMML\"></script>\n");
 			append("<script type=\"text/javascript\">\n");
 			append("MathJax.Hub.Config({\n");	
 			append(" extensions: [\"jsMath2jax.js\"],\n");

@@ -22,24 +22,10 @@ package org.olat.ims.qti21.repository.handlers;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Writer;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Locale;
-
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
-import javax.xml.stream.XMLOutputFactory;
-import javax.xml.stream.XMLStreamWriter;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
@@ -80,10 +66,10 @@ import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.model.xml.AssessmentItemFactory;
 import org.olat.ims.qti21.model.xml.AssessmentTestFactory;
 import org.olat.ims.qti21.model.xml.ManifestBuilder;
-import org.olat.ims.qti21.model.xml.OnyxToQtiWorksHandler;
 import org.olat.ims.qti21.pool.QTI21QPoolServiceProvider;
 import org.olat.ims.qti21.ui.AssessmentTestDisplayController;
 import org.olat.ims.qti21.ui.QTI21AssessmentDetailsController;
+import org.olat.ims.qti21.ui.QTI21OverrideOptions;
 import org.olat.ims.qti21.ui.QTI21RuntimeController;
 import org.olat.ims.qti21.ui.editor.AssessmentTestComposerController;
 import org.olat.modules.qpool.model.QItemList;
@@ -175,7 +161,7 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 			}
 			copyMetadata(onyxRe, re, repositoryDir);
 		} else {
-			createMinimalAssessmentTest(displayname, repositoryDir);
+			createMinimalAssessmentTest(displayname, repositoryDir, locale);
 		}
 		return re;
 	}
@@ -195,7 +181,9 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 			
 			Path path = onyxZippedDir.toPath();
 			Path destDir = targetDirectory.toPath();
-			Files.walkFileTree(path, new CopyAndConvertVisitor(path, destDir, new YesMatcher()));
+			QTI21IMSManifestExplorerVisitor visitor = new QTI21IMSManifestExplorerVisitor();
+			Files.walkFileTree(path, visitor);
+			Files.walkFileTree(path, new CopyAndConvertVisitor(path, destDir, visitor.getInfos(), new YesMatcher()));
 			return true;
 		} catch (IOException e) {
 			log.error("", e);
@@ -223,18 +211,20 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 		return re;
 	}
 	
-	public void createMinimalAssessmentTest(String displayName, File directory) {
+	public void createMinimalAssessmentTest(String displayName, File directory, Locale locale) {
         ManifestBuilder manifestBuilder = ManifestBuilder.createAssessmentTestBuilder();
+
+		Translator translator = Util.createPackageTranslator(AssessmentTestComposerController.class, locale);
 
 		//single choice
 		File itemFile = new File(directory, IdentifierGenerator.newAsString(QTI21QuestionType.sc.getPrefix()) + ".xml");
-		AssessmentItem assessmentItem = AssessmentItemFactory.createSingleChoice();
+		AssessmentItem assessmentItem = AssessmentItemFactory.createSingleChoice(translator.translate("new.sc"), translator.translate("new.answer"));
 		QtiSerializer qtiSerializer = qtiService.qtiSerializer();
 		manifestBuilder.appendAssessmentItem(itemFile.getName());	
 		
 		//test
         File testFile = new File(directory, IdentifierGenerator.newAssessmentTestFilename());
-		AssessmentTest assessmentTest = AssessmentTestFactory.createAssessmentTest(displayName);
+		AssessmentTest assessmentTest = AssessmentTestFactory.createAssessmentTest(displayName, translator.translate("new.section"));
 		manifestBuilder.appendAssessmentTest(testFile.getName());
         
         // item -> test
@@ -293,71 +283,13 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 			}
 			
 			Path destDir = targetDirectory.toPath();
-			Files.walkFileTree(path, new CopyAndConvertVisitor(path, destDir, new YesMatcher()));
+			QTI21IMSManifestExplorerVisitor visitor = new QTI21IMSManifestExplorerVisitor();
+			Files.walkFileTree(path, visitor);
+			Files.walkFileTree(path, new CopyAndConvertVisitor(path, destDir, visitor.getInfos(), new YesMatcher()));
 			return true;
 		} catch (IOException e) {
 			log.error("", e);
 			return false;
-		}
-	}
-	
-	private static class CopyAndConvertVisitor extends SimpleFileVisitor<Path> {
-
-		private final Path source;
-		private final Path destDir;
-		private final PathMatcher filter;
-		
-		public CopyAndConvertVisitor(Path source, Path destDir, PathMatcher filter) {
-			this.source = source;
-			this.destDir = destDir;
-			this.filter = filter;
-		}
-		
-		@Override
-		public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-	    throws IOException {
-			Path relativeFile = source.relativize(file);
-	        final Path destFile = Paths.get(destDir.toString(), relativeFile.toString());
-	        if(filter.matches(file)) {
-	        	String filename = file.getFileName().toString();
-	        	if(filename != null && filename.endsWith("xml")) {
-	        		convertXmlFile(file, destFile);
-	        	} else {
-	        		Files.copy(file, destFile, StandardCopyOption.REPLACE_EXISTING);
-	        	}
-	        }
-	        return FileVisitResult.CONTINUE;
-		}
-	 
-		@Override
-		public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-		throws IOException {
-			Path relativeDir = source.relativize(dir);
-	        final Path dirToCreate = Paths.get(destDir.toString(), relativeDir.toString());
-	        if(Files.notExists(dirToCreate)){
-	        	Files.createDirectory(dirToCreate);
-	        }
-	        return FileVisitResult.CONTINUE;
-		}
-		
-		/**
-		 * Convert the XML files
-		 * @param inputFile
-		 * @param outputFile
-		 */
-		private void convertXmlFile(Path inputFile, Path outputFile) {
-			try(InputStream in = Files.newInputStream(inputFile);
-					Writer out = Files.newBufferedWriter(outputFile, Charset.forName("UTF-8"))) {
-				XMLOutputFactory xof = XMLOutputFactory.newInstance();
-		        XMLStreamWriter xtw = xof.createXMLStreamWriter(out);
-		
-				SAXParser saxParser = SAXParserFactory.newInstance().newSAXParser();
-				OnyxToQtiWorksHandler myHandler = new OnyxToQtiWorksHandler(xtw);
-				saxParser.setProperty("http://xml.org/sax/properties/lexical-handler", myHandler);
-				saxParser.parse(in, myHandler);
-			} catch(Exception e) {
-				log.error("", e);
-			}
 		}
 	}
 
@@ -402,8 +334,9 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 					@Override
 					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
 							RepositoryEntry entry, RepositoryEntrySecurity repoSecurity, AssessmentMode mode) {
-						QTI21DeliveryOptions options = qtiService.getDeliveryOptions(entry);
-						if(!options.isAllowAnonym() && uureq.getUserSession().getRoles().isGuestOnly()) {
+						QTI21DeliveryOptions deliveryOptions = qtiService.getDeliveryOptions(entry);
+						QTI21OverrideOptions overrideOptions = QTI21OverrideOptions.nothingOverriden();
+						if(!deliveryOptions.isAllowAnonym() && uureq.getUserSession().getRoles().isGuestOnly()) {
 							Translator translator = Util.createPackageTranslator(QTI21RuntimeController.class, uureq.getLocale());
 							Controller contentCtr = MessageUIFactory.createInfoMessage(uureq, wwControl,
 									translator.translate("anonym.not.allowed.title"),
@@ -413,7 +346,8 @@ public class QTI21AssessmentTestHandler extends FileHandler {
 						boolean authorMode = reSecurity.isEntryAdmin();
 						CoreSpringFactory.getImpl(UserCourseInformationsManager.class)
 							.updateUserCourseInformations(entry.getOlatResource(), uureq.getIdentity());
-						return new AssessmentTestDisplayController(uureq, wwControl, null, entry, entry, null, options, false, authorMode, false);
+						return new AssessmentTestDisplayController(uureq, wwControl, null, entry, entry, null,
+								deliveryOptions, overrideOptions, false, authorMode, false);
 					}
 				});
 	}

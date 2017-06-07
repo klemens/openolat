@@ -157,10 +157,11 @@ public class AssessmentItemComponentRenderer extends AssessmentObjectComponentRe
 		final AssessmentItem assessmentItem = component.getAssessmentItem();
 		final ResolvedAssessmentItem resolvedAssessmentItem = component.getResolvedAssessmentItem();
 
+		sb.append("<div class='o_assessmentitem_wrapper'>");
 		//title + status
-		sb.append("<h3 class='itemTitle'>");
+		sb.append("<h4 class='itemTitle'>");
 		renderItemStatus(renderer, sb, itemSessionState, translator);
-		sb.append(StringHelper.escapeHtml(assessmentItem.getTitle())).append("</h3>")
+		sb.append(StringHelper.escapeHtml(assessmentItem.getTitle())).append("</h4>")
 		  .append("<div id='itemBody' class='clearfix'>");
 		
 		//TODO prompt
@@ -172,22 +173,24 @@ public class AssessmentItemComponentRenderer extends AssessmentObjectComponentRe
 		//comment
 		renderComment(renderer, sb, component, itemSessionState, translator);
 		
+		//end body
+		sb.append("</div>");
+		
 		// Display active modal feedback (only after responseProcessing)
 		if(itemSessionState.getSessionStatus() == SessionStatus.FINAL) {
 			renderTestItemModalFeedback(renderer, sb, component, resolvedAssessmentItem, itemSessionState, ubu, translator);
 		}
-		
-		//end body
-		sb.append("</div>");
 
 		//controls
-		sb.append("<div class='o_button_group'>");
+		sb.append("<div class='o_button_group o_assessmentitem_controls'>");
 		//submit button
 		if(component.isItemSessionOpen(itemSessionState, renderer.isSolutionMode())) {
 			Component submit = component.getQtiItem().getSubmitButton().getComponent();
 			submit.getHTMLRendererSingleton().render(renderer.getRenderer(), sb, submit, ubu, translator, new RenderResult(), null);
 		}
 		sb.append("</div>");
+		
+		sb.append("</div>"); // end wrapper
 	}
     
 	private void renderItemStatus(AssessmentRenderer renderer, StringOutput sb, ItemSessionState itemSessionState, Translator translator) {

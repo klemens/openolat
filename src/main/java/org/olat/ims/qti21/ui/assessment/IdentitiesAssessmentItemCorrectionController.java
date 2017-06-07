@@ -54,6 +54,8 @@ import org.olat.ims.qti21.model.ParentPartItemRefs;
 import org.olat.ims.qti21.model.xml.QtiNodesExtractor;
 import org.olat.ims.qti21.ui.ResourcesMapper;
 import org.olat.ims.qti21.ui.components.InteractionResultFormItem;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.AssessmentService;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -103,6 +105,8 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 	private QTI21Service qtiService;
 	@Autowired
 	private UserManager userManager;
+	@Autowired
+	private AssessmentService assessmentService;
 	
 	public IdentitiesAssessmentItemCorrectionController(UserRequest ureq, WindowControl wControl,
 			AssessmentTestCorrection testCorrections, AssessmentItemRef itemRef,
@@ -114,7 +118,7 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 		ResourceLocator fileResourceLocator = new PathResourceLocator(fUnzippedDirRoot.toPath());
 		inputResourceLocator = 
         		ImsQTI21Resource.createResolvingResourceLocator(fileResourceLocator);
-		assessmentObjectUri = qtiService.createAssessmentObjectUri(fUnzippedDirRoot);
+		assessmentObjectUri = qtiService.createAssessmentTestUri(fUnzippedDirRoot);
 		
 		this.itemRef = itemRef;
 		this.testCorrections = testCorrections;
@@ -137,7 +141,8 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 			List<AssessmentItemCorrection> corrections = testCorrections.getCorrections(itemRef);
 			if(corrections != null) {
 				for(AssessmentItemCorrection correction:corrections) {
-					initFormItemResult(correction, layoutCont);
+					AssessmentEntry assessmentEntry = testCorrections.getAssessmentEntry(correction.getAssessedIdentity());
+					initFormItemResult(correction, assessmentEntry, layoutCont);
 				}
 			}
 		}
@@ -150,26 +155,23 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 		uifactory.addFormCancelButton("cancel", buttonsCont, ureq, getWindowControl());
 	}
 	
-	private void initFormItemResult(AssessmentItemCorrection correction, FormLayoutContainer layoutCont) {
+	private void initFormItemResult(AssessmentItemCorrection correction, AssessmentEntry assessmentEntry, FormLayoutContainer layoutCont) {
 		TestPlanNode node = correction.getItemNode();
 		TestPlanNodeKey testPlanNodeKey = node.getKey();
 		AssessmentItemSession itemSession = correction.getItemSession();
 		AssessmentTestSession testSession = correction.getTestSession();
 		TestSessionState testSessionState = correction.getTestSessionState();
-		ItemSessionState sessionState = correction.getItemSessionState();
-		
+
 		List<InteractionResultFormItem> responseItems = new ArrayList<>(interactions.size());
-		if(sessionState.isResponded()) {
-			for(Interaction interaction:interactions) {
-				if(interaction instanceof UploadInteraction
-						|| interaction instanceof DrawingInteraction
-						|| interaction instanceof ExtendedTextInteraction) {
-					responseItems.add(initFormExtendedTextInteraction(testPlanNodeKey, interaction, testSessionState, testSession, layoutCont));
-					
-					File submissionDir = qtiService.getSubmissionDirectory(testSession);
-					if(submissionDir != null) {
-						submissionDirectoryMaps.put(testSession.getKey(), submissionDir);
-					}
+		for(Interaction interaction:interactions) {
+			if(interaction instanceof UploadInteraction
+					|| interaction instanceof DrawingInteraction
+					|| interaction instanceof ExtendedTextInteraction) {
+				responseItems.add(initFormExtendedTextInteraction(testPlanNodeKey, interaction, testSessionState, testSession, layoutCont));
+				
+				File submissionDir = qtiService.getSubmissionDirectory(testSession);
+				if(submissionDir != null) {
+					submissionDirectoryMaps.put(testSession.getKey(), submissionDir);
 				}
 			}
 		}
@@ -178,10 +180,15 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 		if(itemSession != null && itemSession.getManualScore() != null) {
 			mScore = AssessmentHelper.getRoundedScore(itemSession.getManualScore());
 		}
-		
+		String userComment = "";
+		if(assessmentEntry != null && StringHelper.containsNonWhitespace(assessmentEntry.getComment())) {
+			userComment = assessmentEntry.getComment();
+		}
+
 		String fullname = userManager.getUserDisplayName(correction.getAssessedIdentity());
 		TextElement scoreEl = uifactory.addTextElement("scoreItem" + count++, "score", 6, mScore, layoutCont);
-		IdentityAssessmentItemWrapper wrapper = new IdentityAssessmentItemWrapper(fullname, assessmentItem, correction, responseItems, scoreEl);
+		TextElement commentEl = uifactory.addTextAreaElement("commentItem" + count++, "comment", 2500, 4, 60, false, userComment, layoutCont);
+		IdentityAssessmentItemWrapper wrapper = new IdentityAssessmentItemWrapper(fullname, assessmentItem, correction, responseItems, scoreEl, commentEl);
 		
 		Double minScore = QtiNodesExtractor.extractMinScore(assessmentItem);
 		Double maxScore = QtiNodesExtractor.extractMaxScore(assessmentItem);
@@ -311,6 +318,16 @@ public class IdentitiesAssessmentItemCorrectionController extends FormBasicContr
 				itemCorrection.setItemSession(itemSession);
 				
 				candidateAuditLogger.logCorrection(candidateSession, itemSession, getIdentity());
+			}
+			
+			String comment = itemResult.getCommentEl().getValue();
+			AssessmentEntry assesssmentEntry = testCorrections.getAssessmentEntry(itemCorrection.getAssessedIdentity());
+			if(assesssmentEntry != null) {
+				if(!comment.equals(assesssmentEntry.getComment())) {
+					assesssmentEntry.setComment(comment);
+					AssessmentEntry mergedEntry = assessmentService.updateAssessmentEntry(assesssmentEntry);
+					testCorrections.addAssessmentEntry(mergedEntry);
+				}
 			}
 			
 			BigDecimal totalScore = null;
