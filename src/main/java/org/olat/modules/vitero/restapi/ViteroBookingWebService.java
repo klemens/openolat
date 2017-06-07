@@ -38,7 +38,6 @@ import javax.ws.rs.core.Response.Status;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.SearchIdentityParams;
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
@@ -48,6 +47,7 @@ import org.olat.core.util.Util;
 import org.olat.modules.vitero.ViteroModule;
 import org.olat.modules.vitero.manager.ViteroManager;
 import org.olat.modules.vitero.manager.VmsNotAvailableException;
+import org.olat.modules.vitero.model.ErrorCode;
 import org.olat.modules.vitero.model.GroupRole;
 import org.olat.modules.vitero.model.ViteroBooking;
 import org.olat.modules.vitero.model.ViteroGroupRoles;
@@ -92,8 +92,6 @@ public class ViteroBookingWebService {
 	@GET
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getRooms() {
-		ViteroManager viteroManager = CoreSpringFactory.getImpl(ViteroManager.class);
-		
 		try {
 			List<ViteroBooking> bookings = viteroManager.getBookings(null, ores, subIdentifier);
 			ViteroBookingVO[] bookingVos = new ViteroBookingVO[bookings.size()];
@@ -158,7 +156,7 @@ public class ViteroBookingWebService {
 			
 			ViteroStatus status;
 			if(booking.getBookingId() > 0) {
-				status = viteroManager.updateVmsBooking(null, ores, subIdentifier, vBooking);
+				status = viteroManager.updateVmsBooking(vBooking);
 			} else {
 				status = viteroManager.createBooking(null, ores, subIdentifier, vBooking);
 			}
@@ -328,6 +326,8 @@ public class ViteroBookingWebService {
 	}
 	
 	private Response handleNotAvailableException() {
-		return Response.serverError().status(Status.SERVICE_UNAVAILABLE).build();
+		ViteroStatus status = new ViteroStatus(ErrorCode.unkown);
+		ViteroErrorVO error = new ViteroErrorVO(status, "vitero server is probable not avalailable at this time");
+		return Response.serverError().entity(error).status(Status.SERVICE_UNAVAILABLE).build();
 	}
 }

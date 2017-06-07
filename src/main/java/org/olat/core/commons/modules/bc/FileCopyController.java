@@ -87,7 +87,7 @@ public class FileCopyController extends LinkChooserController {
 	
 	public FileCopyController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir,
 			FolderComponent folderComponent) {
-		super(ureq, wControl, rootDir, null, null, null, "", null);
+		super(ureq, wControl, rootDir, null, null, null, false, "", null, true);
 		this.folderComponent = folderComponent;
 		vfsLockManager = CoreSpringFactory.getImpl(VFSLockManager.class);
 	}
@@ -364,11 +364,11 @@ public class FileCopyController extends LinkChooserController {
 				String description = translate("ul.tooManyRevisions.description", new String[]{Integer.toString(maxNumOfRevisions), Integer.toString(versions.getRevisions().size())});
 				
 				removeAsListenerAndDispose(revisionListCtr);
-				revisionListCtr = new RevisionListController(ureq, getWindowControl(), versionable, title, description, false);
+				revisionListCtr = new RevisionListController(ureq, getWindowControl(), versionable, null, description, false);
 				listenTo(revisionListCtr);
 				
 				removeAsListenerAndDispose(revisionListDialogBox);
-				revisionListDialogBox = new CloseableModalController(getWindowControl(), translate("delete"), revisionListCtr.getInitialComponent());
+				revisionListDialogBox = new CloseableModalController(getWindowControl(), translate("delete"), revisionListCtr.getInitialComponent(), true, title);
 				listenTo(revisionListDialogBox);
 				
 				revisionListDialogBox.activate();

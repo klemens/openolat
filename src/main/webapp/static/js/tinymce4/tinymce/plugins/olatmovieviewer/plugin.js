@@ -14,7 +14,7 @@
 				author : 'frentix GmbH',
 				authorurl : 'http://www.frentix.com',
 				infourl : 'http://www.frentix.com',
-				version : '2.3.0'
+				version : '2.3.5'
 			};
 		},
 
@@ -35,17 +35,29 @@
 		 */
 		init : function(ed, url) {
 			
-			var cachedTrans;
+			var cachedTrans, cachedCoreTrans;
+			var cachedHelp;
+			
 			// Load the OLAT translator.
 			function translator() {	
 				if(cachedTrans) return cachedTrans;
 				var mainWin = o_getMainWin();
 				if (mainWin) {
-					cachedTrans = jQuery(document).ooTranslator().getTranslator(mainWin.o_info.locale, 'org.olat.core.gui.components.form.flexible.impl.elements.richText.plugins.olatmovieviewer')	
+					cachedTrans = jQuery(document).ooTranslator().getTranslator(mainWin.o_info.locale, 'org.olat.core.gui.components.form.flexible.impl.elements.richText.plugins.olatmovieviewer');
 				} else {
 					cachedTrans = {	translate : function(key) { return key; } }
 				}
 				return cachedTrans;
+			}
+			function coreTranslator() {	
+				if(cachedCoreTrans) return cachedCoreTrans;
+				var mainWin = o_getMainWin();
+				if (mainWin) {
+					cachedCoreTrans = jQuery(document).ooTranslator().getTranslator(mainWin.o_info.locale, 'org.olat.core');
+				} else {
+					cachedCoreTrans = {	translate : function(key) { return key; } }
+				}
+				return cachedCoreTrans;
 			}
 			
 			function serializeParameters() {
@@ -80,11 +92,11 @@
 					setStr(pl, null, 'width');
 					setStr(pl, null, 'height');
 					
-					if ((val = top.tinymce.activeEditor.dom.getAttrib(fe, "width")) != "") {
+					if ((val = ed.dom.getAttrib(fe, "width")) != "") {
 						pl.width = val;
 					}
 					
-					if ((val = top.tinymce.activeEditor.dom.getAttrib(fe, "height")) != "") {
+					if ((val = ed.dom.getAttrib(fe, "height")) != "") {
 						pl.height = val;
 					}
 					
@@ -102,9 +114,9 @@
 			function getNextDomId() {
 				var count = 0;
 				var domIdentity = "olatFlashMovieViewer";
-				var placeHolders = top.tinymce.activeEditor.dom.select("img.mceItemOlatMovieViewer");
+				var placeHolders = ed.dom.select("img.mceItemOlatMovieViewer");
 				do {
-					domIdentity = "olatFlashMovieViewer" + (count++);
+					domIdentity = "olatFlashMovieViewer" + (~~(Math.random() * 1000000));
 					if(count > 20) {
 						break;
 					}
@@ -174,8 +186,8 @@
 			
 			function _getEmbed(p) {
 				// player configuration
-				var playerOffsetHeight = top.tinymce.activeEditor.getParam("olatmovieviewer_playerOffsetHeight");
-				var playerOffsetWidth = top.tinymce.activeEditor.getParam("olatmovieviewer_playerOffsetWidth");
+				var playerOffsetHeight = ed.getParam("olatmovieviewer_playerOffsetHeight");
+				var playerOffsetWidth = ed.getParam("olatmovieviewer_playerOffsetWidth");
 				var playerWidth = typeof(p.width) != "undefined" ? (parseInt(p.width) + parseInt(playerOffsetWidth))  : '320';
 				var playerHeight = typeof(p.height) != "undefined" ? (parseInt(p.height) + parseInt(playerOffsetHeight))  : '240';
 				var start = typeof(p.starttime) != "undefined" ? p.starttime : "00:00:00.000";
@@ -205,7 +217,7 @@
 				if(p.address != undefined) {
 					if(p.address.indexOf('://') < 0 && ((provider != "rtmp" && provider != "http") ||
 						((provider == "rtmp" || provider == "http") && (streamer == undefined || streamer.length == 0)))) {
-						videoUrl = top.tinymce.activeEditor.documentBaseURI.toAbsolute(p.address);
+						videoUrl = ed.documentBaseURI.toAbsolute(p.address);
 					}
 				}
 				
@@ -219,6 +231,7 @@
 				    {text: translator().translate('olatmovieviewer.video'), value: 'video'},
 				    {text: translator().translate('olatmovieviewer.sound'), value: 'sound'},
 				    {text: translator().translate('olatmovieviewer.youtube'), value: 'youtube'},
+				    {text: translator().translate('olatmovieviewer.vimeo'), value: 'vimeo'},
 				    {text: translator().translate('olatmovieviewer.http'), value: 'http'},
 				    {text: translator().translate('olatmovieviewer.rtmp'), value: 'rtmp'}
 				];
@@ -312,7 +325,11 @@
 						deserializeParameters(pl, fe[0]);
 						setTimeout(generatePreview, 500);
 					}
-				}	
+				}
+				
+				var helpButton = coreTranslator().translate('help');
+				var helpLink = ed.getParam("olatmovieviewer_helpUrl" + o_getMainWin().o_info.locale);
+				jQuery(".mce-tabs").append("<span class='o_chelp_wrapper'><a href='" + helpLink + "' class='o_chelp' target='_blank'><i class='mce-ico mce-i-help'> </i> " + helpButton + "</a></span>")
 			}
 			
 			function parseBPlayerScript(editor,script) {
@@ -321,11 +338,14 @@
 				var start = script.indexOf(startMark);
 				var end = script.indexOf(');');
 				if(start < 0 || end < 0) return '';
+				var params = script.substring(start + startMark.length,end);
+				return parseBPlayerScriptParameters(editor,params);
+			}
 
+			function parseBPlayerScriptParameters(editor,scriptParameters) {
 				var playerOffsetHeight = editor.getParam("olatmovieviewer_playerOffsetHeight");
 				var playerOffsetWidth = editor.getParam("olatmovieviewer_playerOffsetWidth");
-				var params = script.substring(start + startMark.length,end);
-				var settingsArr = params.split(',');
+				var settingsArr = scriptParameters.split(',');
 				var pl = 'domIdentity:' + settingsArr[1] + ',';
 				pl += 'address:' + settingsArr[0] + ',';
 				pl += 'streamer:' + settingsArr[7] + ',';
@@ -340,12 +360,12 @@
 				return pl;
 			};
 			
-			//The video player code. Only one player per page supported.
+			//The video player code.
 			function getPlayerHtmlNode(editor,p) {
 				var h = '', n, l = '';
 				// player configuration
-				var playerOffsetHeight = top.tinymce.activeEditor.getParam("olatmovieviewer_playerOffsetHeight");
-				var playerOffsetWidth = top.tinymce.activeEditor.getParam("olatmovieviewer_playerOffsetWidth");
+				var playerOffsetHeight = ed.getParam("olatmovieviewer_playerOffsetHeight");
+				var playerOffsetWidth = ed.getParam("olatmovieviewer_playerOffsetWidth");
 				var playerWidth = typeof(p.width) != "undefined" ? (parseInt(p.width) + parseInt(playerOffsetWidth))  : '';
 				var playerHeight = typeof(p.height) != "undefined" ? (parseInt(p.height) + parseInt(playerOffsetHeight))  : '';
 				var starttime = typeof(p.starttime) != "undefined" ? '"' + p.starttime + '"' : 0;
@@ -356,7 +376,7 @@
 				var streamer = typeof(p.streamer) != "undefined" ? '"' + p.streamer + '"' : 'undefined';
 				var domIdentity = typeof(p.domIdentity) != "undefined" ? p.domIdentity : getNextDomId();
 				var poster = typeof(p.poster) != "undefined" ? '"' + p.poster + '"' : 'undefined';
-				var playerScriptUrl = top.tinymce.activeEditor.getParam("olatmovieviewer_playerScript");
+				var playerScriptUrl = ed.getParam("olatmovieviewer_playerScript");
 
 				var h = '<script src="' + playerScriptUrl + '" type="text/javascript"></script>';
 				h += '<script type="text/javascript" defer="defer">';
@@ -373,7 +393,7 @@
 
 			ed.addButton('olatmovieviewer', {
 				title : translator().translate('olatmovieviewer.desc'),
-				image : url + '/images/movieviewer.gif',
+				icon : 'movie',
 				onclick: showDialog,
 				onPostRender: function() {
 			        var ctrl = this;
@@ -390,7 +410,7 @@
 			
 			ed.addMenuItem('olatmovieviewer', {
 				text : translator().translate('olatmovieviewer.desc'),
-				image : url + '/images/movieviewer.gif',
+				icon : 'movie',
 				onclick: showDialog,
 			});
 
@@ -428,7 +448,7 @@
 			//fallback for the old movies with settings in comments
 			ed.on('BeforeSetContent',function(e) {
 				if(e.content.indexOf('--omvs::') > 0) {
-					var imgUrl = top.tinymce.activeEditor.getParam("olatmovieviewer_transparentImage");
+					var imgUrl = ed.getParam("olatmovieviewer_transparentImage");
 					e.content = e.content.replace(/\n/gi, "");
 					var widthMatch = e.content.match(/(?:<!--omvs::.*?width:')([0-9]+)(?:'.*?<!--omve-->)/i);
 					var width = ((widthMatch != null) && (widthMatch.length == 2)) ? parseInt(widthMatch[1]) : 320;
@@ -444,16 +464,24 @@
 			ed.on('SetContent', function(e) {
 				// Get the URL of the transparent placeholder image
 				var imgUrl = ed.getParam("olatmovieviewer_transparentImage");
-				tinymce.each(ed.dom.select("div.olatFlashMovieViewer,span.olatFlashMovieViewer"), function(node) {
+				tinymce.each(ed.dom.select("div.olatFlashMovieViewer,span.olatFlashMovieViewer,object.olatFlashMovieViewer"), function(node) {
 					// ...and for each of these, create an IMG...
-					var movieSettingsString = parseBPlayerScript(ed,node.innerHTML);
+					var movieSettingsString
+					var dataMovie = ed.dom.getAttrib(node, 'data-oo-movie');
+					if(dataMovie == "" || typeof dataMovie == "undefined") {
+						movieSettingsString = parseBPlayerScript(ed,node.innerHTML);
+					} else {
+						dataMovie = dataMovie.replace(new RegExp("'", 'g'), '"');
+						movieSettingsString = parseBPlayerScriptParameters(ed, dataMovie);
+					}
+					
 					var movieSettings;
 					try {
 						movieSettings = eval("x={" + movieSettingsString + "}");
 					} catch (exception) {
 						movieSettings = {};
 					}
-
+					
 					var imgNode = ed.dom.create("img", {
 						id:movieSettings.domIdentity,
 						name:movieSettings.domIdentity,

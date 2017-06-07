@@ -24,6 +24,7 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
@@ -52,12 +53,13 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class CreateRepositoryEntryController extends FormBasicController {
+public class CreateRepositoryEntryController extends FormBasicController implements CreateEntryController {
 	
 	public static final Event CREATION_WIZARD = new Event("start_wizard");
 	
 	private FormLink wizardButton;
 	private TextElement displaynameEl;
+	private FormLayoutContainer exampleHelpEl;
 	
 	private RepositoryEntry addedEntry;
 	private final RepositoryHandler handler;
@@ -74,10 +76,12 @@ public class CreateRepositoryEntryController extends FormBasicController {
 		initForm(ureq);
 	}
 
+	@Override
 	public RepositoryHandler getHandler() {
 		return handler;
 	}
 
+	@Override
 	public RepositoryEntry getAddedEntry() {
 		return addedEntry;
 	}
@@ -86,8 +90,19 @@ public class CreateRepositoryEntryController extends FormBasicController {
 		return userObject;
 	}
 
+	@Override
 	public void setCreateObject(Object userObject) {
 		this.userObject = userObject;
+	}
+	
+	public void setDisplayname(String displayname) {
+		displaynameEl.setValue(displayname);
+	}
+	
+	public void setExampleAndHelp(String text, String helpUrl) {
+		exampleHelpEl.contextPut("text", text);
+		exampleHelpEl.contextPut("helpUrl", helpUrl);
+		exampleHelpEl.setVisible(true);
 	}
 
 	@Override
@@ -98,12 +113,19 @@ public class CreateRepositoryEntryController extends FormBasicController {
 		} else {
 			typeName = translate("cif.type.na");
 		}
-		uifactory.addStaticExampleText("cif.type", typeName, formLayout);
-
+		StaticTextElement typeEl = uifactory.addStaticTextElement("cif.type", typeName, formLayout);
+		typeEl.setElementCssClass("o_sel_author_type");
+		
 		displaynameEl = uifactory.addTextElement("cif.displayname", "cif.displayname", 100, "", formLayout);
 		displaynameEl.setElementCssClass("o_sel_author_displayname");
+		displaynameEl.setFocus(true);
 		displaynameEl.setDisplaySize(30);
 		displaynameEl.setMandatory(true);
+		
+		String page = velocity_root + "/example_help.html";
+		exampleHelpEl = FormLayoutContainer.createCustomFormLayout("example.help", "example.help", getTranslator(), page);
+		formLayout.add(exampleHelpEl);
+		exampleHelpEl.setVisible(false);
 		
 		FormLayoutContainer buttonContainer = FormLayoutContainer.createButtonLayout("buttonContainer", getTranslator());
 		formLayout.add("buttonContainer", buttonContainer);
@@ -143,7 +165,7 @@ public class CreateRepositoryEntryController extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		doCreate();
 		fireEvent(ureq, Event.DONE_EVENT);
-		fireEvent(ureq, new EntryChangedEvent(addedEntry, getIdentity(), Change.added));
+		fireEvent(ureq, new EntryChangedEvent(addedEntry, getIdentity(), Change.added, "create"));
 	}
 
 	@Override

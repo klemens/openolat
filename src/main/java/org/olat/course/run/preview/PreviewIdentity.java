@@ -35,22 +35,28 @@ import org.olat.core.id.Persistable;
 import org.olat.core.id.Preferences;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.util.CodeHelper;
 
 /**
  * Initial Date: 08.02.2005
  * 
  * @author Mike Stock
  */
-final class PreviewIdentity implements Identity, User {
+public final class PreviewIdentity implements Identity, User {
 
 	private static final long serialVersionUID = 6582855975941440446L;
 	
 	private final Map<String, String> data = new HashMap<String, String>();
+	private final Long key;
 	private Map<String, String> envAttrs;
 	{
 		data.put(UserConstants.FIRSTNAME, "Jane");
 		data.put(UserConstants.LASTNAME, "Doe");
 		data.put(UserConstants.EMAIL, "jane.doe@testmail.com");
+	}
+	
+	public PreviewIdentity() {
+		key = CodeHelper.getRAMUniqueID();
 	}
 
 	/**
@@ -58,7 +64,7 @@ final class PreviewIdentity implements Identity, User {
 	 */
 	@Override
 	public Long getKey() {
-		return 2l;
+		return key;
 	}
 	
 	@Override
@@ -73,10 +79,20 @@ final class PreviewIdentity implements Identity, User {
 	public String getName() {
 		return "JaneDoe";
 	}
+	
+	@Override
+	public String getEmail() {
+		return data.get(UserConstants.EMAIL);
+	}
 
 	@Override
-	public void setName(String loginName) {
-		//
+	public String getFirstName() {
+		return data.get(UserConstants.FIRSTNAME);
+	}
+
+	@Override
+	public String getLastName() {
+		return data.get(UserConstants.LASTNAME);
 	}
 
 	/**
@@ -136,18 +152,8 @@ final class PreviewIdentity implements Identity, User {
 	}
 
 	@Override
-	public void setLastLogin(Date loginDate) {
-		//
-	}
-
-	@Override
 	public Integer getStatus() {
 		return Identity.STATUS_ACTIV;
-	}
-
-	@Override
-	public void setStatus(Integer newStatus) {
-		//
 	}
 	
 	/**

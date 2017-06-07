@@ -30,7 +30,7 @@ import java.io.IOException;
 
 import org.apache.lucene.document.Document;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.util.WorkThreadInformations;
+import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.search.service.SearchResourceContext;
@@ -46,7 +46,8 @@ public abstract class LeafIndexer extends AbstractHierarchicalIndexer {
 	protected void doIndexVFSLeafByMySelf(SearchResourceContext leafResourceContext, VFSLeaf leaf, OlatFullIndexer indexWriter, String filePath) throws InterruptedException {
 		if (isLogDebugEnabled()) logDebug("Analyse VFSLeaf=" + leaf.getName());
 		try {
-			if (CoreSpringFactory.getImpl(FileDocumentFactory.class).isFileSupported(leaf)) {
+			FileDocumentFactory documentFactory = CoreSpringFactory.getImpl(FileDocumentFactory.class);
+			if (documentFactory.isFileSupported(leaf)) {
 				String myFilePath = "";
 				if (filePath.endsWith("/")) {
 					myFilePath = filePath + leaf.getName();
@@ -55,8 +56,7 @@ public abstract class LeafIndexer extends AbstractHierarchicalIndexer {
 				}
 				leafResourceContext.setFilePath(myFilePath);
 
-				WorkThreadInformations.set("Index VFSLeaf=" + myFilePath + " at " + leafResourceContext.getResourceUrl());
-				Document document = CoreSpringFactory.getImpl(FileDocumentFactory.class).createDocument(leafResourceContext, leaf);
+				Document document = documentFactory.createDocument(leafResourceContext, leaf);
 				indexWriter.addDocument(document);
 			} else {
 				if (isLogDebugEnabled()) logDebug("Documenttype not supported. file=" + leaf.getName());
@@ -69,8 +69,6 @@ public abstract class LeafIndexer extends AbstractHierarchicalIndexer {
 			throw new InterruptedException(iex.getMessage());
 		} catch (Exception ex) {
 			logWarn("Exception: Can not index leaf=" + leaf.getName(), ex);
-		} finally {
-			WorkThreadInformations.unset();
 		}
 	}
 	
@@ -82,7 +80,12 @@ public abstract class LeafIndexer extends AbstractHierarchicalIndexer {
 		String path = "";
 		VFSContainer parentContainer = leaf.getParentContainer();
 		while (parentContainer.getParentContainer() != null) {
-			path = parentContainer.getName() + "/" + path;
+			String name = parentContainer.getName();
+			if (parentContainer instanceof OlatRootFolderImpl && name.equals("coursefolder")) {
+				// don't add the coursefolder to the path, the path is relative to the course folder
+				break;
+			}
+			path = name + "/" + path;
 			parentContainer = parentContainer.getParentContainer();
 		}
 		return path;

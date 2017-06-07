@@ -45,6 +45,8 @@ import org.olat.core.gui.components.ComponentRenderer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.IdentityEnvironment;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
@@ -60,6 +62,7 @@ import org.olat.core.util.vfs.version.Versionable;
  * @author Mike Stock
  */
 public class FolderComponent extends AbstractComponent {
+	private static final OLog log = Tracing.createLoggerFor(FolderComponent.class);
  	private static final ComponentRenderer RENDERER = new FolderComponentRenderer();
  	
 	public static final String SORT_NAME = "name";
@@ -75,7 +78,7 @@ public class FolderComponent extends AbstractComponent {
 	// likely to be resolved after user logs out, caches get cleared - and if not the server
 	// restart overnight definitely removes those .nfs files.
 	// fxdiff: FXOLAT-333 hide all shadow-files per default
-	protected static final String[] ATTACHMENT_EXCLUDE_PREFIXES = new String[]{"."};
+	public static final String[] ATTACHMENT_EXCLUDE_PREFIXES = new String[]{"."};
 
 	protected boolean sortAsc = true;													// asc or desc?
 	protected String sortCol = "";  													// column to sort
@@ -85,6 +88,7 @@ public class FolderComponent extends AbstractComponent {
 	private VFSContainer rootContainer;
 	private VFSContainer currentContainer;
 	private String currentContainerPath;
+	private String currentSortOrder;
 	// need to know our children in advance in order to be able to identify them later...
 	private List<VFSItem> currentContainerChildren;
 	private final Collator collator;
@@ -205,6 +209,7 @@ public class FolderComponent extends AbstractComponent {
 	 * @param col The column to sort
 	 */
 	private void sort(String col) {
+		currentSortOrder = col;
 		if (col.equals(SORT_NAME)) {																										// sort after file name?
 			comparator = new Comparator<VFSItem>() {
 				public int compare(VFSItem o1, VFSItem o2) {
@@ -325,6 +330,20 @@ public class FolderComponent extends AbstractComponent {
 		return currentContainerChildren;
 	}
 	
+	/**
+	 * @return the sort order, one of the SORT_* static variables
+	 */
+	public String getCurrentSortOrder() {
+		return currentSortOrder;
+	}
+	
+	/**
+	 * @return true: sorted ascending; false: sorted descending
+	 */
+	public boolean isCurrentSortAsc() {
+		return sortAsc;
+	}
+	
 	public void updateChildren() {
 		setDirty(true);
 		//check if the container is still up-to-date, if not -> return to root
@@ -334,19 +353,25 @@ public class FolderComponent extends AbstractComponent {
 		}
 
 		// get the children and sort them alphabetically
+		List<VFSItem> children;
 		if (filter != null) {
-			currentContainerChildren = currentContainer.getItems(filter);
+			children = currentContainer.getItems(filter);
 		} else {
-			currentContainerChildren = currentContainer.getItems();			
+			children = currentContainer.getItems();			
 		}
 		// OLAT-5256: filter .nfs files
-		Iterator<VFSItem> it = currentContainerChildren.iterator();
-		while(it.hasNext()) {
+		for(Iterator<VFSItem> it = children.iterator(); it.hasNext(); ) {
 			if (!exclFilter.accept(it.next())) {
 				it.remove();
 			}
 		}
-		Collections.sort(currentContainerChildren, comparator);
+		try {
+			Collections.sort(children, comparator);
+		} catch (Exception e) {
+			log.error("", e);
+		}
+		
+		currentContainerChildren = children;
 	}
 	
 	/**

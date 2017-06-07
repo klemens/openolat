@@ -28,53 +28,81 @@ package org.olat.course.nodes.ms;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
-import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.Translator;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.course.CourseModule;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.auditing.UserNodeAuditManager;
-import org.olat.course.nodes.AssessableCourseNode;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.ObjectivesHelper;
-import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.nodes.PersistentAssessableCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Initial Date:  Jun 16, 2004
  * @author gnaegi
  */
-public class MSCourseNodeRunController extends DefaultController {
-
-	private static final String VELOCITY_ROOT = Util.getPackageVelocityRoot(MSCourseNodeRunController.class);
+public class MSCourseNodeRunController extends BasicController {
 
 	private final VelocityContainer myContent;
 	private final boolean showLog;
 	private boolean hasScore, hasPassed, hasComment;
+	private final boolean overrideUserResultsVisiblity;
+	
+	@Autowired
+	private CourseModule courseModule;
 
 	/**
 	 * Constructor for a manual scoring course run controller
+	 * 
 	 * @param ureq The user request
+	 * @param wControl The window control
 	 * @param userCourseEnv The user course environment
-	 * @param msCourseNode The manual scoring course node
-	 * @param displayNodeInfo True: the node title and learning objectives will be displayed
+	 * @param msCourseNode An assessable course node
+	 * @param displayNodeInfo If true, the node title and learning objectives will be displayed
+	 * @param showLog If true, the change log will be displayed
 	 */
-	public MSCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, AssessableCourseNode msCourseNode,
-			boolean displayNodeInfo, boolean showLog) {
-		super(wControl);
+	public MSCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
+			PersistentAssessableCourseNode courseNode, boolean displayNodeInfo, boolean showLog) {
+		this(ureq, wControl, userCourseEnv, courseNode, displayNodeInfo, showLog, false);
+	}
+	
+	/**
+	 * Constructor for a manual scoring course run controller
+	 * 
+	 * @param ureq The user request
+	 * @param wControl The window control
+	 * @param userCourseEnv The user course environment
+	 * @param msCourseNode An assessable course element
+	 * @param displayNodeInfo If true, the node title and learning objectives will be displayed
+	 * @param showLog If true, the change log will be displayed
+	 * @param overrideUserResultsVisiblity If the controller can override the user visiblity of the score evaluation
+	 */
+	public MSCourseNodeRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, PersistentAssessableCourseNode msCourseNode,
+			boolean displayNodeInfo, boolean showLog, boolean overrideUserResultsVisiblity) {
+		super(ureq, wControl, Util.createPackageTranslator(CourseNode.class, ureq.getLocale()));
 		
 		this.showLog = showLog;
-		
-		Translator fallbackTrans = Util.createPackageTranslator(CourseNode.class, ureq.getLocale());
-		Translator trans = Util.createPackageTranslator(MSCourseNodeRunController.class, ureq.getLocale(), fallbackTrans);
-		
-		myContent = new VelocityContainer("olatmsrun", VELOCITY_ROOT + "/run.html", trans, this);
-		
+		this.overrideUserResultsVisiblity = overrideUserResultsVisiblity;
+		myContent = createVelocityContainer("run");
+
+		if (msCourseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, wControl, userCourseEnv, msCourseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				myContent.put("highScore", highScoreComponent);							
+			}
+		}
+				
 		ModuleConfiguration config = msCourseNode.getModuleConfiguration();
 		myContent.contextPut("displayNodeInfo", Boolean.valueOf(displayNodeInfo));
 		if (displayNodeInfo) {
@@ -90,12 +118,14 @@ public class MSCourseNodeRunController extends DefaultController {
 				myContent.contextPut("hasObjectives", learningObj); // dummy value, just an exists operator					
 			}
 		} 
+		
+		//admin setting whether to show change log or not
+		myContent.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
 
 		// Push variables to velcity page
 		exposeConfigToVC(config);		
 		exposeUserDataToVC(userCourseEnv, msCourseNode);
-		
-		setInitialComponent(myContent);
+		putInitialPanel(myContent);
 	}
 	
 	/**
@@ -122,6 +152,7 @@ public class MSCourseNodeRunController extends DefaultController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		//
 	}
@@ -139,30 +170,43 @@ public class MSCourseNodeRunController extends DefaultController {
 	    myContent.contextPut(MSCourseNode.CONFIG_KEY_SCORE_MAX, AssessmentHelper.getRoundedScore((Float)config.get(MSCourseNode.CONFIG_KEY_SCORE_MAX)));
 	}
 	
-	private void exposeUserDataToVC(UserCourseEnvironment userCourseEnv, AssessableCourseNode courseNode) {
-		ScoreEvaluation scoreEval = courseNode.getUserScoreEvaluation(userCourseEnv);
-		myContent.contextPut("score", AssessmentHelper.getRoundedScore(scoreEval.getScore()));
-		myContent.contextPut("hasPassedValue", (scoreEval.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
-		myContent.contextPut("passed", scoreEval.getPassed());
+	private void exposeUserDataToVC(UserCourseEnvironment userCourseEnv, PersistentAssessableCourseNode courseNode) {
+		AssessmentEntry assessmentEntry = courseNode.getUserAssessmentEntry(userCourseEnv);
+		if(assessmentEntry == null) {
+			myContent.contextPut("hasPassedValue", Boolean.FALSE);
+			myContent.contextPut("passed", Boolean.FALSE);
+			hasPassed = hasScore = hasComment = false;
+		} else {
+			String rawComment = assessmentEntry.getComment();
+			hasPassed = assessmentEntry.getPassed() != null;
+			hasScore = assessmentEntry.getScore() != null;
+			hasComment = StringHelper.containsNonWhitespace(rawComment);
 		
-		String rawComment = courseNode.getUserUserComment(userCourseEnv);
-		StringBuilder comment = Formatter.stripTabsAndReturns(rawComment);
-		myContent.contextPut("comment", StringHelper.xssScan(comment));
-		
+			boolean resultsVisible = overrideUserResultsVisiblity
+					|| assessmentEntry.getUserVisibility() == null
+					|| assessmentEntry.getUserVisibility().booleanValue();
+			myContent.contextPut("resultsVisible", resultsVisible);
+			myContent.contextPut("score", AssessmentHelper.getRoundedScore(assessmentEntry.getScore()));
+			myContent.contextPut("hasPassedValue", (assessmentEntry.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
+			myContent.contextPut("passed", assessmentEntry.getPassed());
+			
+			if(resultsVisible) {
+				StringBuilder comment = Formatter.stripTabsAndReturns(rawComment);
+				myContent.contextPut("comment", StringHelper.xssScan(comment));
+			}
+		}
+
 		if(showLog) {
 			UserNodeAuditManager am = userCourseEnv.getCourseEnvironment().getAuditManager();
 			myContent.contextPut("log", am.getUserNodeLog(courseNode, userCourseEnv.getIdentityEnvironment().getIdentity()));
 		}
-		
-		hasPassed = scoreEval.getPassed() != null;
-		hasScore = scoreEval.getScore() != null;
-		hasComment = StringHelper.containsNonWhitespace(rawComment);
 	}
 	
 	/**
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		// do nothing here yet
 	}

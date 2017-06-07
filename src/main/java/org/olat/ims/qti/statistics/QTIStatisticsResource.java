@@ -40,12 +40,12 @@ import org.olat.course.nodes.CourseNode;
 import org.olat.ims.qti.QTIResult;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.editor.beecom.parser.ItemParser;
-import org.olat.ims.qti.export.QTIArchiveWizardController;
+import org.olat.ims.qti.export.QTIArchiver;
 import org.olat.ims.qti.export.QTIExportEssayItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportFIBItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportFormatter;
 import org.olat.ims.qti.export.QTIExportFormatterCSVType1;
-import org.olat.ims.qti.export.QTIExportFormatterCSVType2;
+import org.olat.ims.qti.export.QTIExportFormatterCSVType3;
 import org.olat.ims.qti.export.QTIExportItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportKPRIMItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportMCQItemFormatConfig;
@@ -118,20 +118,19 @@ public class QTIStatisticsResource implements MediaResource {
 		try {
 			String sep = "\\t"; // fields separated by
 			String emb = "\""; // fields embedded by
-			String esc = "\\"; // fields escaped by
 			String car = "\\r\\n"; // carriage return
 			
-			sep = QTIArchiveWizardController.convert2CtrlChars(sep);
-			car = QTIArchiveWizardController.convert2CtrlChars(car);
+			sep = QTIArchiver.convert2CtrlChars(sep);
+			car = QTIArchiver.convert2CtrlChars(car);
 			
 			int exportType = 1;
 			QTIExportFormatter formatter;
 			if (QTIType.test.equals(resourceResult.getType())){
 				exportType = 1;
-				formatter = new QTIExportFormatterCSVType1(locale, sep, emb, esc, car, true);
+				formatter = new QTIExportFormatterCSVType1(locale, sep, emb, car, true);
 		  	} else if (QTIType.survey.equals(resourceResult.getType())) {
 		  		exportType = 2;
-		  		formatter = new QTIExportFormatterCSVType2(locale, null, sep, emb, esc, car, true);
+		  		formatter = new QTIExportFormatterCSVType3(locale, null, sep, emb, car, true);
 		  	} else {
 		  		return;
 		  	}

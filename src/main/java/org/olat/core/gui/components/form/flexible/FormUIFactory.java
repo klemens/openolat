@@ -47,8 +47,10 @@ import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElem
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement.Layout;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
+import org.olat.core.gui.components.form.flexible.elements.SliderElement;
 import org.olat.core.gui.components.form.flexible.elements.SpacerElement;
 import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
+import org.olat.core.gui.components.form.flexible.elements.TextAreaElement;
 import org.olat.core.gui.components.form.flexible.elements.TextBoxListElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
@@ -70,15 +72,18 @@ import org.olat.core.gui.components.form.flexible.impl.elements.MultiSelectionTr
 import org.olat.core.gui.components.form.flexible.impl.elements.MultipleSelectionElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SelectboxSelectionImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SingleSelectionImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.SliderElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.SpacerElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.StaticTextElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.TextAreaElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.TextBoxListElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.TextElementImpl;
+import org.olat.core.gui.components.form.flexible.impl.elements.richText.RichTextConfiguration;
 import org.olat.core.gui.components.form.flexible.impl.elements.richText.RichTextElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableElementImpl;
 import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.progressbar.ProgressBarItem;
 import org.olat.core.gui.components.tree.MenuTreeItem;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.control.WindowBackOffice;
@@ -619,7 +624,7 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @return
 	 */
-	public TextElement addTextAreaElement(String name, final int rows, final int cols, String initialValue,	FormItemContainer formLayout) {
+	public TextAreaElement addTextAreaElement(String name, final int rows, final int cols, String initialValue,	FormItemContainer formLayout) {
 		return addTextAreaElement(name, name, -1, rows, cols, true, initialValue, formLayout);
 	}
 	
@@ -637,9 +642,9 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @return
 	 */
-	public TextElement addTextAreaElement(String name, final String i18nLabel, final int maxLen, final int rows, final int cols, boolean isAutoHeightEnabled, String initialValue,
+	public TextAreaElement addTextAreaElement(String name, final String i18nLabel, final int maxLen, final int rows, final int cols, boolean isAutoHeightEnabled, String initialValue,
 		FormItemContainer formLayout) {
-		TextElement te = new TextAreaElementImpl(name, initialValue, rows, cols, isAutoHeightEnabled) {
+		TextAreaElement te = new TextAreaElementImpl(name, initialValue, rows, cols, isAutoHeightEnabled) {
 			{
 				setNotLongerThanCheck(maxLen, "text.element.error.notlongerthan");
 				// the text.element.error.notlongerthan uses a variable {0} that
@@ -683,7 +688,7 @@ public class FormUIFactory {
 	public RichTextElement addRichTextElementForStringDataMinimalistic(String name, final String i18nLabel, String initialHTMLValue, final int rows,
 			final int cols, FormItemContainer formLayout, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
-		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm());
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());			
@@ -736,11 +741,74 @@ public class FormUIFactory {
 			FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
 		// Create richt text element with bare bone configuration
 		WindowBackOffice backoffice = wControl.getWindowBackOffice();
-		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm());
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		Theme theme = backoffice.getWindow().getGuiTheme();
 		rte.getEditorConfiguration().setConfigProfileFormEditor(fullProfile, usess, theme, baseContainer, customLinkTreeModel);			
+		// Add to form and finish
+		formLayout.add(rte);
+		return rte;
+	}
+	
+	public RichTextElement addRichTextElementForStringDataCompact(String name, String i18nLabel, String initialHTMLValue, int rows,
+			int cols, VFSContainer baseContainer, FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
+		// Create rich text element with bare bone configuration
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
+		setLabelIfNotNull(i18nLabel, rte);
+		// Now configure editor
+		Theme theme = wControl.getWindowBackOffice().getWindow().getGuiTheme();
+		rte.getEditorConfiguration().setConfigProfileFormCompactEditor(usess, theme, baseContainer);			
+		// Add to form and finish
+		formLayout.add(rte);
+		return rte;
+	}
+	
+	/**
+	 * 
+	 * This is a version with olat media only. The tiny media is disabled because we need to catch the object
+	 * tag use by QTI and interpret it as a olat video. It enable the strict uri validation for file names.
+	 * 
+	 * @param name
+	 * @param i18nLabel
+	 * @param initialHTMLValue
+	 * @param rows
+	 * @param cols
+	 * @param baseContainer
+	 * @param formLayout
+	 * @param usess
+	 * @param wControl
+	 * @return
+	 */
+	public RichTextElement addRichTextElementForQTI21(String name, String i18nLabel, String initialHTMLValue, int rows,
+			int cols, VFSContainer baseContainer, FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
+		// Create rich text element with bare bone configuration
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
+		setLabelIfNotNull(i18nLabel, rte);
+		// Now configure editor
+		Theme theme = wControl.getWindowBackOffice().getWindow().getGuiTheme();
+		rte.getEditorConfiguration().setConfigProfileFormCompactEditor(usess, theme, baseContainer);
+		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
+		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
+		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
+		// Add to form and finish
+		formLayout.add(rte);
+		return rte;
+	}
+	
+	public RichTextElement addRichTextElementForQTI21Match(String name, String i18nLabel, String initialHTMLValue, int rows,
+			int cols, VFSContainer baseContainer, FormItemContainer formLayout, UserSession usess, WindowControl wControl) {
+		// Create rich text element with bare bone configuration
+		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
+		setLabelIfNotNull(i18nLabel, rte);
+		// Now configure editor
+		Theme theme = wControl.getWindowBackOffice().getWindow().getGuiTheme();
+		rte.getEditorConfiguration().setConfigProfileFormVeryMinimalisticConfigEditor(usess, theme, baseContainer);
+		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
+		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
+		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -789,7 +857,7 @@ public class FormUIFactory {
 			FormItemContainer formLayout, UserSession usess,
 			WindowControl wControl) {
 		// Create richt text element with bare bone configuration
-		RichTextElement rte = new RichTextElementImpl(name, initialValue, rows, cols, formLayout.getRootForm());
+		RichTextElement rte = new RichTextElementImpl(name, initialValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
 		rte.getEditorConfiguration().setConfigProfileFileEditor(usess,
@@ -1042,8 +1110,8 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @return
 	 */
-	public FileElement addFileElement(String name, FormItemContainer formLayout) {
-		return addFileElement(name, name, formLayout);
+	public FileElement addFileElement(WindowControl wControl, String name, FormItemContainer formLayout) {
+		return addFileElement(wControl, name, name, formLayout);
 	}
 	
 		
@@ -1054,8 +1122,8 @@ public class FormUIFactory {
 	 * @param formLayout
 	 * @return
 	 */
-	public FileElement addFileElement(String name, String i18nLabel, FormItemContainer formLayout) {
-		FileElement fileElement = new FileElementImpl(name);
+	public FileElement addFileElement(WindowControl wControl, String name, String i18nLabel, FormItemContainer formLayout) {
+		FileElement fileElement = new FileElementImpl(wControl, name);
 		setLabelIfNotNull(i18nLabel, fileElement);
 		formLayout.add(fileElement);
 		return fileElement;
@@ -1126,5 +1194,26 @@ public class FormUIFactory {
 		setLabelIfNotNull(i18nLabel, fte);
 		formLayout.add(fte);
 		return fte;
+	}
+	
+	public ProgressBarItem addProgressBar(String name, String i18nLabel, FormItemContainer formLayout) {
+		ProgressBarItem fte = new ProgressBarItem(name);
+		setLabelIfNotNull(i18nLabel, fte);
+		formLayout.add(fte);
+		return fte;
+	}
+	
+	public ProgressBarItem addProgressBar(String name, String i18nLabel, int width, float actual, float max, String unitLabel, FormItemContainer formLayout) {
+		ProgressBarItem fte = new ProgressBarItem(name, width, actual, max, unitLabel);
+		setLabelIfNotNull(i18nLabel, fte);
+		formLayout.add(fte);
+		return fte;
+	}
+	
+	public SliderElement addSliderElement(String name, String i18nLabel, FormItemContainer formLayout) {
+		SliderElementImpl slider = new SliderElementImpl(name);
+		setLabelIfNotNull(i18nLabel, slider);
+		formLayout.add(slider);
+		return slider;
 	}
 }

@@ -1,6 +1,5 @@
 <fieldset>
-	<legend>$r.translate("portfolio.title")</legend>
-	$r.contextHelpWithWrapper("org.olat.portfolio.ui","module.html","help.hover.portfolio")
+	<legend>$r.translate("portfolio.title") $r.contextHelpWithWrapper("Module: ePortfolio")</legend>
 	<p>$r.translate("portfolio.intro")</p>
 
 	$r.render("flc_module")
@@ -8,14 +7,15 @@
 
 <fieldset>
 	<legend>$r.translate("handlers.title")</legend>
-	$r.contextHelpWithWrapper("org.olat.portfolio.ui","handlers.html","help.hover.handlers")
 	<p>$r.translate("handlers.intro")</p>
 
 	$r.render("flc_handlers")
 </fieldset>
 
+#if($r.available("flc_wizard") && $r.visible("flc_wizard"))
 <fieldset>
 	<legend>$r.translate("wizard.title")</legend>
 	<p>$r.translate("wizard.intro")</p>
 	$r.render("flc_wizard")
 </fieldset>
+#end

@@ -23,6 +23,9 @@ import java.util.Collections;
 import java.util.List;
 
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.commons.services.notifications.PublisherData;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -37,6 +40,8 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.GTAType;
+import org.olat.course.nodes.gta.ui.events.SelectBusinessGroupEvent;
+import org.olat.course.nodes.gta.ui.events.SelectIdentityEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
@@ -61,6 +66,10 @@ public class GTACoachSelectionController extends BasicController {
 	
 	private final GTACourseNode gtaNode;
 	private final CourseEnvironment courseEnv;
+	private final UserCourseEnvironment coachCourseEnv;
+	
+	protected final PublisherData publisherData;
+	protected final SubscriptionContext subsContext;
 	
 	@Autowired
 	private GTAManager gtaManager;
@@ -71,10 +80,19 @@ public class GTACoachSelectionController extends BasicController {
 			UserCourseEnvironment coachCourseEnv, GTACourseNode gtaNode) {
 		super(ureq, wControl);
 		this.gtaNode = gtaNode;
+		this.coachCourseEnv = coachCourseEnv;
 		this.courseEnv = coachCourseEnv.getCourseEnvironment();
 		
 		mainVC = createVelocityContainer("coach_selection");
 		backLink = LinkFactory.createLinkBack(mainVC, this);
+		
+		publisherData = gtaManager.getPublisherData(courseEnv, gtaNode);
+		subsContext = gtaManager.getSubscriptionContext(courseEnv, gtaNode);
+		if (subsContext != null) {
+			ContextualSubscriptionController contextualSubscriptionCtr = new ContextualSubscriptionController(ureq, getWindowControl(), subsContext, publisherData);
+			listenTo(contextualSubscriptionCtr);
+			mainVC.put("contextualSubscription", contextualSubscriptionCtr.getInitialComponent());
+		}
 		
 		ModuleConfiguration config = gtaNode.getModuleConfiguration();
 		if(GTAType.group.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
@@ -93,7 +111,7 @@ public class GTACoachSelectionController extends BasicController {
 			if(groups.size() == 1) {
 				doSelectBusinessGroup(ureq, groups.get(0));
 			} else {
-				groupListCtrl = new GTACoachedGroupListController(ureq, getWindowControl(), courseEnv, gtaNode, groups);
+				groupListCtrl = new GTACoachedGroupListController(ureq, getWindowControl(), null, coachCourseEnv, gtaNode, groups);
 				listenTo(groupListCtrl);
 				mainVC.put("list", groupListCtrl.getInitialComponent());
 			}	
@@ -157,14 +175,14 @@ public class GTACoachSelectionController extends BasicController {
 	
 	private void doSelectBusinessGroup(UserRequest ureq, BusinessGroup group) {
 		removeAsListenerAndDispose(coachingCtrl);
-		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, group, true, true);
+		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, coachCourseEnv, group, true, true, false);
 		listenTo(coachingCtrl);
 		mainVC.put("selection", coachingCtrl.getInitialComponent());
 	}
 	
 	private void doSelectParticipant(UserRequest ureq, Identity identity) {
 		removeAsListenerAndDispose(coachingCtrl);
-		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, identity, true, true);
+		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, coachCourseEnv, identity, true, true, false);
 		listenTo(coachingCtrl);
 		mainVC.put("selection", coachingCtrl.getInitialComponent());
 	}

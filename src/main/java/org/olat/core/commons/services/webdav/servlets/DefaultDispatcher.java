@@ -482,7 +482,7 @@ public abstract class DefaultDispatcher implements Serializable {
                 // Don't set a content length if something else has already
                 // written to the response.
                 if (contentWritten == 0) {
-                    response.setContentLength((int)contentLength);//TODO tomcat
+                    response.setContentLengthLong(contentLength);
                 }
             }
 
@@ -496,6 +496,8 @@ public abstract class DefaultDispatcher implements Serializable {
 
             // Copy the input stream to our output stream (if requested)
             if (serveContent) {
+            	resource.increaseDownloadCount();
+            	
                 try {
                     response.setBufferSize(output);
                 } catch (IllegalStateException e) {
@@ -527,6 +529,8 @@ public abstract class DefaultDispatcher implements Serializable {
             }
 
         } else {
+        	//download counter
+        	resource.increaseDownloadCount();
 
             if ((ranges == null) || (ranges.isEmpty()))
                 return;
@@ -543,7 +547,7 @@ public abstract class DefaultDispatcher implements Serializable {
                                    + "-" + range.end + "/"
                                    + range.length);
                 long length = range.end - range.start + 1;
-                response.setContentLength((int)length);//TODO tomcat
+                response.setContentLengthLong(length);
 
                 if (contentType != null) {
                     if (debug)

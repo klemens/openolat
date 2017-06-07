@@ -1,0 +1,1285 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
+package org.olat.modules.portfolio.manager;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.olat.basesecurity.Group;
+import org.olat.basesecurity.IdentityRef;
+import org.olat.basesecurity.manager.GroupDAO;
+import org.olat.core.commons.modules.bc.vfs.OlatRootFileImpl;
+import org.olat.core.commons.persistence.DB;
+import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.FileUtils;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.core.util.vfs.VFSLeaf;
+import org.olat.core.util.xml.XStreamHelper;
+import org.olat.course.CourseFactory;
+import org.olat.course.ICourse;
+import org.olat.course.assessment.AssessmentHelper;
+import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.PortfolioCourseNode;
+import org.olat.course.run.scoring.AssessmentEvaluation;
+import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.fileresource.FileResourceManager;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.forms.EvaluationFormSessionStatus;
+import org.olat.modules.forms.manager.EvaluationFormSessionDAO;
+import org.olat.modules.portfolio.AssessmentSection;
+import org.olat.modules.portfolio.Assignment;
+import org.olat.modules.portfolio.AssignmentStatus;
+import org.olat.modules.portfolio.AssignmentType;
+import org.olat.modules.portfolio.Binder;
+import org.olat.modules.portfolio.BinderDeliveryOptions;
+import org.olat.modules.portfolio.BinderLight;
+import org.olat.modules.portfolio.BinderRef;
+import org.olat.modules.portfolio.Category;
+import org.olat.modules.portfolio.CategoryToElement;
+import org.olat.modules.portfolio.Media;
+import org.olat.modules.portfolio.MediaHandler;
+import org.olat.modules.portfolio.MediaLight;
+import org.olat.modules.portfolio.Page;
+import org.olat.modules.portfolio.PageBody;
+import org.olat.modules.portfolio.PageImageAlign;
+import org.olat.modules.portfolio.PagePart;
+import org.olat.modules.portfolio.PageStatus;
+import org.olat.modules.portfolio.PortfolioElement;
+import org.olat.modules.portfolio.PortfolioElementType;
+import org.olat.modules.portfolio.PortfolioRoles;
+import org.olat.modules.portfolio.PortfolioService;
+import org.olat.modules.portfolio.Section;
+import org.olat.modules.portfolio.SectionRef;
+import org.olat.modules.portfolio.SectionStatus;
+import org.olat.modules.portfolio.handler.BinderTemplateResource;
+import org.olat.modules.portfolio.model.AccessRightChange;
+import org.olat.modules.portfolio.model.AccessRights;
+import org.olat.modules.portfolio.model.AssessedBinder;
+import org.olat.modules.portfolio.model.AssessmentSectionChange;
+import org.olat.modules.portfolio.model.AssessmentSectionImpl;
+import org.olat.modules.portfolio.model.AssignmentImpl;
+import org.olat.modules.portfolio.model.BinderImpl;
+import org.olat.modules.portfolio.model.BinderPageUsage;
+import org.olat.modules.portfolio.model.BinderStatistics;
+import org.olat.modules.portfolio.model.CategoryLight;
+import org.olat.modules.portfolio.model.PageImpl;
+import org.olat.modules.portfolio.model.SectionImpl;
+import org.olat.modules.portfolio.model.SectionKeyRef;
+import org.olat.modules.portfolio.model.SynchedBinder;
+import org.olat.modules.portfolio.ui.PortfolioHomeController;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryRef;
+import org.olat.repository.RepositoryService;
+import org.olat.resource.OLATResource;
+import org.olat.resource.OLATResourceManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.thoughtworks.xstream.XStream;
+
+/**
+ * 
+ * Initial date: 06.06.2016<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+@Service
+public class PortfolioServiceImpl implements PortfolioService {
+	
+	private static final OLog log = Tracing.createLoggerFor(PortfolioServiceImpl.class);
+	
+	private static XStream configXstream = XStreamHelper.createXStreamInstance();
+	static {
+		configXstream.alias("deliveryOptions", BinderDeliveryOptions.class);
+	}
+	
+	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private PageDAO pageDao;
+	@Autowired
+	private GroupDAO groupDao;
+	@Autowired
+	private MediaDAO mediaDao;
+	@Autowired
+	private BinderDAO binderDao;
+	@Autowired
+	private CommentDAO commentDao;
+	@Autowired
+	private CategoryDAO categoryDao;
+	@Autowired
+	private AssignmentDAO assignmentDao;
+	@Autowired
+	private SharedByMeQueries sharedByMeQueries;
+	@Autowired
+	private OLATResourceManager resourceManager;
+	@Autowired
+	private SharedWithMeQueries sharedWithMeQueries;
+	@Autowired
+	private PortfolioFileStorage portfolioFileStorage;
+	@Autowired
+	private AssessmentSectionDAO assessmentSectionDao;
+	@Autowired
+	private AssessmentService assessmentService;
+	@Autowired
+	private RepositoryService repositoryService;
+	@Autowired
+	private EvaluationFormSessionDAO evaluationFormSessionDao;
+	@Autowired
+	private BinderUserInformationsDAO binderUserInformationsDao;
+	
+	@Autowired
+	private List<MediaHandler> mediaHandlers;
+	
+	@Override
+	public Binder createNewBinder(String title, String summary, String imagePath, Identity owner) {
+		BinderImpl portfolio = binderDao.createAndPersist(title, summary, imagePath, null);
+		if(owner != null) {
+			groupDao.addMembershipTwoWay(portfolio.getBaseGroup(), owner, PortfolioRoles.owner.name());
+		}
+		return portfolio;
+	}
+
+	@Override
+	public OLATResource createBinderTemplateResource() {
+		OLATResource resource = resourceManager.createOLATResourceInstance(BinderTemplateResource.TYPE_NAME);
+		return resource;
+	}
+
+	@Override
+	public void createAndPersistBinderTemplate(Identity owner, RepositoryEntry entry, Locale locale) {
+		BinderImpl binder = binderDao.createAndPersist(entry.getDisplayname(), entry.getDescription(), null, entry);
+		if(owner != null) {
+			groupDao.addMembershipTwoWay(binder.getBaseGroup(), owner, PortfolioRoles.owner.name());
+		}
+		//add section
+		Translator pt = Util.createPackageTranslator(PortfolioHomeController.class, locale);
+		String sectionTitle = pt.translate("new.section.title");
+		String sectionDescription = pt.translate("new.section.desc");
+		binderDao.createSection(sectionTitle, sectionDescription, null, null, binder);
+	}
+
+	@Override
+	public Binder updateBinder(Binder binder) {
+		return binderDao.updateBinder(binder);
+	}
+
+	@Override
+	public Binder copyBinder(Binder transientBinder, RepositoryEntry entry) {
+		String imagePath = null;
+		if(StringHelper.containsNonWhitespace(transientBinder.getImagePath())) {
+			File bcroot = portfolioFileStorage.getRootDirectory();
+			File image = new File(bcroot, transientBinder.getImagePath());
+			if(image.exists()) {
+				imagePath = addPosterImageForBinder(image, image.getName());
+			}
+		}
+		return internalCopyTransientBinder(transientBinder, entry, imagePath, true);
+	}
+
+	@Override
+	public Binder importBinder(Binder transientBinder, RepositoryEntry templateEntry, File image) {
+		String imagePath = null;
+		if(StringHelper.containsNonWhitespace(transientBinder.getImagePath())) {
+			imagePath = addPosterImageForBinder(image, image.getName());
+		}
+		return internalCopyTransientBinder(transientBinder, templateEntry, imagePath, false);
+	}
+	
+	private Binder internalCopyTransientBinder(Binder transientBinder, RepositoryEntry entry, String imagePath, boolean copy) {
+		Binder binder = binderDao.createAndPersist(transientBinder.getTitle(), transientBinder.getSummary(), imagePath, entry);
+		//copy sections
+		for(Section transientSection:((BinderImpl)transientBinder).getSections()) {
+			SectionImpl section = binderDao.createSection(transientSection.getTitle(), transientSection.getDescription(),
+					transientSection.getBeginDate(), transientSection.getEndDate(), binder);
+			
+			List<Assignment> transientAssignments = ((SectionImpl)transientSection).getAssignments();
+			for(Assignment transientAssignment:transientAssignments) {
+				if(transientAssignment != null) {
+					File newStorage = portfolioFileStorage.generateAssignmentSubDirectory();
+					String storage = portfolioFileStorage.getRelativePath(newStorage);
+					
+					assignmentDao.createAssignment(transientAssignment.getTitle(), transientAssignment.getSummary(),
+							transientAssignment.getContent(), storage, transientAssignment.getAssignmentType(),
+							transientAssignment.getAssignmentStatus(), section,
+							transientAssignment.isOnlyAutoEvaluation(), transientAssignment.isReviewerSeeAutoEvaluation(),
+							transientAssignment.isAnonymousExternalEvaluation(), transientAssignment.getFormEntry());
+					//copy attachments
+					File templateDirectory = portfolioFileStorage.getAssignmentDirectory(transientAssignment);
+					if(copy && templateDirectory != null) {
+						FileUtils.copyDirContentsToDir(templateDirectory, newStorage, false, "Assignment attachments");
+					}
+				}
+			}
+		}
+		return binder;
+	}
+
+	@Override
+	public boolean deleteBinderTemplate(Binder binder, RepositoryEntry templateEntry) {
+		BinderImpl reloadedBinder = (BinderImpl)binderDao.loadByKey(binder.getKey());
+		int deletedRows = binderDao.deleteBinderTemplate(reloadedBinder);
+		return deletedRows > 0;
+	}
+	
+	@Override
+	public boolean deleteBinder(BinderRef binder) {
+		int rows = binderDao.deleteBinder(binder);
+		return rows > 0;
+	}
+
+	@Override
+	public BinderDeliveryOptions getDeliveryOptions(OLATResource resource) {
+		FileResourceManager frm = FileResourceManager.getInstance();
+		File reFolder = frm.getFileResourceRoot(resource);
+		File configXml = new File(reFolder, PACKAGE_CONFIG_FILE_NAME);
+		
+		BinderDeliveryOptions config;
+		if(configXml.exists()) {
+			config = (BinderDeliveryOptions)configXstream.fromXML(configXml);
+		} else {
+			//set default config
+			config = BinderDeliveryOptions.defaultOptions();
+			setDeliveryOptions(resource, config);
+		}
+		return config;
+	}
+
+	@Override
+	public void setDeliveryOptions(OLATResource resource, BinderDeliveryOptions options) {
+		FileResourceManager frm = FileResourceManager.getInstance();
+		File reFolder = frm.getFileResourceRoot(resource);
+		File configXml = new File(reFolder, PACKAGE_CONFIG_FILE_NAME);
+		if(options == null) {
+			if(configXml.exists()) {
+				configXml.delete();
+			}
+		} else {
+			try (OutputStream out = new FileOutputStream(configXml)) {
+				configXstream.toXML(options, out);
+			} catch (IOException e) {
+				log.error("", e);
+			}
+		}
+	}
+	
+	@Override
+	public Assignment addAssignment(String title, String summary, String content, AssignmentType type, Section section,
+			boolean onlyAutoEvaluation, boolean reviewerSeeAutoEvaluation, boolean anonymousExternEvaluation, RepositoryEntry formEntry) {
+		File newStorage = portfolioFileStorage.generateAssignmentSubDirectory();
+		String storage = portfolioFileStorage.getRelativePath(newStorage);
+
+		Section reloadedSection = binderDao.loadSectionByKey(section.getKey());
+		return assignmentDao.createAssignment(title, summary, content, storage, type,
+				AssignmentStatus.template, reloadedSection,
+				onlyAutoEvaluation, reviewerSeeAutoEvaluation, anonymousExternEvaluation, formEntry);
+	}
+
+	@Override
+	public Assignment updateAssignment(Assignment assignment, String title, String summary, String content, AssignmentType type,
+			boolean onlyAutoEvaluation, boolean reviewerSeeAutoEvaluation, boolean anonymousExternEvaluation, RepositoryEntry formEntry) {
+		if(!StringHelper.containsNonWhitespace(assignment.getStorage())) {
+			File newStorage = portfolioFileStorage.generateAssignmentSubDirectory();
+			String newRelativeStorage = portfolioFileStorage.getRelativePath(newStorage);
+			((AssignmentImpl)assignment).setStorage(newRelativeStorage);
+		}
+		
+		AssignmentImpl impl = (AssignmentImpl)assignment;
+		impl.setTitle(title);
+		impl.setSummary(summary);
+		impl.setContent(content);
+		impl.setType(type.name());
+		impl.setOnlyAutoEvaluation(onlyAutoEvaluation);
+		impl.setReviewerSeeAutoEvaluation(reviewerSeeAutoEvaluation);
+		impl.setAnonymousExternalEvaluation(anonymousExternEvaluation);
+		impl.setFormEntry(formEntry);
+		return assignmentDao.updateAssignment(assignment);
+	}
+	
+	@Override
+	public Section moveUpAssignment(Section section, Assignment assignment) {
+		Section reloadedSection = binderDao.loadSectionByKey(section.getKey());
+		return assignmentDao.moveUpAssignment((SectionImpl)reloadedSection, assignment);
+	}
+
+	@Override
+	public Section moveDownAssignment(Section section, Assignment assignment) {
+		Section reloadedSection = binderDao.loadSectionByKey(section.getKey());
+		return assignmentDao.moveDownAssignment((SectionImpl)reloadedSection, assignment);
+	}
+
+	@Override
+	public void moveAssignment(SectionRef currentSectionRef, Assignment assignment, SectionRef newParentSectionRef) {
+		Section currentSection = binderDao.loadSectionByKey(currentSectionRef.getKey());
+		Section newParentSection = binderDao.loadSectionByKey(newParentSectionRef.getKey());
+		assignmentDao.moveAssignment((SectionImpl)currentSection, assignment, (SectionImpl)newParentSection);
+	}
+
+	@Override
+	public List<Assignment> getAssignments(PortfolioElement element, String searchString) {
+		if(element.getType() == PortfolioElementType.binder) {
+			return assignmentDao.loadAssignments((BinderRef)element, searchString);
+		}
+		if(element.getType() == PortfolioElementType.section) {
+			return assignmentDao.loadAssignments((SectionRef)element, searchString);
+		}
+		if(element.getType() == PortfolioElementType.page) {
+			return assignmentDao.loadAssignments((Page)element, searchString);
+		}
+		return null;
+	}
+
+	@Override
+	public List<Assignment> searchOwnedAssignments(IdentityRef assignee) {
+		return assignmentDao.getOwnedAssignments(assignee);
+	}
+
+	@Override
+	public boolean isAssignmentInUse(Assignment assignment) {
+		return assignmentDao.isAssignmentInUse(assignment);
+	}
+
+	@Override
+	public boolean deleteAssignment(Assignment assignment) {
+		Assignment reloadedAssignment = assignmentDao.loadAssignmentByKey(assignment.getKey());
+		Section reloadedSection = reloadedAssignment.getSection();
+		boolean removed = false;
+		if(reloadedSection != null) {
+			removed = ((SectionImpl)reloadedSection).getAssignments().remove(reloadedAssignment);
+		}
+		assignmentDao.deleteAssignment(reloadedAssignment);
+		if(removed) {
+			binderDao.updateSection(reloadedSection);
+		}
+		return true;
+	}
+
+	@Override
+	public Assignment startAssignment(Assignment assignment, Identity author) {
+		Assignment reloadedAssignment = assignmentDao.loadAssignmentByKey(assignment.getKey());
+		if(reloadedAssignment.getAssignmentType() == AssignmentType.essay) {
+			if(reloadedAssignment.getPage() == null) {
+				Section section = reloadedAssignment.getSection();
+				Page page = appendNewPage(author, reloadedAssignment.getTitle(), reloadedAssignment.getSummary(), null, null, section);
+				reloadedAssignment = assignmentDao.startEssayAssignment(reloadedAssignment, page, author);
+			}
+		} else if(reloadedAssignment.getAssignmentType() == AssignmentType.document) {
+			if(reloadedAssignment.getPage() == null) {
+				Section section = reloadedAssignment.getSection();
+				Page page = appendNewPage(author, reloadedAssignment.getTitle(), reloadedAssignment.getSummary(), null, null, section);
+				reloadedAssignment = assignmentDao.startEssayAssignment(reloadedAssignment, page, author);
+			}
+		} else if(reloadedAssignment.getAssignmentType() == AssignmentType.form) {
+			if(reloadedAssignment.getPage() == null) {
+				Section section = reloadedAssignment.getSection();
+				RepositoryEntry formEntry = reloadedAssignment.getFormEntry();
+				Page page = appendNewPage(author, reloadedAssignment.getTitle(), reloadedAssignment.getSummary(), null, false, null, section);
+				reloadedAssignment = assignmentDao.startFormAssignment(reloadedAssignment, page, author);
+				//create the session for the assignee
+				evaluationFormSessionDao.createSessionForPortfolio(author, page.getBody(), formEntry);
+			}
+		}
+		dbInstance.commit();
+		return reloadedAssignment;
+	}
+
+	@Override
+	public Assignment getAssignment(PageBody body) {
+		return assignmentDao.loadAssignment(body);
+	}
+
+	@Override
+	public SectionRef appendNewSection(String title, String description, Date begin, Date end, BinderRef binder) {
+		Binder reloadedBinder = binderDao.loadByKey(binder.getKey());
+		SectionImpl newSection = binderDao.createSection(title, description, begin, end, reloadedBinder);
+		return new SectionKeyRef(newSection.getKey());
+	}
+
+	@Override
+	public Section updateSection(Section section) {
+		return binderDao.updateSection(section);
+	}
+
+	@Override
+	public List<Section> getSections(BinderRef binder) {
+		return binderDao.getSections(binder);
+	}
+
+	@Override
+	public Section getSection(SectionRef section) {
+		return binderDao.loadSectionByKey(section.getKey());
+	}
+
+	@Override
+	public Binder moveUpSection(Binder binder, Section section) {
+		Binder reloadedBinder = binderDao.loadByKey(binder.getKey());
+		return binderDao.moveUpSection((BinderImpl)reloadedBinder, section);
+	}
+
+	@Override
+	public Binder moveDownSection(Binder binder, Section section) {
+		Binder reloadedBinder = binderDao.loadByKey(binder.getKey());
+		return binderDao.moveDownSection((BinderImpl)reloadedBinder, section);
+	}
+
+	@Override
+	public Binder deleteSection(Binder binder, Section section) {
+		Section reloadedSection = binderDao.loadSectionByKey(section.getKey());
+		Binder reloadedBinder = reloadedSection.getBinder();
+		return binderDao.deleteSection(reloadedBinder, reloadedSection);
+	}
+
+	@Override
+	public List<Page> getPages(BinderRef binder, String searchString) {
+		return pageDao.getPages(binder, searchString);
+	}
+
+	@Override
+	public List<Page> getPages(SectionRef section) {
+		return pageDao.getPages(section);
+	}
+
+	@Override
+	public List<Binder> getOwnedBinders(IdentityRef owner) {
+		return binderDao.getOwnedBinders(owner);
+	}
+
+	@Override
+	public List<BinderStatistics> searchOwnedBinders(IdentityRef owner) {
+		return binderDao.searchOwnedBinders(owner, false);
+	}
+	
+	@Override
+	public List<BinderStatistics> searchOwnedDeletedBinders(IdentityRef owner) {
+		return binderDao.searchOwnedBinders(owner, true);
+	}
+
+	@Override
+	public List<Binder> searchOwnedBindersFromCourseTemplate(IdentityRef owner) {
+		return binderDao.getOwnedBinderFromCourseTemplate(owner);
+	}
+
+	@Override
+	public List<Binder> searchSharedBindersBy(Identity owner, String searchString) {
+		return sharedByMeQueries.searchSharedBinders(owner, searchString);
+	}
+
+	@Override
+	public List<AssessedBinder> searchSharedBindersWith(Identity coach, String searchString) {
+		return sharedWithMeQueries.searchSharedBinders(coach, searchString);
+	}
+	
+	@Override
+	public List<RepositoryEntry> searchCourseWithBinderTemplates(Identity participant) {
+		return binderDao.searchCourseTemplates(participant);
+	}
+
+	@Override
+	public Binder getBinderByKey(Long portfolioKey) {
+		return binderDao.loadByKey(portfolioKey);
+	}
+
+	@Override
+	public void updateBinderUserInformations(Binder binder, Identity user) {
+		if(binder == null || user == null) return;
+		binderUserInformationsDao.updateBinderUserInformations(binder, user);
+	}
+
+	@Override
+	public Binder getBinderByResource(OLATResource resource) {
+		return binderDao.loadByResource(resource);
+	}
+
+	@Override
+	public BinderStatistics getBinderStatistics(BinderRef binder) {
+		return binderDao.getBinderStatistics(binder);
+	}
+
+	@Override
+	public RepositoryEntry getRepositoryEntry(Binder binder) {
+		OLATResource resource = ((BinderImpl)binder).getOlatResource();
+		Long resourceKey = resource.getKey();
+		return repositoryService.loadByResourceKey(resourceKey);
+	}
+
+	@Override
+	public Binder getBinderBySection(SectionRef section) {
+		return binderDao.loadBySection(section);
+	}
+	
+	@Override
+	public boolean isTemplateInUse(Binder binder, RepositoryEntry courseEntry, String subIdent) {
+		return binderDao.isTemplateInUse(binder, courseEntry, subIdent);
+	}
+
+	@Override
+	public Binder getBinder(Identity owner, BinderRef templateBinder, RepositoryEntryRef courseEntry, String subIdent) {
+		return binderDao.getBinder(owner, templateBinder, courseEntry, subIdent);
+	}
+
+	@Override
+	public List<Binder> getBinders(Identity owner, RepositoryEntryRef courseEntry, String subIdent) {
+		return binderDao.getBinders(owner, courseEntry, subIdent);
+	}
+
+	@Override
+	public Binder assignBinder(Identity owner, BinderRef templateBinder, RepositoryEntry entry, String subIdent, Date deadline) {
+		BinderImpl reloadedTemplate = (BinderImpl)binderDao.loadByKey(templateBinder.getKey());
+		BinderImpl binder = binderDao.createCopy(reloadedTemplate, entry, subIdent);
+		groupDao.addMembershipTwoWay(binder.getBaseGroup(), owner, PortfolioRoles.owner.name());
+		return binder;
+	}
+
+	@Override
+	public SynchedBinder loadAndSyncBinder(BinderRef binder) {
+		Binder reloadedBinder = binderDao.loadByKey(binder.getKey());
+		AtomicBoolean changes = new AtomicBoolean(false);
+		if(reloadedBinder.getTemplate() != null) {
+			reloadedBinder = binderDao
+					.syncWithTemplate((BinderImpl)reloadedBinder.getTemplate(), (BinderImpl)reloadedBinder, changes);
+		}
+		return new SynchedBinder(reloadedBinder, changes.get());
+	}
+
+	@Override
+	public boolean isMember(BinderRef binder, IdentityRef identity, String... roles) {
+		return binderDao.isMember(binder, identity, roles);
+	}
+
+	@Override
+	public List<Identity> getMembers(BinderRef binder, String... roles) {
+		return binderDao.getMembers(binder, roles);
+	}
+
+	@Override
+	public List<Identity> getMembers(Page page, String... roles) {
+		return pageDao.getMembers(page, roles);
+	}
+
+	@Override
+	public boolean isBinderVisible(IdentityRef identity, BinderRef binder) {
+		return binderDao.isMember(binder, identity,
+				PortfolioRoles.owner.name(), PortfolioRoles.coach.name(),
+				PortfolioRoles.reviewer.name(), PortfolioRoles.invitee.name());
+	}
+
+	@Override
+	public List<AccessRights> getAccessRights(Binder binder) {
+		List<AccessRights> rights = binderDao.getBinderAccesRights(binder, null);
+		List<AccessRights> sectionRights = binderDao.getSectionAccesRights(binder, null);
+		rights.addAll(sectionRights);
+		List<AccessRights> pageRights = binderDao.getPageAccesRights(binder, null);
+		rights.addAll(pageRights);
+		return rights;
+	}
+	
+	@Override
+	public List<AccessRights> getAccessRights(Binder binder, Identity identity) {
+		List<AccessRights> rights = binderDao.getBinderAccesRights(binder, identity);
+		List<AccessRights> sectionRights = binderDao.getSectionAccesRights(binder, identity);
+		rights.addAll(sectionRights);
+		List<AccessRights> pageRights = binderDao.getPageAccesRights(binder, identity);
+		rights.addAll(pageRights);
+		return rights;
+	}
+
+	@Override
+	public List<AccessRights> getAccessRights(Page page) {
+		List<AccessRights> rights = binderDao.getBinderAccesRights(page);
+		List<AccessRights> sectionRights = binderDao.getSectionAccesRights(page);
+		rights.addAll(sectionRights);
+		List<AccessRights> pageRights = binderDao.getPageAccesRights(page);
+		rights.addAll(pageRights);
+		return rights;
+	}
+
+	@Override
+	public void addAccessRights(PortfolioElement element, Identity identity, PortfolioRoles role) {
+		Group baseGroup = element.getBaseGroup();
+		if(!groupDao.hasRole(baseGroup, identity, role.name())) {
+			groupDao.addMembershipTwoWay(baseGroup, identity, role.name());
+		}
+	}
+	
+	@Override
+	public void changeAccessRights(List<Identity> identities, List<AccessRightChange> changes) {
+		for(Identity identity:identities) {
+			for(AccessRightChange change:changes) {
+				Group baseGroup = change.getElement().getBaseGroup();
+				if(change.isAdd()) {
+					if(!groupDao.hasRole(baseGroup, identity, change.getRole().name())) {
+						Group group = getGroup(change.getElement());
+						groupDao.addMembershipOneWay(group, identity, change.getRole().name());
+					}
+				} else {
+					if(groupDao.hasRole(baseGroup, identity, change.getRole().name())) {
+						Group group = getGroup(change.getElement());
+						groupDao.removeMembership(group, identity, change.getRole().name());
+					}
+				}
+			}
+		}
+	}
+	
+	@Override
+	public void removeAccessRights(Binder binder, Identity identity) {
+		List<AccessRights> rights = getAccessRights(binder, identity);
+		for(AccessRights right:rights) {
+			Group baseGroup;
+			if(right.getType() == PortfolioElementType.binder) {
+				baseGroup = binderDao.loadByKey(right.getBinderKey()).getBaseGroup();
+			} else if(right.getType() == PortfolioElementType.section) {
+				baseGroup = binderDao.loadSectionByKey(right.getSectionKey()).getBaseGroup();
+			} else if(right.getType() == PortfolioElementType.page) {
+				baseGroup = pageDao.loadByKey(right.getPageKey()).getBaseGroup();
+			} else {
+				continue;
+			}
+			
+			if(groupDao.hasRole(baseGroup, identity, right.getRole().name())) {
+				groupDao.removeMembership(baseGroup, identity, right.getRole().name());
+			}
+		}
+	}
+
+	private Group getGroup(PortfolioElement element) {
+		if(element instanceof Page) {
+			return pageDao.getGroup((Page)element);
+		}
+		if(element instanceof SectionRef) {
+			return binderDao.getGroup((SectionRef)element);
+		}
+		if(element instanceof BinderRef) {
+			return binderDao.getGroup((BinderRef)element);
+		}
+		return null;
+	}
+
+	@Override
+	public List<Category> getCategories(PortfolioElement element) {
+		OLATResourceable ores = getOLATResoucreable(element);
+		return categoryDao.getCategories(ores);
+	}
+
+	@Override
+	public List<CategoryToElement> getCategorizedSectionsAndPages(BinderRef binder) {
+		return categoryDao.getCategorizedSectionsAndPages(binder);
+	}
+
+	@Override
+	public List<CategoryToElement> getCategorizedSectionAndPages(SectionRef section) {
+		return categoryDao.getCategorizedSectionAndPages(section);
+	}
+
+	@Override
+	public List<CategoryToElement> getCategorizedOwnedPages(IdentityRef owner) {
+		return categoryDao.getCategorizedOwnedPages(owner);
+	}
+
+	@Override
+	public void updateCategories(PortfolioElement element, List<String> categories) {
+		OLATResourceable ores = getOLATResoucreable(element);
+		updateCategories(ores, categories);
+	}
+	
+	private OLATResourceable getOLATResoucreable(PortfolioElement element) {
+		switch(element.getType()) {
+			case binder: return OresHelper.createOLATResourceableInstance(Binder.class, element.getKey());
+			case section: return OresHelper.createOLATResourceableInstance(Section.class, element.getKey());
+			case page: return OresHelper.createOLATResourceableInstance(Page.class, element.getKey());
+			default: return null;
+		}
+	}
+
+	private void updateCategories(OLATResourceable oresource, List<String> categories) {
+		List<Category> currentCategories = categoryDao.getCategories(oresource);
+		Map<String,Category> currentCategoryMap = new HashMap<>();
+		for(Category category:currentCategories) {
+			currentCategoryMap.put(category.getName(), category);
+		}
+		
+		List<String> newCategories = new ArrayList<>(categories);
+		for(String newCategory:newCategories) {
+			if(!currentCategoryMap.containsKey(newCategory)) {
+				Category category = categoryDao.createAndPersistCategory(newCategory);
+				categoryDao.appendRelation(oresource, category);
+			}
+		}
+		
+		for(Category currentCategory:currentCategories) {
+			String name = currentCategory.getName();
+			if(!newCategories.contains(name)) {
+				categoryDao.removeRelation(oresource, currentCategory);
+			}
+		}
+	}
+
+	@Override
+	public Map<Long,Long> getNumberOfComments(BinderRef binder) {
+		return commentDao.getNumberOfComments(binder);
+	}
+	
+	@Override
+	public Map<Long,Long> getNumberOfComments(SectionRef section) {
+		return commentDao.getNumberOfComments(section);
+	}
+	
+	@Override
+	public Map<Long,Long> getNumberOfCommentsOnOwnedPage(IdentityRef owner) {
+		return commentDao.getNumberOfCommentsOnOwnedPage(owner);
+	}
+
+	@Override
+	public File getPosterImageFile(BinderLight binder) {
+		String imagePath = binder.getImagePath();
+		if(StringHelper.containsNonWhitespace(imagePath)) {
+			File bcroot = portfolioFileStorage.getRootDirectory();
+			return new File(bcroot, imagePath);
+		}
+		return null;
+	}
+	
+	@Override
+	public VFSLeaf getPosterImageLeaf(BinderLight binder) {
+		String imagePath = binder.getImagePath();
+		if(StringHelper.containsNonWhitespace(imagePath)) {
+			OlatRootFileImpl leaf = new OlatRootFileImpl("/" + imagePath, null);
+			if(leaf.exists()) {
+				return leaf;
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public String addPosterImageForBinder(File file, String filename) {
+		File dir = portfolioFileStorage.generateBinderSubDirectory();
+		if(!StringHelper.containsNonWhitespace(filename)) {
+			filename = file.getName();
+		}
+		File destinationFile = new File(dir, filename);
+		String renamedFile = FileUtils.rename(destinationFile);
+		if(renamedFile != null) {
+			destinationFile = new File(dir, renamedFile);
+		}
+		FileUtils.copyFileToFile(file, destinationFile, false);
+		return portfolioFileStorage.getRelativePath(destinationFile);
+	}
+
+	@Override
+	public void removePosterImage(Binder binder) {
+		String imagePath = binder.getImagePath();
+		if(StringHelper.containsNonWhitespace(imagePath)) {
+			File bcroot = portfolioFileStorage.getRootDirectory();
+			File file = new File(bcroot, imagePath);
+			if(file.exists()) {
+				file.delete();
+			}
+		}
+	}
+
+	@Override
+	public List<Page> searchOwnedPages(IdentityRef owner, String searchString) {
+		List<Page> pages = pageDao.getOwnedPages(owner, searchString);
+		return pages;
+	}
+
+	@Override
+	public List<Page> searchDeletedPages(IdentityRef owner, String searchString) {
+		List<Page> pages = pageDao.getDeletedPages(owner, searchString);
+		return pages;
+	}
+
+	@Override
+	public Page appendNewPage(Identity owner, String title, String summary, String imagePath, PageImageAlign align, SectionRef section) {
+		return appendNewPage(owner, title, summary, imagePath, true, align, section);
+	}
+	
+	private Page appendNewPage(Identity owner, String title, String summary, String imagePath, boolean editable, PageImageAlign align, SectionRef section) {
+		Section reloadedSection = section == null ? null : binderDao.loadSectionByKey(section.getKey());
+		if(reloadedSection != null && reloadedSection.getSectionStatus() == SectionStatus.notStarted) {
+			((SectionImpl)reloadedSection).setSectionStatus(SectionStatus.inProgress);
+		}
+		Page page = pageDao.createAndPersist(title, summary, imagePath, align, editable, reloadedSection, null);
+		groupDao.addMembershipTwoWay(page.getBaseGroup(), owner, PortfolioRoles.owner.name());
+		return page;
+	}
+
+	@Override
+	public Page getPageByKey(Long key) {
+		return pageDao.loadByKey(key);
+	}
+
+	@Override
+	public Page getPageByBody(PageBody body) {
+		return pageDao.loadByBody(body);
+	}
+
+	@Override
+	public Page getLastPage(Identity owner, boolean mandatoryBinder) {
+		return pageDao.getLastPage(owner, mandatoryBinder);
+	}
+
+	@Override
+	public Page updatePage(Page page, SectionRef newParentSection) {
+		Page updatedPage;
+		if(newParentSection == null) {
+			updatedPage = pageDao.updatePage(page);
+		} else {
+			Section currentSection = null;
+			if(page.getSection() != null) {
+				currentSection = binderDao.loadSectionByKey(page.getSection().getKey());
+				currentSection.getPages().remove(page);
+			}
+			
+			Section newParent = binderDao.loadSectionByKey(newParentSection.getKey());
+			((PageImpl)page).setSection(newParent);
+			newParent.getPages().add(page);
+			updatedPage = pageDao.updatePage(page);
+			if(currentSection != null) {
+				binderDao.updateSection(currentSection);
+			}
+			binderDao.updateSection(newParent);
+		}
+		return updatedPage;
+	}
+
+	@Override
+	public File getPosterImage(Page page) {
+		String imagePath = page.getImagePath();
+		if(StringHelper.containsNonWhitespace(imagePath)) {
+			File bcroot = portfolioFileStorage.getRootDirectory();
+			return new File(bcroot, imagePath);
+		}
+		return null;
+	}
+
+	@Override
+	public String addPosterImageForPage(File file, String filename) {
+		File dir = portfolioFileStorage.generatePageSubDirectory();
+		File destinationFile = new File(dir, filename);
+		String renamedFile = FileUtils.rename(destinationFile);
+		if(renamedFile != null) {
+			destinationFile = new File(dir, renamedFile);
+		}
+		FileUtils.copyFileToFile(file, destinationFile, false);
+		return portfolioFileStorage.getRelativePath(destinationFile);
+	}
+
+	@Override
+	public void removePosterImage(Page page) {
+		String imagePath = page.getImagePath();
+		if(StringHelper.containsNonWhitespace(imagePath)) {
+			File bcroot = portfolioFileStorage.getRootDirectory();
+			File file = new File(bcroot, imagePath);
+			if(file.exists()) {
+				file.delete();
+			}
+		}
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public <U extends PagePart> U appendNewPagePart(Page page, U part) {
+		PageBody body = pageDao.loadPageBodyByKey(page.getBody().getKey());
+		return (U)pageDao.persistPart(body, part);
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public <U extends PagePart> U appendNewPagePartAt(Page page, U part, int index) {
+		PageBody body = pageDao.loadPageBodyByKey(page.getBody().getKey());
+		return (U)pageDao.persistPart(body, part, index);
+	}
+
+	@Override
+	public void removePagePart(Page page, PagePart part) {
+		PageBody body = pageDao.loadPageBodyByKey(page.getBody().getKey());
+		pageDao.removePart(body, part);
+	}
+
+	@Override
+	public void moveUpPagePart(Page page, PagePart part) {
+		PageBody body = pageDao.loadPageBodyByKey(page.getBody().getKey());
+		pageDao.moveUpPart(body, part);
+	}
+
+	@Override
+	public void moveDownPagePart(Page page, PagePart part) {
+		PageBody body = pageDao.loadPageBodyByKey(page.getBody().getKey());
+		pageDao.moveDownPart(body, part);
+	}
+
+	@Override
+	public Page removePage(Page page) {
+		return pageDao.removePage(page);
+	}	
+
+	@Override
+	public void deletePage(Page page) {
+		Page reloadedPage = pageDao.loadByKey(page.getKey());
+		pageDao.deletePage(reloadedPage);
+	}
+
+	@Override
+	public List<PagePart> getPageParts(Page page) {
+		return pageDao.getParts(page.getBody());
+	}
+
+	@Override
+	@SuppressWarnings("unchecked")
+	public <U extends PagePart> U updatePart(U part) {
+		return (U)pageDao.merge(part);
+	}
+
+	@Override
+	public MediaHandler getMediaHandler(String type) {
+		if(mediaHandlers != null) {
+			for(MediaHandler handler:mediaHandlers) {
+				if(type.equals(handler.getType())) {
+					return handler;
+				}
+			}
+		}
+		return null;
+	}
+
+	@Override
+	public List<MediaHandler> getMediaHandlers() {
+		return new ArrayList<>(mediaHandlers);
+	}
+
+	@Override
+	public Media updateMedia(Media media) {
+		return mediaDao.update(media);
+	}
+
+	@Override
+	public void deleteMedia(Media media) {
+		mediaDao.deleteMedia(media);
+	}
+
+	@Override
+	public void updateCategories(Media media, List<String> categories) {
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Media.class, media.getKey());
+		updateCategories(ores, categories);
+	}
+
+	@Override
+	public List<Category> getCategories(Media media) {
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Media.class, media.getKey());
+		return categoryDao.getCategories(ores);
+	}
+
+	@Override
+	public List<CategoryLight> getMediaCategories(IdentityRef owner) {
+		return categoryDao.getMediaCategories(owner);
+	}
+
+	@Override
+	public List<MediaLight> searchOwnedMedias(IdentityRef author, String searchString, List<String> tagNames) {
+		return mediaDao.searchByAuthor(author, searchString, tagNames);
+	}
+
+	@Override
+	public Media getMediaByKey(Long key) {
+		return mediaDao.loadByKey(key);
+	}
+
+	@Override
+	public List<BinderPageUsage> getUsedInBinders(MediaLight media) {
+		return mediaDao.usedInBinders(media);
+	}
+
+	@Override
+	public Page changePageStatus(Page page, PageStatus status) {
+		PageStatus currentStatus = page.getPageStatus();
+		Page reloadedPage = pageDao.loadByKey(page.getKey());
+		((PageImpl)reloadedPage).setPageStatus(status);
+		if(status == PageStatus.published) {
+			Date now = new Date();
+			if(reloadedPage.getInitialPublicationDate() == null) {
+				((PageImpl)reloadedPage).setInitialPublicationDate(now);
+			}
+			((PageImpl)reloadedPage).setLastPublicationDate(now);
+			Section section = reloadedPage.getSection();
+			// auto update the status of the evaluation form of the authors of the binder
+			changeAssignmentStatus(page, section, EvaluationFormSessionStatus.done);
+			
+			if(section != null) {
+				SectionStatus sectionStatus = section.getSectionStatus();
+				if(currentStatus == PageStatus.closed) {
+					if(sectionStatus == SectionStatus.closed) {
+						((SectionImpl)section).setSectionStatus(SectionStatus.inProgress);
+						binderDao.updateSection(section);
+					}
+				} else if(sectionStatus == null || sectionStatus == SectionStatus.notStarted || sectionStatus == SectionStatus.closed) {
+					((SectionImpl)section).setSectionStatus(SectionStatus.inProgress);
+					binderDao.updateSection(section);
+				}
+			}
+		} else if(status == PageStatus.inRevision) {
+			Section section = reloadedPage.getSection();
+			changeAssignmentStatus(page, section, EvaluationFormSessionStatus.inProgress);
+			if(section != null) {
+				SectionStatus sectionStatus = section.getSectionStatus();
+				if(sectionStatus == null || sectionStatus == SectionStatus.notStarted || sectionStatus == SectionStatus.closed) {
+					if(sectionStatus == SectionStatus.closed) {
+						((SectionImpl)section).setSectionStatus(SectionStatus.inProgress);
+						binderDao.updateSection(section);
+					}
+				}
+			}
+		}
+		return pageDao.updatePage(reloadedPage);
+	}
+	
+	/**
+	 * Auto update the status of the evaluation form of the authors of the binder.
+	 * 
+	 * @param page The page where the evaluation is
+	 * @param section The section of the page
+	 * @param newStatus The new status of the evaluation
+	 */
+	private void changeAssignmentStatus(Page page, Section section, EvaluationFormSessionStatus newStatus) {
+		// auto update the status of the evaluation form of the authors of the binder
+		Assignment assignment = assignmentDao.loadAssignment(page.getBody());
+		if(assignment != null && assignment.getAssignmentType() == AssignmentType.form) {
+			List<Identity> owners = getMembers(section.getBinder(), PortfolioRoles.owner.name());
+			for(Identity owner:owners) {
+				evaluationFormSessionDao.changeStatusOfSessionForPortfolioEvaluation(owner, page.getBody(), newStatus);
+			}
+		} else if(evaluationFormSessionDao.hasSessionForPortfolioEvaluation(page.getBody())) {
+			List<Identity> owners = getMembers(section.getBinder(), PortfolioRoles.owner.name());
+			for(Identity owner:owners) {
+				evaluationFormSessionDao.changeStatusOfSessionForPortfolioEvaluation(owner, page.getBody(), newStatus);
+			}
+		}
+	}
+
+	@Override
+	public Section changeSectionStatus(Section section, SectionStatus status, Identity coach) {
+		PageStatus newPageStatus;
+		if(status == SectionStatus.closed) {
+			newPageStatus = PageStatus.closed;
+		} else {
+			newPageStatus = PageStatus.inRevision;
+		}
+
+		Section reloadedSection = binderDao.loadSectionByKey(section.getKey());
+		List<Page> pages = reloadedSection.getPages();
+		for(Page page:pages) {
+			if(page != null) {
+				((PageImpl)page).setPageStatus(newPageStatus);
+				pageDao.updatePage(page);
+			}
+		}
+		
+		((SectionImpl)reloadedSection).setSectionStatus(status);
+		reloadedSection = binderDao.updateSection(reloadedSection);
+		return reloadedSection;
+	}
+
+	@Override
+	public List<AssessmentSection> getAssessmentSections(BinderRef binder, Identity coach) {
+		return assessmentSectionDao.loadAssessmentSections(binder);
+	}
+
+	@Override
+	public void updateAssessmentSections(BinderRef binderRef, List<AssessmentSectionChange> changes, Identity coachingIdentity) {
+		Binder binder = binderDao.loadByKey(binderRef.getKey());
+		Map<Identity,List<AssessmentSectionChange>> assessedIdentitiesToChangesMap = new HashMap<>();
+		for(AssessmentSectionChange change:changes) {
+			List<AssessmentSectionChange> identityChanges;
+			if(assessedIdentitiesToChangesMap.containsKey(change.getIdentity())) {
+				identityChanges = assessedIdentitiesToChangesMap.get(change.getIdentity());
+			} else {
+				identityChanges = new ArrayList<>();
+				assessedIdentitiesToChangesMap.put(change.getIdentity(), identityChanges);
+			}
+			identityChanges.add(change);
+		}
+
+		for(Map.Entry<Identity,List<AssessmentSectionChange>> changesEntry:assessedIdentitiesToChangesMap.entrySet()) {
+			Identity assessedIdentity = changesEntry.getKey();
+			List<AssessmentSection> currentAssessmentSections = assessmentSectionDao.loadAssessmentSections(binder, assessedIdentity);
+			Set<AssessmentSection> updatedAssessmentSections = new HashSet<>(currentAssessmentSections);
+			
+			List<AssessmentSectionChange> identityChanges = changesEntry.getValue();
+			//check update or create
+
+			for(AssessmentSectionChange change:identityChanges) {
+				AssessmentSection assessmentSection = change.getAssessmentSection();
+				for(AssessmentSection currentAssessmentSection:currentAssessmentSections) {
+					if(assessmentSection != null && assessmentSection.equals(currentAssessmentSection)) {
+						assessmentSection = currentAssessmentSection;
+					} else if(change.getSection().equals(currentAssessmentSection.getSection())) {
+						assessmentSection = currentAssessmentSection;
+					}
+				}
+				
+				if(assessmentSection == null) {
+					assessmentSection = assessmentSectionDao
+							.createAssessmentSection(change.getScore(), change.getPassed(), change.getSection(), assessedIdentity);
+				} else {
+					((AssessmentSectionImpl)assessmentSection).setScore(change.getScore());
+					((AssessmentSectionImpl)assessmentSection).setPassed(change.getPassed());
+					assessmentSection = assessmentSectionDao.update(assessmentSection);
+				}
+				updatedAssessmentSections.add(assessmentSection);
+			}
+
+			updateAssessmentEntry(assessedIdentity, binder, updatedAssessmentSections, coachingIdentity);
+		}
+	}
+	
+	private void updateAssessmentEntry(Identity assessedIdentity, Binder binder, Set<AssessmentSection> assessmentSections, Identity coachingIdentity) {
+		boolean allPassed = true;
+		int totalSectionPassed = 0;
+		int totalSectionClosed = 0;
+		BigDecimal totalScore = new BigDecimal("0.0");
+		AssessmentEntryStatus binderStatus = null;
+
+		for(AssessmentSection assessmentSection:assessmentSections) {
+			if(assessmentSection.getScore() != null) {
+				totalScore = totalScore.add(assessmentSection.getScore());
+			}
+			if(assessmentSection.getPassed() != null && assessmentSection.getPassed().booleanValue()) {
+				allPassed &= true;
+				totalSectionPassed++;
+			}
+			
+			Section section = assessmentSection.getSection();
+			if(section.getSectionStatus() == SectionStatus.closed) {
+				totalSectionClosed++;
+			}
+		}
+
+		Boolean totalPassed = null;
+		if(totalSectionClosed == assessmentSections.size()) {
+			totalPassed = new Boolean(allPassed);
+		} else {
+			if(assessmentSections.size() == totalSectionPassed) {
+				totalPassed = Boolean.TRUE;
+			}
+			binderStatus = AssessmentEntryStatus.inProgress;
+		}
+
+		//order status from the entry / section
+		RepositoryEntry entry = binder.getEntry();
+		if("CourseModule".equals(entry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(entry);
+			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
+			if(courseNode instanceof PortfolioCourseNode) {
+				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
+				ScoreEvaluation scoreEval= new ScoreEvaluation(totalScore.floatValue(), totalPassed, binderStatus, true, true, binder.getKey());
+				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false);
+			}
+		} else {
+			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();
+			RepositoryEntry referenceEntry = repositoryService.loadByResourceKey(resource.getKey());
+			AssessmentEntry assessmentEntry = assessmentService
+					.getOrCreateAssessmentEntry(assessedIdentity, null, binder.getEntry(), binder.getSubIdent(), referenceEntry);
+			assessmentEntry.setScore(totalScore);
+			assessmentEntry.setPassed(totalPassed);
+			assessmentEntry.setAssessmentStatus(binderStatus);
+			assessmentService.updateAssessmentEntry(assessmentEntry);
+		}
+	}
+
+	@Override
+	public AssessmentEntryStatus getAssessmentStatus(Identity assessedIdentity, BinderRef binderRef) {
+		Binder binder = binderDao.loadByKey(binderRef.getKey());
+		RepositoryEntry entry = binder.getEntry();
+		
+		AssessmentEntryStatus status = null;
+		if("CourseModule".equals(entry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(entry);
+			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
+			if(courseNode instanceof PortfolioCourseNode) {
+				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
+				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+				AssessmentEvaluation eval = pfNode.getUserScoreEvaluation(userCourseEnv);
+				status = eval.getAssessmentStatus();
+			}
+		} else {
+			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();
+			RepositoryEntry referenceEntry = repositoryService.loadByResourceKey(resource.getKey());
+			AssessmentEntry assessmentEntry = assessmentService
+					.getOrCreateAssessmentEntry(assessedIdentity, null, binder.getEntry(), binder.getSubIdent(), referenceEntry);
+			status = assessmentEntry.getAssessmentStatus();
+		}
+		return status;
+	}
+
+	@Override
+	public void setAssessmentStatus(Identity assessedIdentity, BinderRef binderRef, AssessmentEntryStatus status, Identity coachingIdentity) {
+		Boolean fullyAssessed = Boolean.FALSE;
+		if(status == AssessmentEntryStatus.done) {
+			fullyAssessed = Boolean.TRUE;
+		}
+		Binder binder = binderDao.loadByKey(binderRef.getKey());
+		RepositoryEntry entry = binder.getEntry();
+		if("CourseModule".equals(entry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(entry);
+			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
+			if(courseNode instanceof PortfolioCourseNode) {
+				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
+				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+				AssessmentEvaluation eval = pfNode.getUserScoreEvaluation(userCourseEnv);
+				
+				ScoreEvaluation scoreEval= new ScoreEvaluation(eval.getScore(), eval.getPassed(), status, true, fullyAssessed, binder.getKey());
+				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false);
+			}
+		} else {
+			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();
+			RepositoryEntry referenceEntry = repositoryService.loadByResourceKey(resource.getKey());
+			AssessmentEntry assessmentEntry = assessmentService
+					.getOrCreateAssessmentEntry(assessedIdentity, null, binder.getEntry(), binder.getSubIdent(), referenceEntry);
+			assessmentEntry.setFullyAssessed(fullyAssessed);
+			assessmentEntry.setAssessmentStatus(status);
+			assessmentService.updateAssessmentEntry(assessmentEntry);
+		}
+	}
+	
+	
+}

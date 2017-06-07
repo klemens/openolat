@@ -61,15 +61,20 @@ import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.modules.portfolio.PortfolioV2Module;
+import org.olat.modules.portfolio.ui.component.MediaCollectorComponent;
 import org.olat.modules.webFeed.FeedSecurityCallback;
 import org.olat.modules.webFeed.FeedViewHelper;
 import org.olat.modules.webFeed.managers.FeedManager;
 import org.olat.modules.webFeed.models.Feed;
 import org.olat.modules.webFeed.models.Item;
 import org.olat.modules.webFeed.models.ItemPublishDateComparator;
+import org.olat.modules.webFeed.portfolio.BlogEntryMedia;
+import org.olat.modules.webFeed.portfolio.BlogEntryMediaHandler;
 import org.olat.portfolio.EPUIFactory;
 import org.olat.user.UserManager;
 import org.olat.util.logging.activity.LoggingResourceable;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * This class is responsible for dealing with items. For internal podcasts,
@@ -108,7 +113,12 @@ public class ItemsController extends BasicController implements Activateable2 {
 	public static Event HANDLE_NEW_EXTERNAL_FEED_DIALOG_EVENT = new Event("cmd.handle.new.external.feed.dialog");
 	public static Event FEED_INFO_IS_DIRTY_EVENT = new Event("cmd.feed.info.is.dirty");
 	
-	private final UserManager userManager;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private PortfolioV2Module portfolioModule;
+	@Autowired
+	private BlogEntryMediaHandler blogMediaHandler;
 
 	/**
 	 * default constructor, with full FeedItemDisplayConfig
@@ -140,7 +150,6 @@ public class ItemsController extends BasicController implements Activateable2 {
 			final FeedSecurityCallback callback, final VelocityContainer vcRightColumn, FeedItemDisplayConfig displayConfig) {
 		super(ureq, wControl);
 		
-		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		if (displayConfig == null) {
 			displayConfig = new FeedItemDisplayConfig(true, true, true);
 		}
@@ -169,9 +178,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 		startpageLink = LinkFactory.createLink("feed.startpage", vcItems, this);
 		startpageLink.setCustomEnabledLinkCSS("o_first_page");
 
-		if (callback.mayEditItems() || callback.mayCreateItems()) {
-			createEditButtons(ureq, feed);
-		}
+		
+		createEditButtons(ureq, feed);
+	
 		// Add item details page link
 		createItemLinks(feed);
 		// Add item user comments link and rating
@@ -216,17 +225,17 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param feed the current feed object
 	 */
 	private void createEditButtons(UserRequest ureq, Feed feed) {
-		List<Item> items = feed.getItems();
+		List<Item> items = feed.getCopiedListOfItems();
 
-		editButtons = new ArrayList<Link>();
-		deleteButtons = new ArrayList<Link>();
-		artefactLinks = new HashMap<Item,Controller>();
+		editButtons = new ArrayList<>();
+		deleteButtons = new ArrayList<>();
+		artefactLinks = new HashMap<>();
 		if (feed.isInternal()) {
 			addItemButton = LinkFactory.createButtonSmall("feed.add.item", vcItems, this);
 			addItemButton.setElementCssClass("o_sel_feed_item_new");
 			if (items != null) {
 				for (Item item : items) {
-					createButtonsForItem(ureq, item);
+					createButtonsForItem(ureq, feed, item);
 				}
 			}
 		} else if (feed.isUndefined()) {
@@ -248,7 +257,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param feed
 	 */
 	private void createCommentsAndRatingsLinks(UserRequest ureq, Feed feed) {
-		List<Item> items = feed.getItems();
+		List<Item> items = feed.getCopiedListOfItems();
 		if (items != null) {
 			for (Item item : items) {
 				// Add rating and commenting controller
@@ -274,7 +283,7 @@ public class ItemsController extends BasicController implements Activateable2 {
 			boolean anonym = ureq.getUserSession().getRoles().isGuestOnly();
 			CommentAndRatingSecurityCallback secCallback = new CommentAndRatingDefaultSecurityCallback(getIdentity(), callback.mayEditMetadata(), anonym);
 			UserCommentsAndRatingsController commentsAndRatingCtr = new UserCommentsAndRatingsController(ureq, getWindowControl(), feed, item.getGuid(), secCallback, true, true, false);
-			commentsAndRatingCtr.addUserObject(item);
+			commentsAndRatingCtr.setUserObject(item);
 			listenTo(commentsAndRatingCtr);
 			commentsLinks.put(item, commentsAndRatingCtr);
 			String guid = item.getGuid();
@@ -289,19 +298,19 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * @param feed
 	 */
 	private void createDateComponents(Feed feed) {
-		List<Item> items = feed.getItems();
+		List<Item> items = feed.getCopiedListOfItems();
 		if (items != null) {
 			for (Item item : items) {
-					String guid = item.getGuid();
-					if(item.getDate() != null) {
-						DateComponentFactory.createDateComponentWithYear("date." + guid, item.getDate(), vcItems);
-					}
+				String guid = item.getGuid();
+				if(item.getDate() != null) {
+					DateComponentFactory.createDateComponentWithYear("date." + guid, item.getDate(), vcItems);
+				}
 			}			
 		}				
 	}
 	
 	private void createItemLinks(Feed feed) {
-		List<Item> items = feed.getItems();
+		List<Item> items = feed.getCopiedListOfItems();
 		itemLinks = new ArrayList<Link>();
 		if (items != null) {
 			for (Item item : items) {
@@ -332,28 +341,48 @@ public class ItemsController extends BasicController implements Activateable2 {
 	 * the items velocity container's context.
 	 */
 	public void makeInternalAndExternalButtons() {
-		makeInternalButton = LinkFactory.createButton("feed.make.internal", vcItems, this);
-		makeExternalButton = LinkFactory.createButton("feed.make.external", vcItems, this);
+		if (callback.mayEditItems() || callback.mayCreateItems()) {
+			makeInternalButton = LinkFactory.createButton("feed.make.internal", vcItems, this);
+			makeExternalButton = LinkFactory.createButton("feed.make.external", vcItems, this);
+		}
 	}
 
 	/**
 	 * @param item
 	 */
-	private void createButtonsForItem(UserRequest ureq, Item item) {
+	private void createButtonsForItem(UserRequest ureq, Feed feed, Item item) {
+		boolean author = getIdentity().getKey().equals(item.getAuthorKey());
+		boolean edit = callback.mayEditItems() || (author && callback.mayEditOwnItems());
+		boolean delete = callback.mayDeleteItems() || (author && callback.mayDeleteOwnItems());
+
 		String guid = item.getGuid();
-		Link editButton = LinkFactory.createCustomLink("feed.edit.item." + guid, "feed.edit.item." + guid, "feed.edit.item",
-				Link.BUTTON_SMALL, vcItems, this);
+		String editId = "feed.edit.item.".concat(guid);
+		Link editButton = LinkFactory.createCustomLink(editId, editId, "feed.edit.item", Link.BUTTON_SMALL, vcItems, this);
 		editButton.setElementCssClass("o_sel_feed_item_edit");
-		Link deleteButton = LinkFactory.createCustomLink("delete." + guid, "delete." + guid, "delete", Link.BUTTON_SMALL, vcItems, this);
+		editButton.setEnabled(edit);
+		editButton.setVisible(edit);
+		
+		String deleteId = "delete.".concat(guid);
+		Link deleteButton = LinkFactory.createCustomLink(deleteId, deleteId, "delete", Link.BUTTON_SMALL, vcItems, this);
 		deleteButton.setElementCssClass("o_sel_feed_item_delete");
+		deleteButton.setEnabled(delete);
+		deleteButton.setVisible(delete);
 
 		if(feedResource.isInternal() && getIdentity().getKey() != null && getIdentity().getKey().equals(item.getAuthorKey())) {
 			String businessPath = BusinessControlFactory.getInstance().getAsString(getWindowControl().getBusinessControl());
 			businessPath += "[item=" + item.getGuid() + ":0]";
-			Controller artefactCtrl = EPUIFactory.createArtefactCollectWizzardController(ureq, getWindowControl(), feedResource, businessPath);
-			if(artefactCtrl != null) {
-				artefactLinks.put(item, artefactCtrl);
-				vcItems.put("feed.artefact.item." + guid, artefactCtrl.getInitialComponent());
+			
+			if(portfolioModule.isEnabled()) {
+				String name = "feed.artefact.item.".concat(guid);
+				BlogEntryMedia media = new BlogEntryMedia(feed, item);
+				MediaCollectorComponent collectorCmp = new MediaCollectorComponent(name, getWindowControl(), media, blogMediaHandler, businessPath);
+				vcItems.put(name, collectorCmp);
+			} else {
+				Controller artefactCtrl = EPUIFactory.createArtefactCollectWizzardController(ureq, getWindowControl(), feedResource, businessPath);
+				if(artefactCtrl != null) {
+					artefactLinks.put(item, artefactCtrl);
+					vcItems.put("feed.artefact.item.".concat(guid), artefactCtrl.getInitialComponent());
+				}
 			}
 		}
 		
@@ -477,25 +506,19 @@ public class ItemsController extends BasicController implements Activateable2 {
 
 		} else if (source == olderItemsLink) {
 			helper.olderItems();
-			if (callback.mayEditItems() || callback.mayCreateItems()) {
-				createEditButtons(ureq, feed);
-			}
+			createEditButtons(ureq, feed);
 			createCommentsAndRatingsLinks(ureq, feed);
 			vcItems.setDirty(true);
 
 		} else if (source == newerItemsLink) {
 			helper.newerItems();
-			if (callback.mayEditItems() || callback.mayCreateItems()) {
-				createEditButtons(ureq, feed);
-			}
+			createEditButtons(ureq, feed);
 			createCommentsAndRatingsLinks(ureq, feed);
 			vcItems.setDirty(true);
 
 		} else if (source == startpageLink) {
 			helper.startpage();
-			if (callback.mayEditItems() || callback.mayCreateItems()) {
-				createEditButtons(ureq, feed);
-			}
+			createEditButtons(ureq, feed);
 			createCommentsAndRatingsLinks(ureq, feed);
 			vcItems.setDirty(true);
 
@@ -603,28 +626,39 @@ public class ItemsController extends BasicController implements Activateable2 {
 						if (!feed.getItems().contains(currentItem)) {
 							// Add the modified item if it is not part of the feed
 							feed = feedManager.addItem(currentItem, mediaFile, feed);
-							createButtonsForItem(ureq, currentItem);
-							createItemLink(currentItem);
-							// Add date component
-							String guid = currentItem.getGuid();
-							if(currentItem.getDate() != null) {
-								DateComponentFactory.createDateComponentWithYear("date." + guid, currentItem.getDate(), vcItems);
+							if(feed == null) {
+								//the item could not be added, is not internal
+								feed = feedManager.getFeed(feedResource);
+								if(!feed.isInternal() && !feed.isExternal() && !feed.hasItems()) {
+									feed = feedManager.updateFeedMode(Boolean.FALSE, feed);
+									feed = feedManager.addItem(currentItem, mediaFile, feed);
+								}
 							}
-							// Add comments and rating
-							createCommentsAndRatingsLink(ureq, feed, currentItem);
-							// add it to the navigation controller
-							naviCtr.add(currentItem);
-							// ... and also to the helper
-							helper.addItem(currentItem);
-							if (feed.getItems() != null && feed.getItems().size() == 1) {
-								// First item added, show feed url (for subscription)
-								fireEvent(ureq, ItemsController.FEED_INFO_IS_DIRTY_EVENT);
-								// Set the base URI of the feed for the current user. All users
-								// have unique URIs.
-								helper.setURIs();
+							
+							if(feed != null) {
+								createButtonsForItem(ureq, feed, currentItem);
+								createItemLink(currentItem);
+								// Add date component
+								String guid = currentItem.getGuid();
+								if(currentItem.getDate() != null) {
+									DateComponentFactory.createDateComponentWithYear("date." + guid, currentItem.getDate(), vcItems);
+								}
+								// Add comments and rating
+								createCommentsAndRatingsLink(ureq, feed, currentItem);
+								// add it to the navigation controller
+								naviCtr.add(currentItem);
+								// ... and also to the helper
+								helper.addItem(currentItem);
+								if (feed.getItems() != null && feed.getItems().size() == 1) {
+									// First item added, show feed url (for subscription)
+									fireEvent(ureq, ItemsController.FEED_INFO_IS_DIRTY_EVENT);
+									// Set the base URI of the feed for the current user. All users
+									// have unique URIs.
+									helper.setURIs();
+								}
+								// do logging
+								ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_ITEM_CREATE, getClass(), LoggingResourceable.wrap(currentItem));
 							}
-							// do logging
-							ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_ITEM_CREATE, getClass(), LoggingResourceable.wrap(currentItem));
 						} else {
 							// Write item file
 							feed = feedManager.updateItem(currentItem, mediaFile, feed);
@@ -700,7 +734,9 @@ public class ItemsController extends BasicController implements Activateable2 {
 		}
 		
 		// Check if someone else added an item, reload everything
-		if (!isSameAllItems(feed.getFilteredItems(callback, ureq.getIdentity()))) {
+		if (feed == null) {
+			//do something
+		} else if(!isSameAllItems(feed.getFilteredItems(callback, getIdentity()))) {
 			resetItems(ureq, feed);
 		}
 	}

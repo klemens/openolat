@@ -1,4 +1,6 @@
-$r.render("contextualSubscription")
+#if($r.available("contextualSubscription"))
+	<div class="clearfix">$r.render("contextualSubscription")</div>
+#end
 
 #if($groupName && !$groupName.isEmpty())
 	<h4>
@@ -16,7 +18,7 @@ $r.render("contextualSubscription")
 #if($assignmentEnabled)
 	<div class="o_step $assignmentCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_assignement_content" data-toggle="collapse" aria-expanded="$collapse_assignement">$r.translate("run.assignment.title")</a></h4>
+		<h4 class="o_title"> <a href="#o_step_assignement_content" data-toggle="collapse" aria-expanded="$collapse_assignement" #if(!$collapse_assignement) class="collapsed" #end>$r.translate("run.assignment.title")</a></h4>
 		#if($assignmentDueDate)
 			<div class="o_meta">$r.translate("run.assignment.due.date", $assignmentDueDate)</div>
 		#elseif($assignmentDueDateMsg)
@@ -34,9 +36,9 @@ $r.render("contextualSubscription")
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_assignement_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=assignment');
+	  		$r.backgroundCommand("hide","step","assignment")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=assignment');
+			$r.backgroundCommand("show","step","assignment")
 		})
 	/* ]]> */</script>
 #end
@@ -44,7 +46,7 @@ $r.render("contextualSubscription")
 #if($submitEnabled)
 	<div class="o_step $submitCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_submit_content" data-toggle="collapse" aria-expanded="$collapse_submit">$r.translate("run.submit")</a></h4>
+		<h4 class="o_title"> <a href="#o_step_submit_content" data-toggle="collapse" aria-expanded="$collapse_submit" #if(!$collapse_submit) class="collapsed" #end>$r.translate("run.submit")</a></h4>
 		#if($submitDueDate)
 			<div class="o_meta">$r.translate("run.submit.due.date", $submitDueDate)</div>
 		#elseif($submitDueDateMsg)
@@ -58,13 +60,27 @@ $r.render("contextualSubscription")
 			<br />
 			$r.translate("coach.waiting.submitted.documents.description")
 		#end
+		#if($r.available("coach.collect.task") && $r.visible("coach.collect.task"))
+			<h5>$r.translate("coach.collect.confirm.title")</h5>
+			<p>$r.translate("coach.collect.confirm.desc")</p>
+			<div class="o_button_group">
+				$r.render("coach.collect.task")
+			</div>
+		#end
+		#if($r.available("coach.back.to.submission") && $r.visible("coach.back.to.submission"))
+			<h5>$r.translate("coach.back.to.submission.confirm.title")</h5>
+			<p>$r.translate("coach.back.to.submission.desc")</p>
+			<div class="o_button_group">
+				$r.render("coach.back.to.submission")
+			</div>
+		#end
 		</div>
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_submit_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=submit');
+	  		$r.backgroundCommand("hide","step","submit")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=submit');
+			$r.backgroundCommand("show","step","submit")
 		})
 	/* ]]> */</script>
 #end
@@ -72,11 +88,17 @@ $r.render("contextualSubscription")
 #if($reviewAndCorrectionEnabled)
 	<div class="o_step $reviewCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_review_content" data-toggle="collapse" aria-expanded="$collapse_reviewAndCorrection">$r.translate("run.review")</a></h4>
+		<h4 class="o_title"> <a href="#o_step_review_content" data-toggle="collapse" aria-expanded="$collapse_reviewAndCorrection" #if(!$collapse_reviewAndCorrection) class="collapsed" #end>$r.translate("run.review")</a></h4>
 		<div id="o_step_review_content" class="o_content collapse #if($collapse_reviewAndCorrection) in #end" aria-expanded="$collapse_reviewAndCorrection">
 		#if($r.available("corrections"))
+			<h5>$r.translate("coach.feedback.documents.title")</h5>
+			<p>$r.translate("coach.feedback.documents.desc")</p>
 			$r.render("corrections")
+			
 			#if($r.visible("coach.reviewed.button") || $r.visible("coach.need.revision.button"))
+				<h5>$r.translate("coach.verdict.title")</h5>
+				<p>$r.translate("coach.verdict.desc")</p>
+			
 				<div class="o_button_group">
 				#if($r.visible("coach.need.revision.button"))
 					$r.render("coach.need.revision.button")
@@ -91,9 +113,9 @@ $r.render("contextualSubscription")
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_review_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=reviewAndCorrection');
+	  		$r.backgroundCommand("hide","step","reviewAndCorrection")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=reviewAndCorrection');
+			$r.backgroundCommand("show","step","reviewAndCorrection")
 		})
 	/* ]]> */</script>
 #end
@@ -101,7 +123,7 @@ $r.render("contextualSubscription")
 #if($revisionEnabled  && !$skipRevisions)
 	<div class="o_step $revisionCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_revision_content" data-toggle="collapse" aria-expanded="$collapse_revision">$r.translate("run.revision")</a></h4>
+		<h4 class="o_title"> <a href="#o_step_revision_content" data-toggle="collapse" aria-expanded="$collapse_revision" #if(!$collapse_revision) class="collapsed" #end>$r.translate("run.revision")</a></h4>
 		<div id="o_step_revision_content" class="o_content collapse #if($collapse_revision) in #end" aria-expanded="$collapse_revision">
 		#if($r.available("revisionDocs"))
 			$r.render("revisionDocs")
@@ -110,9 +132,9 @@ $r.render("contextualSubscription")
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_revision_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=revision');
+	  		$r.backgroundCommand("hide","step","revision")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=revision');
+			$r.backgroundCommand("show","step","revision")
 		})
 	/* ]]> */</script>
 #end
@@ -120,7 +142,7 @@ $r.render("contextualSubscription")
 #if($solutionEnabled)
 	<div class="o_step $solutionCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_solution_content" data-toggle="collapse" aria-expanded="$collapse_solution">$r.translate("run.solution")</a></h4>
+		<h4 class="o_title"> <a href="#o_step_solution_content" data-toggle="collapse" aria-expanded="$collapse_solution" #if(!$collapse_solution) class="collapsed" #end>$r.translate("run.solution")</a></h4>
 		#if($solutionAvailableDate)
 			<div class="o_meta">$r.translate("run.solution.available.date", $solutionAvailableDate)</div>
 		#elseif($solutionAvailableDateMsg)
@@ -134,9 +156,9 @@ $r.render("contextualSubscription")
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_solution_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=solution');
+	  		$r.backgroundCommand("hide","step","solution")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=solution');
+			$r.backgroundCommand("show","step","solution")
 		})
 	/* ]]> */</script>
 #end
@@ -144,32 +166,31 @@ $r.render("contextualSubscription")
 #if($gradingEnabled)
 	<div class="o_step $gradingCssClass">
 		<div class="o_bar"></div>
-		<h4 class="o_title"> <a href="#o_step_grading_content" data-toggle="collapse" aria-expanded="$collapse_grading">$r.translate("run.grading")</a></h4>
-		<div id="o_step_grading_content" class="o_content collpase #if($collapse_grading) in #end" aria-expanded="$collapse_grading">
+		<h4 class="o_title"> <a href="#o_step_grading_content" data-toggle="collapse" aria-expanded="$collapse_grading" #if(!$collapse_grading) class="collapsed" #end>$r.translate("run.grading")</a></h4>
+		<div id="o_step_grading_content" class="o_content collapse #if($collapse_grading) in #end" aria-expanded="$collapse_grading">
 		#if($r.available("grading"))
 			$r.render("grading")
 		#end
 		</div>
-		#if($userLog || $groupLog)
-		<div class="o_box">
-		    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
-			#if($groupLog)
-		    <pre class="small">$groupLog</pre>
-		    #end
-		    #if($userLog)
-		    <pre class="small">$userLog</pre>
-		    #end
-		    #o_togglebox_end()
-		</div>
-		#end
 	</div>
 	<script type='text/javascript'>/* <![CDATA[ */
 		jQuery('#o_step_grading_content').on('hide.bs.collapse', function () {
-	  		o_ffXHRNFEvent('$r.commandURIbg("hide")?step=grading');
+	  		$r.backgroundCommand("hide","step","grading")
 		}).on('show.bs.collapse', function () {
-			o_ffXHRNFEvent('$r.commandURIbg("show")?step=grading');
+			$r.backgroundCommand("show","step","grading")
 		})
 	/* ]]> */</script>
 #end
-
 </div>
+#if($userLog || $groupLog)
+<div class="o_box">
+    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
+	#if($groupLog)
+    <pre class="small">$groupLog</pre>
+    #end
+    #if($userLog)
+    <pre class="small">$userLog</pre>
+    #end
+    #o_togglebox_end()
+</div>
+#end

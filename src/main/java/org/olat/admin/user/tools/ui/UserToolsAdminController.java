@@ -25,7 +25,6 @@ import java.util.Set;
 
 import org.olat.admin.user.tools.UserToolExtension;
 import org.olat.admin.user.tools.UserToolsModule;
-import org.olat.core.extensions.ExtManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -49,8 +48,6 @@ public class UserToolsAdminController extends FormBasicController {
 	private MultipleSelectionElement availableEl, presetEl;
 	
 	@Autowired
-	private ExtManager extManager;
-	@Autowired
 	private UserToolsModule userToolsModule;
 	
 	public UserToolsAdminController(UserRequest ureq, WindowControl wControl) {
@@ -64,7 +61,6 @@ public class UserToolsAdminController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("usertools");
 		setFormDescription("usertools.description");
-		setFormContextHelp("org.olat.admin.user.tools.ui", "admin-usertools.html", "help.hover.adminusertools");
 
 		int numOfTools = userTools.size();
 		String[] toolKeys = new String[numOfTools];

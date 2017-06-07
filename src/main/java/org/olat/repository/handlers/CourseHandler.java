@@ -58,7 +58,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.CodeHelper;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.PathUtils;
@@ -68,7 +67,6 @@ import org.olat.core.util.WebappHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
-import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.nodes.INode;
@@ -87,7 +85,6 @@ import org.olat.course.config.CourseConfig;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.PersistingCourseGroupManager;
-import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.CourseRuntimeController;
 import org.olat.course.run.RunMainController;
 import org.olat.course.tree.CourseEditorTreeNode;
@@ -145,27 +142,10 @@ public class CourseHandler implements RepositoryHandler {
 		OLATResource resource = OLATResourceManager.getInstance().createOLATResourceInstance(CourseModule.class);
 		RepositoryEntry re = repositoryService.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
 		DBFactory.getInstance().commit();
-		
-		ICourse course = CourseFactory.createEmptyCourse(resource, "New Course", "New Course", "");
-		course = CourseFactory.openCourseEditSession(re.getOlatResource().getResourceableId());
-		
+
 		String shortDisplayname = Formatter.truncateOnly(displayname, 25);
-		CourseNode runRootNode = course.getRunStructure().getRootNode();
-		runRootNode.setShortTitle(shortDisplayname); //do not use truncate!
-		runRootNode.setLongTitle(displayname);
-		
-		//enable efficiency statement per default
-		CourseConfig courseConfig = course.getCourseEnvironment().getCourseConfig();
-		courseConfig.setEfficencyStatementIsEnabled(true);
-		CourseFactory.setCourseConfig(course.getResourceableId(), courseConfig);
-		
-		CourseNode rootNode = ((CourseEditorTreeNode)course.getEditorTreeModel().getRootNode()).getCourseNode();
-		rootNode.setShortTitle(shortDisplayname); //do not use truncate!
-		rootNode.setLongTitle(displayname);
-		
-		CourseFactory.saveCourse(course.getResourceableId());
-		CourseFactory.closeCourseEditSession(course.getResourceableId(), true);
-		
+		ICourse course = CourseFactory.createCourse(re, shortDisplayname, displayname, "");
+		log.audit("Course created: " + course.getCourseTitle());
 		return re;
 	}
 	
@@ -241,15 +221,11 @@ public class CourseHandler implements RepositoryHandler {
 		if (course == null) {
 			return null;
 		}
-		
-		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
-		OLATResource courseResource = cgm.getCourseResource();
-		
+
 		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry re = repositoryService
-				.create(initialAuthor, null, "", displayname, description, courseResource, RepositoryEntry.ACC_OWNERS);
+				.create(initialAuthor, null, "", displayname, description, newCourseResource, RepositoryEntry.ACC_OWNERS);
 		DBFactory.getInstance().commit();
-		
 
 		// create empty run structure
 		course = CourseFactory.openCourseEditSession(course.getResourceableId());
@@ -268,12 +244,13 @@ public class CourseHandler implements RepositoryHandler {
 		}
 
 		// create group management / import groups
-		cgm = course.getCourseEnvironment().getCourseGroupManager();
+		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
 		File fImportBaseDirectory = course.getCourseExportDataDir().getBasefile();
 		CourseEnvironmentMapper envMapper = cgm.importCourseBusinessGroups(fImportBaseDirectory);
+		envMapper.setAuthor(initialAuthor);
 		//upgrade course
 		course = CourseFactory.loadCourse(cgm.getCourseResource());
-		course.postImport(envMapper);
+		course.postImport(fImportBaseDirectory, envMapper);
 		
 		//rename root nodes
 		course.getRunStructure().getRootNode().setShortTitle(Formatter.truncateOnly(displayname, 25)); //do not use truncate!
@@ -431,18 +408,19 @@ public class CourseHandler implements RepositoryHandler {
 		CourseFactory.copyCourse(sourceResource, targetResource);
 		 
 		//transaction copied
-		ICourse sourceCourse = CourseFactory.loadCourse(source.getOlatResource().getResourceableId());
+		ICourse sourceCourse = CourseFactory.loadCourse(source);
 		CourseGroupManager sourceCgm = sourceCourse.getCourseEnvironment().getCourseGroupManager();
-		CourseEnvironmentMapper env = PersistingCourseGroupManager.getInstance(sourceCourse).getBusinessGroupEnvironment();
+		CourseEnvironmentMapper env = PersistingCourseGroupManager.getInstance(sourceResource).getBusinessGroupEnvironment();
 			
 		File fExportDir = new File(WebappHelper.getTmpDir(), UUID.randomUUID().toString());
 		fExportDir.mkdirs();
 		sourceCgm.exportCourseBusinessGroups(fExportDir, env, false, false);
 
-		ICourse course = CourseFactory.loadCourse(target.getOlatResource().getResourceableId());
+		ICourse course = CourseFactory.loadCourse(target);
 		CourseGroupManager cgm = course.getCourseEnvironment().getCourseGroupManager();
 		// import groups
 		CourseEnvironmentMapper envMapper = cgm.importCourseBusinessGroups(fExportDir);
+		envMapper.setAuthor(author);
 		//upgrade to the current version of the course
 		course = CourseFactory.loadCourse(cgm.getCourseResource());
 		course.postCopy(envMapper, sourceCourse);
@@ -465,7 +443,8 @@ public class CourseHandler implements RepositoryHandler {
 				RuleSPI ruleSpi = reminderModule.getRuleSPIByType(rule.getType());
 				if(ruleSpi != null) {
 					ReminderRule clonedRule = ruleSpi.clone(rule, envMapper);
-					clonedRules.getRules().add(clonedRule);
+					if (clonedRule != null) 
+						clonedRules.getRules().add(clonedRule);
 				}
 			}
 
@@ -491,6 +470,11 @@ public class CourseHandler implements RepositoryHandler {
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.yes;
 	}
+	
+	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
+	}
 
 	@Override
 	public MainLayoutController createLaunchController(RepositoryEntry re, RepositoryEntrySecurity reSecurity, UserRequest ureq, WindowControl wControl) {
@@ -499,10 +483,15 @@ public class CourseHandler implements RepositoryHandler {
 					@Override
 					public Controller create(UserRequest uureq, WindowControl wwControl, TooledStackedPanel toolbarPanel,
 							RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
-						ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+						ICourse course = CourseFactory.loadCourse(entry);
 						return new RunMainController(uureq, wwControl, toolbarPanel, course, entry, security, assessmentMode);
 					}
 			}, true, true);
+	}
+
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	@Override
@@ -534,14 +523,14 @@ public class CourseHandler implements RepositoryHandler {
 
 	@Override
 	public Controller createEditorController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar) {
-		return CourseFactory.createEditorController(ureq, wControl, toolbar, re.getOlatResource(), null);
+		return CourseFactory.createEditorController(ureq, wControl, toolbar, re, null);
 	}
 
 	@Override
 	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		// load the course structure
 		final RepositoryEntry repoEntry = (RepositoryEntry) res;
-		ICourse course = CourseFactory.loadCourse(repoEntry.getOlatResource());
+		ICourse course = CourseFactory.loadCourse(repoEntry);
 		Translator cceTranslator = Util.createPackageTranslator(CourseCreationHelper.class, ureq.getLocale());
 		final CourseCreationConfiguration courseConfig = new CourseCreationConfiguration(course.getCourseTitle(), Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + repoEntry.getKey());
 		// wizard finish callback called after "finish" is called
@@ -594,29 +583,6 @@ public class CourseHandler implements RepositoryHandler {
 			log.error("The course is corrupted, cannot archive it: " + entry, e);
 		}
 		return true;
-	}
-	
-	/**
-	 * Archive the hole course with runtime-data and course-structure-data.
-	 * @see org.olat.repository.handlers.RepositoryHandler#archive(java.lang.String, org.olat.repository.RepositoryEntry)
-	 */
-	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry entry) {
-		ICourse course = CourseFactory.loadCourse(entry.getOlatResource() );
-		// Archive course runtime data (like delete course, archive e.g. logfiles, node-data)
-		File tmpExportDir = new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID());
-		tmpExportDir.mkdirs();
-		CourseFactory.archiveCourse(archiveOnBehalfOf, course, WebappHelper.getDefaultCharset(), I18nModule.getDefaultLocale(), tmpExportDir , true);
-		// Archive course run structure (like course export)
-		String courseExportFileName = "course_export.zip";
-		File courseExportZIP = new File(tmpExportDir, courseExportFileName);
-		CourseFactory.exportCourseToZIP(entry.getOlatResource(), courseExportZIP, true, false);
-		// Zip runtime data and course run structure data into one zip-file
-		String completeArchiveFileName = "del_course_" + entry.getOlatResource().getResourceableId() + ".zip";
-		String completeArchivePath = archivFilePath + File.separator + completeArchiveFileName;
-		ZipUtil.zipAll(tmpExportDir, new File(completeArchivePath), false);
-		FileUtils.deleteDirsAndFiles(tmpExportDir, true, true);
-		return completeArchiveFileName;
 	}
 
 	@Override

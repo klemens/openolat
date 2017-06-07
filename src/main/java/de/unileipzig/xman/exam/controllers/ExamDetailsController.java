@@ -19,6 +19,8 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.manager.CatalogManager;
 
+import de.unileipzig.xman.appointment.Appointment;
+import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 
@@ -73,7 +75,8 @@ public class ExamDetailsController extends BasicController implements ExamContro
 			baseVC.contextPut("showClosedInfo", true);
 		}
 
-		if(showWarnings) {
+		// only show publication warnings if requested and at least one appointment exists
+		if(showWarnings && AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
 			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
 
 			// private warning

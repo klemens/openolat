@@ -26,6 +26,8 @@
 
 package org.olat.core.commons.modules.singlepage;
 
+import java.util.List;
+
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.editor.htmleditor.WysiwygFactory;
 import org.olat.core.gui.UserRequest;
@@ -41,12 +43,14 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.clone.CloneableController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.gui.control.generic.iframe.IFrameDisplayController;
 import org.olat.core.gui.control.generic.iframe.NewIframeUriEvent;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
@@ -67,7 +71,7 @@ import org.olat.core.util.vfs.VFSContainer;
  *
  * @author gnaegi 
  */
-public class SinglePageController extends BasicController implements CloneableController {
+public class SinglePageController extends BasicController implements CloneableController, Activateable2 {
 
 	private static final OLog log = Tracing.createLoggerFor(SinglePageController.class);
 	
@@ -81,6 +85,8 @@ public class SinglePageController extends BasicController implements CloneableCo
 	private final VelocityContainer myContent;
 	private CustomLinkTreeModel customLinkTreeModel;
 
+	private final String frameId;
+	private final boolean randomizeMapper;
 	private final DeliveryOptions deliveryOptions;
 	
 	private String g_curURI;
@@ -104,7 +110,7 @@ public class SinglePageController extends BasicController implements CloneableCo
 	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName,
 			boolean allowRelativeLinks) {
 		//default behavior is to show the home link in a single page
-		this(ureq, wControl, rootContainer, fileName, allowRelativeLinks, null, null);
+		this(ureq, wControl, rootContainer, fileName, allowRelativeLinks, null, null, null, false);
 	}
 
 	 /**
@@ -129,7 +135,8 @@ public class SinglePageController extends BasicController implements CloneableCo
 	  * 
 	  */
 	public SinglePageController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, String fileName,
-			boolean allowRelativeLinks, OLATResourceable contextResourcable, DeliveryOptions config) {
+			boolean allowRelativeLinks, String frameId, OLATResourceable contextResourcable, DeliveryOptions config,
+			boolean randomizeMapper) {
 		super(ureq, wControl);
 		
 		SimpleStackedPanel mainP = new SimpleStackedPanel("iframemain");
@@ -142,6 +149,8 @@ public class SinglePageController extends BasicController implements CloneableCo
 		this.g_allowRelativeLinks = allowRelativeLinks;
 		this.g_fileName = fileName;
 		this.g_rootContainer = rootContainer;
+		this.frameId = frameId;
+		this.randomizeMapper = randomizeMapper;
 		boolean jumpIn = false;
 		
 		// strip beginning slash
@@ -166,6 +175,7 @@ public class SinglePageController extends BasicController implements CloneableCo
 		}
 		
 		// adjust root folder if security does not allow using ../.. etc.
+		// *** IF YOU CHANGE THIS LOGIC, do also change it in SPCourseNodeIndexer! ***
 		if (!allowRelativeLinks && !jumpIn) {
 			// start uri is filename without relative path.
 			// the relative path of the file is added to the vfs rootcontainer
@@ -188,7 +198,8 @@ public class SinglePageController extends BasicController implements CloneableCo
 		// g_new_rootContainer : the given rootcontainer or adjusted in case when relativelinks are not allowed		
 		
 		// Display in iframe when
-		idc = new IFrameDisplayController(ureq, getWindowControl(), g_new_rootContainer, contextResourcable, deliveryOptions);
+		idc = new IFrameDisplayController(ureq, getWindowControl(), g_new_rootContainer,
+				frameId, contextResourcable, deliveryOptions, false, randomizeMapper);
 		listenTo(idc);
 			
 		idc.setCurrentURI(startURI);
@@ -296,9 +307,17 @@ public class SinglePageController extends BasicController implements CloneableCo
 	 */
 	@Override
 	public Controller cloneController(UserRequest ureq, WindowControl control) {
-		return new SinglePageController(ureq, control, g_rootContainer, g_fileName, g_allowRelativeLinks, null, deliveryOptions);
+		return new SinglePageController(ureq, control, g_rootContainer, g_fileName, g_allowRelativeLinks, frameId, null, deliveryOptions, randomizeMapper);
 	}
 
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty() || idc == null) return;
+		// delegate to iframe controller
+		idc.activate(ureq, entries, state);
+	}
+
+	
 	/**
 	 * Set a scale factor to enlarge / shrink the entire page. This is handy when
 	 * a preview of a page should be displayed.
@@ -309,37 +328,38 @@ public class SinglePageController extends BasicController implements CloneableCo
 	 * @param hideOverflow true: don't show scroll-bars; false: default behavior with scroll-bars
 	 */
 	public void setScaleFactorAndHeight(float scaleFactor, int displayHeight, boolean hideOverflow) {
-		String cssRule = "";
-		// add rule for scaling
-		if (scaleFactor > 0 && scaleFactor != 1) {
-			String formattedScaleFactor = Formatter.roundToString(scaleFactor, 2);
-			cssRule = "zoom: " + formattedScaleFactor + "; -moz-transform: scale(" + formattedScaleFactor + ");";								
-		}
-		// add rule to set fix height
-		if (displayHeight > 0) {
-			if (idc != null)  {
-				idc.setHeightPX(displayHeight);
-			} else {
-				// add to rule for html component, so such feature available
-				cssRule += "height: " + displayHeight + "px;";
+		if ((scaleFactor > 0 && scaleFactor != 1) || hideOverflow || displayHeight > 0) {
+			StringBuilder cssRule = new StringBuilder(128);
+			StringBuilder ieCssRule = new StringBuilder(32);
+			// add rule for scaling
+			if (scaleFactor > 0 && scaleFactor != 1) {
+				String formattedScaleFactor = Formatter.roundToString(scaleFactor, 2);
+				cssRule.append("transform: scale(").append(formattedScaleFactor).append("); transform-origin: top;")
+				       .append("--webkit-transform: scale(").append(formattedScaleFactor).append("); --webkit-transform-origin: top;")
+				       .append("--moz-transform: scale(").append(formattedScaleFactor).append("); --moz-transform-origin: top;");
+				
+				ieCssRule.append("zoom: ").append(formattedScaleFactor).append(";");
 			}
-		}
-		// add overflow rule
-		if (hideOverflow) {
-			cssRule += "overflow: hidden;";
-		}
-		// cleanup
-		if (cssRule.length() == 0) {
-			cssRule = null;
-		}
-
-		// apply css rule to iframe controller or html component
-		if (idc != null) {
-			if (cssRule == null) {
-				idc.setCustomHeaderContent(null);
-			} else {
-				idc.setCustomHeaderContent("<style type='text/css'>body {" + cssRule + "}</style>");								
+			// add rule to set fix height
+			if (displayHeight > 0) {
+				if (idc != null)  {
+					idc.setHeightPX(displayHeight);
+				} else {
+					// add to rule for html component, so such feature available
+					cssRule.append("height: ").append(displayHeight).append("px;");
+				}
 			}
+			// add overflow rule
+			if (hideOverflow) {
+				cssRule.append("overflow: hidden;");
+			}
+			
+			StringBuilder header = new StringBuilder(256);
+			header.append("<style type='text/css'>body {").append(cssRule).append("}</style>");
+			header.append("<!--[if lt IE 10]><style type='text/css'>body {").append(ieCssRule).append("}</style><![endif]-->");
+			idc.setCustomHeaderContent(header.toString());								
+		} else {
+			idc.setCustomHeaderContent(null);
 		}
 	}
 }

@@ -28,16 +28,12 @@ package org.olat.course.condition.interpreter;
 import java.lang.reflect.Field;
 import java.text.ParseException;
 import java.util.Collection;
-import java.util.Date;
-import java.util.List;
 
 import org.olat.core.gui.translator.Translator;
-import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
 import org.olat.core.logging.OLATRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.score.GetPassedFunction;
@@ -46,8 +42,6 @@ import org.olat.course.condition.interpreter.score.GetScoreFunction;
 import org.olat.course.condition.interpreter.score.GetScoreWithCourseIdFunction;
 import org.olat.course.db.interpreter.GetUserCourseDBFunction;
 import org.olat.course.editor.CourseEditorEnv;
-import org.olat.course.groupsandrights.CourseGroupManager;
-import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.course.run.userview.UserCourseEnvironment;
 
 import com.neemsoft.jmep.Environment;
@@ -101,6 +95,7 @@ public class ConditionInterpreter {
 		env.addVariable(NowVariable.name, new NowVariable(userCourseEnv));
 		env.addVariable(TodayVariable.name, new TodayVariable(userCourseEnv));
 		env.addVariable(NeverVariable.name, new NeverVariable(userCourseEnv));
+		env.addVariable(AnyCourseVariable.name, new AnyCourseVariable());
 
 		// functions
 		env.addFunction(DateFunction.name, new DateFunction(userCourseEnv));
@@ -126,6 +121,19 @@ public class ConditionInterpreter {
 		env.addFunction(eaf.name, eaf);
 		eaf = new EvalAttributeFunction(userCourseEnv, EvalAttributeFunction.FUNCTION_TYPE_ATTRIBUTE_STARTS_WITH);
 		env.addFunction(eaf.name, eaf);
+		EvalUserPropertyFunction eupf;
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_HAS_NOT_PROPERTY);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_HAS_NOT_PROPERTY, eupf);
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_HAS_PROPERTY);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_HAS_PROPERTY, eupf);
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_IS_IN_PROPERTY);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_IS_IN_PROPERTY, eupf);
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_IS_NOT_IN_PROPERTY);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_IS_NOT_IN_PROPERTY, eupf);
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_PROPERTY_ENDS_WITH);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_PROPERTY_ENDS_WITH, eupf);
+		eupf = new EvalUserPropertyFunction(userCourseEnv, EvalUserPropertyFunction.FUNCTION_TYPE_PROPERTY_STARTS_WITH);
+		env.addFunction(EvalUserPropertyFunction.FUNCTION_NAME_PROPERTY_STARTS_WITH, eupf);
 		env.addFunction(GetUserPropertyFunction.name, new GetUserPropertyFunction(userCourseEnv));
 		env.addFunction(GetUserCourseDBFunction.name, new GetUserCourseDBFunction(userCourseEnv));
 		env.addFunction(HasLanguageFunction.name, new HasLanguageFunction(userCourseEnv));
@@ -286,103 +294,7 @@ public class ConditionInterpreter {
 	 * @return True if evaluation successfull.
 	 */
 	public boolean evaluateCondition(Condition c) {
-		if (!c.isExpertMode() && (c.getAttributeConditions() == null || c.getAttributeConditions().isEmpty())) {
-			//experimental optimized evaluation of the easy conditions
-			//return evaluateEasyCondition(c);
-		}
 		return evaluateCondition(c.getConditionExpression());
-	}
-	
-	public boolean evaluateEasyCondition(Condition c) {
-		// (begin && end && (groups || areas) && passedNode && coachAdmin) | alwayscoachAdmin
-		boolean eval = evaluateBegin(c) && evaluateEnd(c)
-				&& (evaluateGroups(c) || evaluateAreas(c))
-				&& evaluatePassedNode(c)
-				&& evaluateCoachesAndAdmins(c);
-		
-		if(!eval && c.isEasyModeAlwaysAllowCoachesAndAdmins()) {
-			Identity ident = uce.getIdentityEnvironment().getIdentity();
-			CourseGroupManager cgm = uce.getCourseEnvironment().getCourseGroupManager();
-			if(cgm.isIdentityCourseCoach(ident) || cgm.isIdentityCourseAdministrator(ident)) {
-				eval = true;
-			}
-		}
-		return eval;
-	}
-	
-	private boolean evaluateBegin(Condition c) {
-		String beginDateStr = c.getEasyModeBeginDate();
-		if(StringHelper.containsNonWhitespace(beginDateStr)) {
-			Date begin = ConditionDateFormatter.parse(beginDateStr);
-			return (new Date().compareTo(begin) >= 0);
-		}
-		return true;
-	}
-	
-	private boolean evaluateEnd(Condition c) {
-		String endDateStr = c.getEasyModeEndDate();
-		if(StringHelper.containsNonWhitespace(endDateStr)) {
-			Date end = ConditionDateFormatter.parse(endDateStr);
-			return (new Date().compareTo(end) <= 0);
-		}
-		return true;
-	}
-	
-	private boolean evaluateGroups(Condition c) {
-		if (c.getEasyModeGroupAccessIdList() != null) { 
-			List<Long> groupKeys = c.getEasyModeGroupAccessIdList();
-			Identity ident = uce.getIdentityEnvironment().getIdentity();
-			CourseGroupManager cgm = uce.getCourseEnvironment().getCourseGroupManager();
-			for(Long groupKey:groupKeys) {
-				if(cgm.isIdentityInGroup(ident, groupKey)) {
-					return true;
-				}
-			}
-			return false;
-		} else {
-			return true;
-		}
-	}
-
-	private boolean evaluateAreas(Condition c) {
-		if (c.getEasyModeGroupAreaAccessIdList() != null) {
-			List<Long> areaKeys = c.getEasyModeGroupAreaAccessIdList();
-			Identity ident = uce.getIdentityEnvironment().getIdentity();
-			CourseGroupManager cgm = uce.getCourseEnvironment().getCourseGroupManager();
-			for(Long areaKey:areaKeys) {
-				if(cgm.isIdentityInLearningArea(ident, areaKey)) {
-					return true;
-				}
-			}
-			return false;
-		}
-		return true;
-	}
-	
-	private boolean evaluatePassedNode(Condition c) {
-		if (c.getEasyModeNodePassedId() != null) {
-			if (c.getEasyModeCutValue() != null) {
-				ScoreAccounting sa = uce.getScoreAccounting();
-				Float score = sa.evalScoreOfCourseNode(c.getEasyModeNodePassedId());
-				Double dscore = new Double(score.doubleValue());
-				Double cutValue = new Double(c.getEasyModeCutValue());
-				return cutValue.compareTo(dscore) <= 0;
-			} else {
-				ScoreAccounting sa = uce.getScoreAccounting();
-				Boolean passed = sa.evalPassedOfCourseNode(c.getEasyModeNodePassedId());
-				return passed == null ? false : passed.booleanValue();
-			}
-		}
-		return true;
-	}
-	
-	private boolean evaluateCoachesAndAdmins(Condition c) {
-		if(c.isEasyModeCoachesAndAdmins()) {
-			Identity ident = uce.getIdentityEnvironment().getIdentity();
-			CourseGroupManager cgm = uce.getCourseEnvironment().getCourseGroupManager();
-			return cgm.isIdentityCourseCoach(ident) || cgm.isIdentityCourseAdministrator(ident);
-		}
-		return true;
 	}
 
 	/**

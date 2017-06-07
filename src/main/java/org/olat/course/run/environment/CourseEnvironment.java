@@ -33,6 +33,7 @@ import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.config.CourseConfig;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.properties.CoursePropertyManager;
+import org.olat.repository.RepositoryEntry;
 
 /**
  * Initial Date:  May 5, 2004
@@ -52,12 +53,10 @@ public interface CourseEnvironment {
 	public long getCurrentTimeMillis();
 	
 	/**
-	 * if true then all ConditionInterpreter functions should return true/1 immediately without e.g. accessing the database. 
-	 * We use this as validating of the syntax before saving it, so that there are only grammatically correct
-	 * expressions which are saved and therefore are evaluated in the run mode later.
-	 * @return true if no op mode
+	 * Some code need to know if the course is in preview mode.
+	 * @return
 	 */
-	public boolean isNoOpMode();
+	public boolean isPreview();
 
 	/**
 	 * Get the course group management environment
@@ -71,6 +70,12 @@ public interface CourseEnvironment {
 	 * @return The course resourceable id
 	 */
 	public Long getCourseResourceableId();
+	
+	/**
+	 * Refresh the repository entry
+	 * @param courseEntry
+	 */
+	public void updateCourseEntry(RepositoryEntry courseEntry);
 	
 
 	/**

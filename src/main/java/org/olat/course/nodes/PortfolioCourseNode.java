@@ -21,6 +21,8 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,6 +37,9 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.logging.OLATRuntimeException;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.ValidationStatus;
 import org.olat.course.ICourse;
@@ -47,14 +52,19 @@ import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeConfiguration;
+import org.olat.course.nodes.portfolio.PortfolioCourseNodeConfiguration.DeadlineType;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeEditController;
 import org.olat.course.nodes.portfolio.PortfolioCourseNodeRunController;
 import org.olat.course.nodes.portfolio.PortfolioResultDetailsController;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.portfolio.handler.BinderTemplateResource;
+import org.olat.modules.portfolio.ui.PortfolioAssessmentDetailsController;
 import org.olat.portfolio.EPTemplateMapResource;
 import org.olat.portfolio.manager.EPFrontendManager;
 import org.olat.portfolio.manager.EPStructureManager;
@@ -75,8 +85,9 @@ import org.olat.repository.handlers.RepositoryHandlerFactory;
  * Initial Date:  6 oct. 2010 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class PortfolioCourseNode extends AbstractAccessableCourseNode implements AssessableCourseNode {
+public class PortfolioCourseNode extends AbstractAccessableCourseNode implements PersistentAssessableCourseNode {
 	
+	private static final OLog log = Tracing.createLoggerFor(PortfolioCourseNode.class);
 	private static final int CURRENT_CONFIG_VERSION = 2;
 	
 	public static final String EDIT_CONDITION_ID = "editportfolio";
@@ -145,7 +156,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 			String message = trans.translate("guestnoaccess.message");
 			controller = MessageUIFactory.createInfoMessage(ureq, wControl, title, message);
 		} else {
-			controller = new PortfolioCourseNodeRunController(ureq, wControl, userCourseEnv, ne, this);
+			controller = new PortfolioCourseNodeRunController(ureq, wControl, userCourseEnv, this);
 		}
 		Controller ctrl = TitledWrapperHelper.getWrapper(ureq, wControl, controller, this, "o_ep_icon");
 		return new NodeRunConstructionResult(ctrl);
@@ -197,9 +208,54 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 		return null;
 	}
 	
+	private String getReferencedRepositoryEntrySoftkey() {
+		return (String)getModuleConfiguration().get(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY);
+	}
+	
 	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return true;
+	}
+	
+	public Date getDeadline() {
+		ModuleConfiguration config = getModuleConfiguration();
+		String type = (String)config.get(PortfolioCourseNodeConfiguration.DEADLINE_TYPE);
+		if(StringHelper.containsNonWhitespace(type)) {
+			switch(DeadlineType.valueOf(type)) {
+				case none: return null;
+				case absolut: 
+					Date date = (Date)config.get(PortfolioCourseNodeConfiguration.DEADLINE_DATE);
+					return date;
+				case relative:
+					Calendar cal = Calendar.getInstance();
+					cal.setTime(new Date());
+					boolean applied = applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_MONTH, Calendar.MONTH, 1);
+					applied |= applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_WEEK, Calendar.DATE, 7);
+					applied |= applyRelativeToDate(cal, PortfolioCourseNodeConfiguration.DEADLINE_DAY, Calendar.DATE, 1);
+					if(applied) {
+						return cal.getTime();
+					}
+					return null;
+				default: return null;
+			}
+		}
+		return null;
+	}
+	
+	private boolean applyRelativeToDate(Calendar cal, String time, int calTime, int factor) {
+		String t = (String)getModuleConfiguration().get(time);
+		if(StringHelper.containsNonWhitespace(t)) {
+			int timeToApply;
+			try {
+				timeToApply = Integer.parseInt(t) * factor;
+			} catch (NumberFormatException e) {
+				log.warn("Not a number: " + t, e);
+				return false;
+			}
+			cal.add(calTime, timeToApply);
+			return true;
+		}
+		return false;
 	}
 	
 	@Override
@@ -236,6 +292,11 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 		// evaluate the preconditions
 		boolean editor = (getPreConditionEdit().getConditionExpression() == null ? true : ci.evaluateCondition(getPreConditionEdit()));
 		nodeEval.putAccessStatus(EDIT_CONDITION_ID, editor);
+	}
+
+	@Override
+	public boolean isAssessedBusinessGroups() {
+		return false;
 	}
 
 	@Override
@@ -305,18 +366,35 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnvironment) {
-		// read score from properties
-		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		Boolean passed = null;
-		Float score = null;
-		// only db lookup if configured, else return null
-		if (hasPassedConfigured()) passed = am.getNodePassed(this, mySelf);
-		if (hasScoreConfigured()) score = am.getNodeScore(this, mySelf);
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
+		return getUserScoreEvaluation(getUserAssessmentEntry(userCourseEnv));
+	}
 
-		ScoreEvaluation se = new ScoreEvaluation(score, passed);
-		return se;
+	@Override
+	public AssessmentEvaluation getUserScoreEvaluation(AssessmentEntry entry) {
+		return AssessmentEvaluation.toAssessmentEvalutation(entry, this);
+	}
+
+	@Override
+	public AssessmentEntry getUserAssessmentEntry(UserCourseEnvironment userCourseEnv) {
+		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
+		Identity mySelf = userCourseEnv.getIdentityEnvironment().getIdentity();
+		String referenceSoftkey = getReferencedRepositoryEntrySoftkey();
+		if(referenceSoftkey == null) {
+			Long mapKey = (Long)getModuleConfiguration().get(PortfolioCourseNodeConfiguration.MAP_KEY);
+			if(mapKey != null) {
+				RepositoryEntry re = CoreSpringFactory.getImpl(EPStructureManager.class)
+						.loadPortfolioRepositoryEntryByMapKey(mapKey);
+				if(re != null) {
+					referenceSoftkey = re.getSoftkey();
+				}
+			}
+		}
+		
+		if(referenceSoftkey != null) {
+			return am.getAssessmentEntry(this, mySelf);
+		}
+		return null;
 	}
 
 	@Override
@@ -359,8 +437,16 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	}
 
 	@Override
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment) {
-		return new PortfolioResultDetailsController(ureq, wControl, stackPanel, this, userCourseEnvironment);
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnv) {
+		RepositoryEntry mapEntry = getReferencedRepositoryEntry();
+		if(mapEntry != null && BinderTemplateResource.TYPE_NAME.equals(mapEntry.getOlatResource().getResourceableTypeName())) {
+			Identity assessedIdentity = assessedUserCourseEnv.getIdentityEnvironment().getIdentity();
+			RepositoryEntry courseEntry = assessedUserCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+			return new PortfolioAssessmentDetailsController(ureq, wControl,
+					courseEntry, this, mapEntry, assessedIdentity);
+		}
+		return new PortfolioResultDetailsController(ureq, wControl, stackPanel, this, assessedUserCourseEnv);
 	}
 
 	@Override
@@ -368,7 +454,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 			Identity coachingIdentity, boolean incrementAttempts) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation.getScore(), scoreEvaluation.getPassed()), userCourseEnvironment, incrementAttempts);
+		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation), userCourseEnvironment, incrementAttempts);
 	}
 
 	@Override
@@ -425,6 +511,7 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale, boolean withReferences) {
 		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
 		if (withReferences && rie.anyExportedPropertiesAvailable()) {
+
 			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(EPTemplateMapResource.TYPE_NAME);
 			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
 					rie.getDescription(), false, locale, rie.importGetExportedFile(), null);

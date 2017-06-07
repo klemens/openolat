@@ -46,8 +46,10 @@ import org.olat.core.id.IdentityEnvironment;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
-import org.olat.core.util.vfs.restapi.SystemItemFilter;
+import org.olat.core.util.vfs.filters.SystemItemFilter;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
@@ -64,11 +66,12 @@ import org.olat.course.nodes.bc.BCPreviewController;
 import org.olat.course.nodes.bc.FolderNodeCallback;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
-import org.olat.course.run.userview.VisibleTreeFilter;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.TreeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
+import org.olat.course.run.userview.VisibleTreeFilter;
+import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 
 /**
@@ -79,6 +82,7 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	private static final long serialVersionUID = 6887400715976544402L;
 	private static final String PACKAGE_BC = Util.getPackageName(BCCourseNodeRunController.class);
 	private static final String TYPE = "bc";
+
 	/**
 	 * Condition.getCondition() == null means no precondition, always accessible
 	 */
@@ -89,6 +93,7 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public BCCourseNode() {
 		super(TYPE);
+		updateModuleConfigDefaults(true);
 		preConditionUploaders = getPreConditionUploaders();
 		preConditionUploaders.setEasyModeCoachesAndAdmins(true);
 		preConditionUploaders.setConditionExpression(preConditionUploaders.getConditionFromEasyModeConfiguration());
@@ -102,6 +107,7 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 */
 	@Override
 	public TabbableController createEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, ICourse course, UserCourseEnvironment euce) {
+		updateModuleConfigDefaults(false);
 		BCCourseNodeEditController childTabCntrllr = new BCCourseNodeEditController(this, course, ureq, wControl, euce);
 		CourseNode chosenNode = course.getEditorTreeModel().getCourseNode(euce.getCourseEditorEnv().getCurrentCourseNodeId());
 		return new NodeEditController(ureq, wControl, course.getEditorTreeModel(), course, chosenNode, euce, childTabCntrllr);
@@ -116,9 +122,10 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		BCCourseNodeRunController bcCtrl = new BCCourseNodeRunController(ureq, wControl, userCourseEnv.getCourseEnvironment(), this, ne);
+		updateModuleConfigDefaults(false);
+		BCCourseNodeRunController bcCtrl = new BCCourseNodeRunController(ureq, wControl, userCourseEnv, this, ne);
 		if (StringHelper.containsNonWhitespace(nodecmd)) {
-			bcCtrl.activatePath(ureq, nodecmd);			
+			bcCtrl.activatePath(ureq, nodecmd);
 		}
 		Controller titledCtrl = TitledWrapperHelper.getWrapper(ureq, wControl, bcCtrl, this, "o_bc_icon");
 		return new NodeRunConstructionResult(titledCtrl);
@@ -134,12 +141,25 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	public Controller createPeekViewRunController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv,
 			NodeEvaluation ne) {
 		if (ne.isAtLeastOneAccessible()) {
-			// Create a folder peekview controller that shows the latest two entries		
-			String path = getFoldernodePathRelToFolderBase(userCourseEnv.getCourseEnvironment(), this);
-			OlatRootFolderImpl rootFolder = new OlatRootFolderImpl(path, null);
+			updateModuleConfigDefaults(false);
+			
+			// Create a folder peekview controller that shows the latest two entries
+			VFSContainer rootFolder = null;
+			if(getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)) {
+				rootFolder = getNodeFolderContainer(this, userCourseEnv.getCourseEnvironment());
+			} else {
+				String subPath = getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "");
+				VFSItem item = userCourseEnv.getCourseEnvironment().getCourseFolderContainer().resolve(subPath);
+				if(item instanceof VFSContainer) {
+					rootFolder = (VFSContainer)item;
+				}
+			}
+			
+			if(rootFolder == null) {
+				return super.createPeekViewRunController(ureq, wControl, userCourseEnv, ne);
+			}
 			rootFolder.setDefaultItemFilter(new SystemItemFilter());
-			Controller peekViewController = new BCPeekviewController(ureq, wControl, rootFolder, getIdent(), 4);
-			return peekViewController;			
+			return new BCPeekviewController(ureq, wControl, rootFolder, getIdent(), 4);
 		} else {
 			// use standard peekview
 			return super.createPeekViewRunController(ureq, wControl, userCourseEnv, ne);
@@ -172,6 +192,11 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 */
 	public static String getFoldernodesPathRelToFolderBase(CourseEnvironment courseEnv) {
 		return courseEnv.getCourseBaseContainer().getRelPath() + "/foldernodes";
+	}
+
+	public boolean isSharedFolder(){
+		return getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "")
+				.startsWith("/_sharedfolder");
 	}
 
 	/**
@@ -289,14 +314,27 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 	 */
 	@Override
 	public StatusDescription isConfigValid() {
-		/*
-		 * first check the one click cache
-		 */
+		updateModuleConfigDefaults(false);
+
+		StatusDescription sd = StatusDescription.NOERROR;
+		if(!getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)){
+			String subpath = getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH,"");
+			if(!StringHelper.containsNonWhitespace(subpath)){
+				String shortKey = "error.missingfolder.short";
+				String longKey = "error.missingfolder.long";
+				String[] params = new String[] { this.getShortTitle() };
+				String translPackage = Util.getPackageName(BCCourseNodeEditController.class);
+				sd = new StatusDescription(StatusDescription.ERROR, shortKey, longKey, params, translPackage);
+				sd.setDescriptionForUnit(getIdent());
+				// set which pane is affected by error
+				sd.setActivateableViewIdentifier(BCCourseNodeEditController.PANE_TAB_FOLDER);
+			}
+		}
+
 		if(oneClickStatusCache!=null) {
 			return oneClickStatusCache[0];
 		}
-		
-		return StatusDescription.NOERROR;
+		return sd;
 	}
 
 
@@ -398,4 +436,24 @@ public class BCCourseNode extends AbstractAccessableCourseNode {
 		return retVal;
 	}
 
+	@Override
+	public void updateModuleConfigDefaults(boolean isNewNode) {
+		ModuleConfiguration config = getModuleConfiguration();
+
+		if(isNewNode){
+			//set autofolder as default and set newest config version
+			config.setBooleanEntry(BCCourseNodeEditController.CONFIG_AUTO_FOLDER, true);
+			config.setStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "");
+			config.setConfigurationVersion(2);
+		}else{
+			int version = config.getConfigurationVersion();
+			if(version < 2) {
+				config.setBooleanEntry(BCCourseNodeEditController.CONFIG_AUTO_FOLDER, true);
+				config.setStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "");
+				config.setConfigurationVersion(2);
+			}
+		}
+
+		super.updateModuleConfigDefaults(isNewNode);
+	}
 }

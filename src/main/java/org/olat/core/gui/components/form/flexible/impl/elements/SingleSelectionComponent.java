@@ -35,6 +35,8 @@ class SingleSelectionComponent extends FormBaseComponentImpl {
 	private static final ComponentRenderer RENDERER = new SingleSelectionRenderer();
 	private final SingleSelectionImpl element;
 	
+	private int widthInPercent;
+	private boolean trailingSpace;
 	private RadioElementComponent[] radioComponents;
 	
 	/**
@@ -56,6 +58,26 @@ class SingleSelectionComponent extends FormBaseComponentImpl {
 
 	void setRadioComponents(RadioElementComponent[] radioComponents) {
 		this.radioComponents = radioComponents;
+	}
+
+	public int getWidthInPercent() {
+		return widthInPercent;
+	}
+	
+	public boolean isTrailingSpace() {
+		return trailingSpace;
+	}
+
+	/**
+	 * Set a fix width to the enclosing div of vertical radios. Spaced
+	 * had a space after the end div.
+	 * 
+	 * @param widthInPercent The width (example: 9%)
+	 * @param spaced If true had a trailing space
+	 */
+	public void setWidthInPercent(int widthInPercent, boolean trailingSpace) {
+		this.widthInPercent = widthInPercent;
+		this.trailingSpace = trailingSpace;
 	}
 
 	@Override

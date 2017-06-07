@@ -19,8 +19,11 @@
  */
 package org.olat.modules.qpool.ui;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
@@ -40,6 +43,7 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.generic.wizard.Step;
@@ -49,27 +53,33 @@ import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.group.BusinessGroup;
 import org.olat.group.model.BusinessGroupSelectionEvent;
 import org.olat.group.ui.main.SelectBusinessGroupController;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
-import org.olat.ims.qti.questionimport.ImportOptions;
 import org.olat.ims.qti.questionimport.ItemAndMetadata;
 import org.olat.ims.qti.questionimport.ItemsPackage;
-import org.olat.ims.qti.questionimport.QImport_1_InputStep;
+import org.olat.ims.qti21.pool.QTI21QPoolServiceProvider;
+import org.olat.ims.qti21.questionimport.AssessmentItemAndMetadata;
+import org.olat.ims.qti21.questionimport.AssessmentItemsPackage;
+import org.olat.ims.qti21.questionimport.ImportOptions;
+import org.olat.ims.qti21.questionimport.QImport_1_InputStep;
 import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QItemFactory;
-import org.olat.modules.qpool.QPoolItemEditorController;
+import org.olat.modules.qpool.QPoolSPI;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
-import org.olat.modules.qpool.model.QItemDocument;
+import org.olat.modules.qpool.QuestionPoolModule;
 import org.olat.modules.qpool.model.QItemList;
-import org.olat.modules.qpool.ui.events.QItemChangeEvent;
 import org.olat.modules.qpool.ui.events.QItemCreationCmdEvent;
 import org.olat.modules.qpool.ui.events.QItemEdited;
 import org.olat.modules.qpool.ui.events.QItemEvent;
@@ -85,8 +95,7 @@ import org.olat.repository.controllers.ReferencableEntriesSearchController;
 import org.olat.repository.controllers.RepositorySearchController.Can;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
-import org.olat.repository.ui.author.CreateRepositoryEntryController;
-import org.olat.search.service.indexer.LifeFullIndexer;
+import org.olat.repository.ui.author.CreateEntryController;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -97,16 +106,14 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Initial date: 22.01.2013<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class QuestionListController extends AbstractItemListController implements BreadcrumbPanelAware {
+public class QuestionListController extends AbstractItemListController implements BreadcrumbPanelAware, Activateable2 {
 
-	private FormLink list, exportItem, shareItem, removeItem, newItem, copyItem, deleteItem, authorItem, importItem, bulkChange;
+	private FormLink list, exportItem, shareItem, removeItem, newItem, copyItem, convertItem, deleteItem, authorItem, importItem, bulkChange;
 
 	private BreadcrumbPanel stackPanel;
 	private RenameController renameCtrl;
 	private CloseableModalController cmc;
-	private CloseableModalController cmcNewItem;
 	private CloseableModalController cmcShareItemToSource;
-	private QPoolItemEditorController newItemCtrl;
 	private DialogBoxController confirmCopyBox;
 	private DialogBoxController confirmDeleteBox;
 	private DialogBoxController confirmRemoveBox;
@@ -123,7 +130,7 @@ public class QuestionListController extends AbstractItemListController implement
 	private ImportController importItemCtrl;
 	private CollectionTargetController listTargetCtrl;
 	private ShareTargetController shareTargetCtrl;
-	private CreateRepositoryEntryController addController;
+	private CreateEntryController addController;
 	private QuestionItemDetailsController currentDetailsCtrl;
 	private LayoutMain3ColsController currentMainDetailsCtrl;
 	private MetadataBulkChangeController bulkChangeCtrl;
@@ -131,13 +138,14 @@ public class QuestionListController extends AbstractItemListController implement
 	private NewItemOptionsController newItemOptionsCtrl;
 	private CloseableCalloutWindowController calloutCtrl;
 	private ReferencableEntriesSearchController importTestCtrl;
+	private ConversionConfirmationController conversionConfirmationCtrl;
 	
 	private QuestionItemCollection itemCollection;
 	
 	private boolean itemCollectionDirty = false;
 
 	@Autowired
-	private LifeFullIndexer lifeFullIndexer;
+	private QuestionPoolModule qpoolModule;
 	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
@@ -158,6 +166,7 @@ public class QuestionListController extends AbstractItemListController implement
 
 		newItem = uifactory.addFormLink("new.item", formLayout, Link.BUTTON);
 		copyItem = uifactory.addFormLink("copy", formLayout, Link.BUTTON);
+		convertItem = uifactory.addFormLink("convert.item", formLayout, Link.BUTTON);
 		importItem = uifactory.addFormLink("import.item", formLayout, Link.BUTTON);
 		authorItem = uifactory.addFormLink("author.item", formLayout, Link.BUTTON);
 		if(getSource().isDeleteEnabled()) {
@@ -179,6 +188,23 @@ public class QuestionListController extends AbstractItemListController implement
 		this.stackPanel = stackPanel;
 		if(stackPanel != null) {
 			stackPanel.addListener(this);
+		}
+	}
+
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) return;
+		
+		ContextEntry entry = entries.get(0);
+		String type = entry.getOLATResourceable().getResourceableTypeName();
+		if("QuestionItem".equals(type)) {
+			Long itemKey = entry.getOLATResourceable().getResourceableId();
+			ItemRow row = getModel().getObjectByKey(itemKey);
+			if(row == null) {
+				//TODO xhr
+			} else {
+				doSelect(ureq, row);
+			}
 		}
 	}
 
@@ -208,6 +234,13 @@ public class QuestionListController extends AbstractItemListController implement
 				List<QuestionItemShort> items = getSelectedShortItems(false);
 				if(items.size() > 0) {
 					doConfirmCopy(ureq, items);
+				} else {
+					showWarning("error.select.one");
+				}
+			} else if(link == convertItem) {
+				List<QuestionItemShort> items = getSelectedShortItems(false);
+				if(items.size() > 0) {
+					doConfirmConversion(ureq, items);
 				} else {
 					showWarning("error.select.one");
 				}
@@ -286,8 +319,10 @@ public class QuestionListController extends AbstractItemListController implement
 				doOpenFileImport(ureq);
 			} else if(ImportSourcesController.IMPORT_REPO.equals(event.getCommand())) {
 				doOpenRepositoryImport(ureq);
-			} else if(ImportSourcesController.IMPORT_EXCEL.equals(event.getCommand())) {
-				doOpenExcelImport(ureq);
+			} else if(ImportSourcesController.IMPORT_EXCEL_QTI_12.equals(event.getCommand())) {
+				doOpenExcelImportQTI12(ureq);
+			} else if(ImportSourcesController.IMPORT_EXCEL_QTI_21.equals(event.getCommand())) {
+				doOpenExcelImportQTI21(ureq);
 			}
 		} else if(source == newItemOptionsCtrl) {
 			cmc.deactivate();
@@ -404,6 +439,14 @@ public class QuestionListController extends AbstractItemListController implement
 				List<QuestionItemShort> items = (List<QuestionItemShort>)confirmCopyBox.getUserObject();
 				doCopy(ureq, items);
 			}
+		} else if(source == conversionConfirmationCtrl) {
+			if(event == Event.DONE_EVENT) {
+				List<QuestionItemShort> items = conversionConfirmationCtrl.getSelectedItems();
+				String format = conversionConfirmationCtrl.getSelectedFormat();
+				doConvert(ureq, items, format);
+			}
+			cmc.deactivate();
+			cleanUp();
 		} else if(source == confirmDeleteBox) {
 			if(DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
 				@SuppressWarnings("unchecked")
@@ -441,28 +484,11 @@ public class QuestionListController extends AbstractItemListController implement
 				cleanUp();
 				
 				EntryChangedEvent addEvent = (EntryChangedEvent)event;
-				Long repoEntryKey = addEvent.getChangedEntryKey();
+				Long repoEntryKey = addEvent.getRepositoryEntryKey();
 				doExportToRepositoryEntry(ureq, repoEntryKey);
 			} else if(event == Event.CANCELLED_EVENT) {
 				cmc.deactivate();
 				cleanUp();
-			}
-		} else if(source == cmcNewItem) {
-			showInfo("create.success");
-			if(newItemCtrl.getItem() != null && newItemCtrl.getItem().getKey() != null) {
-				List<QuestionItem> newItems = Collections.singletonList(newItemCtrl.getItem());
-				getSource().postImport(newItems, false);
-			}
-			getItemsTable().reset();
-			QPoolEvent qce = new QPoolEvent(QPoolEvent.ITEM_CREATED);
-			fireEvent(ureq, qce);
-			cleanUp();
-		} else if(source == newItemCtrl) {
-			if(event instanceof QItemChangeEvent) {
-				QItemChangeEvent ce = (QItemChangeEvent)event;
-				if(ce.getItem() != null) {
-					lifeFullIndexer.indexDocument(QItemDocument.TYPE, ce.getItem().getKey());
-				}
 			}
 		} else if(source == cmc) {
 			cleanUp();
@@ -472,23 +498,21 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	private void cleanUp() {
 		removeAsListenerAndDispose(cmc);
-		removeAsListenerAndDispose(cmcNewItem);
-		removeAsListenerAndDispose(newItemCtrl);
 		removeAsListenerAndDispose(addController);
 		removeAsListenerAndDispose(bulkChangeCtrl);
 		removeAsListenerAndDispose(importItemCtrl);
 		removeAsListenerAndDispose(importTestCtrl);
 		removeAsListenerAndDispose(selectGroupCtrl);
 		removeAsListenerAndDispose(createCollectionCtrl);
+		removeAsListenerAndDispose(conversionConfirmationCtrl);
 		cmc = null;
-		cmcNewItem = null;
-		newItemCtrl = null;
 		addController = null;
 		bulkChangeCtrl = null;
 		importItemCtrl = null;
 		importTestCtrl = null;
 		selectGroupCtrl = null;
 		createCollectionCtrl = null;
+		conversionConfirmationCtrl = null;
 	}
 	
 	protected void updateRows(List<QuestionItem> items) {
@@ -503,7 +527,7 @@ public class QuestionListController extends AbstractItemListController implement
 		if(nextRow != null) {
 			QuestionItem nextItem = qpoolService.loadItemById(nextRow.getKey());
 			stackPanel.popUpToRootController(ureq);
-			doSelect(ureq, nextItem, row.isEditable());
+			doSelect(ureq, nextItem, nextRow.isEditable());
 		}
 	}
 	
@@ -513,7 +537,7 @@ public class QuestionListController extends AbstractItemListController implement
 		if(previousRow != null) {
 			QuestionItem previousItem = qpoolService.loadItemById(previousRow.getKey());
 			stackPanel.popUpToRootController(ureq);
-			doSelect(ureq, previousItem, row.isEditable());
+			doSelect(ureq, previousItem, previousRow.isEditable());
 		}
 	}
 	
@@ -541,16 +565,16 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 	
 	private void doCreateNewItem(UserRequest ureq, String title, QItemFactory factory) {
-		removeAsListenerAndDispose(newItemCtrl);
+		QuestionItem item = factory.createItem(getIdentity(), title, getLocale());
+		List<QuestionItem> newItems = Collections.singletonList(item);
+		getSource().postImport(newItems, false);
+		getItemsTable().reset();
 		
-		newItemCtrl = factory.getEditor(ureq, getWindowControl(), title);
-		listenTo(newItemCtrl);
+		QPoolEvent qce = new QPoolEvent(QPoolEvent.ITEM_CREATED);
+		fireEvent(ureq, qce);
 
-		removeAsListenerAndDispose(cmcNewItem);
-		cmcNewItem = new CloseableModalController(getWindowControl(), translate("close"),
-				newItemCtrl.getInitialComponent(), true, translate("import.repository"));
-		cmcNewItem.activate();
-		listenTo(cmcNewItem);
+		List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType("Edit");
+		doSelect(ureq, item, true).activate(ureq, entries, null);
 	}
 	
 	private void doOpenImport(UserRequest ureq) {
@@ -577,9 +601,17 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 	
 	private void doImportResource(UserRequest ureq, RepositoryEntry repositoryEntry) {
-		QTIQPoolServiceProvider spi
-			= (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
-		List<QuestionItem> importItems = spi.importRepositoryEntry(getIdentity(), repositoryEntry, getLocale());
+		
+		List<QuestionItem> importItems = null;
+		if(ImsQTI21Resource.TYPE_NAME.equals(repositoryEntry.getOlatResource().getResourceableTypeName())) {
+			QTI21QPoolServiceProvider spi = CoreSpringFactory.getImpl(QTI21QPoolServiceProvider.class);
+			importItems = spi.importRepositoryEntry(getIdentity(), repositoryEntry, getLocale());
+		} else {
+			QTIQPoolServiceProvider spi
+				= (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
+			importItems = spi.importRepositoryEntry(getIdentity(), repositoryEntry, getLocale());
+		}
+
 		if(getSource().askEditable()) {
 			removeAsListenerAndDispose(shareItemsToSourceCtrl);
 			shareItemsToSourceCtrl = new ShareItemSourceOptionController(ureq, getWindowControl(), importItems, getSource());
@@ -607,19 +639,19 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	private void doOpenRepositoryImport(UserRequest ureq) {
 		removeAsListenerAndDispose(importTestCtrl);
-		String[] allowed = new String[]{ TestFileResource.TYPE_NAME, SurveyFileResource.TYPE_NAME };
+		String[] allowed = new String[]{ ImsQTI21Resource.TYPE_NAME, TestFileResource.TYPE_NAME, SurveyFileResource.TYPE_NAME };
 		importTestCtrl = new ReferencableEntriesSearchController(getWindowControl(), ureq, allowed,
 				null, translate("import.repository"), false, false, false, true, Can.copyable);
 		listenTo(importTestCtrl);
 		
 		cmc = new CloseableModalController(getWindowControl(), translate("close"),
 				importTestCtrl.getInitialComponent(), true, translate("import.repository"));
-		cmc.setContextHelp(ureq, "org.olat.modules.qpool.ui", "import-repo.html", "help.hover.importrepo");
+		cmc.setContextHelp(getTranslator(),"Data Management#qb_share");
 		cmc.activate();
 		listenTo(cmc);
 	}
 	
-	private void doOpenExcelImport(UserRequest ureq) {
+	private void doOpenExcelImportQTI12(UserRequest ureq) {
 		removeAsListenerAndDispose(excelImportWizard);
 		
 		final ItemsPackage importPackage = new ItemsPackage();
@@ -628,15 +660,14 @@ public class QuestionListController extends AbstractItemListController implement
 			additionalStep = new EditableStep(ureq);
 		}
 		
-		final ImportOptions options = new ImportOptions();
+		final org.olat.ims.qti.questionimport.ImportOptions options = new org.olat.ims.qti.questionimport.ImportOptions();
 		options.setShuffle(true);
-		Step start = new QImport_1_InputStep(ureq, importPackage, options, additionalStep);
+		Step start = new org.olat.ims.qti.questionimport.QImport_1_InputStep(ureq, importPackage, options, additionalStep);
 		StepRunnerCallback finish = new StepRunnerCallback() {
 			@Override
 			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
 				List<ItemAndMetadata> itemsToImport = importPackage.getItems();
-				QTIQPoolServiceProvider spi
-					= (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
+				QTIQPoolServiceProvider spi = CoreSpringFactory.getImpl (QTIQPoolServiceProvider.class);
 				List<QuestionItem> importItems = spi.importBeecomItem(getIdentity(), itemsToImport, getLocale());
 				
 				boolean editable = true;
@@ -653,7 +684,53 @@ public class QuestionListController extends AbstractItemListController implement
 		};
 		
 		excelImportWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
-				translate("import.excellike"), "o_sel_qpool_excel_import_wizard");
+				translate("import.excellike.12"), "o_sel_qpool_excel_import_wizard");
+		listenTo(excelImportWizard);
+		getWindowControl().pushAsModalDialog(excelImportWizard.getInitialComponent());
+	}
+	
+	private void doOpenExcelImportQTI21(UserRequest ureq) {
+		removeAsListenerAndDispose(excelImportWizard);
+		
+		Step additionalStep = null;
+		if(getSource().askEditable()) {
+			additionalStep = new EditableStep(ureq);
+		}
+		
+		final AssessmentItemsPackage importPackage = new AssessmentItemsPackage();
+		final ImportOptions options = new ImportOptions();
+		options.setShuffle(true);
+
+		Step start = new QImport_1_InputStep(ureq, importPackage, options, additionalStep);
+		StepRunnerCallback finish = new StepRunnerCallback() {
+			@Override
+			public Step execute(UserRequest uureq, WindowControl wControl, StepsRunContext runContext) {
+				QTI21QPoolServiceProvider spi = CoreSpringFactory.getImpl(QTI21QPoolServiceProvider.class);
+				List<AssessmentItemAndMetadata> items = importPackage.getItems();
+				List<QuestionItem> importItems = new ArrayList<>();
+				for(AssessmentItemAndMetadata item:items) {
+					QuestionItem importedItem = spi.importExcelItem(getIdentity(), item, getLocale());
+					if(importedItem != null) {
+						importItems.add(importedItem);
+					}
+				}
+
+				boolean editable = true;
+				if(getSource().askEditable()) {
+					Object editableCtx = runContext.get("editable");
+					editable = (editableCtx instanceof Boolean) ? ((Boolean)editableCtx).booleanValue() : false;
+				}
+				int postImported = getSource().postImport(importItems, editable);
+				if(postImported > 0) {
+					getItemsTable().reset();
+				}
+			
+				return StepsMainRunController.DONE_MODIFIED;
+			}
+		};
+		
+		excelImportWizard = new StepsMainRunController(ureq, getWindowControl(), start, finish, null,
+				translate("import.excellike.21"), "o_sel_qpool_excel_import_wizard");
 		listenTo(excelImportWizard);
 		getWindowControl().pushAsModalDialog(excelImportWizard.getInitialComponent());
 	}
@@ -721,26 +798,25 @@ public class QuestionListController extends AbstractItemListController implement
 		List<QuestionItemShort> items = (List<QuestionItemShort>)runContext.get("itemsToExport");
 		switch(format.getOutcome()) {
 			case download: {
-				MediaResource mr = qpoolService.export(items, format);
+				MediaResource mr = qpoolService.export(items, format, getLocale());
 				if(mr != null) {
 					ureq.getDispatchResult().setResultingMediaResource(mr);
 				}
 				break;
 			}
 			case repository: {
-				doExportToRepository(ureq, items);
+				doExportToRepository(ureq, items, format.getResourceTypeFormat());
 				break;
 			}
 		}
 	}
 	
-	private void doExportToRepository(UserRequest ureq, List<QuestionItemShort> items) {
+	private void doExportToRepository(UserRequest ureq, List<QuestionItemShort> items, String type) {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(addController);
-		
-		String type = TestFileResource.TYPE_NAME;
+
 		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
-		addController = new CreateRepositoryEntryController(ureq, getWindowControl(), handler);
+		addController = handler.createCreateRepositoryEntryController(ureq, getWindowControl());
 		addController.setCreateObject(new QItemList(items));
 		listenTo(addController);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
@@ -789,14 +865,26 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 	
 	private void doConfirmDelete(UserRequest ureq, List<QuestionItemShort> items) {
-		confirmDeleteBox = activateYesNoDialog(ureq, null, translate("confirm.delete"), confirmDeleteBox);
+		StringBuilder sb = new StringBuilder();
+		for(QuestionItemShort item:items) {
+			if(sb.length() > 0) sb.append(", ");
+			sb.append(StringHelper.escapeHtml(item.getTitle()));
+		}
+		
+		String msg;
+		if(items.size() > 1) {
+			msg = translate("confirm.delete.plural", sb.toString());
+		} else {
+			msg = translate("confirm.delete", sb.toString());
+		}
+		confirmDeleteBox = activateYesNoDialog(ureq, null, msg, confirmDeleteBox);
+		confirmDeleteBox.setCssClass("o_error");
 		confirmDeleteBox.setUserObject(items);
-		confirmDeleteBox.setContextHelp("org.olat.modules.qpool.ui", "delete-item.html", "help.hover.deleteitem");
 	}
 	
 	private void doDelete(List<QuestionItemShort> items) {
 		qpoolService.deleteItems(items);
-		getItemsTable().reset();
+		getItemsTable().reset(true, true, true);
 		showInfo("item.deleted");
 	}
 	
@@ -816,7 +904,7 @@ public class QuestionListController extends AbstractItemListController implement
 		String text = translate("confirm.unshare", new String[]{ getSource().getName() });
 		confirmRemoveBox = activateYesNoDialog(ureq, null, text, confirmRemoveBox);
 		confirmRemoveBox.setUserObject(items);
-		confirmRemoveBox.setContextHelp("org.olat.modules.qpool.ui", "remove-item.html", "help.hover.removeitem");
+		confirmRemoveBox.setContextHelp("Data Management#qb_remove");
 	}
 	
 	protected void doRemove(List<QuestionItemShort> items) {
@@ -859,7 +947,7 @@ public class QuestionListController extends AbstractItemListController implement
 		
 		cmc = new CloseableModalController(getWindowControl(), translate("close"),
 				selectGroupCtrl.getInitialComponent(), true, translate("select.group"));
-		cmc.setContextHelp(ureq, "org.olat.modules.qpool.ui", "share-group.html", "help.hover.sharegroup");
+		cmc.setContextHelp(getTranslator(), "Data Management#qb_share");
 		cmc.activate();
 		listenTo(cmc);
 	}
@@ -881,13 +969,65 @@ public class QuestionListController extends AbstractItemListController implement
 		String text = translate("copy.confirmation");
 		confirmCopyBox = activateYesNoDialog(ureq, title, text, confirmCopyBox);
 		confirmCopyBox.setUserObject(items);
-		confirmCopyBox.setContextHelp("org.olat.modules.qpool.ui", "copy-item.html", "help.hover.copyitem");
 	}
 	
 	protected void doCopy(UserRequest ureq, List<QuestionItemShort> items) {
 		List<QuestionItem> copies = qpoolService.copyItems(getIdentity(), items);
 		getItemsTable().reset();
 		showInfo("item.copied", Integer.toString(copies.size()));
+		fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
+	}
+	
+	protected void doConfirmConversion(UserRequest ureq, List<QuestionItemShort> items) {
+		Map<String,List<QuestionItemShort>> formatToItems = new HashMap<>();
+		List<QPoolSPI> spies = qpoolModule.getQuestionPoolProviders();
+		for(QuestionItemShort item:items) {
+			for(QPoolSPI sp:spies) {
+				if(sp != null && sp.isConversionPossible(item)) {
+					List<QuestionItemShort> convertItems;
+					if(formatToItems.containsKey(sp.getFormat())) {
+						convertItems = formatToItems.get(sp.getFormat());
+					} else {
+						convertItems = new ArrayList<>(items.size());
+						formatToItems.put(sp.getFormat(), convertItems);
+					}
+					convertItems.add(item);	
+				}
+			}
+		}
+		
+		if(formatToItems.isEmpty()) {
+			showWarning("convert.item.not.possible");
+		} else {
+			conversionConfirmationCtrl = new ConversionConfirmationController(ureq, getWindowControl(), formatToItems);
+			listenTo(conversionConfirmationCtrl);
+			
+			cmc = new CloseableModalController(getWindowControl(), translate("close"),
+					conversionConfirmationCtrl.getInitialComponent(), true, translate("convert.item"));
+			cmc.activate();
+			listenTo(cmc);
+		}
+	}
+	
+	protected void doConvert(UserRequest ureq, List<QuestionItemShort> items, String format) {
+		QPoolSPI sp = qpoolModule.getQuestionPoolProvider(format);
+		
+		int count = 0;
+		for(QuestionItemShort item:items) {
+			QuestionItem convertedQuestion = sp.convert(getIdentity(), item, getLocale());
+			if(convertedQuestion != null) {
+				count++;
+			}
+		}
+		
+		if(count == items.size()) {
+			showInfo("convert.item.successful", new String[]{ Integer.toString(count)} );
+		} else {
+			int errors = items.size() - count;
+			showWarning("convert.item.warning", new String[]{ Integer.toString(errors), Integer.toString(items.size()) } );
+		}
+		
+		getItemsTable().reset();
 		fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
 	}
 	
@@ -908,15 +1048,17 @@ public class QuestionListController extends AbstractItemListController implement
 		doSelect(ureq, item, row.isEditable());
 	}
 		
-	protected void doSelect(UserRequest ureq, QuestionItem item, boolean editable) {
+	protected QuestionItemDetailsController doSelect(UserRequest ureq, QuestionItem item, boolean editable) {
 		removeAsListenerAndDispose(currentDetailsCtrl);
 		removeAsListenerAndDispose(currentMainDetailsCtrl);
 		
-		currentDetailsCtrl = new QuestionItemDetailsController(ureq, getWindowControl(), item, editable, getSource().isDeleteEnabled());
+		WindowControl bwControl = addToHistory(ureq, item, null);
+		currentDetailsCtrl = new QuestionItemDetailsController(ureq, bwControl, item, editable, getSource().isDeleteEnabled());
 		currentDetailsCtrl.setBreadcrumbPanel(stackPanel);
 		listenTo(currentDetailsCtrl);
 		currentMainDetailsCtrl = new LayoutMain3ColsController(ureq, getWindowControl(), currentDetailsCtrl);
 		listenTo(currentMainDetailsCtrl);
 		stackPanel.pushController(item.getTitle(), currentMainDetailsCtrl);
+		return currentDetailsCtrl;
 	}
 }

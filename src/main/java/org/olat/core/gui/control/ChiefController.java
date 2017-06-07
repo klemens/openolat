@@ -41,6 +41,12 @@ public interface ChiefController extends Controller {
 	 * @return the window
 	 */
 	public Window getWindow();
+	
+	/**
+	 * 
+	 * @return The title of the browser window
+	 */
+	public String getWindowTitle();
 
 	/**
 	 * @return the windowcontrol
@@ -48,6 +54,8 @@ public interface ChiefController extends Controller {
 	public WindowControl getWindowControl();
 	
 	public ScreenMode getScreenMode();
+	
+	public boolean isLoginInterceptionInProgress();
 	
 	/**
 	 * The method is called by the poller thread.

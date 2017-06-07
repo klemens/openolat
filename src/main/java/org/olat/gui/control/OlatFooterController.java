@@ -48,10 +48,9 @@ import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.core.util.WebappHelper;
+import org.olat.login.AboutController;
 import org.olat.social.SocialModule;
 import org.olat.social.shareLink.ShareLinkController;
 import org.olat.user.UserManager;
@@ -71,7 +70,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class OlatFooterController extends BasicController implements LockableController { 
 	
-	private final Link impressumLink;
+	private final Link impressumLink, aboutLink;
 	private final VelocityContainer olatFootervc;
 	private ShareLinkController shareLinkCtr;
 	
@@ -114,7 +113,8 @@ public class OlatFooterController extends BasicController implements LockableCon
 		if (!isGuest && ureq.getUserSession().isAuthenticated()) {
 			olatFootervc.contextPut("loggedIn", Boolean.TRUE);
 			if(isInvitee) {
-				olatFootervc.contextPut("username", translate("logged.in.invitee"));
+				String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(ureq.getIdentity());
+				olatFootervc.contextPut("username", StringHelper.escapeHtml(fullName) + " " + translate("logged.in.invitee"));
 			} else {
 				String fullName = CoreSpringFactory.getImpl(UserManager.class).getUserDisplayName(ureq.getIdentity());
 				olatFootervc.contextPut("username", StringHelper.escapeHtml(fullName));
@@ -123,15 +123,13 @@ public class OlatFooterController extends BasicController implements LockableCon
 			olatFootervc.contextPut("loggedIn", Boolean.FALSE);
 		}
 
-		olatFootervc.contextPut("appName", Settings.getApplicationName());
-		olatFootervc.contextPut("appVersion", Settings.getVersion());
-		
-		olatFootervc.contextPut("buildIdentifier", Settings.getBuildIdentifier());
-		olatFootervc.contextPut("revisionNumber", WebappHelper.getRevisionNumber());
-		olatFootervc.contextPut("changeSet", WebappHelper.getChangeSet());
-		olatFootervc.contextPut("olatversion", Settings.getFullVersionInfo() +" "+ Settings.getNodeInfo());
 		olatFootervc.contextPut("footerInfos", new FooterInformations(layoutModule));
 
+		// about link
+		aboutLink = AboutController.aboutLinkFactory(getLocale(), this, false, true);
+		aboutLink.setCustomDisplayText(Settings.getApplicationName() + "&nbsp;" + Settings.getVersion());		
+		olatFootervc.put("aboutLink", aboutLink);
+		
 		putInitialPanel(olatFootervc);
 	}
 	
@@ -141,14 +139,14 @@ public class OlatFooterController extends BasicController implements LockableCon
 	}
 
 	@Override
-	public void lockResource(OLATResourceable resource) {
+	public void lock() {
 		if(shareLinkCtr != null) {
 			olatFootervc.remove(shareLinkCtr.getInitialComponent());
 		}
 	}
 
 	@Override
-	public void unlockResource() {
+	public void unlock() {
 		if(shareLinkCtr != null) {
 			olatFootervc.put("shareLink", shareLinkCtr.getInitialComponent());
 		}
@@ -158,6 +156,10 @@ public class OlatFooterController extends BasicController implements LockableCon
 	public void event(UserRequest ureq, Component source, Event event) {
 		if(impressumLink == source) {
 			doOpenImpressum(ureq);
+		} else if (source == aboutLink) {
+			AboutController aboutCtr = new AboutController(ureq, getWindowControl());
+			listenTo(aboutCtr);
+			aboutCtr.activateAsModalDialog();
 		}
 	}
 	

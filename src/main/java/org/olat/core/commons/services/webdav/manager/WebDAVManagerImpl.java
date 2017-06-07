@@ -202,13 +202,11 @@ public class WebDAVManagerImpl implements WebDAVManager, InitializingBean {
 						usess = handleBasicAuthentication(credentials, request);
 					}
 				} else if (basic.equalsIgnoreCase("Digest")) {
-					int digestIndex = authHeader.indexOf("Digest");
-					String digestInfos = authHeader.substring(digestIndex + 7);
-					DigestAuthentication digestAuth = DigestAuthentication.parse(digestInfos);
+					DigestAuthentication digestAuth = DigestAuthentication.parse(authHeader);
 					cacheKey = digestAuth.getUsername();
 					usess = timedSessionCache.get(new CacheKey(remoteAddr, digestAuth.getUsername()));
 					if (usess == null || !usess.isAuthenticated()) {
-						usess = handleDigestAuthentication(digestInfos, request);
+						usess = handleDigestAuthentication(digestAuth, request);
 					}
 				}
 			}
@@ -241,8 +239,7 @@ public class WebDAVManagerImpl implements WebDAVManager, InitializingBean {
 		return null;
 	}
 
-	protected UserSession handleDigestAuthentication(String credentials, HttpServletRequest request) {
-		DigestAuthentication digestAuth = DigestAuthentication.parse(credentials);
+	protected UserSession handleDigestAuthentication(DigestAuthentication digestAuth, HttpServletRequest request) {
 		Identity identity = webDAVAuthManager.digestAuthentication(request.getMethod(), digestAuth);
 		if(identity != null) {
 			return afterAuthorization(identity, request);
@@ -289,16 +286,15 @@ public class WebDAVManagerImpl implements WebDAVManager, InitializingBean {
 			// set the roles (admin, author, guest)
 			Roles roles = BaseSecurityManager.getInstance().getRoles(identity);
 			usess.setRoles(roles);
-			// set authprovider
-			//usess.getIdentityEnvironment().setAuthProvider(OLATAuthenticationController.PROVIDER_OLAT);
-		
 			// set session info
 			SessionInfo sinfo = new SessionInfo(identity.getKey(), identity.getName(), request.getSession());
 			User usr = identity.getUser();
 			sinfo.setFirstname(usr.getProperty(UserConstants.FIRSTNAME, null));
 			sinfo.setLastname(usr.getProperty(UserConstants.LASTNAME, null));
-			sinfo.setFromIP(request.getRemoteAddr());
-			sinfo.setFromFQN(request.getRemoteAddr());
+			
+			String remoteAddr = request.getRemoteAddr();
+			sinfo.setFromIP(remoteAddr);
+			sinfo.setFromFQN(remoteAddr);
 			try {
 				InetAddress[] iaddr = InetAddress.getAllByName(request.getRemoteAddr());
 				if (iaddr.length > 0) sinfo.setFromFQN(iaddr[0].getHostName());

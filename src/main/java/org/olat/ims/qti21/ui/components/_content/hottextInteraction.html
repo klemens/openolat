@@ -1,0 +1,28 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="$localName">
+	#if($interaction.getPrompt())
+	<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+	#end
+	
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+		<div class="o_error badResponse">	
+		#if($interaction.minChoices == $interaction.maxChoices && $interaction.minChoices > 0)
+			#if($interaction.minChoices == 1)
+				$r.translate("error.input.choice.minax.one")
+			#else
+				$r.translate("error.input.choice.minax")
+			#end
+		#elseif($interaction.minChoices > 0 && $interaction.maxChoices > 0)
+			$r.translate("error.input.choice.min.max", $interaction.minChoices, $interaction.maxChoices)
+		#elseif($interaction.minChoices > 0)
+			$r.translate("error.input.choice.min", $interaction.minChoices)
+		#elseif($interaction.maxChoices > 0)
+			$r.translate("error.input.choice.max", $interaction.maxChoices)
+		#end
+	    </div>
+	#end
+	
+	$r.renderBlockStatics($interaction.getBlockStatics())
+</div>

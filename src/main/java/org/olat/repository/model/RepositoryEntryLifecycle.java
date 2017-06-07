@@ -33,6 +33,7 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.core.id.CreateInfo;
 import org.olat.core.id.ModifiedInfo;
 import org.olat.core.id.Persistable;
@@ -47,8 +48,8 @@ import org.olat.core.id.Persistable;
 @Entity(name="repositoryentrylifecycle")
 @Table(name="o_repositoryentry_cycle")
 @NamedQueries({
-	@NamedQuery(name="loadReLifeCycle", query="select relifecycle from repositoryentrylifecycle relifecycle where relifecycle.key=:key"),
-	@NamedQuery(name="loadPublicReLifeCycle", query="select relifecycle from repositoryentrylifecycle relifecycle where relifecycle.privateCycle=false"),
+	@NamedQuery(name="loadReLifeCycle", query="select relifecycle from repositoryentrylifecycle relifecycle where relifecycle.key=:key order by relifecycle.validFrom desc"),
+	@NamedQuery(name="loadPublicReLifeCycle", query="select relifecycle from repositoryentrylifecycle relifecycle where relifecycle.privateCycle=false order by relifecycle.validFrom desc"),
 	@NamedQuery(name="countPublicReLifeCycle", query="select count(relifecycle) from repositoryentrylifecycle relifecycle where relifecycle.privateCycle=false")
 })
 public class RepositoryEntryLifecycle implements Persistable, CreateInfo, ModifiedInfo {
@@ -56,7 +57,14 @@ public class RepositoryEntryLifecycle implements Persistable, CreateInfo, Modifi
 	private static final long serialVersionUID = -8484159601386853047L;
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	

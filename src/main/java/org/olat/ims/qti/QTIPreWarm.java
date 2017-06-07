@@ -22,8 +22,7 @@ package org.olat.ims.qti;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.configuration.PreWarm;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -32,6 +31,7 @@ import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import de.bps.onyx.plugin.OnyxModule;
@@ -48,6 +48,11 @@ import de.bps.onyx.plugin.OnyxModule;
 public class QTIPreWarm implements PreWarm {
 	
 	private static final OLog log = Tracing.createLoggerFor(QTIPreWarm.class);
+	
+	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private OLATResourceManager olatResourceManager;
 
 	@Override
 	public void run() {
@@ -57,8 +62,8 @@ public class QTIPreWarm implements PreWarm {
 		List<String> types = new ArrayList<>(2);
 		types.add(TestFileResource.TYPE_NAME);
 		types.add(SurveyFileResource.TYPE_NAME);
-		List<OLATResource> qtiResources = CoreSpringFactory.getImpl(OLATResourceManager.class).findResourceByTypes(types);
-		DBFactory.getInstance().commitAndCloseSession();
+		List<OLATResource> qtiResources = olatResourceManager.findResourceByTypes(types);
+		dbInstance.commitAndCloseSession();
 		for(OLATResource qtiResource:qtiResources) {
 			OnyxModule.isOnyxTest(qtiResource);
 		}

@@ -116,6 +116,15 @@ public class PersistenceHelper {
 		return true;
 	}
 	
+	public static boolean appendAnd(NativeQueryBuilder sb, boolean where) {
+		if(where) {
+			sb.append(" and ");
+		} else {
+			sb.append(" where ");
+		}
+		return true;
+	}
+	
 	public static boolean appendGroupBy(StringBuilder sb, String dbRef, SortKey... orderBy) {
 		boolean appended = false;
 		if(orderBy != null && orderBy.length > 0 && orderBy[0] != null) {
@@ -146,16 +155,16 @@ public class PersistenceHelper {
 	
 	/**
 	 * Helper method that replaces * with % and appends and
-	 * prepends % to the string to make fuzzy SQL match when using like 
+	 * prepends % to the string to make fuzzy SQL match when using like.
+	 * Use "" to disable this feature and use exact match
 	 * @param email
 	 * @return fuzzized string
 	 */
 	public static final String makeFuzzyQueryString(String string) {
-		// By default only fuzzyfy at the end. Usually it makes no sense to do a
+		// By default only fuzzy at the end. Usually it makes no sense to do a
 		// fuzzy search with % at the beginning, but it makes the query very very
 		// slow since it can not use any index and must perform a fulltext search.
 		// User can always use * to make it a really fuzzy search query
-		// fxdiff FXOLAT-252: use "" to disable this feature and use exact match
 		if (string.length() > 1 && string.startsWith("\"") && string.endsWith("\"")) {			
 			string = string.substring(1, string.length()-1);
 		} else {
@@ -164,6 +173,19 @@ public class PersistenceHelper {
 			}
 			string = string.replace('*', '%');
 		}
+		// with 'LIKE' the character '_' is a wildcard which matches exactly one character.
+		// To test for literal instances of '_', we have to escape it.
+		string = string.replace("_", "\\_");
+		return string.toLowerCase();
+	}
+	
+	public static String makeEndFuzzyQueryString(String string) {
+		// By default only fuzzy at the end. Usually it makes no sense to do a
+		// fuzzy search with % at the beginning, but it makes the query very very
+		// slow since it can not use any index and must perform a fulltext search.
+		// User can always use * to make it a really fuzzy search query
+		string = string.replace('*', '%');
+		string = string + "%";
 		// with 'LIKE' the character '_' is a wildcard which matches exactly one character.
 		// To test for literal instances of '_', we have to escape it.
 		string = string.replace("_", "\\_");
@@ -354,5 +376,17 @@ public class PersistenceHelper {
 			}
 		}
 		return keys;
+	}
+	
+	public static Long extractLong(Object[] results, int pos) {
+		if(results == null || pos >= results.length) return null;
+		Object obj = results[pos];
+		return obj == null ? null : ((Number)obj).longValue();
+	}
+	
+	public static String extractString(Object[] results, int pos) {
+		if(results == null || pos >= results.length ) return null;
+		Object obj = results[pos];
+		return obj == null ? null : (obj instanceof String ? (String)obj : obj.toString());
 	}
 }

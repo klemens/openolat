@@ -46,7 +46,6 @@ import org.olat.core.gui.render.ValidationResult;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.tree.INodeFilter;
-import org.olat.course.tree.TreePosition;
 
 /**
  * Description: <br>
@@ -139,6 +138,10 @@ public class MenuTree extends AbstractComponent {
 	 */
 	public MenuTree(String name) {
 		super(null, name);
+	}
+	
+	public MenuTree(String id, String name) {
+		super(id, name);
 	}
 	
 	/**
@@ -495,10 +498,10 @@ public class MenuTree extends AbstractComponent {
 
 	/**
 	 * Use the insert tool
-	 * @param showInsertTool
+	 * @param enableInsertTool
 	 */
-	public void enableInsertTool(boolean showInsertTool) {
-		this.showInsertTool = showInsertTool;
+	public void enableInsertTool(boolean enableInsertTool) {
+		showInsertTool = enableInsertTool;
 	}
 
 	protected boolean isMultiSelect() {

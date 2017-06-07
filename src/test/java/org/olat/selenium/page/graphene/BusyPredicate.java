@@ -38,7 +38,7 @@ public class BusyPredicate implements Predicate<WebDriver> {
 	@Override
 	public boolean apply(WebDriver driver) {
         Object busy = ((JavascriptExecutor)driver)
-        		.executeScript("return window.o_info.linkbusy");
+        		.executeScript("return (typeof window.o_info === 'undefined') || window.o_info.linkbusy");
         return Boolean.FALSE.equals(busy);
     }
 }

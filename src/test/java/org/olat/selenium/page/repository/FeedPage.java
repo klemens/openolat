@@ -23,7 +23,7 @@ import java.util.List;
 
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
-import org.olat.selenium.page.portfolio.ArtefactWizardPage;
+import org.olat.selenium.page.portfolio.MediaPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -41,13 +41,11 @@ public class FeedPage {
 
 	public static final By newExternalFeedBy = By.className("o_feed");
 	
-
-	private WebDriver browser;
+	private final WebDriver browser;
 	
 	public FeedPage(WebDriver browser) {
 		this.browser = browser;
 	}
-	
 	
 	public static FeedPage getFeedPage(WebDriver browser) {
 		OOGraphene.waitElement(feedBy, browser);
@@ -98,8 +96,11 @@ public class FeedPage {
 	private FeedPage newExternalFeed(By configureExternalButton, String url) {
 		browser.findElement(configureExternalButton).click();
 		OOGraphene.waitBusy(browser);
+		By popupBy = By.cssSelector("div.modal-dialog");
+		OOGraphene.waitElement(popupBy, 5, browser);
+		
 		//fill the URL input field
-		By urlField = By.xpath("(//div[contains(@class,'modal-body')]//form//input[@type='text'])[2]");
+		By urlField = By.cssSelector("div.modal-dialog div.o_sel_feed_url input[type='text']");
 		WebElement urlEl = browser.findElement(urlField);
 		urlEl.sendKeys(url);
 		
@@ -109,7 +110,7 @@ public class FeedPage {
 		//save the settings
 		By saveButton = By.xpath("//div[contains(@class,'modal-body')]//form//button[contains(@class,'btn-primary')]");
 		browser.findElement(saveButton).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.waitBusy(browser, 20);
 		return this;
 	}
 	
@@ -121,14 +122,20 @@ public class FeedPage {
 		return this;
 	}
 	
-	public FeedPage addPost() {
+	public FeedPage addBlogPost() {
 		By newItemButton = By.className("o_sel_feed_item_new");
 		browser.findElement(newItemButton).click();
 		OOGraphene.waitBusy(browser);
+		By postForm = By.className("o_sel_blog_form");
+		OOGraphene.waitElement(postForm, 1, browser);
 		return this;
 	}
 	
 	public FeedPage fillPostForm(String title, String summary, String content) {
+		//wait that the popup is available
+		By postFormBy = By.cssSelector("fieldset.o_sel_blog_form");
+		OOGraphene.waitElement(postFormBy, 2, browser);
+
 		By titleBy = By.cssSelector("div.o_sel_blog_title input[type='text']");
 		browser.findElement(titleBy).sendKeys(title);
 		
@@ -147,15 +154,17 @@ public class FeedPage {
 	}
 	
 	/**
-	 * Add the thread to my artefacts
+	 * Click the button to add a blog entry as media
+	 * to your portfolio.
 	 * 
+	 * @return Itself
 	 */
-	public ArtefactWizardPage addAsArtfeact() {
-		By addAsArtefactBy = By.className("o_eportfolio_add");
-		WebElement addAsArtefactButton = browser.findElement(addAsArtefactBy);
-		addAsArtefactButton.click();
+	public MediaPage addAsMedia() {
+		By addAsMediaBy = By.cssSelector(".o_post .o_portfolio_collector");
+		WebElement addAsmediaButton = browser.findElement(addAsMediaBy);
+		addAsmediaButton.click();
 		OOGraphene.waitBusy(browser);
-		return ArtefactWizardPage.getWizard(browser);
+		return new MediaPage(browser);
 	}
 	
 	/**

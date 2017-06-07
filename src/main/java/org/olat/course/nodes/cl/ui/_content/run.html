@@ -17,8 +17,12 @@
 			<tr class="o_score">
 				<th>$r.translate("score.yourscore")</th>
 				<td>
-				#if($score)		
-					$score
+				#if($score)
+					#if($resultsVisible)
+						$score
+					#else
+						$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+					#end
 				#else
 					<div class="o_noinfo">$r.translate("score.noscore")</div>
 				#end				
@@ -33,15 +37,15 @@
 				<td>$passedCutValue</td>
 			</tr>
 			#end
-			<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+			<tr class="o_state #if(!$resultsVisible) #elseif($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
 				<th>$r.translate("passed.yourpassed")</th>
 				<td>
-				#if($hasPassedValue && $passed)	
-					<i class="o_icon o_icon_passed"></i> 
-					$r.translate("passed.yes")
-				#elseif($hasPassedValue && !$passed)		
-					<i class="o_icon o_icon_failed"></i> 
-					$r.translate("passed.no")
+				#if($hasPassedValue && !$resultsVisible)
+					$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+				#elseif($hasPassedValue && $passed)
+					<i class="o_icon o_icon_passed"> </i> $r.translate("passed.yes")
+				#elseif($hasPassedValue && !$passed)
+					<i class="o_icon o_icon_failed"> </i> $r.translate("passed.no")
 				#else
 					<div class="o_noinfo">$r.translate("passed.nopassed")</div>
 				#end
@@ -53,7 +57,7 @@
 	</div>
 #end
 
-#if ($comment)		
+#if ($r.isNotEmpty($comment))		
 	<div class="panel panel-default o_comment">
 	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseComment">
 	  		<h4 class="panel-title">
@@ -132,6 +136,10 @@
 	</script>
 #end
 
+#if ($r.available("highScore"))
+	$r.render("highScore")
+#end
+
 <div class="o_cl o_block_large">
 	<div class="o_cl_header hidden-xs row">
 		<div class="col-sm-3"><h4>$r.translate("run.mark")</h4></div>
@@ -153,7 +161,7 @@
 				#if($checkbox.description)
 					<div class="o_cl_desc">$r.xssScan($checkbox.description)</div>
 				#end
-				#if($checkbox.checkbox.filename)
+				#if(${checkbox.hasDownload()})
 					<div class="o_cl_file">$r.render($checkbox.downloadName)</div>
 				#end
 			</div>

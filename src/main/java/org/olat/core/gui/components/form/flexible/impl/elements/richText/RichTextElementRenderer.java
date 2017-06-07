@@ -26,6 +26,7 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.DefaultComponentRenderer;
+import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormJSHelper;
 import org.olat.core.gui.render.RenderResult;
 import org.olat.core.gui.render.Renderer;
@@ -85,7 +86,11 @@ class RichTextElementRenderer extends DefaultComponentRenderer {
 			sb.append(Formatter.formatLatexFormulas(value));
 			sb.append("</div>");
 		} else {
-			sb.append("<div id='").append(domID).append("_diw' class='o_richtext_mce'>");
+			sb.append("<div id='").append(domID).append("_diw' class='o_richtext_mce");
+			if(!te.getEditorConfiguration().isPathInStatusBar()) {
+				sb.append(" o_richtext_mce_without_path");
+			}
+			sb.append("'>");
 			renderTinyMCE_4(sb, domID, teC, ubu, source.getTranslator());
 			sb.append("</div>");
 		}
@@ -98,12 +103,23 @@ class RichTextElementRenderer extends DefaultComponentRenderer {
 
 		StringOutput configurations = new StringOutput();
 		config.appendConfigToTinyJSArray_4(configurations, translator);
+		if(config.getAdditionalConfiguration() != null) {
+			config.getAdditionalConfiguration().appendConfigToTinyJSArray_4(configurations, translator);
+		}
 		
 		StringOutput baseUrl = new StringOutput();
 		StaticMediaDispatcher.renderStaticURI(baseUrl, "js/tinymce4/tinymce/tinymce.min.js", true);
 		
 		// Read write view
-		renderTextarea(sb, domID, teC);
+		if(config.isInline()) {
+			renderInlineEditor(sb, domID, teC);
+		} else {
+			renderTextarea(sb, domID, teC);
+		}
+		
+		Form form = te.getRootForm();
+		configurations.append("ffxhrevent: { formNam:\"").append(form.getFormName()).append("\", dispIdField:\"").append(form.getDispatchFieldId()).append("\",")
+		 .append(" dispId:\"").append(teC.getFormDispatchId()).append("\", eventIdField:\"").append(form.getEventFieldId()).append("\"}\n");
 		
 		sb.append("<script type='text/javascript'>/* <![CDATA[ */\n");
 		//file browser url
@@ -119,11 +135,50 @@ class RichTextElementRenderer extends DefaultComponentRenderer {
 		  .append("      });\n")
 		  .append("      ed.on('change', function(e) {\n")
 		  .append("        BTinyHelper.triggerOnChange('").append(domID).append("');\n")
-		  .append("      });\n") 
-		  .append("    },\n")
+		  .append("      });\n");
+		if(config.isInline() || config.isSendOnBlur()) {
+			sb.append("      ed.on('blur', function(e) {\n")
+			  .append("        o_ffXHREvent('").append(form.getFormName()).append("','").append(form.getDispatchFieldId()).append("','").append(teC.getFormDispatchId()).append("','").append(form.getEventFieldId()).append("', 2, false, false, false, 'cmd','saveinlinedtiny','").append(domID).append("',ed.getContent());\n")
+	          .append("      });\n");
+		}
+		sb.append("    },\n")
 		  .append(configurations)
 		  .append("  });\n")
 		  .append("/* ]]> */</script>\n");
+	}
+	
+	private void renderInlineEditor(StringOutput sb, String domID, RichTextElementComponent teC) {
+		RichTextElementImpl te = teC.getRichTextElementImpl();
+		int cols = teC.getCols();
+		int rows = teC.getRows();
+		String value = te.getRawValue();
+		
+		// Read write view
+		sb.append("<div id=\"");
+		sb.append(domID);
+		sb.append("\" name=\"");
+		sb.append(domID);
+		sb.append("\" ");
+		StringBuilder rawData = FormJSHelper.getRawJSFor(te.getRootForm(), domID, te.getAction());
+		sb.append(rawData.toString());
+		sb.append(" style=\"");
+		sb.append(" width:");
+		if (cols == -1) {
+			sb.append("100%;");
+		} else {
+			sb.append(cols);
+			sb.append("em;");
+		}
+		sb.append("height:");
+		if (rows == -1) {
+			sb.append("100%;");
+		} else {
+			sb.append(rows);
+			sb.append("em;");
+		}
+		sb.append("\" class=\"BGlossarIgnore\">");
+		sb.append(value);
+		sb.append("</div>");
 	}
 	
 	private void renderTextarea(StringOutput sb, String domID, RichTextElementComponent teC) {

@@ -1,0 +1,398 @@
+/**
+ * <a href="http://www.openolat.org">
+ * OpenOLAT - Online Learning and Training</a><br>
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License"); <br>
+ * you may not use this file except in compliance with the License.<br>
+ * You may obtain a copy of the License at the
+ * <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache homepage</a>
+ * <p>
+ * Unless required by applicable law or agreed to in writing,<br>
+ * software distributed under the License is distributed on an "AS IS" BASIS, <br>
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. <br>
+ * See the License for the specific language governing permissions and <br>
+ * limitations under the License.
+ * <p>
+ * Initial code contributed and copyrighted by<br>
+ * frentix GmbH, http://www.frentix.com
+ * <p>
+ */
+package org.olat.ims.qti21;
+
+import java.io.File;
+import java.net.URI;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import org.olat.basesecurity.IdentityRef;
+import org.olat.core.gui.components.form.flexible.impl.MultipartFileInfos;
+import org.olat.core.id.Identity;
+import org.olat.ims.qti21.model.DigitalSignatureOptions;
+import org.olat.ims.qti21.model.DigitalSignatureValidation;
+import org.olat.ims.qti21.model.ParentPartItemRefs;
+import org.olat.ims.qti21.model.ResponseLegality;
+import org.olat.ims.qti21.model.audit.CandidateEvent;
+import org.olat.ims.qti21.model.audit.CandidateItemEventType;
+import org.olat.ims.qti21.model.audit.CandidateTestEventType;
+import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryEntryRef;
+
+import uk.ac.ed.ph.jqtiplus.JqtiExtensionManager;
+import uk.ac.ed.ph.jqtiplus.node.AssessmentObject;
+import uk.ac.ed.ph.jqtiplus.node.result.AssessmentResult;
+import uk.ac.ed.ph.jqtiplus.notification.NotificationRecorder;
+import uk.ac.ed.ph.jqtiplus.reading.QtiXmlReader;
+import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentItem;
+import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentObject;
+import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentTest;
+import uk.ac.ed.ph.jqtiplus.serialization.QtiSerializer;
+import uk.ac.ed.ph.jqtiplus.state.ItemSessionState;
+import uk.ac.ed.ph.jqtiplus.state.TestPlanNodeKey;
+import uk.ac.ed.ph.jqtiplus.state.TestSessionState;
+import uk.ac.ed.ph.jqtiplus.types.Identifier;
+import uk.ac.ed.ph.jqtiplus.types.ResponseData.ResponseDataType;
+import uk.ac.ed.ph.jqtiplus.xmlutils.xslt.XsltStylesheetCache;
+import uk.ac.ed.ph.jqtiplus.xmlutils.xslt.XsltStylesheetManager;
+
+/**
+ * 
+ * Initial date: 12.05.2015<br>
+ * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
+ */
+public interface QTI21Service {
+	
+	public static final String PACKAGE_CONFIG_FILE_NAME = "QTI21PackageConfig.xml";
+	
+	/**
+	 * New QTI serializer
+	 * @return
+	 */
+	public QtiSerializer qtiSerializer();
+	
+	public QtiXmlReader qtiXmlReader();
+	
+	/**
+	 * The manager for custom extensions to QTI (MathExtensio )
+	 * @return
+	 */
+	public JqtiExtensionManager jqtiExtensionManager();
+	
+	/**
+	 * @return The cache for stylesheets used by MathML transformation
+	 */
+	public XsltStylesheetCache getXsltStylesheetCache();
+	
+	/**
+	 * @return The stylesheets manager used by MathML transformation
+	 */
+	public XsltStylesheetManager getXsltStylesheetManager();
+	
+	
+	public URI createAssessmentTestUri(File resourceDirectory);
+	
+	/**
+	 * Load the assessmentTest based on the imsmanifest.xml found in the resource
+	 * directory. Return null if the imsmanifest.xml is not found. The assessmentTest
+	 * is cached.
+	 * 
+	 * @param resourceDirectory The directory where is the package
+	 * @param replace If true updates the cache
+	 * @param debugInfo If true writes more infos 
+	 * @return The resolved assessment test or null if the imsmanifest.xml was not found.
+	 */
+	public ResolvedAssessmentTest loadAndResolveAssessmentTest(File resourceDirectory, boolean replace, boolean debugInfo);
+	
+	/**
+	 * The assessment item is load and cached.
+	 * 
+	 * @param assessmentObjectSystemId
+	 * @param resourceDirectory
+	 * @return
+	 */
+	public ResolvedAssessmentItem loadAndResolveAssessmentItem(URI assessmentObjectSystemId, File resourceDirectory);
+	
+	/**
+	 * This method load a fresh instance from the disk and don't cache it. The instance can be changed and saved
+	 * safely.
+	 * 
+	 * @param assessmentObjectSystemId
+	 * @param resourceDirectory
+	 * @return
+	 */
+	public ResolvedAssessmentItem loadAndResolveAssessmentItemForCopy(URI assessmentObjectSystemId, File resourceDirectory);
+	
+	public boolean updateAssesmentObject(File resourceFile, ResolvedAssessmentObject<?> resolvedAssessmentObject);
+	
+	public boolean persistAssessmentObject(File resourceFile, AssessmentObject assessmentObject);
+	
+	/**
+	 * 
+	 * @param The test resource
+	 * @return
+	 */
+	public boolean needManualCorrection(RepositoryEntry testEntry);
+	
+	/**
+	 * 
+	 * @param identities
+	 * @param testEntry
+	 * @param entry
+	 * @param subIdent
+	 * @return
+	 */
+	public boolean deleteAssessmentTestSession(List<Identity> identities, RepositoryEntryRef testEntry, RepositoryEntryRef entry, String subIdent);
+	
+	/**
+	 * Remove all test sessions in author mode, e.g. after an assessment test
+	 * was changed.
+	 * 
+	 * @param testEntry
+	 * @return
+	 */
+	public boolean deleteAuthorAssessmentTestSession(RepositoryEntryRef testEntry);
+	
+	/**
+	 * Delete a specific test session.
+	 * 
+	 * @param testSession
+	 * @return
+	 */
+	public boolean deleteAssessmentTestSession(AssessmentTestSession testSession);
+	
+	/**
+	 * Set some extra options for the QTI package.
+	 * 
+	 * @param testEntry
+	 * @return
+	 */
+	public QTI21DeliveryOptions getDeliveryOptions(RepositoryEntry testEntry);
+	
+	/**
+	 * Set some extra options for the QTI 2.1 which are not part
+	 * of the standard fomr IMS.
+	 * 
+	 * @param testEntry
+	 * @param options
+	 */
+	public void setDeliveryOptions(RepositoryEntry testEntry, QTI21DeliveryOptions options);
+	
+	/**
+	 * Check if some user made assessment with this test.
+	 * 
+	 * @param testEntry
+	 * @return
+	 */
+	public boolean isAssessmentTestActivelyUsed(RepositoryEntry testEntry);
+	
+	
+	
+	public AssessmentTestSession createAssessmentTestSession(Identity identity, String anonymousIdentifier,
+			AssessmentEntry assessmentEntry, RepositoryEntry entry, String subIdent, RepositoryEntry testEntry,
+			boolean authorMode);
+	
+	
+	/**
+	 * This create an transient session which are not saved on the database. But
+	 * please, at the end of the session, delete the storage.
+	 * 
+	 * @param identity
+	 * @param anonymousIdentifier
+	 * @param assessmentEntry
+	 * @param entry
+	 * @param subIdent
+	 * @param testEntry
+	 * @param authorMode
+	 * @return
+	 */
+	public AssessmentTestSession createInMemoryAssessmentTestSession(Identity identity);
+	
+	/**
+	 * Return the implementation of the log audit.
+	 * 
+	 * @param session
+	 * @return
+	 */
+	public AssessmentSessionAuditLogger getAssessmentSessionAuditLogger(AssessmentTestSession session, boolean authorMode);
+	
+	/**
+	 * This will return the last session if it's not finished, terminated or exploded.
+	 * 
+	 * @param identity The identity which play the session
+	 * @param anonymousIdentifier The anonymous identifier which play the session
+	 * @param entry The repository entry (course or test)
+	 * @param subIdent The sub identifier (typically course element ident)
+	 * @param testEntry The repository entry of the test
+	 * @param authorMode If the sesssion is played as an author
+	 * @return A test session
+	 */
+	public AssessmentTestSession getResumableAssessmentTestSession(Identity identity, String anonymousIdentifier,
+			RepositoryEntry entry, String subIdent, RepositoryEntry testEntry, boolean authorMode);
+
+	public AssessmentTestSession reloadAssessmentTestSession(AssessmentTestSession session);
+	
+	public AssessmentTestSession updateAssessmentTestSession(AssessmentTestSession session);
+
+	public boolean isRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry);
+	
+	public List<AssessmentTestSession> getRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry);
+	
+	public TestSessionState loadTestSessionState(AssessmentTestSession session);
+
+	public AssessmentTestMarks createMarks(Identity identity, RepositoryEntry entry, String subIdent, RepositoryEntry testEntry, String marks);
+	
+	public AssessmentTestMarks getMarks(Identity identity, RepositoryEntry entry, String subIdent, RepositoryEntry testEntry);
+	
+	public AssessmentTestMarks updateMarks(AssessmentTestMarks marks);
+	
+	public File getAssessmentResultFile(final AssessmentTestSession candidateSession);
+	
+	/**
+	 * Reload the test session by its key and fetch identity, user...
+	 * 
+	 * @param assessmentTestSessionKey
+	 * @return The assessment test session or null if not found.
+	 */
+	public AssessmentTestSession getAssessmentTestSession(Long assessmentTestSessionKey);
+	
+	/**
+	 * Retrieve the sessions of a user.
+	 * 
+	 * @param courseEntry
+	 * @param subIdent
+	 * @param identity
+	 * @return
+	 */
+	public List<AssessmentTestSession> getAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent, IdentityRef identity);
+	
+	/**
+	 * Retrieve the last finished test session.
+	 * 
+	 * @param courseEntry
+	 * @param subIdent
+	 * @param testEntry
+	 * @param identity
+	 * @return
+	 */
+	public AssessmentTestSession getLastAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent, RepositoryEntry testEntry, IdentityRef identity);
+	
+	/**
+	 * Retrieve the sessions for a test.
+	 * 
+	 * @param courseEntry
+	 * @param subIdent
+	 * @param testEntry
+	 * @return
+	 */
+	public List<AssessmentTestSession> getAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent, RepositoryEntry testEntry);
+	
+	public AssessmentItemSession getOrCreateAssessmentItemSession(AssessmentTestSession candidateSession, ParentPartItemRefs parentParts, String assessmentItemIdentifier);
+	
+	public List<AssessmentItemSession> getAssessmentItemSessions(AssessmentTestSession candidateSession);
+	
+	public List<AssessmentItemSession> getAssessmentItemSessions(RepositoryEntryRef courseEntry, String subIdent, RepositoryEntry testEntry, String itemRef);
+	
+	public AssessmentItemSession updateAssessmentItemSession(AssessmentItemSession itemSession);
+	
+	public AssessmentResponse createAssessmentResponse(AssessmentTestSession candidateSession, AssessmentItemSession assessmentItemSession,
+			String responseIdentifier, ResponseLegality legality, ResponseDataType type);
+	
+	public Map<Identifier, AssessmentResponse> getAssessmentResponses(AssessmentItemSession assessmentItemSession);
+	
+	public void recordTestAssessmentResponses(AssessmentItemSession assessmentItemSession, Collection<AssessmentResponse> responses);
+	
+
+	public AssessmentTestSession recordTestAssessmentResult(AssessmentTestSession candidateSession, TestSessionState testSessionState, AssessmentResult assessmentResult,
+			AssessmentSessionAuditLogger auditLogger);
+	
+	/**
+	 * Finish the test session. The assessment result is for the last time and would not updated anymore.
+	 * 
+	 * @param candidateSession
+	 * @param testSessionState
+	 * @param assessmentResul
+	 * @param timestamp
+	 * @param digitalSignature
+	 * @param bundle
+	 * @return
+	 */
+	public AssessmentTestSession finishTestSession(AssessmentTestSession candidateSession, TestSessionState testSessionState, AssessmentResult assessmentResul,
+			Date timestamp, DigitalSignatureOptions signatureOptions, Identity assessedIdentity);
+	
+	public void cancelTestSession(AssessmentTestSession candidateSession, TestSessionState testSessionState);
+	
+	/**
+	 * Sign the assessment result. Be careful, the file must not be changed
+	 * after that!
+	 * 
+	 * @param candidateSession
+	 * @param sendMail
+	 * @param mail
+	 */
+	public void signAssessmentResult(AssessmentTestSession candidateSession, DigitalSignatureOptions signatureOptions, Identity assessedIdentity);
+	
+	public DigitalSignatureValidation validateAssessmentResult(File xmlSignature);
+	
+	public CandidateEvent recordCandidateTestEvent(AssessmentTestSession candidateSession, RepositoryEntryRef testEntry, RepositoryEntryRef entry,
+			CandidateTestEventType textEventType, TestSessionState testSessionState, NotificationRecorder notificationRecorder);
+
+	public CandidateEvent recordCandidateTestEvent(AssessmentTestSession candidateSession, RepositoryEntryRef testEntry, RepositoryEntryRef entry,
+			CandidateTestEventType textEventType, CandidateItemEventType itemEventType,
+			TestPlanNodeKey itemKey, TestSessionState testSessionState, NotificationRecorder notificationRecorder);
+	
+	/**
+	 * Return the assessment result for the specified test session.
+	 * 
+	 * @param candidateSession
+	 * @return The assessment result
+	 */
+	public AssessmentResult getAssessmentResult(AssessmentTestSession candidateSession);
+	
+	/**
+	 * Return the file where the XML Digital Signature of the assessment result
+	 * is saved or null if it not exists.
+	 * 
+	 * @return The file
+	 */
+	public File getAssessmentResultSignature(AssessmentTestSession candidateSession);
+	
+	/**
+	 * Return the issue date saved in the XML Digital Signature
+	 * 
+	 * @param candidateSession
+	 * @return
+	 */
+	public Date getAssessmentResultSignatureIssueDate(AssessmentTestSession candidateSession);
+	
+
+	public AssessmentTestSession finishItemSession(AssessmentTestSession candidateSession, AssessmentResult assessmentResul, Date timestamp);
+	
+
+	public void recordItemAssessmentResult(AssessmentTestSession candidateSession, AssessmentResult assessmentResult, AssessmentSessionAuditLogger candidateAuditLogger);
+	
+	public CandidateEvent recordCandidateItemEvent(AssessmentTestSession candidateSession, RepositoryEntryRef testEntry, RepositoryEntryRef entry,
+			CandidateItemEventType itemEventType, ItemSessionState itemSessionState, NotificationRecorder notificationRecorder);
+	
+	public CandidateEvent recordCandidateItemEvent(AssessmentTestSession candidateSession, RepositoryEntryRef testEntry, RepositoryEntryRef entry,
+            CandidateItemEventType itemEventType, ItemSessionState itemSessionState);
+	
+	/**
+	 * 
+	 */
+	public File getSubmissionDirectory(AssessmentTestSession candidateSession);
+	
+	/**
+	 * Import submitted file by an assessed identity in its session storage.
+	 * 
+	 * @param candidateSession
+	 * @param multipartFile
+	 * @return
+	 */
+	public File importFileSubmission(AssessmentTestSession candidateSession, MultipartFileInfos multipartFile);
+	
+	public File importFileSubmission(AssessmentTestSession candidateSession, String filename, byte[] data);
+
+}

@@ -56,11 +56,8 @@ import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
 import org.olat.portfolio.model.structel.StructureStatusEnum;
 import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
 import org.olat.repository.RepositoryService;
-import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -101,13 +98,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 	private InvitationDAO invitationDao;
 	
 	@Autowired
-	private RepositoryManager repositoryManager;
-	@Autowired
 	private RepositoryService repositoryService;
-	@Autowired
-	private OLATResourceManager resourceManager;
-	@Autowired
-	private RepositoryHandlerFactory repositoryHandlerFactory;
 	
 	@Before
 	public void setUp() {
@@ -128,9 +119,12 @@ public class EPFrontendManagerTest extends OlatTestCase {
 	@Test
 	public void testAssignMapTemplateToUser() {
 		//create a template
-		//test save parent and child
-		PortfolioStructure templateEl = epStructureManager.createPortfolioMapTemplate(ident1, "template-1", "map-template-1");
-		epStructureManager.savePortfolioStructure(templateEl);
+		OLATResource resource = epStructureManager.createPortfolioMapTemplateResource();
+		//create a repository entry
+		RepositoryEntry addedEntry = repositoryService.create(ident1, null, "-", "template-1", "map-template-1", resource, RepositoryEntry.ACC_OWNERS);
+		dbInstance.commitAndCloseSession();
+		//create the template owned by ident1
+		PortfolioStructureMap templateEl = epStructureManager.createAndPersistPortfolioMapTemplateFromEntry(ident1, addedEntry);
 		//first page
 		PortfolioStructure page1 = epFrontendManager.createAndPersistPortfolioPage(templateEl, "template-page-1", "template-page-1");
 		//structure element 1 from page 1
@@ -151,7 +145,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		
 		
 		//make the copy
-		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, (EPStructuredMapTemplate)templateEl, null, null, null, null);
+		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, templateEl, addedEntry, null, null, null);
 		dbInstance.commitAndCloseSession();
 		assertNotNull(map);
 		
@@ -213,10 +207,12 @@ public class EPFrontendManagerTest extends OlatTestCase {
 	
 	@Test
 	public void testSyncMapTemplateToUserMap() {
-		////////////////////////
-		//start create a template
-		PortfolioStructure templateEl = epStructureManager.createPortfolioMapTemplate(ident1, "sync-template-1", "symc-map-template-1");
-		epStructureManager.savePortfolioStructure(templateEl);
+		//create a template
+		OLATResource resource = epStructureManager.createPortfolioMapTemplateResource();
+		//create a repository entry
+		RepositoryEntry addedEntry = repositoryService.create(ident1, null, "-", "Template in user", "Template in use", resource, RepositoryEntry.ACC_OWNERS);
+		//create the template owned by ident1
+		PortfolioStructureMap templateEl = epStructureManager.createAndPersistPortfolioMapTemplateFromEntry(ident1, addedEntry);
 		//create five pages
 		List<PortfolioStructure> pageRefs = new ArrayList<PortfolioStructure>();
 		List<PortfolioStructure> elementRefs = new ArrayList<PortfolioStructure>();
@@ -238,7 +234,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		//////////////////////
 
 		//make the copy
-		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, (EPStructuredMapTemplate)templateEl, null, null, null, null);
+		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, templateEl, addedEntry, null, null, null);
 		dbInstance.commitAndCloseSession();
 		assertNotNull(map);
 		
@@ -487,7 +483,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//assign the template to ident2
-		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, template, null, null, null, null);
+		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, template, addedEntry, null, null, null);
 		assertNotNull(map);
 		dbInstance.commitAndCloseSession();
 		
@@ -501,9 +497,12 @@ public class EPFrontendManagerTest extends OlatTestCase {
 	
 	@Test
 	public void isTemplateInUse() {
+		//create a template
+		OLATResource resource = epStructureManager.createPortfolioMapTemplateResource();
+		//create a repository entry
+		RepositoryEntry addedEntry = repositoryService.create(ident1, null, "-", "Template in user", "Template in use", resource, RepositoryEntry.ACC_OWNERS);
 		//create the template owned by ident1
-		PortfolioStructureMap template = epStructureManager.createPortfolioMapTemplate(ident1, "Template in user", "Template in use");
-		dbInstance.saveObject(template);
+		PortfolioStructureMap template = epStructureManager.createAndPersistPortfolioMapTemplateFromEntry(ident1, addedEntry);
 		dbInstance.commitAndCloseSession();
 		//add a page to it
 		PortfolioStructure page1 = epFrontendManager.createAndPersistPortfolioPage(template, "Page title", "Page description");
@@ -514,7 +513,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		assertFalse(epFrontendManager.isTemplateInUse(template, null, null, null));
 		
 		//use the template: assign the template to ident2
-		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, template, null, null, null, null);
+		PortfolioStructureMap map = epFrontendManager.assignStructuredMapToUser(ident2, template, addedEntry, null, null, null);
 		assertNotNull(map);
 		dbInstance.commitAndCloseSession();
 		
@@ -828,7 +827,7 @@ public class EPFrontendManagerTest extends OlatTestCase {
 		//delete
 		RepositoryEntry reloadedRe = repositoryService.loadByKey(re.getKey());
 		Roles roles = new Roles(true, false, false, false, false, false, false);
-		repositoryService.delete(reloadedRe, id, roles, Locale.GERMAN);
+		repositoryService.deletePermanently(reloadedRe, id, roles, Locale.GERMAN);
 		dbInstance.commit();	
 	}
 	

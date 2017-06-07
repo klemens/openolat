@@ -99,7 +99,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	
 	private CPSelectPrintPagesController printController;
 	private CloseableModalController printPopup;
-
+	
 	/**
 	 * @param ureq
 	 * @param cpRoot
@@ -110,7 +110,8 @@ public class CPDisplayController extends BasicController implements Activateable
 	 * of the CP elements must be different but predictable
 	 */
 	public CPDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootContainer, boolean showMenu, boolean showNavigation,
-			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores, String identPrefix) {
+			boolean activateFirstPage, boolean showPrint, DeliveryOptions deliveryOptions, String initialUri, OLATResourceable ores,
+			String identPrefix, boolean randomizeMapper) {
 		super(ureq, wControl);
 		this.rootContainer = rootContainer;
 
@@ -119,16 +120,13 @@ public class CPDisplayController extends BasicController implements Activateable
 		// the cp component, added to the velocity
 		
 		if(!ureq.getUserSession().getRoles().isGuestOnly()) {
-		  SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
-		  searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.BUTTON, null);
-		  myContent.put("search_input", searchCtrl.getInitialComponent());
-		  listenTo(searchCtrl);
+			SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory)CoreSpringFactory.getBean(SearchServiceUIFactory.class);
+			searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.BUTTON, null);
+			myContent.put("search_input", searchCtrl.getInitialComponent());
+			listenTo(searchCtrl);
 		}
 		
-		//TODO:gs:a
-		//may add an additional config for disabling, enabling IFrame style or not in CP mode
-		//but always disable IFrame display when in screenreader mode (no matter whether style gets ugly)
-		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions, true);
+		cpContentCtr = new IFrameDisplayController(ureq, getWindowControl(),rootContainer, null, ores, deliveryOptions, false, randomizeMapper);
 		cpContentCtr.setAllowDownload(true);
 		listenTo(cpContentCtr);
 		myContent.put("cpContent", cpContentCtr.getInitialComponent());
@@ -283,6 +281,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == cpTree) {
 			// FIXME:fj: cleanup between MenuTree.COMMAND_TREENODE_CLICKED and
@@ -316,35 +315,35 @@ public class CPDisplayController extends BasicController implements Activateable
 		}
 	}
 	
-		@Override
+	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-			if (source == cpContentCtr) { // a .html click within the contentpackage
-				if (event instanceof NewInlineUriEvent) {
-					NewInlineUriEvent nue = (NewInlineUriEvent) event;
-					// adjust the tree selection to the current choice if found
-					selectTreeNode(ureq, nue.getNewUri());
-				} else if (event instanceof NewIframeUriEvent) {
-					NewIframeUriEvent nue =  (NewIframeUriEvent) event;
-					selectTreeNode(ureq, nue.getNewUri());
-				}// else ignore (e.g. misplaced olatcmd event (inner olat link found in a
-					// contentpackaging file)
-			} else if (source == printPopup) {
-				removeAsListenerAndDispose(printPopup);
-				removeAsListenerAndDispose(printController);
-				printController = null;
-				printPopup = null;
-			} else if (source == printController) {
-				if(Event.DONE_EVENT == event) {
-					List<String> nodeToPrint = printController.getSelectedNodeIdentifiers();
-					printPages(nodeToPrint);
-				}
-				
-				printPopup.deactivate();
-				removeAsListenerAndDispose(printPopup);
-				removeAsListenerAndDispose(printController);
-				printController = null;
-				printPopup = null;
+		if (source == cpContentCtr) { // a .html click within the contentpackage
+			if (event instanceof NewInlineUriEvent) {
+				NewInlineUriEvent nue = (NewInlineUriEvent) event;
+				// adjust the tree selection to the current choice if found
+				selectTreeNode(ureq, nue.getNewUri());
+			} else if (event instanceof NewIframeUriEvent) {
+				NewIframeUriEvent nue =  (NewIframeUriEvent) event;
+				selectTreeNode(ureq, nue.getNewUri());
+			}// else ignore (e.g. misplaced olatcmd event (inner olat link found in a
+				// contentpackaging file)
+		} else if (source == printPopup) {
+			removeAsListenerAndDispose(printPopup);
+			removeAsListenerAndDispose(printController);
+			printController = null;
+			printPopup = null;
+		} else if (source == printController) {
+			if(Event.DONE_EVENT == event) {
+				List<String> nodeToPrint = printController.getSelectedNodeIdentifiers();
+				printPages(nodeToPrint);
 			}
+			
+			printPopup.deactivate();
+			removeAsListenerAndDispose(printPopup);
+			removeAsListenerAndDispose(printController);
+			printController = null;
+			printPopup = null;
+		}
 	}
 	
 	@Override
@@ -392,6 +391,11 @@ public class CPDisplayController extends BasicController implements Activateable
 	 */
 	public void selectTreeNode(UserRequest ureq, String newUri) {
 		TreeNode newNode = ctm.lookupTreeNodeByHref(newUri);
+		if (newNode == null && newUri.contains("?")) {
+			// remove any url paramters in case it is not an html5 app. E.g. some ELML contents
+			newUri = newUri.substring(0, newUri.indexOf("?"));
+			newNode = ctm.lookupTreeNodeByHref(newUri);
+		}
 		selectTreeNode(ureq, newNode);
 		ThreadLocalUserActivityLogger.log(CourseLoggingAction.CP_GET_FILE, getClass(), LoggingResourceable.wrapCpNode(newUri));
 	}
@@ -485,6 +489,7 @@ public class CPDisplayController extends BasicController implements Activateable
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		ThreadLocalUserActivityLogger.log(LearningResourceLoggingAction.LEARNING_RESOURCE_CLOSE, getClass());
 		cpTree = null;
@@ -500,15 +505,6 @@ public class CPDisplayController extends BasicController implements Activateable
 	 */
 	public CPManifestTreeModel getTreeModel() {
 		return ctm;
-	}
-
-	/**
-	 * @param ureq
-	 * @param te
-	 * @deprecated @TODO To be deleted - does logging and would have to go via an event() method
-	 */
-	public void externalNodeClicked(UserRequest ureq, TreeEvent te) {
-		switchToPage(ureq, te);
 	}
 
 	/**

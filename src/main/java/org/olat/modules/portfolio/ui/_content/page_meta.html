@@ -1,0 +1,103 @@
+<div class="o_page_lead #if($imageAlign == "background") o_block_imagebg" style="background-image: url('$mapperThumbnailUrl/${imageName}');" #else " #end>
+	<h2>$r.escapeHtml($pageTitle) <small>$r.translate("binder.by",$owners)</small></h2>
+	<div class="o_portfolio_page_meta">
+		#if($r.isNotEmpty(pageCategories))
+		<span class="o_portfolio_categories text-muted o_small">
+			 <strong>$r.translate("meta.categories")</strong> <i class="o_icon o_icon_tags"> </i>
+			 #foreach($category in $pageCategories)
+			 	#if(${foreach.count} > 1), #end
+			 	$category
+			 #end
+		</span>
+		#end
+		
+		#if($r.isNotNull($lastPublicationDate))
+		<span class="o_portfolio_publication_date text-muted o_small">#if($r.isNotEmpty(pageCategories)), #end
+			 $r.translate("meta.last.publication", $r.formatDateAndTime($lastPublicationDate))
+		</span>
+		#end
+		
+		<span class="o_portfolio_last_modified text-muted o_small">#if($r.isNotEmpty(pageCategories) || $r.isNotNull($lastPublicationDate)), #end
+			 $r.translate("meta.last.modified", $r.formatDateAndTime($lastModified))
+		</span>
+	</div>
+	#if($r.available("poster") || $r.isNotEmpty($pageSummary))
+	<div class="o_page_summary clearfix">
+		#if($r.available("poster"))
+		<div class="o_media #if(!$pageSummary || $pageSummary.length() == 0) o_desc_empty #else o_media_${imageAlign} #end ">
+			$r.render("poster")
+		</div>
+		#end
+		#if($r.isNotEmpty($pageSummary))
+		<div class="o_desc o_user_content_block">$r.xssScan($pageSummary)</div>
+		#end
+	</div>
+	#end
+	#if($statusEnabled)
+	<div class="o_portfolio_status_block o_block_top o_small clearfix">
+		<div class="o_portfolio_status"><strong>$r.translate("page.status")</strong>: <i class="o_icon o_icon-fw $statusCss"> </i> $pageStatus</div>
+		#if($r.available("publish"))
+			$r.render("publish")
+		#end
+		#if($r.available("revision.page"))
+			$r.render("revision.page")
+		#end
+		#if($r.available("close.page"))
+			$r.render("close.page")
+		#end
+		#if($r.available("reopen.page"))
+			$r.render("reopen.page")
+		#end
+	</div>
+	#end
+</div>
+
+#foreach($assignment in $assignments)
+	#if(($assignment.content && $assignment.content.length() > 0) || ($assignment.documents && $assignment.documents.size() > 0))
+	<div class="o_page_assignment o_togglebox_wrapper o_block">
+		<a href="#page_assignment_${assignment.key}" id="o_toggler_${assignment.key}" data-toggle="collapse" data-target="#page_assignment_${assignment.key}" class="o_opener o_in" onclick="jQuery(this).toggleClass('o_in'); return false;"><i class="o_icon o_icon-fw o_icon-lg"></i></a>
+		<span class="o_page_assignement_info">
+			<i class="o_icon o_icon_assignment o_icon-fw"> </i>
+			<div class="o_block_inline_right"><strong>$r.translate("meta.page.assignment")</strong></div> 
+			<div class="o_block_inline_left"><strong>$r.translate("meta.page.assignment.type"):</strong> $r.translate("assignment.type.${assignment.type}")</div>
+		</span>
+		<div id="page_assignment_${assignment.key}" class="collapse in">
+			<div class="o_togglebox_content clearfix">	
+				#if($assignment.content && $assignment.content.length() > 0)
+				<h5>$r.translate("assignment.content")</h5>
+				<div class="o_desc">
+					$r.xssScan($assignment.content)
+				</div>
+				#end
+				
+				#if($assignment.documents && $assignment.documents.size() > 0)
+					<h5>$r.translate("assignment.documents")</h5>
+					<ul class="list-inline">
+					#foreach($document in $assignment.documents)
+						#set($fname = $document.getName())
+						<li class="o_attachment">
+							<a href="$mapperUri/${assignment.key}/$fname" target="_blank">
+								<i class="o_icon o_icon-fw $r.getFiletypeIconCss($fname)"> </i>
+								<span class="o_filename">$r.escapeHtml($fname)</span>
+								<span class="o_size">
+									 ($r.formatBytes($document.length()))
+								</span>
+							</a>		
+						</li>
+					#end 
+					</ul>
+				#end
+				<div class="pull-right"><a href="#page_assignment_${assignment.key}" data-toggle="collapse" data-target="#page_assignment_${assignment.key}" onclick="jQuery('#o_toggler_${assignment.key}').toggleClass('o_in'); return false;">$r.translate("assignment.hide")</a></div>
+			</div>
+    	</div>
+	</div>
+	#else
+	<div class="o_page_assignment o_block" style="position: relative; left: 1em;">
+		<span class="o_page_assignement_info">
+			<i class="o_icon o_icon_assignment o_icon-fw"> </i>
+			<div class="o_block_inline_right"><strong>$r.translate("meta.page.assignment")</strong></div> 
+			<div class="o_block_inline_left"><strong>$r.translate("meta.page.assignment.type"):</strong> $r.translate("assignment.type.${assignment.type}")</div>
+		</span>
+	</div>
+	#end
+#end

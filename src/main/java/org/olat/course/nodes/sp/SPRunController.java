@@ -25,6 +25,8 @@
 
 package org.olat.course.nodes.sp;
 
+import java.util.List;
+
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
@@ -42,9 +44,12 @@ import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.clone.CloneController;
 import org.olat.core.gui.control.generic.clone.CloneLayoutControllerCreatorCallback;
 import org.olat.core.gui.control.generic.clone.CloneableController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
@@ -73,7 +78,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * 
  * @author Felix Jost
  */
-public class SPRunController extends BasicController {
+public class SPRunController extends BasicController implements Activateable2 {
 	
 	private SPCourseNode courseNode;
 	private Panel main;
@@ -83,11 +88,11 @@ public class SPRunController extends BasicController {
 	private VFSContainer courseFolderContainer;
 	private String fileName;
 	
-	private boolean hasEditRights;
+	private final boolean hasEditRights;
 	private CustomLinkTreeModel linkTreeModel;
 	private CloneController cloneC;
 
-	private UserCourseEnvironment userCourseEnv;
+	private final UserCourseEnvironment userCourseEnv;
 	
 	private static final String[] EDITABLE_TYPES = new String[] { "html", "htm", "xml", "xhtml" };
 
@@ -102,7 +107,8 @@ public class SPRunController extends BasicController {
 	 * @param courseNode
 	 * @param courseFolderPath The course folder which contains the single page html file
 	 */
-	public SPRunController(WindowControl wControl, UserRequest ureq, UserCourseEnvironment userCourseEnv, SPCourseNode courseNode, VFSContainer courseFolderContainer) {
+	public SPRunController(WindowControl wControl, UserRequest ureq,
+			UserCourseEnvironment userCourseEnv, SPCourseNode courseNode, VFSContainer courseFolderContainer) {
 		super(ureq,wControl);
 		this.courseNode = courseNode;
 		this.config = courseNode.getModuleConfiguration();
@@ -111,7 +117,7 @@ public class SPRunController extends BasicController {
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
 
 		// set up single page init parameters
-		this.fileName = (String) config.get(SPEditController.CONFIG_KEY_FILE);
+		fileName = (String)config.get(SPEditController.CONFIG_KEY_FILE);
 		if (fileName == null) throw new AssertException("bad configuration at lauchtime: fileName cannot be null in SinglePage!");
 		this.courseFolderContainer = courseFolderContainer;
 		
@@ -128,6 +134,8 @@ public class SPRunController extends BasicController {
 	}
 	
 	private boolean hasEditRights(UserRequest ureq) {
+		if(userCourseEnv.isCourseReadOnly()) return false;
+		
 		if(isFileTypeEditable(fileName)) {
 			Roles roles = ureq.getUserSession().getRoles();
 			if(roles.isOLATAdmin()) {
@@ -163,6 +171,7 @@ public class SPRunController extends BasicController {
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest, org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		//
 	}
@@ -186,7 +195,7 @@ public class SPRunController extends BasicController {
 
 		DeliveryOptions deliveryOptions = (DeliveryOptions)config.get(SPEditController.CONFIG_KEY_DELIVERYOPTIONS);
 		spCtr = new SinglePageController(ureq, getWindowControl(), courseFolderContainer, fileName,
-				allowRelativeLinks, ores, deliveryOptions);
+				allowRelativeLinks, null, ores, deliveryOptions, userCourseEnv.getCourseEnvironment().isPreview());
 		spCtr.setAllowDownload(true);
 		
 		// only for inline integration: register for controller event to forward a olatcmd to the course,
@@ -196,7 +205,7 @@ public class SPRunController extends BasicController {
 		if (hasEditRightsTo) {
 			spCtr.allowPageEditing();
 			// set the link tree model to internal for the HTML editor
-			if (this.linkTreeModel != null) {
+			if (linkTreeModel != null) {
 				spCtr.setInternalLinkTreeModel(linkTreeModel);
 			}
 		}		
@@ -227,6 +236,15 @@ public class SPRunController extends BasicController {
 			throw new AssertException("Controller must be cloneable");
 		}
 	}
+	
+	
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty() || spCtr == null) return;
+		// delegate to single page controller
+		spCtr.activate(ureq, entries, state);
+	}
+
 	
 	/**
 	 * 

@@ -21,9 +21,16 @@
 	.o_forum_fulltextsearch {
 		float: left;
 	}
+	
+	.o_forum_toolbar .o_forum_tool span {
+		display: none;
+	}
 }
 
 .o_forum {
+	/* add space for move-thread menu, otherwise menu cut (layer problem of pulldown */
+	padding-bottom: 50px;
+	
 	.o_mark, .o_ep_collect {
 		float: right;
 		position: relative;

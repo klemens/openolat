@@ -6,6 +6,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.admin.user.UserSearchController;
+import org.olat.basesecurity.GroupRoles;
+import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
@@ -16,8 +19,11 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
+import org.olat.core.gui.components.table.DefaultColumnDescriptor;
+import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
+import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
 import org.olat.core.gui.components.table.TableMultiSelectEvent;
 import org.olat.core.gui.components.tree.GenericTreeModel;
@@ -30,8 +36,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.ButtonClickedEvent;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
@@ -49,8 +53,10 @@ import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.resource.OLATResourceManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.appointment.Appointment;
@@ -82,11 +88,12 @@ public class ExamEditorController extends BasicController {
 			.getPackageVelocityRoot(Exam.class);
 
 	private static final String EXAM_EDITOR_LOCK = "examEditor.lock";
-	private static final String CMD_TOOLS_CLOSE_EXAM_YES_NO = "toolCtr.closeExamYesNo";
+	private static final String ACTION_DELETE_AUTHOR = "examEditor.deleteAuthor";
 
 	private Panel mainPanel;
 	private VelocityContainer vcMain, vcApp;
 	private LayoutMain3ColsController layoutCtr;
+	private Controller userSearchController;
 
 	private LockResult lockResult;
 	private Exam exam;
@@ -96,11 +103,15 @@ public class ExamEditorController extends BasicController {
 	private EditRegistrationForm editRegForm;
 	private CreateAndEditAppointmentForm createAppForm, editAppForm;
 	private TableController appTableCtr;
+	private TableController authorTableCtr;
 	private AppointmentTableModel appTableMdl;
-	private Link addAppLink;
+	private Link addAppLink, addAuthorLink;
 	private CloseableModalController cmc;
 	private RepositoryEntry repoEntry;
 	
+	@Autowired
+	private RepositoryService repositoryService;
+
 	/**
 	 * creates the controller for the exam editor
 	 * 
@@ -192,18 +203,58 @@ public class ExamEditorController extends BasicController {
 		appTableMdl.setTable(appTableCtr);
 		appTableCtr.setTableDataModel(appTableMdl);
 		appTableCtr.setSortColumn(0, true);
-
-		// NEU
 		appTableCtr.addControllerListener(this);
 
 		vcApp.put("appointmentTable", appTableCtr.getInitialComponent());
 		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.appointments"), vcApp);
+
+
+		TableGuiConfiguration authorTableConfig = new TableGuiConfiguration();
+		authorTableConfig.setDisplayTableHeader(false);
+		authorTableConfig.setDisplayRowCount(false);
+		authorTableConfig.setPageingEnabled(false);
+		authorTableConfig.setDownloadOffered(false);
+		authorTableConfig.setSortingEnabled(false);
+
+		removeAsListenerAndDispose(authorTableCtr);
+		authorTableCtr = new TableController(authorTableConfig, ureq, getWindowControl(), getTranslator());
+		listenTo(authorTableCtr);
+
+		List<Identity> authors = repositoryService.getMembers(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam), GroupRoles.owner.name());
+		authorTableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ExamEditorController.authorTable.name", 0, null, ureq.getLocale()));
+		authorTableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ExamEditorController.authorTable.action", 1, ACTION_DELETE_AUTHOR, ureq.getLocale(), DefaultColumnDescriptor.ALIGNMENT_RIGHT));
+		authorTableCtr.setTableDataModel(new DefaultTableDataModel<Identity>(authors) {
+			@Override
+			public int getColumnCount() { return 1; }
+			@Override
+			public Object getValueAt(int row, int col) {
+				Identity id = getObject(row);
+				if(col == 0) {
+					User user = id.getUser();
+					return user.getFirstName() + " " + user.getLastName();
+				} else {
+					if(id.equals(ureq.getIdentity())) {
+						// Authors should not remove themselves
+						return "";
+					} else {
+						return translate("ExamEditorController.authorTable.actionDelete");
+					}
+				}
+			}
+		});
+
+		VelocityContainer vcAuthors = new VelocityContainer("authorTable", Exam.class, "tabAuthors", getTranslator(), this);
+		vcAuthors.put("ExamEditorController.authorTable", authorTableCtr.getInitialComponent());
+		addAuthorLink = LinkFactory.createButton("ExamEditorController.link.addAuthor", vcAuthors, this);
+		tabbedPane.addTab(translate("ExamEditorController.tabbedPane.authors"), vcAuthors);
 	}
 
 	/**
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
 	protected void doDispose() {
+		removeAsListenerAndDispose(authorTableCtr);
+		removeAsListenerAndDispose(userSearchController);
 		if(lockResult != null) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(lockResult);
 		}
@@ -226,6 +277,13 @@ public class ExamEditorController extends BasicController {
 			vcEditApp.put("createAppForm", createAppForm.getInitialComponent());
 			cmc = new CloseableModalController(this.getWindowControl(),
 					translate("close"), vcEditApp);
+			cmc.activate();
+		} else if(source == addAuthorLink) {
+			removeAsListenerAndDispose(userSearchController);
+			userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);
+			listenTo(userSearchController);
+
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), userSearchController.getInitialComponent());
 			cmc.activate();
 		}
 	}
@@ -408,6 +466,34 @@ public class ExamEditorController extends BasicController {
 					String commentText = translate("ExamEditorController.appointmentChanged", new String[] { exam.getName(), getName(ureq.getIdentity()) });
 					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 				}
+			}
+		} else if(source == authorTableCtr) {
+			TableEvent tableEvent = (TableEvent) event;
+			if(tableEvent.getActionId().equals(ACTION_DELETE_AUTHOR)) {
+				Identity author = (Identity) authorTableCtr.getSortedObjectAt(tableEvent.getRowId());
+
+				RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+				if(repositoryService.hasRole(author, re, GroupRoles.owner.name())) {
+					repositoryService.removeRole(author, re, GroupRoles.owner.name());
+				}
+
+				int authorIndex = tabbedPane.getSelectedPane();
+				createTabbedPane(ureq);
+				tabbedPane.setSelectedPane(authorIndex);
+			}
+		} else if(source == userSearchController) {
+			if(event instanceof SingleIdentityChosenEvent) {
+				cmc.deactivate();
+				Identity newAuthor = ((SingleIdentityChosenEvent) event).getChosenIdentity();
+
+				RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
+				if(!repositoryService.hasRole(newAuthor, re, GroupRoles.owner.name())) {
+					repositoryService.addRole(newAuthor, re, GroupRoles.owner.name());
+				}
+
+				int authorIndex = tabbedPane.getSelectedPane();
+				createTabbedPane(ureq);
+				tabbedPane.setSelectedPane(authorIndex);
 			}
 		}
 	}

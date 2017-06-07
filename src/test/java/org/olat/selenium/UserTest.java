@@ -34,7 +34,6 @@ import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.restapi.support.vo.CourseVO;
@@ -44,13 +43,17 @@ import org.olat.selenium.page.Student;
 import org.olat.selenium.page.User;
 import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.selenium.page.group.GroupsPage;
+import org.olat.selenium.page.repository.AuthoringEnvPage;
 import org.olat.selenium.page.user.ImportUserPage;
 import org.olat.selenium.page.user.PortalPage;
 import org.olat.selenium.page.user.UserAdminPage;
 import org.olat.selenium.page.user.UserPasswordPage;
 import org.olat.selenium.page.user.UserPreferencesPageFragment;
 import org.olat.selenium.page.user.UserPreferencesPageFragment.ResumeOption;
+import org.olat.selenium.page.user.UserProfilePage;
 import org.olat.selenium.page.user.UserToolsPage;
+import org.olat.selenium.page.user.VisitingCardPage;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.rest.RepositoryRestClient;
 import org.olat.test.rest.UserRestClient;
@@ -58,7 +61,6 @@ import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
 
 /**
  * 
@@ -79,8 +81,6 @@ public class UserTest {
 	@ArquillianResource
 	private URL deploymentUrl;
 	
-	@Page
-	private UserToolsPage userTools;
 	@Page
 	private NavigationPage navBar;
 	
@@ -106,6 +106,7 @@ public class UserTest {
 			.loginAs(user.getLogin(), user.getPassword());
 		
 		//set the preferences to resume automatically
+		UserToolsPage userTools = new UserToolsPage(browser);
 		userTools
 			.openUserToolsMenu()
 			.openMySettings()
@@ -156,6 +157,7 @@ public class UserTest {
 		loginPage.loginAs(user.getLogin(), user.getPassword());
 		
 		//set the preferences to resume automatically
+		UserToolsPage userTools = new UserToolsPage(browser);
 		userTools
 			.openUserToolsMenu()
 			.openMySettings()
@@ -194,18 +196,19 @@ public class UserTest {
 	@RunAsClient
 	public void resumeDisabled(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
 			.resume();
 		
 		//set the preferences to resume automatically
+		UserToolsPage userTools = new UserToolsPage(browser);
 		userTools
 			.openUserToolsMenu()
 			.openMySettings()
 			.openPreferences()
 			.setResume(ResumeOption.none);
-		OOGraphene.waitAndCloseBlueMessageWindow(browser);
 		
 		//logout
 		userTools.logout();
@@ -222,6 +225,148 @@ public class UserTest {
 		loginPage.assertLoggedIn(user);
 	}
 	
+
+	/**
+	 * An user configures its landing page, log out
+	 * and try it.
+	 * 
+	 * 
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void loginInHomeWithLandingPage(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		//create a random user
+		UserRestClient userClient = new UserRestClient(deploymentUrl);
+		UserVO user = userClient.createAuthor();
+
+		loginPage
+			.assertOnLoginPage()
+			.loginAs(user.getLogin(), user.getPassword());
+
+		UserToolsPage userTools = new UserToolsPage(browser);
+		userTools
+				.openUserToolsMenu()
+				.openMySettings()
+				.openPreferences()
+				.setResume(ResumeOption.none)
+				.setLandingPage("/RepositorySite/0/Search/0");
+		
+		userTools.logout();
+		
+		loginPage
+			.assertOnLoginPage()
+			.loginAs(user.getLogin(), user.getPassword());
+		
+		new AuthoringEnvPage(browser)
+			.assertOnGenericSearch();
+	}
+	
+	/**
+	 * Jump to notifications in home, go to the courses and return
+	 * to home's notification with a REST url.
+	 * 
+	 * @see https://jira.openolat.org/browse/OO-1962
+	 * @param loginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void loginInHomeWithRestUrl(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		//create a random user
+		UserRestClient userClient = new UserRestClient(deploymentUrl);
+		UserVO user = userClient.createRandomUser();
+
+		//load dmz
+		loginPage.assertOnLoginPage();
+		
+		String jumpToNotificationsUrl = deploymentUrl.toString() + "url/HomeSite/" + user.getKey() + "/notifications/0";
+		browser.get(jumpToNotificationsUrl);
+		loginPage.loginAs(user.getLogin(), user.getPassword());
+		//must see the notification
+		new UserToolsPage(browser).assertOnNotifications();
+		
+		//go to courses
+		navBar.openMyCourses();
+		
+		//use url to go to notifications
+		String goToNotificationsUrl = deploymentUrl.toString() + "auth/HomeSite/" + user.getKey() + "/notifications/0";
+		browser.get(goToNotificationsUrl);
+		//must see the notification
+		new UserToolsPage(browser).assertOnNotifications();
+	}
+	
+	/**
+	 * Check if a user can use the rest url in OpenOLAT.
+	 * It jump from the static sites to its home, user tools,
+	 * to the visiting card of an other user.
+	 * 
+	 * @param loginPage
+	 * @param authorBrowser
+	 * @param participantBrowser
+	 * @param reiBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void restUrlAfterLogin(@InitialPage LoginPage loginPage)
+	throws IOException, URISyntaxException {
+		//create a random user
+		UserRestClient userClient = new UserRestClient(deploymentUrl);
+		UserVO user = userClient.createRandomUser("Kanu");
+		UserVO ryomou = userClient.createRandomUser("Ryomou");
+
+		//load dmz
+		loginPage
+			.assertOnLoginPage()
+			.loginAs(user.getLogin(), user.getPassword());
+		
+		//go to courses
+		navBar.openMyCourses();
+		
+		//use url to go to the other users business card
+		String ryomouBusinessCardUrl = deploymentUrl.toString() + "auth/Identity/" + ryomou.getKey();
+		browser.get(ryomouBusinessCardUrl);
+		new VisitingCardPage(browser)
+			.assertOnVisitingCard()
+			.assertOnLastName(ryomou.getLastName());
+		
+		//return to my courses
+		navBar.openMyCourses()
+			.assertOnMyCourses();
+		
+		//go to profile by url
+		String userUrl = deploymentUrl.toString() + "url/Identity/" + user.getKey();
+		browser.get(userUrl);
+		new UserProfilePage(browser)
+			.assertOnProfile()
+			.assertOnUsername(user.getLogin());
+		
+		//go to groups
+		String groupsUrl = deploymentUrl.toString() + "url/GroupsSite/0/AllGroups/0";
+		browser.get(groupsUrl);
+		new GroupsPage(browser)
+			.assertOnMyGroupsSelected();
+		
+		//go to my calendar
+		String calendarUrl = deploymentUrl.toString() + "auth/HomeSite/0/calendar/0";
+		browser.get(calendarUrl);
+		new UserToolsPage(browser)
+			.assertOnCalendar();
+		
+		//go to my folder
+		String folderUrl = deploymentUrl.toString() + "auth/HomeSite/" + user.getKey() + "/userfolder/0";
+		browser.get(folderUrl);
+		new UserToolsPage(browser)
+			.assertOnFolder();
+	}
+	
 	/**
 	 * Switch the language to german and after logout login to english
 	 * and check every time.
@@ -234,12 +379,14 @@ public class UserTest {
 	@RunAsClient
 	public void userSwitchLanguageSwitchToEnglish(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
 			.resume();
 		
 		//set the languages preferences to german
+		UserToolsPage userTools = new UserToolsPage(browser);
 		userTools
 			.openUserToolsMenu()
 			.openMySettings()
@@ -292,11 +439,13 @@ public class UserTest {
 	@RunAsClient
 	public void userChangeItsPassword(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
 			.resume();
-		
+
+		UserToolsPage userTools = new UserToolsPage(browser);
 		userTools
 			.openUserToolsMenu()
 			.openPassword();
@@ -324,11 +473,13 @@ public class UserTest {
 	@RunAsClient
 	public void userResetItsPreferences(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword())
 			.resume();
-		
+
+		UserToolsPage userTools = new UserToolsPage(browser);
 		UserPreferencesPageFragment prefs = userTools
 			.openUserToolsMenu()
 			.openMySettings()
@@ -352,6 +503,7 @@ public class UserTest {
 	@RunAsClient
 	public void portletDeactivateActivate(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword());
@@ -386,6 +538,7 @@ public class UserTest {
 	@RunAsClient
 	public void movePortletToTheTop(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
+		
 		UserVO user = new UserRestClient(deploymentUrl).createRandomUser();
 		loginPage
 			.loginAs(user.getLogin(), user.getPassword());
@@ -426,9 +579,9 @@ public class UserTest {
 	@RunAsClient
 	public void browserBack(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-		
-		loginPage.loginAs("administrator", "openolat");
+		loginPage
+			.loginAs("administrator", "openolat")
+			.resume();
 		
 		navBar
 			.openPortal()
@@ -459,6 +612,7 @@ public class UserTest {
 	public void createUser(@InitialPage LoginPage loginPage,
 			@Drone @User WebDriver userBrowser)
 	throws IOException, URISyntaxException {
+		
 		//login
 		loginPage
 			.assertOnLoginPage()
@@ -488,6 +642,68 @@ public class UserTest {
 			.loginAs(username, "miku01")
 			.resume()
 			.assertLoggedIn(userVo);
+	}
+	
+	/**
+	 * Test if deleted user cannot login anymore. An administrator
+	 * create a user. This user log in and log out. The administrator
+	 * use the direct delete workflow in user management to delete
+	 * it.<br>
+	 * The user try to log in again, unsuccessfully. The
+	 * administrator doesn't find it anymore in the user
+	 * search of the user management tab.
+	 * 
+	 */
+	@Test
+	@RunAsClient
+	public void deleteUser(@InitialPage LoginPage loginPage,
+			@Drone @User WebDriver userBrowser) {
+		
+		//login
+		loginPage
+			.assertOnLoginPage()
+			.loginAs("administrator", "openolat")
+			.resume();
+		
+		String uuid = UUID.randomUUID().toString();
+		String username = "miku-" + uuid;
+		String lastName = "Hatsune" + uuid;
+		UserVO userVo = UserAdminPage.createUserVO(username, "Miku", lastName, "miku-" + uuid + "@openolat.com", "miku01");
+		UserAdminPage userAdminPage = navBar
+			.openUserManagement()
+			.openCreateUser()
+			.fillUserForm(userVo)
+			.assertOnUserEditView(username);
+		
+		//user log in
+		LoginPage userLoginPage = LoginPage.getLoginPage(userBrowser, deploymentUrl);
+		//tools
+		userLoginPage
+			.loginAs(username, "miku01")
+			.resume()
+			.assertLoggedIn(userVo);
+		//log out
+		new UserToolsPage(userBrowser).logout();
+		
+		//admin delete
+		userAdminPage
+			.openDirectDeleteUser()
+			.searchUserToDelete(username)
+			.selectAndDeleteUser(lastName);
+		
+		//user try the login
+		userLoginPage = LoginPage.getLoginPage(userBrowser, deploymentUrl);
+		userLoginPage
+			.loginDenied(username, "miku01");
+		//assert on error message
+		By errorMessageby = By.cssSelector("div.modal-body.alert.alert-danger");
+		OOGraphene.waitElement(errorMessageby, 2, userBrowser);
+
+		// administrator search the deleted user
+		userAdminPage
+			.openSearchUser()
+			.searchByUsername(username)
+			.assertNotInUserList(username);
 	}
 	
 	/**
@@ -583,7 +799,8 @@ public class UserTest {
 			.next() // -> preview
 			.assertGreen(1)
 			.assertWarn(1)
-			.changePassword()
+			.updatePasswords()
+			.updateUsers()
 			.next() // -> groups
 			.next() // -> emails
 			.finish();

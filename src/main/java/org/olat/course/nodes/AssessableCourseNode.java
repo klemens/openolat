@@ -33,9 +33,10 @@ import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.id.Identity;
-import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.modules.assessment.AssessmentToolOptions;
 
 
 /**
@@ -48,6 +49,12 @@ import org.olat.course.run.userview.UserCourseEnvironment;
  * tool.
  */
 public interface AssessableCourseNode extends CourseNode {
+	
+	/**
+	 * 
+	 * @return
+	 */
+	public boolean isAssessedBusinessGroups();
     
 	/**
 	 * @return Returns the maximal score that can be achieved on this node. Throws 
@@ -108,7 +115,7 @@ public interface AssessableCourseNode extends CourseNode {
 	 * @param userCourseEnv
 	 * @return null, if this node cannot deliver any useful scoring info (this is not the case for a test never tried or manual scoring: those have default values 0.0f / false for score/passed; currently only the STNode returns null if there are no scoring rules defined.)
 	 */
-	public ScoreEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv);
+	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv);
 
 	/**
 	 * @param userCourseEnvironment
@@ -147,13 +154,14 @@ public interface AssessableCourseNode extends CourseNode {
 	 * @param userCourseEnvironment
 	 * @return a controller or null if hasDetails=false
 	 */
-	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel, UserCourseEnvironment userCourseEnvironment);
+	public Controller getDetailsEditController(UserRequest ureq, WindowControl wControl, BreadcrumbPanel stackPanel,
+			UserCourseEnvironment coachCourseEnv, UserCourseEnvironment assessedUserCourseEnvironment);
 	
 	/**
 	 *  Factory method to launch course element assessment tools. limitToGroup is optional to skip he the group choose step
 	 */
 	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
-			CourseEnvironment courseEnv, AssessmentToolOptions options);
+			UserCourseEnvironment coachCourseEnv, AssessmentToolOptions options);
 	
 	/**
 	 * 

@@ -26,6 +26,8 @@ import java.util.Locale;
 
 import org.olat.commons.info.manager.InfoMessageManager;
 import org.olat.commons.info.model.InfoMessage;
+import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.services.notifications.NotificationHelper;
 import org.olat.core.commons.services.notifications.NotificationsHandler;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.Publisher;
@@ -34,11 +36,15 @@ import org.olat.core.commons.services.notifications.SubscriptionInfo;
 import org.olat.core.commons.services.notifications.model.SubscriptionListItem;
 import org.olat.core.commons.services.notifications.model.TitleItem;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.LogDelegator;
 import org.olat.core.util.Util;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
+import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
 /**
@@ -54,6 +60,7 @@ public class InfoMessageNotificationHandler extends LogDelegator implements Noti
 
 	private static final String CSS_CLASS_ICON = "o_infomsg_icon";
 	
+	@Override
 	public SubscriptionInfo createSubscriptionInfo(Subscriber subscriber, Locale locale, Date compareDate) {
 		SubscriptionInfo si = null;
 		Publisher p = subscriber.getPublisher();
@@ -68,13 +75,31 @@ public class InfoMessageNotificationHandler extends LogDelegator implements Noti
 				final Long resId = subscriber.getPublisher().getResId();
 				final String resName = subscriber.getPublisher().getResName();
 				String resSubPath = subscriber.getPublisher().getSubidentifier();
-				String title = RepositoryManager.getInstance().lookupDisplayNameByOLATResourceableId(resId);
+				
+				String displayName, notificationtitle;
+				if ("BusinessGroup".equals(resName)) {
+					BusinessGroupService groupService = CoreSpringFactory.getImpl(BusinessGroupService.class);
+					BusinessGroup group = groupService.loadBusinessGroup(resId);
+					displayName = group.getName();
+					notificationtitle = "notification.title.group";
+				} else {
+					RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntry(OresHelper.createOLATResourceableInstance(resName, resId), false);
+					if(re.getRepositoryEntryStatus().isClosed() || re.getRepositoryEntryStatus().isUnpublished()) {
+						return NotificationsManager.getInstance().getNoSubscriptionInfo();
+					}					
+					displayName = re.getDisplayname();	
+					notificationtitle = "notification.title";
+				}				
+
+				Translator translator = Util.createPackageTranslator(this.getClass(), locale);
+				String title = translator.translate(notificationtitle, new String[]{ displayName });
 				si = new SubscriptionInfo(subscriber.getKey(), p.getType(), new TitleItem(title, CSS_CLASS_ICON), null);
 				
 				OLATResourceable ores = OresHelper.createOLATResourceableInstance(resName, resId);
 				List<InfoMessage> infos = InfoMessageManager.getInstance().loadInfoMessageByResource(ores, resSubPath, null, compareDate, null, 0, 0);
 				for(InfoMessage info:infos) {
-					String desc = info.getTitle();
+					Identity ident = info.getAuthor();
+					String desc = translator.translate("notifications.entry", new String[] { info.getTitle(), NotificationHelper.getFormatedName(ident) });
 					String tooltip = info.getMessage();
 					String infoBusinessPath = info.getBusinessPath() + "[InfoMessage:" + info.getKey() + "]";
 					String urlToSend = BusinessControlFactory.getInstance().getURLFromBusinessPathString(infoBusinessPath);

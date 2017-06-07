@@ -28,11 +28,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.core.id.Identity;
 import org.olat.core.id.ModifiedInfo;
@@ -43,13 +46,23 @@ import org.olat.resource.OLATResourceImpl;
 
 @Entity(name="usercourseinfos")
 @Table(name="o_as_user_course_infos")
+@NamedQueries({
+	@NamedQuery(name="updateLaunchDates", query="update usercourseinfos set visit=visit+1, recentLaunch=:now, lastModified=:now where identity.key=:identityKey and resource.key=:resourceKey")
+})
 public class UserCourseInfosImpl implements UserCourseInformations, Persistable, ModifiedInfo {
 
 	private static final long serialVersionUID = -6933599547069673655L;
 	
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 

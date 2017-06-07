@@ -43,10 +43,11 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.ZipUtil;
 import org.olat.core.util.vfs.Quota;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.filters.SystemItemFilter;
 import org.olat.core.util.vfs.filters.VFSItemFilter;
-import org.olat.core.util.vfs.restapi.SystemItemFilter;
 
 
 /**
@@ -107,7 +108,8 @@ public class LinkFileCombiCalloutController extends BasicController {
 	 *            in HTML editor
 	 */
 	
-	public LinkFileCombiCalloutController(UserRequest ureq, WindowControl wControl, VFSContainer baseContainer,String relFilePath, boolean relFilPathIsProposal, boolean allowEditorRelativeLinks, CustomLinkTreeModel customLinkTreeModel) {
+	public LinkFileCombiCalloutController(UserRequest ureq, WindowControl wControl, VFSContainer baseContainer, String relFilePath,
+			boolean relFilPathIsProposal, boolean allowEditorRelativeLinks, CustomLinkTreeModel customLinkTreeModel) {
 		super(ureq, wControl);
 		this.baseContainer = baseContainer;
 		this.relFilPathIsProposal = relFilPathIsProposal;
@@ -134,7 +136,6 @@ public class LinkFileCombiCalloutController extends BasicController {
 
 		// Load file from configuration and update links
 		setRelFilePath(relFilePath);
-		
 	}
 
 	@Override
@@ -177,7 +178,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 					// Cleanup modal first
 					cleanupModal(true);
 					// Unzip file and open file chooser in new modal
-					VFSContainer zipContainer = doUnzip(newFile, newFile.getParentContainer(), ureq);
+					VFSContainer zipContainer = doUnzip(newFile, newFile.getParentContainer());
 					if (zipContainer != null) {
 						FileChooserController fileChooserCtr = FileChooserUIFactory.createFileChooserController(ureq, getWindowControl(), zipContainer, null, true);
 						fileChooserCtr.setShowTitle(true);
@@ -299,12 +300,12 @@ public class LinkFileCombiCalloutController extends BasicController {
 				// remove file name from relFilePath to represent directory path
 				folderPath = relFilePath.substring(0, relFilePath.lastIndexOf("/"));
 			}
-			toolCtr = new FileUploadController(getWindowControl(), baseContainer, ureq, quotaLeftKB, quotaLeftKB, null, true, false, false, true, true, folderPath);
+			toolCtr = new FileUploadController(getWindowControl(), baseContainer, ureq, quotaLeftKB, quotaLeftKB, null, false, true, false, false, true, true, folderPath);
 		}
 		displayModal(toolCtr);
 	}
 
-	private VFSContainer doUnzip(VFSLeaf vfsItem, VFSContainer currentContainer, UserRequest ureq) {
+	private VFSContainer doUnzip(VFSLeaf vfsItem, VFSContainer currentContainer) {
 		String name = vfsItem.getName();
 		// we make a new folder with the same name as the zip file
 		String sZipContainer = name.substring(0, name.length() - 4);
@@ -413,14 +414,17 @@ public class LinkFileCombiCalloutController extends BasicController {
 	
 	public void setRelFilePath(String relFilePath) {
 		this.relFilePath = relFilePath;
-		if(StringHelper.containsNonWhitespace(relFilePath)){
-			file = (VFSLeaf) baseContainer.resolve(relFilePath);
-			if (file == null && !this.relFilPathIsProposal) {
-				// System assumed that this page would exist. Maybe deleted by
-				// someone in folder. Tell user and offer to create the page
-				// again. 
-				this.relFilPathIsProposal = true;				
-				contentVC.contextPut("deleted", Boolean.valueOf(true));
+		if(StringHelper.containsNonWhitespace(relFilePath)) {
+			VFSItem item = baseContainer.resolve(relFilePath);
+			if(!(item instanceof VFSContainer)) {
+				file = (VFSLeaf)item;
+				if (file == null && !this.relFilPathIsProposal) {
+					// System assumed that this page would exist. Maybe deleted by
+					// someone in folder. Tell user and offer to create the page
+					// again. 
+					this.relFilPathIsProposal = true;				
+					contentVC.contextPut("deleted", Boolean.valueOf(true));
+				}
 			}
 		}
 		// Update all links in the GUI

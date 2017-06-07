@@ -79,6 +79,17 @@ public class ServletUtil {
 		}
 	}
 	
+	public static boolean acceptJson(HttpServletRequest request) {
+		boolean acceptJson = false;
+		for(Enumeration<String> headers=request.getHeaders("Accept"); headers.hasMoreElements(); ) {
+			String accept = headers.nextElement();
+			if(accept.contains("application/json")) {
+				acceptJson = true;
+			}
+		}
+		return acceptJson;
+	}
+	
 	/**
 	 * @param httpReq
 	 * @param httpResp
@@ -185,7 +196,7 @@ public class ServletUtil {
 					httpResp.addHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + range.length);
 					long length = range.end - range.start + 1;
 					if (length < Integer.MAX_VALUE) {
-						httpResp.setContentLength((int) length);
+						httpResp.setContentLengthLong(length);
 					} else {
 						// Set the content-length as String to be able to use a long
 						httpResp.setHeader("content-length", "" + length);
@@ -199,11 +210,12 @@ public class ServletUtil {
 					copy(out, in, range);
 				} else {
 					if (size != null) {
-						httpResp.setContentLength(size.intValue());
+						httpResp.setContentLengthLong(size.longValue());
 					}
+					int bufferSize = httpResp.getBufferSize();
 					// buffer input stream
-					bis = new BufferedInputStream(in);
-					IOUtils.copy(bis, out);
+					bis = new BufferedInputStream(in, bufferSize);
+					IOUtils.copyLarge(bis, out, new byte[bufferSize]);
 				}
 				
 				if (debug) {
@@ -215,7 +227,9 @@ public class ServletUtil {
 			FileUtils.closeSafely(out);
 			String className = e.getClass().getSimpleName();
 			if("ClientAbortException".equals(className)) {
-				log.warn("client browser probably abort when serving media resource", e);
+				if(log.isDebug()) {//video generate a lot of these errors
+					log.warn("client browser probably abort when serving media resource", e);
+				}
 			} else {
 				log.error("client browser probably abort when serving media resource", e);
 			}
@@ -613,6 +627,76 @@ public class ServletUtil {
 		// Return the normalized path that we have completed
 		return (normalized);
 	}
+	
+    /**
+     * Extracts a quoted value from a header that has a given key. For instance if the header is
+     * <p>
+     * content-disposition=form-data; name="my field"
+     * and the key is name then "my field" will be returned without the quotes.
+     *
+     * @param header The header
+     * @param key    The key that identifies the token to extract
+     * @return The token, or null if it was not found
+     */
+    public static String extractQuotedValueFromHeader(final String header, final String key) {
+
+        int keypos = 0;
+        int pos = -1;
+        boolean inQuotes = false;
+        for (int i = 0; i < header.length() - 1; ++i) { //-1 because we need room for the = at the end
+            //TODO: a more efficient matching algorithm
+            char c = header.charAt(i);
+            if (inQuotes) {
+                if (c == '"') {
+                    inQuotes = false;
+                }
+            } else {
+                if (key.charAt(keypos) == c) {
+                    keypos++;
+                } else if (c == '"') {
+                    keypos = 0;
+                    inQuotes = true;
+                } else {
+                    keypos = 0;
+                }
+                if (keypos == key.length()) {
+                    if (header.charAt(i + 1) == '=') {
+                        pos = i + 2;
+                        break;
+                    } else {
+                        keypos = 0;
+                    }
+                }
+            }
+
+        }
+        if (pos == -1) {
+            return null;
+        }
+
+        int end;
+        int start = pos;
+        if (header.charAt(start) == '"') {
+            start++;
+            for (end = start; end < header.length(); ++end) {
+                char c = header.charAt(end);
+                if (c == '"') {
+                    break;
+                }
+            }
+            return header.substring(start, end);
+
+        } else {
+            //no quotes
+            for (end = start; end < header.length(); ++end) {
+                char c = header.charAt(end);
+                if (c == ' ' || c == '\t' || c == ';') {
+                    break;
+                }
+            }
+            return header.substring(start, end);
+        }
+    }
 	
 	//fxdiff FXOLAT-118: accept range to deliver videos for iPad
   protected static class Range {

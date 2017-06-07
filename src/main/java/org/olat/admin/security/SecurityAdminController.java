@@ -56,8 +56,8 @@ public class SecurityAdminController extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("sec.title");
 		setFormDescription("sec.description");
-		setFormContextHelp("org.olat.admin.security", "ced-sec.html", "help.hover.sec");
-		
+		setFormContextHelp("Security");
+
 		String[] keys = new String[]{ "on" };
 		String[] values = new String[]{ "" };
 		
@@ -65,6 +65,8 @@ public class SecurityAdminController extends FormBasicController {
 		topFrameEl = uifactory.addCheckboxesHorizontal("sec.topframe", "sec.topframe", formLayout, keys, values);
 		topFrameEl.select("on", securityModule.isForceTopFrame());
 		topFrameEl.addActionListener(FormEvent.ONCHANGE);
+		topFrameEl.setEnabled(false);
+		topFrameEl.setExampleKey("sec.top.frame.explanation", null);
 		
 		// on: block wiki (more security); off: do not block wiki (less security)
 		wikiEl = uifactory.addCheckboxesHorizontal("sec.wiki", "sec.wiki", formLayout, keys, values);

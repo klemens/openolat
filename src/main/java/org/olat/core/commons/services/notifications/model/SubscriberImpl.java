@@ -34,11 +34,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.core.commons.services.notifications.Publisher;
 import org.olat.core.commons.services.notifications.Subscriber;
@@ -57,12 +60,24 @@ import org.olat.core.id.Persistable;
  */
 @Entity(name="notisub")
 @Table(name="o_noti_sub")
+@NamedQueries({
+	@NamedQuery(name="subscribersByPublisher", query="select sub from notisub sub where sub.publisher=:publisher"),
+	@NamedQuery(name="subscribersByPublisherAndIdentity", query="select sub from notisub as sub where sub.publisher.key=:publisherKey and sub.identity.key=:identityKey"),
+	@NamedQuery(name="identitySubscribersByPublisher", query="select sub.identity from notisub sub where sub.publisher=:publisher")
+})
 public class SubscriberImpl implements Subscriber, CreateInfo, Persistable  {
 	private static final long serialVersionUID = 6165097156137862263L;
 	
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="publisher_id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	

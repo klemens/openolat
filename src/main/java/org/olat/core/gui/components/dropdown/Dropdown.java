@@ -45,6 +45,7 @@ public class Dropdown extends AbstractComponent implements ComponentCollection {
 	private boolean button = false;
 	private boolean embbeded = false;
 	private boolean translated = false;
+	private DropdownOrientation orientation = DropdownOrientation.normal;
 	private String iconCSS;
 	private List<Component> components = new ArrayList<>();
 	
@@ -87,12 +88,26 @@ public class Dropdown extends AbstractComponent implements ComponentCollection {
 		this.embbeded = embbeded;
 	}
 
+	public DropdownOrientation getOrientation() {
+		return orientation;
+	}
+
+	public void setOrientation(DropdownOrientation orientation) {
+		this.orientation = orientation;
+	}
+
 	public String getIconCSS() {
 		return iconCSS;
 	}
 
 	public void setIconCSS(String iconCSS) {
 		this.iconCSS = iconCSS;
+	}
+	
+	public void addComponent(Component component) {
+		if(component != null) {
+			components.add(component);
+		}
 	}
 
 	public void addComponent(Link component) {

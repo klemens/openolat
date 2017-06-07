@@ -111,6 +111,10 @@ public interface FileElement extends FormMultipartItem {
 	 */
 	public void setMandatory(boolean mandatory, String i18nErrKey);
 
+	public boolean isDeleteEnabled();
+	
+	public void setDeleteEnabled(boolean enable);
+	
 	//
 	// Methods that are used when a file has been uploaded
 
@@ -130,6 +134,15 @@ public interface FileElement extends FormMultipartItem {
 	 * @return The filename of the uploaded file
 	 */
 	public String getUploadFileName();
+
+	/**
+	 * Set the filename of the uploaded file. Use this if you want the final filename 
+	 * to be something different than file name from the upload. Whenever a file is 
+	 * uploaded again, this name is replaced again by the browser provided upload file name
+	 * 
+	 * @param the uploaded file name
+	 */
+	public void setUploadFileName(String uploadFileName);
 
 	/**
 	 * The mime type is first looked up by servletContext.getMimeType(). If no

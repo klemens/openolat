@@ -35,8 +35,11 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.zip.Adler32;
 
 import javax.activation.DataHandler;
@@ -48,6 +51,7 @@ import javax.mail.BodyPart;
 import javax.mail.Message.RecipientType;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
+import javax.mail.SendFailedException;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.AddressException;
@@ -67,18 +71,22 @@ import org.apache.velocity.exception.MethodInvocationException;
 import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
+import org.olat.basesecurity.IdentityImpl;
+import org.olat.basesecurity.IdentityRef;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.PersistentObject;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.Publisher;
 import org.olat.core.commons.services.notifications.PublisherData;
 import org.olat.core.commons.services.notifications.Subscriber;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
+import org.olat.core.commons.services.taskexecutor.model.DBSecureRunnable;
 import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
-import org.olat.core.manager.BasicManager;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.Encoder;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
@@ -100,11 +108,18 @@ import org.olat.core.util.mail.model.DBMailImpl;
 import org.olat.core.util.mail.model.DBMailLight;
 import org.olat.core.util.mail.model.DBMailLightImpl;
 import org.olat.core.util.mail.model.DBMailRecipient;
+import org.olat.core.util.mail.model.SimpleMailContent;
 import org.olat.core.util.vfs.FileStorage;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+
+import com.sun.mail.smtp.SMTPMessage;
 
 /**
  * 
@@ -117,42 +132,32 @@ import org.olat.core.util.vfs.VFSManager;
  * Initial Date:  24 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class MailManagerImpl extends BasicManager implements MailManager {
+@Service("mailManager")
+public class MailManagerImpl implements MailManager, InitializingBean  {
+	
+	private static final OLog log = Tracing.createLoggerFor(MailManagerImpl.class);
 
 	public static final String MAIL_TEMPLATE_FOLDER = "/customizing/mail/";
 	
 	private VelocityEngine velocityEngine;
-	
-	private final MailModule mailModule;
+
+	@Autowired
 	private DB dbInstance;
-	private FileStorage attachmentStorage;
+	@Autowired @Qualifier("mailAsyncExecutorService")
+	private ExecutorService asyncExecutor;
+	@Autowired
 	private NotificationsManager notificationsManager;
+	private final MailModule mailModule;
+
+	private FileStorage attachmentStorage;
 	
+	@Autowired
 	public MailManagerImpl(MailModule mailModule) {
 		this.mailModule = mailModule;
 	}
 	
-	/**
-	 * [used by Spring]
-	 * 
-	 * @param dbInstance
-	 */
-	public void setDbInstance(DB dbInstance) {
-		this.dbInstance = dbInstance;
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @param notificationsManager
-	 */
-	public void setNotificationsManager(NotificationsManager notificationsManager) {
-		this.notificationsManager = notificationsManager;
-	}
-	
-	/**
-	 * [used by Spring]
-	 */
-	public void init() {
+	@Override
+	public void afterPropertiesSet() throws Exception {
 		VFSContainer root = mailModule.getRootForAttachments();
 		attachmentStorage = new FileStorage(root);
 		
@@ -559,14 +564,15 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 	 * @return
 	 */
 	@Override
-	public List<DBMailLight> getInbox(Identity identity, Boolean unreadOnly, Boolean fetchRecipients, Date from, int firstResult, int maxResults) {
+	public List<DBMailLight> getInbox(IdentityRef identity, Boolean unreadOnly, Boolean fetchRecipients, Date from, int firstResult, int maxResults) {
 		StringBuilder sb = new StringBuilder();
 		String fetchOption = (fetchRecipients != null && fetchRecipients.booleanValue()) ? "fetch" : "";
 		sb.append("select mail from ").append(DBMailLightImpl.class.getName()).append(" mail")
-			.append(" inner join fetch ").append(" mail.from fromRecipient")
+		  .append(" inner join fetch ").append(" mail.from fromRecipient")
 		  .append(" inner join ").append(fetchOption).append(" mail.recipients recipient")
-			.append(" inner join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
-			.append(" where recipientIdentity.key=:recipientKey and recipient.deleted=false");
+		  .append(" left join ").append(fetchOption).append(" recipient.recipient recipientIdentity")
+		  .append(" left join ").append(fetchOption).append(" recipientIdentity.user recipientUser")
+		  .append(" where recipientIdentity.key=:recipientKey and recipient.deleted=false");
 		if(unreadOnly != null && unreadOnly.booleanValue()) {
 			sb.append(" and recipient.read=false");
 		}
@@ -599,7 +605,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			try(InputStream in = new FileInputStream(template)) {
 				return IOUtils.toString(in);
 			} catch (IOException e) {
-				logError("", e);
+				log.error("", e);
 			}
 		}
 		return getDefaultMailTemplate();
@@ -618,7 +624,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			out = new FileOutputStream(templateFile);
 			IOUtils.copy(reader, out);
 		} catch (IOException e) {
-			logError("", e);
+			log.error("", e);
 		} finally {
 			IOUtils.closeQuietly(out);
 		}
@@ -629,7 +635,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		try(InputStream in = MailModule.class.getResourceAsStream("_content/mail_template.html")) {
 			return IOUtils.toString(in);
 		} catch (IOException e) {
-			logError("Cannot read the default mail template", e);
+			log.error("Cannot read the default mail template", e);
 			return null;
 		}
 	}
@@ -672,6 +678,19 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			}
 		}
 		return bundle;
+	}
+
+	@Override
+	public void sendMessageAsync(MailBundle... bundles) {
+		try {
+			SendMail sendMail = new SendMail(bundles);
+			DBSecureRunnable command = new DBSecureRunnable(sendMail);
+			asyncExecutor.execute(command);
+		} catch (RejectedExecutionException e) {
+			log.error("Queue full, email lost", e);
+		} catch (Exception e) {
+			log.error("", e);
+		}
 	}
 
 	@Override
@@ -719,7 +738,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		} else {
 			decoratedBody = content.getBody();
 		}
-		return new MessageContent(content.getSubject(), decoratedBody, content.getAttachments());
+		return new SimpleMailContent(content.getSubject(), decoratedBody, content.getAttachments());
 	}
 	
 	protected MailContent createWithContext(Identity recipient, MailTemplate template, MailerResult result) {
@@ -746,7 +765,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		String body = bodyWriter.toString();
 		List<File> checkedFiles = MailHelper.checkAttachments(template.getAttachments(), result);
 		File[] attachments = checkedFiles.toArray(new File[checkedFiles.size()]);
-		return new MessageContent(subject, body, attachments);
+		return new SimpleMailContent(subject, body, attachments);
 	}
 	
 	/**
@@ -763,66 +782,21 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			if (result) {
 				mailerResult.setReturnCode(MailerResult.OK);
 			} else {
-				logWarn("can't send email from user template with no reason", null);
+				log.warn("can't send email from user template with no reason", null);
 				mailerResult.setReturnCode(MailerResult.TEMPLATE_GENERAL_ERROR);
 			}
 		} catch (ParseErrorException e) {
-			logWarn("can't send email from user template", e);
+			log.warn("can't send email from user template", e);
 			mailerResult.setReturnCode(MailerResult.TEMPLATE_PARSE_ERROR);
 		} catch (MethodInvocationException e) {
-			logWarn("can't send email from user template", e);
+			log.warn("can't send email from user template", e);
 			mailerResult.setReturnCode(MailerResult.TEMPLATE_GENERAL_ERROR);
 		} catch (ResourceNotFoundException e) {
-			logWarn("can't send email from user template", e);
+			log.warn("can't send email from user template", e);
 			mailerResult.setReturnCode(MailerResult.TEMPLATE_GENERAL_ERROR);
 		} catch (Exception e) {
-			logWarn("can't send email from user template", e);
+			log.warn("can't send email from user template", e);
 			mailerResult.setReturnCode(MailerResult.TEMPLATE_GENERAL_ERROR);
-		}
-	}
-	
-	private static class MessageContent implements MailContent {
-		private final String subject;
-		private final String body;
-		private final List<File> attachments;
-		
-		public MessageContent(String subject, String body, File[] attachmentArr) {
-			this.subject = subject;
-			this.body = body;
-			
-			attachments = new ArrayList<File>();
-			if(attachmentArr != null && attachmentArr.length > 0) {
-				for(File attachment:attachmentArr) {
-					if(attachment != null && attachment.exists()) {
-						attachments.add(attachment);
-					}
-				}
-			}
-		}
-		
-		public MessageContent(String subject, String body, List<File> attachmentList) {
-			this.subject = subject;
-			this.body = body;
-			if(attachmentList == null) {
-				this.attachments = new ArrayList<File>(1);
-			} else {
-				this.attachments = new ArrayList<File>(attachmentList);
-			}
-		}
-
-		@Override
-		public String getSubject() {
-			return subject;
-		}
-
-		@Override
-		public String getBody() {
-			return body;
-		}
-
-		@Override
-		public List<File> getAttachments() {
-			return attachments;
 		}
 	}
 
@@ -835,23 +809,23 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		
 		List<DBMailAttachment> attachments = getAttachments(mail);
 
-		try {
-			Address from = createAddress(WebappHelper.getMailConfig("mailFrom"));
-			Address to = createAddress(identity, result, true);
-			MimeMessage message = createForwardMimeMessage(from, to, mail.getSubject(), mail.getBody(), attachments, result);
-			if(message != null) {
-				sendMessage(message, result);
-			}
-		} catch (AddressException e) {
-			logError("mailFrom is not configured", e);
+		Address to = createAddress(identity, result, true);
+		MimeMessage message = createForwardMimeMessage(to, to, mail.getSubject(), mail.getBody(), attachments, result);
+		if(message != null) {
+			sendMessage(message, result);
 		}
+
 		return result;
 	}
 	
 	@Override
-	public MailerResult sendExternMessage(MailBundle bundle, MailerResult result) {
-		return sendExternMessage(bundle.getFromId(), bundle.getFrom(), bundle.getToId(), bundle.getTo(), bundle.getCc(), bundle.getContactLists(),
-				bundle.getContent(), result);
+	public MailerResult sendExternMessage(MailBundle bundle, MailerResult result, boolean useTemplate) {
+		MailContent content = bundle.getContent();
+		if(useTemplate) {
+			content = decorateMail(bundle);
+		}
+		return sendExternMessage(bundle.getFromId(), bundle.getFrom(), bundle.getToId(), bundle.getTo(), bundle.getCc(),
+				bundle.getContactLists(), content, result);
 	}
 	
 	
@@ -876,6 +850,9 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		MimeMessage mail = createMimeMessage(fromId, from, toId, to, cc, bccLists, content, result);
 		if(mail != null) {
 			sendMessage(mail, result);
+			if(result != null && !result.isSuccessful()) {
+				handleErrors(result, fromId, toId, cc, bccLists);
+			}
 		}
 		return result;
 	}
@@ -937,13 +914,13 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			mail.setMetaId(metaId);
 			String subject = content.getSubject();
 			if(subject != null && subject.length() > 500) {
-				logWarn("Cut a too long subkect in name. Size: " + subject.length(), null);
+				log.warn("Cut a too long subkect in name. Size: " + subject.length(), null);
 				subject = subject.substring(0, 500);
 			}
 			mail.setSubject(subject);
 			String body = content.getBody();
 			if(body != null && body.length() > 16777210) {
-				logWarn("Cut a too long body in mail. Size: " + body.length(), null);
+				log.warn("Cut a too long body in mail. Size: " + body.length(), null);
 				body = body.substring(0, 16000000);
 			}
 			mail.setBody(body);
@@ -954,7 +931,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 				if(ores != null) {
 					String resName = ores.getResourceableTypeName();
 					if(resName != null && resName.length() > 50) {
-						logWarn("Cut a too long resourceable type name in mail context: " + resName, null);
+						log.warn("Cut a too long resourceable type name in mail context: " + resName, null);
 						resName = resName.substring(0, 49);
 					}
 					mail.getContext().setResName(ores.getResourceableTypeName());
@@ -963,14 +940,14 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 				
 				String resSubPath = context.getResSubPath();
 				if(resSubPath != null && resSubPath.length() > 2000) {
-					logWarn("Cut a too long resSubPath in mail context: " + resSubPath, null);
+					log.warn("Cut a too long resSubPath in mail context: " + resSubPath, null);
 					resSubPath = resSubPath.substring(0, 2000);
 				}
 				mail.getContext().setResSubPath(resSubPath);
 				
 				String businessPath = context.getBusinessPath();
 				if(businessPath != null && businessPath.length() > 2000) {
-					logWarn("Cut a too long resSubPath in mail context: " + businessPath, null);
+					log.warn("Cut a too long resSubPath in mail context: " + businessPath, null);
 					businessPath = businessPath.substring(0, 2000);
 				}
 				mail.getContext().setBusinessPath(businessPath);
@@ -980,7 +957,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			DBMailRecipient recipientTo = null;
 			if(toId != null) {
 				recipientTo = new DBMailRecipient();
-				if(toId instanceof PersistentObject) {
+				if(toId instanceof IdentityImpl) {
 					recipientTo.setRecipient(toId);
 				} else {
 					to = toId.getUser().getProperty(UserConstants.EMAIL, null);
@@ -1011,7 +988,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			
 			if(cc != null) {
 				DBMailRecipient recipient = new DBMailRecipient();
-				if(cc instanceof PersistentObject) {
+				if(cc instanceof IdentityImpl) {
 					recipient.setRecipient(cc);
 				} else {
 					recipient.setEmailAddress(cc.getUser().getProperty(UserConstants.EMAIL, null));
@@ -1051,9 +1028,9 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 
 						dbInstance.getCurrentEntityManager().persist(data);
 					} catch (FileNotFoundException e) {
-						logError("File attachment not found: " + attachment, e);
+						log.error("File attachment not found: " + attachment, e);
 					} catch (IOException e) {
-						logError("Error with file attachment: " + attachment, e);
+						log.error("Error with file attachment: " + attachment, e);
 					} finally {
 						IOUtils.closeQuietly(in);
 					}
@@ -1064,6 +1041,9 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 				//check that we send an email to someone
 				if(!toAddress.isEmpty() || !ccAddress.isEmpty() || !bccAddress.isEmpty()) {
 					sendRealMessage(fromAddress, toAddress, ccAddress, bccAddress, subject, body, attachments, result);
+					if(result != null && !result.isSuccessful()) {
+						handleErrors(result, fromId, toId, cc, bccLists);
+					}
 				}
 			}
 
@@ -1078,10 +1058,87 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			notificationsManager.markPublisherNews(subContext, null, false);
 			return mail;
 		} catch (AddressException e) {
-			logError("Cannot send e-mail: ", e);
+			log.error("Cannot send e-mail: ", e);
 			result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
 			return null;
 		}
+	}
+	
+	/**
+	 * Basically try to find compare the list of invalid addresses return by the mail server
+	 * with the different recipients (in the form of Identity) of the mail. 
+	 * 
+	 * @param result The result which contains the invalid addresses
+	 * @param fromId A recipient of the mail (optional can be null)
+	 * @param toId A recipient of the mail (optional can be null)
+	 * @param cc A recipient of the mail (optional can be null)
+	 * @param bccLists A list of contact list of the mail (optional can be null or empty)
+	 */
+	private void handleErrors(MailerResult result, Identity fromId, Identity toId, Identity cc,  List<ContactList> bccLists) {
+		if(result == null) return;
+
+		List<String> invalidAddresses = result.getInvalidAddresses();
+		if(invalidAddresses.size() > 0) {
+			if(match(fromId, invalidAddresses, true)) {
+				result.addFailedIdentites(fromId);
+			}
+			if(match(toId, invalidAddresses, true)) {
+				result.addFailedIdentites(fromId);
+			}
+			if(match(cc, invalidAddresses, true)) {
+				result.addFailedIdentites(fromId);
+			}
+			if(bccLists != null && bccLists.size() > 0) {
+				for(ContactList bccList:bccLists) {
+					Map<String,Identity> emailToIdentityMap = bccList.getIdentiEmails();
+					for(Map.Entry<String,Identity> entry:emailToIdentityMap.entrySet()) {
+						if(match(entry.getKey(), invalidAddresses, true)) {
+							result.addFailedIdentites(entry.getValue());
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Try to find the email or institutional email address of the identity in
+	 * the list of addresses.
+	 * 
+	 * @param identity The identity
+	 * @param invalidAddresses The list of addresses to compare with
+	 * @param removeMatch if true, the matched address will be removed of the list
+	 * @return true if found
+	 */
+	private boolean match(Identity identity, List<String> invalidAddresses, boolean removeMatch) {
+		boolean match = false;
+		if(identity != null) {
+			match |= match(identity.getUser().getEmail(), invalidAddresses, removeMatch);
+			match |= match(identity.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null), invalidAddresses, removeMatch);
+		}
+		return match;
+	}
+	
+	/**
+	 * Try to find the email address the list of addresses.
+	 * 
+	 * @param identity The email to compare
+	 * @param invalidAddresses The list of addresses to compare with
+	 * @param removeMatch if true, the matched address will be removed of the list
+	 * @return true if found
+	 */
+	private boolean match(String email, List<String> invalidAddresses, boolean removeMatch) {
+		if(StringHelper.containsNonWhitespace(email) && invalidAddresses != null) {
+			for(String invalidAddress:invalidAddresses) {
+				if(email.toLowerCase().contains(invalidAddress.toLowerCase())) {
+					if(removeMatch) {
+						invalidAddresses.remove(invalidAddress);
+					}
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 	
 	private void appendRecipients(DBMailImpl mail, List<ContactList> ccLists, List<Address> toAddress, List<Address> ccAddress,
@@ -1116,7 +1173,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 				
 				for(Identity identityEmail:contactList.getIdentiEmails().values()) {
 					DBMailRecipient recipient = new DBMailRecipient();
-					if(identityEmail instanceof PersistentObject) {
+					if(identityEmail instanceof IdentityImpl) {
 						recipient.setRecipient(identityEmail);
 					} else {
 						recipient.setEmailAddress(identityEmail.getUser().getProperty(UserConstants.EMAIL, null));
@@ -1178,7 +1235,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 				// fxdiff: change from/replyto, see FXOLAT-74 . if no from is set, use default sysadmin-address (adminemail).
 				from = createAddress(WebappHelper.getMailConfig("mailReplyTo"));
 				if(from == null) {
-					logError("MailConfigError: mailReplyTo is not set", null);
+					log.error("MailConfigError: mailReplyTo is not set", null);
 				}
 			}
 
@@ -1226,7 +1283,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			Address[] bccs = bccList.toArray(new Address[bccList.size()]);
 			return createMimeMessage(from, tos, ccs, bccs, content.getSubject(), content.getBody(), content.getAttachments(), result);
 		} catch (MessagingException e) {
-			logError("", e);
+			log.error("", e);
 			return null;
 		}
 	}
@@ -1390,11 +1447,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			List<DBMailAttachment> attachments, MailerResult result) {
 		
 		try {
-			Address convertedFrom = getRawEmailFromAddress(from);
-			MimeMessage msg = createMessage(convertedFrom);
-			msg.setFrom(from);
-			msg.setSubject(subject, "utf-8");
-
+			MimeMessage msg = createMessage(subject, from);
 			if(to != null) {
 				msg.addRecipient(RecipientType.TO, to);
 			}
@@ -1411,7 +1464,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 					// abort if attachment does not exist
 					if (attachment == null || attachment.getSize()  <= 0) {
 						result.setReturnCode(MailerResult.ATTACHMENT_INVALID);
-						logError("Tried to send mail wit attachment that does not exist::"
+						log.error("Tried to send mail wit attachment that does not exist::"
 								+ (attachment == null ? null : attachment.getName()), null);
 						return msg;
 					}
@@ -1432,18 +1485,26 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			msg.setSentDate(new Date());
 			msg.saveChanges();
 			return msg;
-		} catch (MessagingException e) {
-			logError("", e);
+		} catch (MessagingException | UnsupportedEncodingException e) {
+			log.error("", e);
 			return null;
 		}
 	}
 	
 	/**
+	 * Only legal way to create a MimeMessage!
 	 * 
-	 * @param bounceAdress must be a raw email, without anything else (no "bla bli <bla@bli.ch>" !)
+	 * @see FXOLAT-74: send all mails as <fromemail> (in config) to have a valid reverse lookup and therefore pass spam protection.
+	 *
+	 * @param subject
+	 * @param from
 	 * @return
+	 * @throws AddressException
+	 * @throws MessagingException
+	 * @throws UnsupportedEncodingException
 	 */
-	private MimeMessage createMessage(Address bounceAdress) {
+	private MimeMessage createMessage(String subject, Address from)
+	throws AddressException, MessagingException, UnsupportedEncodingException {
 		String mailhost = WebappHelper.getMailConfig("mailhost");
 		String mailport = WebappHelper.getMailConfig("mailport");
 		String mailhostTimeout = WebappHelper.getMailConfig("mailTimeout");
@@ -1461,7 +1522,6 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 		}
 		
 		Properties p = new Properties();
-		p.put("mail.smtp.from", bounceAdress.toString());
 		p.put("mail.smtp.host", mailhost);
 		if(StringHelper.containsNonWhitespace(mailport)) {
 			p.put("mail.smtp.port", mailport);
@@ -1474,6 +1534,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			p.put("mail.smtp.starttls.enable", "true");
 			p.put("mail.smtp.ssl.trust", mailhost);
 		}
+		p.put("mail.smtp.sendpartial", Boolean.TRUE);
 		
 		Session mailSession;
 		if (smtpAuth == null) {
@@ -1483,11 +1544,22 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			p.put("mail.smtp.auth", "true");
 			mailSession = Session.getDefaultInstance(p, smtpAuth); 
 		}
-		if (isLogDebugEnabled()) {
+		if (log.isDebug()) {
 			// enable mail session debugging on console
 			mailSession.setDebug(true);
 		}
-		return new MimeMessage(mailSession);
+		MimeMessage msg = new MimeMessage(mailSession);
+		
+		String platformFrom = WebappHelper.getMailConfig("mailFrom");
+		String platformName = WebappHelper.getMailConfig("mailFromName");
+		Address viewableFrom = createAddressWithName(platformFrom, platformName);
+		msg.setFrom(viewableFrom);
+		msg.setSubject(subject, "utf-8");
+		// reply to can only be an address without name (at least for postfix!), see FXOLAT-312
+		Address convertedFrom = getRawEmailFromAddress(from); 
+		msg.setReplyTo(new Address[] { convertedFrom });
+		
+		return msg;
 	}
 	
 	// converts an address "bla bli <bla@bli.ch>" => "bla@bli.ch"
@@ -1505,16 +1577,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			List<File> attachments, MailerResult result) {
 		
 		try {
-			//	see FXOLAT-74: send all mails as <fromemail> (in config) to have a valid reverse lookup and therefore pass spam protection.
-			// following doesn't work correctly, therefore add bounce-address in message already
-			Address convertedFrom = getRawEmailFromAddress(from); 
-			MimeMessage msg = createMessage(convertedFrom);
-			Address viewableFrom = createAddressWithName(WebappHelper.getMailConfig("mailFrom"), WebappHelper.getMailConfig("mailFromName"));
-			msg.setFrom(viewableFrom);
-			msg.setSubject(subject, "utf-8");
-			// reply to can only be an address without name (at least for postfix!), see FXOLAT-312
-			msg.setReplyTo(new Address[] { convertedFrom });
-
+			MimeMessage msg = createMessage(subject, from);
 			if(tos != null && tos.length > 0) {
 				msg.addRecipients(RecipientType.TO, tos);
 			}
@@ -1547,7 +1610,7 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 					// abort if attachment does not exist
 					if (attachmentFile == null || !attachmentFile.exists()) {
 						result.setReturnCode(MailerResult.ATTACHMENT_INVALID);
-						logError("Tried to send mail wit attachment that does not exist::"
+						log.error("Tried to send mail wit attachment that does not exist::"
 								+ (attachmentFile == null ? null : attachmentFile.getAbsolutePath()), null);
 						return msg;
 					}
@@ -1572,15 +1635,15 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 			return msg;
 		} catch (AddressException e) {
 			result.setReturnCode(MailerResult.SENDER_ADDRESS_ERROR);
-			logError("", e);
+			log.error("", e);
 			return null;
 		} catch (MessagingException e) {
 			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
-			logError("", e);
+			log.error("", e);
 			return null;
 		} catch (UnsupportedEncodingException e) {
 			result.setReturnCode(MailerResult.SENDER_ADDRESS_ERROR);
-			logError("", e);
+			log.error("", e);
 			return null;
 		}
 	}
@@ -1601,34 +1664,83 @@ public class MailManagerImpl extends BasicManager implements MailManager {
 	}
 
 	@Override
-	public void sendMessage(MimeMessage msg, MailerResult result){
+	public void sendMessage(MimeMessage msg, MailerResult result) {
+		String smtpFrom = WebappHelper.getMailConfig("smtpFrom");
+		if(StringHelper.containsNonWhitespace(smtpFrom)) {
+			try {
+				SMTPMessage smtpMsg = new SMTPMessage(msg);
+				smtpMsg.setEnvelopeFrom(smtpFrom);
+				msg = smtpMsg;
+			} catch (MessagingException e) {
+				log.error("", e);
+			}
+		}
+
 		try{
 			if(Settings.isJUnitTest()) {
 				//we want not send really e-mails
 			} else if (mailModule.isMailHostEnabled() && result.getReturnCode() == MailerResult.OK) {
 				// now send the mail
 				if(Settings.isDebuging()) {
-					try {
-						logInfo("E-mail send: " + msg.getSubject());
-						logInfo("Content    : " + msg.getContent());
-					} catch (IOException e) {
-						logError("", e);
-					}
+					logMessage(msg);
 				}
 				Transport.send(msg);
 			} else if(Settings.isDebuging() && result.getReturnCode() == MailerResult.OK) {
-				try {
-					logInfo("E-mail send: " + msg.getSubject());
-					logInfo("Content    : " + msg.getContent());
-				} catch (IOException e) {
-					logError("", e);
-				}
+				logMessage(msg);
 			} else {
 				result.setReturnCode(MailerResult.MAILHOST_UNDEFINED);
 			}
+		} catch(SendFailedException e) {
+			result.setReturnCode(MailerResult.RECIPIENT_ADDRESS_ERROR);
+			result.addInvalidAddresses(e.getInvalidAddresses());
+			result.addInvalidAddresses(e.getValidUnsentAddresses());
+			log.warn("Could not send mail", e);
 		} catch (MessagingException e) {
 			result.setReturnCode(MailerResult.SEND_GENERAL_ERROR);
-			logWarn("Could not send mail", e);
+			log.warn("Could not send mail", e);
+		}
+	}
+	
+	private void logMessage(MimeMessage msg) throws MessagingException {
+		try {
+			log.info("E-mail send: " + msg.getSubject());
+			logRecipients(msg, RecipientType.TO);
+			logRecipients(msg, RecipientType.BCC);
+			logRecipients(msg, RecipientType.CC);
+			log.info("Content    : " + msg.getContent());
+			
+			//File file = new File("/HotCoffee/tmp/mail_" + CodeHelper.getForeverUniqueID() + ".msg");
+			//OutputStream os = new FileOutputStream(file);
+			//msg.writeTo(os);
+			//IOUtils.closeQuietly(os);
+		} catch (IOException e) {
+			log.error("", e);
+		}
+	}
+	
+	private void logRecipients(MimeMessage msg, RecipientType type) throws MessagingException {
+		Address[] recipients = msg.getRecipients(type);
+		if(recipients != null && recipients.length > 0) {
+			StringBuilder sb = new StringBuilder();
+			for(Address recipient:recipients) {
+				if(sb.length() > 0) sb.append(", ");
+				sb.append(recipient.toString());
+			}
+			log.info(type + "        : " + sb);
+		}
+	}
+	
+	public static class SendMail implements Runnable {
+		
+		private final MailBundle[] bundles;
+		
+		public SendMail(MailBundle[] bundles) {
+			this.bundles = bundles;
+		}
+
+		@Override
+		public void run() {
+			CoreSpringFactory.getImpl(MailManager.class).sendMessage(bundles);
 		}
 	}
 	

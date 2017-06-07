@@ -30,11 +30,8 @@ import java.util.Collections;
 import java.util.List;
 
 import org.olat.NewControllerFactory;
-import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.BaseSecurityModule;
-import org.olat.basesecurity.Group;
 import org.olat.basesecurity.GroupRoles;
-import org.olat.basesecurity.ui.GroupController;
 import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.commons.calendar.CalendarModule;
@@ -44,6 +41,7 @@ import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.panel.Panel;
+import org.olat.core.gui.components.stack.PopEvent;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
@@ -95,6 +93,7 @@ import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.openmeetings.OpenMeetingsModule;
+import org.olat.modules.portfolio.PortfolioV2Module;
 import org.olat.modules.wiki.WikiManager;
 import org.olat.portfolio.PortfolioModule;
 import org.olat.repository.RepositoryEntry;
@@ -129,21 +128,17 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private static final String INITVIEW_TOOLFORUM = "toolforum";
 	public static final OLATResourceable ORES_TOOLFORUM = OresHelper.createOLATResourceableType(INITVIEW_TOOLFORUM);
 	
-	private static final String INITVIEW_TOOLWIKI = WikiManager.WIKI_RESOURCE_FOLDER_NAME;
-	public static final OLATResourceable ORES_TOOLWIKI = OresHelper.createOLATResourceableType(INITVIEW_TOOLWIKI);
-
-	private static final String INITVIEW_TOOLPORTFOLIO = "toolportfolio";
-	public static final OLATResourceable ORES_TOOLPORTFOLIO = OresHelper.createOLATResourceableType(INITVIEW_TOOLPORTFOLIO);
-	private static final String INITVIEW_TOOLOPENMEETINGS = "toolportfolio";
-	public static final OLATResourceable ORES_TOOLOPENMEETINGS = OresHelper.createOLATResourceableType(INITVIEW_TOOLOPENMEETINGS);
-	
-	public static final String INITVIEW_TOOLCAL = "action.calendar.group";
-	public static final OLATResourceable ORES_TOOLCAL = OresHelper.createOLATResourceableType(INITVIEW_TOOLCAL);
+	public static final OLATResourceable ORES_TOOLCHAT = OresHelper.createOLATResourceableType("toolchat");
+	public static final OLATResourceable ORES_TOOLCAL = OresHelper.createOLATResourceableType("toolcalendar");
 	public static final OLATResourceable ORES_TOOLMSG = OresHelper.createOLATResourceableType("toolmsg");
 	public static final OLATResourceable ORES_TOOLADMIN = OresHelper.createOLATResourceableType("tooladmin");
 	public static final OLATResourceable ORES_TOOLCONTACT = OresHelper.createOLATResourceableType("toolcontact");
 	public static final OLATResourceable ORES_TOOLMEMBERS = OresHelper.createOLATResourceableType("toolmembers");
 	public static final OLATResourceable ORES_TOOLRESOURCES = OresHelper.createOLATResourceableType("toolresources");
+	public static final OLATResourceable ORES_TOOLPORTFOLIO = OresHelper.createOLATResourceableType("toolportfolio");
+	public static final OLATResourceable ORES_TOOLBOOKING = OresHelper.createOLATResourceableType("toolbooking");
+	public static final OLATResourceable ORES_TOOLOPENMEETINGS = OresHelper.createOLATResourceableType("toolopenmeetings");
+	public static final OLATResourceable ORES_TOOLWIKI = OresHelper.createOLATResourceableType(WikiManager.WIKI_RESOURCE_FOLDER_NAME);
 
 	// activity identifyers are used as menu user objects and for the user
 	// activity events
@@ -192,12 +187,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private BusinessGroupEditController bgEditCntrllr;
 	private Controller bgACHistoryCtrl;
 	private TableController resourcesCtr;
+	private GroupMembersRunController groupMembersToggleViewController;
 
 	private BusinessGroupSendToChooserForm sendToChooserForm;
-	
-	private GroupController gownersC;
-	private GroupController gparticipantsC;
-	private GroupController waitingListController;
 
 	/**
 	 * Business group administrator
@@ -208,14 +200,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	 */
 	private boolean isGroupsAdmin;
 
-	@Autowired
-	private ACService acService;
-	@Autowired
-	private BaseSecurity securityManager;
-	@Autowired
-	private CalendarModule calendarModule;
-	@Autowired
-	private BusinessGroupService businessGroupService;
 	private EventBus singleUserEventBus;
 	private String adminNodeId; // reference to admin menu item
 	private HistoryPoint launchedFromPoint;
@@ -231,6 +215,19 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	private boolean needActivation;
 	private boolean chatAvailable;
 	private boolean wildcard;
+	
+	@Autowired
+	private ACService acService;
+	@Autowired
+	private CalendarModule calendarModule;
+	@Autowired
+	private InstantMessagingModule imModule;
+	@Autowired
+	private PortfolioModule portfolioModule;
+	@Autowired
+	private PortfolioV2Module portfolioV2Module;
+	@Autowired
+	private BusinessGroupService businessGroupService;
 
 	/**
 	 * Do not use this constructor! Use the BGControllerFactory instead!
@@ -247,9 +244,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		assessmentEventOres = OresHelper.createOLATResourceableType(AssessmentEvent.class);
 		nodeIdPrefix = "bgmr".concat(Long.toString(CodeHelper.getRAMUniqueID()));
 		
-		toolbarPanel = new TooledStackedPanel("courseStackPanel", getTranslator(), this);
+		toolbarPanel = new TooledStackedPanel("groupStackPanel", getTranslator(), this);
 		toolbarPanel.setInvisibleCrumb(0); // show root (course) level
-		toolbarPanel.setToolbarEnabled(false);
+		toolbarPanel.setToolbarAutoEnabled(true);
 		toolbarPanel.setShowCloseLink(true, true);
 
 		UserSession session = ureq.getUserSession();
@@ -309,8 +306,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		isAdmin = (wcard != null && Boolean.TRUE.equals(wcard))
 				|| isGroupsAdmin
 				|| businessGroupService.isIdentityInBusinessGroup(getIdentity(), businessGroup.getKey(), true, false, null);
-		
-		
 
 		// Initialize translator:
 		// package translator with default group fallback translators and type
@@ -325,7 +320,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		mainPanel = new Panel("p_buddygroupRun");
 		mainPanel.setContent(main);
 		
-		bgTree = new MenuTree("bgTree");
+		bgTree = new MenuTree("bgtree", "bgTree");
 		TreeModel trMdl = buildTreeModel();
 		bgTree.setTreeModel(trMdl);
 		bgTree.addListener(this);
@@ -380,10 +375,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	}
 	
 	private boolean isChatAvailable() {
-		return CoreSpringFactory.getImpl(InstantMessagingModule.class).isEnabled() &&
-				CoreSpringFactory.getImpl(InstantMessagingModule.class).isGroupEnabled() && 
+		return imModule.isEnabled() && imModule.isGroupEnabled() && 
 				CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup).isToolEnabled(CollaborationTools.TOOL_CHAT);
-
 	}
 	
 	private Component getOnWaitingListMessage(UserRequest ureq, BusinessGroup group) {
@@ -432,9 +425,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				TreeNode selTreeNode = bgTree.getSelectedNode();
 				String cmd = (String) selTreeNode.getUserObject();
 				handleTreeActions(ureq, cmd);
-				if(collabToolCtr != null) {
-					addToHistory(ureq, collabToolCtr);
-				}
 			} else if (groupRunDisabled) {
 				handleTreeActions(ureq, ACTIVITY_MENUSELECT_OVERVIEW);
 				showError("grouprun.disabled");
@@ -442,6 +432,13 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		} else if(source == toolbarPanel) {
 			if (event == Event.CLOSE_EVENT) {
 				doClose(ureq);
+			} else if(event instanceof PopEvent) {
+				PopEvent pe = (PopEvent)event;
+				Controller popedCtrl = pe.getController();
+				if(popedCtrl == collabToolCtr) {
+					handleTreeActions(ureq, ACTIVITY_MENUSELECT_OVERVIEW);
+					bgTree.setSelectedNode(bgTree.getTreeModel().getRootNode());
+				}
 			}
 		}
 	}
@@ -455,6 +452,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		if (source == bgEditCntrllr) {
 			// changes from the admin controller
 			if (event == Event.CHANGED_EVENT) {
+				businessGroup = bgEditCntrllr.getBusinessGroup();
+				chatAvailable = isChatAvailable();
+				
 				TreeModel trMdl = buildTreeModel();
 				bgTree.setTreeModel(trMdl);
 				bgTree.setSelectedNode(nodeAdmin);
@@ -628,14 +628,13 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		
 		if (sendToChooserForm.waitingListChecked().equals(BusinessGroupSendToChooserForm.NLS_RADIO_NOTHING)) {
 			String restUrl = BusinessControlFactory.getInstance().getAsURIString(getWindowControl().getBusinessControl(), true);
-			cmsg.setBodyText( getTranslator().translate("businessgroup.contact.bodytext", new String[]{ businessGroup.getName(), restUrl} ) );
+			cmsg.setBodyText( getTranslator().translate("businessgroup.contact.bodytext", new String[]{ businessGroup.getName(), "<a href='" + restUrl + "'>" + restUrl + "</a>"} ) );
 		} else {
 			cmsg.setBodyText ("");
 		}
 		
 		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
-		ContactFormController cofocntrllr = collabTools.createContactFormController(ureq, getWindowControl(), cmsg);
-		return cofocntrllr;
+		return collabTools.createContactFormController(ureq, getWindowControl(), cmsg);
 	}
 
 	/**
@@ -648,65 +647,20 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		// release edit lock if available
 		removeAsListenerAndDispose(bgEditCntrllr);
 		removeAsListenerAndDispose(collabToolCtr);
-		
-		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
-
+	
 		// init new controller according to user click
 		if (ACTIVITY_MENUSELECT_OVERVIEW.equals(cmd)) {
-			// root node clicked display overview
-			mainPanel.setContent(main);
+			doMain(ureq);
 		} else if (ACTIVITY_MENUSELECT_FORUM.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLFORUM, OlatResourceableType.forum));
-			SubscriptionContext sc = new SubscriptionContext(businessGroup, INITVIEW_TOOLFORUM);
-			
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the forum clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLFORUM);
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-
-			collabToolCtr = collabTools.createForumController(ureq, bwControl, isAdmin, ureq.getUserSession().getRoles().isGuestOnly(),	sc);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doForum(ureq);
 		} else if (ACTIVITY_MENUSELECT_CHAT.equals(cmd)) {
-			collabToolCtr = collabTools.createChatController(ureq, getWindowControl(), businessGroup, isAdmin);
-			if(collabToolCtr == null) {
-				showWarning("groupchat.not.available");
-				mainPanel.setContent(new Panel("empty"));
-			} else {
-				mainPanel.setContent(collabToolCtr.getInitialComponent());
-			}
+			doChat(ureq);
 		} else if (ACTIVITY_MENUSELECT_CALENDAR.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLCAL, OlatResourceableType.calendar));
-			
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the forum clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLCAL);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-
-			collabToolCtr = collabTools.createCalendarController(ureq, bwControl, this.businessGroup, isAdmin);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doCalendar(ureq);
 		} else if (ACTIVITY_MENUSELECT_INFORMATION.equals(cmd)) {
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLMSG);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
-			collabToolCtr = collabTools.createNewsController(ureq, bwControl);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doInformations(ureq);
 		} else if (ACTIVITY_MENUSELECT_FOLDER.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLFOLDER, OlatResourceableType.sharedFolder));
-
-			SubscriptionContext sc = new SubscriptionContext(businessGroup, INITVIEW_TOOLFOLDER);
-			
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the forum clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLFOLDER);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-			collabToolCtr = collabTools.createFolderController(ureq, bwControl, businessGroup, isAdmin, sc);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doFolder(ureq);
 		} else if (ACTIVITY_MENUSELECT_MEMBERSLIST.equals(cmd)) {
 			doShowMembers(ureq);
 		} else if (ACTIVITY_MENUSELECT_CONTACTFORM.equals(cmd)) {
@@ -716,64 +670,179 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 		} else if (ACTIVITY_MENUSELECT_SHOW_RESOURCES.equals(cmd)) {
 			doShowResources(ureq);
 		} else if (ACTIVITY_MENUSELECT_WIKI.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLWIKI, OlatResourceableType.wiki));
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the wiki clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLWIKI);
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapWikiOres(ce.getOLATResourceable()));
-
-			collabToolCtr = collabTools.createWikiController(ureq, bwControl);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doWiki(ureq);
 		} else if (ACTIVITY_MENUSELECT_PORTFOLIO.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLPORTFOLIO, OlatResourceableType.portfolio));
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the wiki clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLPORTFOLIO);
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(ce.getOLATResourceable()));
-
-			collabToolCtr = collabTools.createPortfolioController(ureq, bwControl, businessGroup);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doPortfolio(ureq);
 		} else if (ACTIVITY_MENUSELECT_OPENMEETINGS.equals(cmd)) {
-			addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLOPENMEETINGS, OlatResourceableType.portfolio));
-			WindowControl bwControl = getWindowControl();
-			// calculate the new businesscontext for the wiki clicked
-			ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLOPENMEETINGS);
-			bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, bwControl);
-			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(ce.getOLATResourceable()));
-
-			collabToolCtr = collabTools.createOpenMeetingsController(ureq, bwControl, businessGroup, isAdmin);
-			listenTo(collabToolCtr);
-			mainPanel.setContent(collabToolCtr.getInitialComponent());
+			doOpenMeetings(ureq);
 		}  else if (ACTIVITY_MENUSELECT_AC.equals(cmd)) {
 			doAccessControlHistory(ureq);
 		} 
 	}
+	
+	private void doMain(UserRequest ureq) {
+		// root node clicked display overview
+		mainPanel.setContent(main);
+		addToHistory(ureq, this);
+	}
+	
+	private void doChat(UserRequest ureq) {
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLCHAT);
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createChatController(ureq, bwControl, businessGroup, isAdmin);
+		if(collabToolCtr == null) {
+			showWarning("groupchat.not.available");
+			mainPanel.setContent(new Panel("empty"));
+		} else {
+			mainPanel.setContent(collabToolCtr.getInitialComponent());
+		}
+	}
+	
+	private Activateable2 doForum(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLFORUM, OlatResourceableType.forum));
+		SubscriptionContext sc = new SubscriptionContext(businessGroup, INITVIEW_TOOLFORUM);
 
-	private void doAdministration(UserRequest ureq) {
+		// calculate the new businesscontext for the forum clicked
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLFORUM);
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createForumController(ureq, bwControl, isAdmin, ureq.getUserSession().getRoles().isGuestOnly(),	sc);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+		return (Activateable2)collabToolCtr;
+	}
+	
+	private Activateable2 doCalendar(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLCAL, OlatResourceableType.calendar));
+		
+		// calculate the new businesscontext for the forum clicked
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLCAL);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createCalendarController(ureq, bwControl, businessGroup, isAdmin, true);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+		return (Activateable2)collabToolCtr;
+	}
+	
+	private void doInformations(UserRequest ureq) {
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLMSG);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createInfoMessageController(ureq, bwControl, isAdmin);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+	}
+	
+	private Activateable2 doFolder(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLFOLDER, OlatResourceableType.sharedFolder));
+
+		SubscriptionContext sc = new SubscriptionContext(businessGroup, INITVIEW_TOOLFOLDER);
+		
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLFOLDER);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ce.getOLATResourceable()));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createFolderController(ureq, bwControl, businessGroup, isAdmin, sc);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+		return (Activateable2)collabToolCtr;
+	}
+	
+	private Activateable2 doWiki(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLWIKI, OlatResourceableType.wiki));
+		
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLWIKI);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapWikiOres(ce.getOLATResourceable()));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createWikiController(ureq, bwControl);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+		return (Activateable2)collabToolCtr;
+	}
+	
+	private Activateable2 doPortfolio(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLPORTFOLIO, OlatResourceableType.portfolio));
+
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLPORTFOLIO);
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(ce.getOLATResourceable()));
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createPortfolioController(ureq, bwControl, toolbarPanel, businessGroup);
+		listenTo(collabToolCtr);
+		toolbarPanel.popUpToRootController(ureq);
+		toolbarPanel.pushController("Portfolio", collabToolCtr);
+		
+		List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType("Toc");
+		((Activateable2)collabToolCtr).activate(ureq, entries, null);
+		return (Activateable2)collabToolCtr;
+	}
+	
+	private void doOpenMeetings(UserRequest ureq) {
+		addLoggingResourceable(LoggingResourceable.wrap(ORES_TOOLOPENMEETINGS, OlatResourceableType.portfolio));
+		
+		ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(ORES_TOOLOPENMEETINGS);
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ce, getWindowControl());
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapPortfolioOres(ce.getOLATResourceable()));
+		addToHistory(ureq, bwControl);
+		
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(businessGroup);
+		collabToolCtr = collabTools.createOpenMeetingsController(ureq, bwControl, businessGroup, isAdmin);
+		listenTo(collabToolCtr);
+		mainPanel.setContent(collabToolCtr.getInitialComponent());
+	}
+
+	private Activateable2 doAdministration(UserRequest ureq) {
 		removeAsListenerAndDispose(bgEditCntrllr);
+		
 		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ORES_TOOLADMIN));
 		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ORES_TOOLADMIN, null, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
 		collabToolCtr = bgEditCntrllr = new BusinessGroupEditController(ureq, bwControl, toolbarPanel, businessGroup);
 		listenTo(bgEditCntrllr);
 		mainPanel.setContent(bgEditCntrllr.getInitialComponent());
+		return bgEditCntrllr;
 	}
 	
-	private void doAccessControlHistory(UserRequest ureq) {
+	private Activateable2 doAccessControlHistory(UserRequest ureq) {
 		removeAsListenerAndDispose(bgACHistoryCtrl);
+		
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ORES_TOOLBOOKING, null, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
 		OLATResource resource = businessGroup.getResource();
-		bgACHistoryCtrl = new OrdersAdminController(ureq, getWindowControl(), resource);
+		bgACHistoryCtrl = new OrdersAdminController(ureq, bwControl, toolbarPanel, resource);
 		listenTo(bgACHistoryCtrl);
 		mainPanel.setContent(bgACHistoryCtrl.getInitialComponent());
+		return (Activateable2)bgACHistoryCtrl;
 	}
 
 	private void doContactForm(UserRequest ureq) {
 		if (vc_sendToChooserForm == null) vc_sendToChooserForm = createVelocityContainer("cosendtochooser");
 		removeAsListenerAndDispose(sendToChooserForm);
+		
 		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ORES_TOOLCONTACT, null, getWindowControl());
+		addToHistory(ureq, bwControl);
+		
 		sendToChooserForm = new BusinessGroupSendToChooserForm(ureq, bwControl, businessGroup, isAdmin);
 		listenTo(sendToChooserForm);
 		vc_sendToChooserForm.put("vc_sendToChooserForm", sendToChooserForm.getInitialComponent());
@@ -781,42 +850,11 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 	}
 
 	private void doShowMembers(UserRequest ureq) {
-		VelocityContainer membersVc = createVelocityContainer("ownersandmembers");
-		// 1. show owners if configured with Owners
-		boolean downloadAllowed = businessGroup.isDownloadMembersLists();
-		Group group = businessGroupService.getGroup(businessGroup);
-		if (businessGroup.isOwnersVisibleIntern()) {
-			removeAsListenerAndDispose(gownersC);
-			gownersC = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.coach.name());
-			listenTo(gownersC);
-			membersVc.put("owners", gownersC.getInitialComponent());
-			membersVc.contextPut("showOwnerGroups", Boolean.TRUE);
-		} else {
-			membersVc.contextPut("showOwnerGroups", Boolean.FALSE);
-		}
-		// 2. show participants if configured with Participants
-		if (businessGroup.isParticipantsVisibleIntern()) {
-			removeAsListenerAndDispose(gparticipantsC);
-			gparticipantsC = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.participant.name());
-			listenTo(gparticipantsC);
-			
-			membersVc.put("participants", gparticipantsC.getInitialComponent());
-			membersVc.contextPut("showPartipsGroups", Boolean.TRUE);
-		} else {
-			membersVc.contextPut("showPartipsGroups", Boolean.FALSE);
-		}
-		// 3. show waiting-list if configured 
-		membersVc.contextPut("hasWaitingList", new Boolean(businessGroup.getWaitingListEnabled()) );
-		if (businessGroup.isWaitingListVisibleIntern()) {
-			removeAsListenerAndDispose(waitingListController);
-			waitingListController = new GroupController(ureq, getWindowControl(), false, true, true, false, downloadAllowed, false, group, GroupRoles.waiting.name());
-			listenTo(waitingListController);
-			membersVc.put("waitingList", waitingListController.getInitialComponent());
-			membersVc.contextPut("showWaitingList", Boolean.TRUE);
-		} else {
-			membersVc.contextPut("showWaitingList", Boolean.FALSE);
-		}
-		mainPanel.setContent(membersVc);
+		CollaborationTools collabTools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(this.businessGroup);
+		boolean canEmail = collabTools.isToolEnabled(CollaborationTools.TOOL_CONTACT);
+		groupMembersToggleViewController = new GroupMembersRunController(ureq, getWindowControl(), businessGroup, canEmail);
+		listenTo(groupMembersToggleViewController);
+		mainPanel.setContent(groupMembersToggleViewController.getInitialComponent());
 		collabToolCtr = null;
 		addToHistory(ureq, ORES_TOOLMEMBERS, null);
 	}
@@ -845,26 +883,26 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		if(entries == null || entries.isEmpty()) return;
-		
 		if(needActivation) {
 			return;
 		}
-		ContextEntry ce = entries.remove(0);
-		activate(ureq, ce);
-		if(collabToolCtr instanceof Activateable2) {
-			((Activateable2)collabToolCtr).activate(ureq, entries, ce.getTransientState());
+		if(entries == null || entries.isEmpty()) {
+			addToHistory(ureq);
+			return;
 		}
-	}
-
-	private void activate(UserRequest ureq, ContextEntry ce) {
+		
+		// release edit lock if available
+		removeAsListenerAndDispose(bgEditCntrllr);
+		removeAsListenerAndDispose(collabToolCtr);
+		
+		ContextEntry ce = entries.remove(0);
 		OLATResourceable ores = ce.getOLATResourceable();
 		if (OresHelper.equals(ores, ORES_TOOLFORUM)) {
 			// start the forum
 			if (nodeForum != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_FORUM);
+				doForum(ureq).activate(ureq, entries, ce.getTransientState());
 				bgTree.setSelectedNode(nodeForum);
-			} else { // not enabled
+			} else if(mainPanel != null) { // not enabled
 				String text = translate("warn.forumnotavailable");
 				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 				listenTo(mc); // cleanup on dispose
@@ -872,9 +910,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLFOLDER)) {
 			if (nodeFolder != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_FOLDER);
+				doFolder(ureq).activate(ureq, entries, ce.getTransientState());
 				bgTree.setSelectedNode(nodeFolder);
-			} else { // not enabled
+			} else if(mainPanel != null) { // not enabled
 				String text = translate("warn.foldernotavailable");				
 				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 				listenTo(mc); // cleanup on dispose
@@ -882,9 +920,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLWIKI)) {
 			if (nodeWiki != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_WIKI);
+				doWiki(ureq).activate(ureq, entries, ce.getTransientState());
 				bgTree.setSelectedNode(nodeWiki);
-			} else { // not enabled
+			} else if(mainPanel != null) { // not enabled
 				String text = translate("warn.wikinotavailable");
 				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 				listenTo(mc); // cleanup on dispose
@@ -892,57 +930,57 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLCAL)) {
 			if (nodeCal != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_CALENDAR);
+				doCalendar(ureq).activate(ureq, entries, ce.getTransientState());
 				bgTree.setSelectedNode(nodeCal);
-			} else { // not enabled
+			} else if(mainPanel != null) { // not enabled
 				String text = translate("warn.calnotavailable");
 				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 				listenTo(mc); // cleanup on dispose
 				mainPanel.setContent(mc.getInitialComponent());
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLPORTFOLIO)) {
-				if (nodePortfolio != null) {
-					handleTreeActions(ureq, ACTIVITY_MENUSELECT_PORTFOLIO);
-					bgTree.setSelectedNode(nodePortfolio);
-				} else { // not enabled
-					String text = translate("warn.portfolionotavailable");
-					Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
-					listenTo(mc); // cleanup on dispose
-					mainPanel.setContent(mc.getInitialComponent());
-				}
+			if (nodePortfolio != null) {
+				doPortfolio(ureq).activate(ureq, entries, ce.getTransientState());
+				bgTree.setSelectedNode(nodePortfolio);
+			} else if(mainPanel != null) { // not enabled
+				String text = translate("warn.portfolionotavailable");
+				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
+				listenTo(mc); // cleanup on dispose
+				mainPanel.setContent(mc.getInitialComponent());
+			}
 		} else if (OresHelper.equals(ores, ORES_TOOLOPENMEETINGS)) {
 			if (nodeOpenMeetings != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_OPENMEETINGS);
+				doOpenMeetings(ureq);
 				bgTree.setSelectedNode(nodeOpenMeetings);
-			} else { // not enabled
+			} else if(mainPanel != null) { // not enabled
 				String text = translate("warn.portfolionotavailable");
 				Controller mc = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), null, text);
 				listenTo(mc); // cleanup on dispose
 				mainPanel.setContent(mc.getInitialComponent());
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLADMIN)) {
-			if (this.nodeAdmin != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_ADMINISTRATION);
+			if (nodeAdmin != null) {
+				doAdministration(ureq).activate(ureq, entries, ce.getTransientState());
 				bgTree.setSelectedNode(nodeAdmin);
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLMSG)) {
-			if (this.nodeInformation != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_INFORMATION);
+			if (nodeInformation != null) {
+				doInformations(ureq);
 				bgTree.setSelectedNode(nodeInformation);
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLCONTACT)) {
-			if (this.nodeContact != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_CONTACTFORM);
+			if (nodeContact != null) {
+				doContactForm(ureq);
 				bgTree.setSelectedNode(nodeContact);
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLMEMBERS)) {
-			if (this.nodeGroupOwners != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_MEMBERSLIST);
+			if (nodeGroupOwners != null) {
+				doShowMembers(ureq);
 				bgTree.setSelectedNode(nodeGroupOwners);
 			}
 		} else if (OresHelper.equals(ores, ORES_TOOLRESOURCES)) {
-			if (this.nodeResources != null) {
-				handleTreeActions(ureq, ACTIVITY_MENUSELECT_SHOW_RESOURCES);
+			if (nodeResources != null) {
+				doShowResources(ureq);
 				bgTree.setSelectedNode(nodeResources);
 			}
 		}
@@ -1076,8 +1114,8 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			nodeResources = gtnChild;
 		}
 
-		if (businessGroup.isOwnersVisibleIntern() || businessGroup.isParticipantsVisibleIntern()) {
-			// either owners or participants, or both are visible
+		if (businessGroup.isOwnersVisibleIntern() || businessGroup.isParticipantsVisibleIntern() || businessGroup.isWaitingListVisibleIntern()) {
+			// either owners, participants, the waiting list or all three are visible
 			// otherwise the node is not visible
 			gtnChild = new GenericTreeNode(nodeIdPrefix.concat("members"));
 			gtnChild.setTitle(translate("menutree.members"));
@@ -1143,9 +1181,9 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			root.addChild(gtnChild);
 			nodeWiki = gtnChild;
 		}
-		
-		PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");		
-		if (collabTools.isToolEnabled(CollaborationTools.TOOL_PORTFOLIO) && portfolioModule.isEnabled()) {
+			
+		if (collabTools.isToolEnabled(CollaborationTools.TOOL_PORTFOLIO) &&
+				(portfolioModule.isEnabled() || portfolioV2Module.isEnabled())) {
 			gtnChild = new GenericTreeNode(nodeIdPrefix.concat("eportfolio"));
 			gtnChild.setTitle(translate("menutree.portfolio"));
 			gtnChild.setUserObject(ACTIVITY_MENUSELECT_PORTFOLIO);
@@ -1164,7 +1202,7 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 			gtnChild.setAltText(translate("menutree.openmeetings.alt"));
 			gtnChild.setIconCssClass("o_openmeetings_icon");
 			root.addChild(gtnChild);
-			nodePortfolio = gtnChild;
+			nodeOpenMeetings = gtnChild;
 		}
 
 		if (isAdmin) {
@@ -1189,8 +1227,6 @@ public class BusinessGroupMainRunController extends MainLayoutBasicController im
 				root.addChild(gtnChild);
 			}
 		}
-
 		return gtm;
 	}
-
 }

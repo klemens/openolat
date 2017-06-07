@@ -84,10 +84,10 @@ public class SelectionController extends BasicController {
 	private Link editParameterLink;
 	private MailNotificationEditController deleteUserMailCtr;
 	private List<Identity> selectedIdentities;
-  private boolean isAdministrativeUser;
-  private Translator propertyHandlerTranslator;
+	private boolean isAdministrativeUser;
+	private Translator propertyHandlerTranslator;
   
-  private CloseableModalController cmc;
+	private CloseableModalController cmc;
 
   /**
 	 * @param ureq
@@ -225,8 +225,8 @@ public class SelectionController extends BasicController {
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setTableEmptyMessage(translate("error.no.user.found"));
 		
-		removeAsListenerAndDispose(tableCtr)		;
-		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), this.propertyHandlerTranslator);
+		removeAsListenerAndDispose(tableCtr);
+		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), propertyHandlerTranslator);
 		listenTo(tableCtr);
 		
 		List<Identity> l = UserDeletionManager.getInstance().getDeletableIdentities(UserDeletionManager.getInstance().getLastLoginDuration());		

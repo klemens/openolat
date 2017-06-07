@@ -27,6 +27,7 @@ import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.Select;
 
 /**
  * 
@@ -56,9 +57,26 @@ public class ImportUserPage {
 		return this;
 	}
 	
-	public ImportUserPage changePassword() {
-		By updatePassword = By.cssSelector("input[name='update.password'][type='checkbox']");
-		browser.findElement(updatePassword).click();
+	/**
+	 * In the first mandatory option, select the update password one.
+	 * @return
+	 */
+	public ImportUserPage updatePasswords() {
+		By updatePassword = By.id("o_fioupdate_password_SELBOX");
+		Select passwordDropdown = new Select(browser.findElement(updatePassword));
+		passwordDropdown.selectByValue("update");
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
+	/**
+	 * In the second mandatory option, select the update existing user one.
+	 * @return
+	 */
+	public ImportUserPage updateUsers() {
+		By updatePassword = By.id("o_fioupdate_user_SELBOX");
+		Select passwordDropdown = new Select(browser.findElement(updatePassword));
+		passwordDropdown.selectByValue("update");
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
@@ -66,7 +84,7 @@ public class ImportUserPage {
 	/**
 	 * Append a line in the form:<br/>
 	 * Benutzername *	Passwort	Sprache	Vorname *	Nachname *	E-Mail *	Institution	Institutionsnummer	Institutions E-Mail<br/>
-	 * demo	olat4you	de	Peter	Muster	peter.muster@demo.ch	Universität Zürich	08-123-987	peter.muster@uzh.ch<br/>
+	 * demo	olat4you	de	Peter	Muster	peter.muster@openolat.org	Universität Zürich	08-123-987	peter.muster@uzh.ch<br/>
 	 * 
 	 * 
 	 * 

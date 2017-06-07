@@ -31,7 +31,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
 import org.olat.commons.calendar.model.KalendarEvent;
 import org.olat.commons.calendar.model.KalendarEventLink;
 import org.olat.commons.calendar.ui.LinkProvider;
@@ -56,6 +55,7 @@ import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class CourseLinkProviderController extends FormBasicController implements LinkProvider {
 
@@ -67,13 +67,16 @@ public class CourseLinkProviderController extends FormBasicController implements
 	private final List<ICourse> availableCourses;
 	private MenuTreeItem multiSelectTree;
 	private final CourseNodeSelectionTreeModel courseNodeTreeModel;
+	
+	@Autowired
+	private CalendarManager calendarManager;
 
 	public CourseLinkProviderController(ICourse course, List<ICourse> courses, UserRequest ureq, WindowControl wControl) {
 		super(ureq, wControl, "course_elements");
 		setTranslator(Util.createPackageTranslator(CalendarManager.class, ureq.getLocale(), getTranslator()));
 
 		this.ores = course;
-		availableCourses = new ArrayList<ICourse>(courses);
+		availableCourses = new ArrayList<>(courses);
 		courseNodeTreeModel = new CourseNodeSelectionTreeModel(courses);
 
 		initForm(ureq);
@@ -111,7 +114,7 @@ public class CourseLinkProviderController extends FormBasicController implements
 		// otherwise, the modifications will be saver, when the user saves
 		// the calendar event.
 		if (kalendarEvent.getCalendar() != null) {
-			CalendarManagerFactory.getInstance().getCalendarManager().addEventTo(kalendarEvent.getCalendar(), kalendarEvent);
+			calendarManager.updateEventFrom(kalendarEvent.getCalendar(), kalendarEvent);
 		}
 		fireEvent(ureq, Event.DONE_EVENT);
 	}
@@ -153,7 +156,10 @@ public class CourseLinkProviderController extends FormBasicController implements
 	@Override
 	public void setKalendarEvent(KalendarEvent kalendarEvent) {
 		this.kalendarEvent = kalendarEvent;
+		//clear all selections
 		clearSelection(courseNodeTreeModel.getRootNode());
+		multiSelectTree.deselectAll();
+		
 		for (KalendarEventLink link: kalendarEvent.getKalendarEventLinks()) {
 			if (link.getProvider().equals(COURSE_LINK_PROVIDER)) {
 				String nodeId = link.getId();

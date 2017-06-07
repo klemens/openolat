@@ -47,7 +47,7 @@ import org.olat.course.assessment.model.BulkAssessmentSettings;
 import org.olat.course.nodes.AssessableCourseNode;
 
 /**
- * 
+ *
  * Initial date: 9.1.2014<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
@@ -64,7 +64,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		super(ureq, wControl, rootForm, runContext, LAYOUT_VERTICAL, null);
 		setTranslator(new HeaderColumnTranslator(getTranslator()));
 		this.columnsSettings = columnsSettings;
-		
+
 		@SuppressWarnings("unchecked")
 		List<String[]> splittedRows = (List<String[]>)getFromRunContext("splittedRows");
 		if(splittedRows.size() > 0) {
@@ -74,12 +74,12 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		overviewDataModel = new OverviewDataModel(splittedRows);
 		initForm(ureq);
 	}
-	
+
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("chooseColumns.title");
 		setFormDescription("chooseColumns.description");
-		setFormContextHelp("org.olat.course.assessment.bulk", "bulkassessment_mapping.html","help.hover.bulkassessment_mapping");
+		setFormContextHelp("Using Course Tools#bulkassessment_map");
 
 		AssessableCourseNode courseNode = (AssessableCourseNode)getFromRunContext("courseNode");
 		BulkAssessmentSettings settings = new BulkAssessmentSettings(courseNode);
@@ -96,7 +96,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		}
 		otherKeys[otherKeys.length - 1] = "col9999";
 		otherValues[otherValues.length - 1] = translate("column.dontuse");
-		
+
 		FormLayoutContainer choosersCont = FormLayoutContainer.createDefaultFormLayout("choosers", getTranslator());
 		choosersCont.setRootForm(mainForm);
 		formLayout.add(choosersCont);
@@ -105,14 +105,14 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		userNameColumnEl = uifactory.addDropdownSingleselect("table.header.identifier", choosersCont, usernameKeys, usernameValues, null);
 		if(columnsSettings != null && columnsSettings.getUsernameColumn() < usernameKeys.length) {
 			userNameColumnEl.select(getSelectedKey(pos++, columnsSettings.getUsernameColumn(), usernameKeys), true);
-		} else {
+		} else if(usernameKeys.length > 0){
 			userNameColumnEl.select(usernameKeys[Math.min(pos++, usernameKeys.length - 1)], true);
 		}
 		if(settings.isHasScore()) {
 			scoreColumnEl = uifactory.addDropdownSingleselect("table.header.score", choosersCont, otherKeys, otherValues, null);
 			if(columnsSettings != null && columnsSettings.getScoreColumn() < otherKeys.length) {
 				scoreColumnEl.select(getSelectedKey(pos++, columnsSettings.getScoreColumn(), otherKeys), true);
-			} else {
+			} else if(otherKeys.length > 0) {
 				scoreColumnEl.select(otherKeys[Math.min(pos++, otherKeys.length - 1)], true);
 			}
 		}
@@ -120,7 +120,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 			passedColumnEl = uifactory.addDropdownSingleselect("table.header.passed", choosersCont, otherKeys, otherValues, null);
 			if(columnsSettings != null && columnsSettings.getPassedColumn() < otherKeys.length) {
 				passedColumnEl.select(getSelectedKey(pos++, columnsSettings.getPassedColumn(), otherKeys), true);
-			} else {
+			} else if(otherKeys.length > 0) {
 				passedColumnEl.select(otherKeys[Math.min(pos++, otherKeys.length - 1)], true);
 			}
 		}
@@ -128,7 +128,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 			commentColumnEl = uifactory.addDropdownSingleselect("table.header.comment", choosersCont, otherKeys, otherValues, null);
 			if(columnsSettings != null && columnsSettings.getCommentColumn() < otherKeys.length) {
 				commentColumnEl.select(getSelectedKey(pos++, columnsSettings.getCommentColumn(), otherKeys), true);
-			} else {
+			} else if(otherKeys.length > 0) {
 				commentColumnEl.select(otherKeys[Math.min(pos++, otherKeys.length - 1)], true);
 			}
 		}
@@ -138,12 +138,12 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 			DefaultFlexiColumnModel colModel = new DefaultFlexiColumnModel("ccc" + (i+1), i);
 			tableColumnModel.addFlexiColumnModel(colModel);
 		}
-		
+
 		overviewDataModel.setTableColumnModel(tableColumnModel);
 		FlexiTableElement tableEl = uifactory.addTableElement(getWindowControl(), "overviewList", overviewDataModel, getTranslator(), formLayout);
 		tableEl.setCustomizeColumns(false);
 	}
-	
+
 	private String getSelectedKey(int pos, int settings, String[] theKeys) {
 		int selectionPos = pos;
 		if(settings >= 0 && settings < theKeys.length) {
@@ -158,6 +158,19 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 	}
 
 	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+		
+		userNameColumnEl.clearError();
+		if(userNameColumnEl != null && !userNameColumnEl.isOneSelected()) {
+			userNameColumnEl.setErrorKey("form.legende.mandatory", null);
+			allOk &= false;
+		}
+		
+		return allOk & super.validateFormLogic(ureq);
+	}
+
+	@Override
 	protected void formOK(UserRequest ureq) {
 		BulkAssessmentDatas datas = (BulkAssessmentDatas)getFromRunContext("datas");
 		List<BulkAssessmentRow> rows = datas.getRows();
@@ -165,7 +178,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		for(BulkAssessmentRow row:rows) {
 			assessedIdToRow.put(row.getAssessedId(), row);
 		}
-		
+
 		BulkAssessmentColumnSettings settings = datas.getColumnsSettings();
 		if(settings == null) {
 			settings = new BulkAssessmentColumnSettings();
@@ -183,7 +196,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 
 		fireEvent(ureq, StepsEvent.ACTIVATE_NEXT);
 	}
-	
+
 	private int getColumnPosition(SingleSelection el) {
 		if(el == null) return 9999;
 		String selectedKey = el.getSelectedKey();
@@ -194,8 +207,8 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 		}
 		return 9999;
 	}
-	
-	
+
+
 	/**
 	 * Create a row object from an array of strings. The array
 	 * is assessed identity identifier, score, status, comment.
@@ -264,7 +277,7 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 			}
 			row.setPassed(passed);
 		}
-		
+
 		if(valuesLength > settings.getCommentColumn()) {
 			String commentStr = values[settings.getCommentColumn()];
 			commentStr= commentStr.trim();
@@ -275,13 +288,13 @@ public class ChooseColumnsStepForm extends StepFormBasicController {
 				row.setComment("");
 			} else {
 				row.setComment(commentStr);
-			} 
+			}
 		}
 	}
-	
+
 	private static class OverviewDataModel extends DefaultTableDataModel<String[]> implements FlexiTableDataModel<String[]> {
 		private FlexiTableColumnModel columnModel;
-		
+
 		public OverviewDataModel(List<String[]> nodes) {
 			super(nodes);
 		}

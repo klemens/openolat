@@ -30,7 +30,6 @@ import java.util.Set;
 import org.apache.commons.lang.ArrayUtils;
 import org.olat.admin.SystemAdminMainController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
@@ -44,7 +43,9 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.helpers.GUISettings;
 import org.olat.core.helpers.Settings;
+import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
@@ -78,6 +79,8 @@ public class LayoutAdminController extends FormBasicController {
 	private static final String[] logoUrlTypeKeys = new String[]{ LogoURLType.landingpage.name(), LogoURLType.custom.name() };
 
 	@Autowired
+	private GUISettings guiSettings;
+	@Autowired
 	private LayoutModule layoutModule;
 	@Autowired
 	private CoordinatorManager coordinatorManager;
@@ -103,7 +106,7 @@ public class LayoutAdminController extends FormBasicController {
 		themeCont.setFormDescription(translate("layout.intro"));
 		
 		String[] keys = getThemes();
-		String enabledTheme = Settings.getGuiThemeIdentifyer();
+		String enabledTheme = guiSettings.getGuiThemeIdentifyer();
 		themeSelection = uifactory.addDropdownSingleselect("themeSelection", "form.theme", themeCont, keys, keys, null);
 		// select current theme if available but don't break on unavailable theme
 		for (String theme : keys) {
@@ -125,7 +128,7 @@ public class LayoutAdminController extends FormBasicController {
 		deleteLogo = uifactory.addFormLink("deleteimg", "delete", null, logoCont, Link.BUTTON);
 		deleteLogo.setVisible(hasLogo);
 		
-		logoUpload = uifactory.addFileElement("customizing.logo", "customizing.logo", logoCont);
+		logoUpload = uifactory.addFileElement(getWindowControl(), "customizing.logo", "customizing.logo", logoCont);
 		logoUpload.setMaxUploadSizeKB(1024, null, null);
 		logoUpload.setPreview(ureq.getUserSession(), true);
 		logoUpload.addActionListener(FormEvent.ONCHANGE);
@@ -223,7 +226,7 @@ public class LayoutAdminController extends FormBasicController {
 				layoutModule.setLogoFilename(newLogo.getName());
 				logoUpload.setInitialFile(newLogo);
 				deleteLogo.setVisible(true);
-				Windows.getWindows(ureq).getChiefController().wishReload(ureq, true);
+				getWindowControl().getWindowBackOffice().getChiefController().wishReload(ureq, true);
 				
 			}
 		} else if(logoLinkTypeEl == source) {
@@ -234,12 +237,12 @@ public class LayoutAdminController extends FormBasicController {
 			logoUpload.reset();
 			deleteLogo.setVisible(false);
 			logoUpload.setInitialFile(null);
-			Windows.getWindows(ureq).getChiefController().wishReload(ureq, true);
+			getWindowControl().getWindowBackOffice().getChiefController().wishReload(ureq, true);
 			
 		} else if(themeSelection == source) {
 			// set new theme in Settings
 			String newThemeIdentifyer = themeSelection.getSelectedKey();
-			Settings.setGuiThemeIdentifyerGlobally(newThemeIdentifyer);
+			guiSettings.setGuiThemeIdentifyer(newThemeIdentifyer);
 			// use new theme in current window
 			getWindowControl().getWindowBackOffice().getWindow().getGuiTheme().init(newThemeIdentifyer);
 			getWindowControl().getWindowBackOffice().getWindow().setDirty(true);
@@ -316,10 +319,9 @@ public class LayoutAdminController extends FormBasicController {
 					return false;
 				}
 				// remove unwanted meta-dirs
-				if (name.equalsIgnoreCase("CVS")) return false;
-				if (name.equalsIgnoreCase(".DS_Store")) return false;
-				if (name.equalsIgnoreCase(".sass-cache")) return false;
-				if (name.equalsIgnoreCase(".hg")) return false;
+				if (FileUtils.isMetaFilename(name)) {
+					return false;
+				}
 				return true;
 		}
 	}

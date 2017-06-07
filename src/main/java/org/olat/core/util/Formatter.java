@@ -32,6 +32,10 @@ import java.net.URLEncoder;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -42,6 +46,7 @@ import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.time.DurationFormatUtils;
 import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.helpers.Settings;
@@ -55,6 +60,7 @@ import org.olat.core.helpers.Settings;
 public class Formatter {
 
 	private static final DateFormat formatterDatetimeFilesystem = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss_SSS");
+	private static final DateFormat formatterDatetimeWithMinutes = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm");
 	private static final DateFormat formatDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 	private static final DateFormat shortFormatDateFileSystem = new SimpleDateFormat("yyyyMMdd");
 
@@ -130,6 +136,21 @@ public class Formatter {
 		synchronized (shortDateFormat) {
 			return shortDateFormat.format(date);
 		}
+	}
+
+	/**
+	 * adds the given period in day/month/years to the baseLineDate and formats it in a short format, e.g. 05.12.2015 or 12/05/2015
+	 *
+	 * @param baseLineDate the date
+	 * @return a String with the formatted date
+	 */
+	public String formatDateRelative(Date baseLineDate, int days, int months, int years) {
+		if (baseLineDate == null) return null;
+		LocalDate date = LocalDateTime.ofInstant(baseLineDate.toInstant(),ZoneId.systemDefault()).toLocalDate();
+		Period period = Period.of(years, months, days);
+		LocalDate relativeDate = date.plus(period);
+		Date result = Date.from(relativeDate.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant());
+		return formatDate(result);
 	}
 
 	/**
@@ -283,6 +304,19 @@ public class Formatter {
 		}
 	}
 	
+	/**
+	 * Use this for naming files or directories with a timestamp. No Seconds and millis!
+	 * As windows does not like ":" in filenames formatDateAndTime(d) does not work
+	 * 
+	 * @param d the date to be formatted
+	 * @return a String with the formatted date and time
+	 */
+	public static String formatDatetimeWithMinutes(Date d) {
+		synchronized (formatterDatetimeWithMinutes) {
+			return formatterDatetimeWithMinutes.format(d);
+		}
+	}
+	
 	public static Date parseDatetimeFilesystemSave(String d) throws ParseException {
 		synchronized (formatterDatetimeFilesystem) {
 			return formatterDatetimeFilesystem.parse(d);
@@ -320,7 +354,26 @@ public class Formatter {
 		long s = (millis - hmins - m*1000*60)/1000;
 		return h + "h " + m + "m " + s + "s";
 	}
-	
+
+	/**
+	 * Formats a duration in millis to "XX:YY:ZZ". Removes the hours if zero
+	 * 
+	 * @param timecode in milliseconds
+	 * @return formatted timecode
+	 */
+	public static String formatTimecode(long timecode) {
+		String result =  DurationFormatUtils.formatDuration(timecode, "H:mm:ss", true);
+		if (result.startsWith("0:")) {
+			// remove empty hours
+			result = result.substring(2);
+		}
+		if (result.startsWith("0")) {
+			// remove zero from from 10x minutes (02:23 -> 2:23, 00:14 -> 0:14)
+			result = result.substring(1);
+		}
+		return result;
+	}
+
 	/**
 	 * Format the given bytes to human readable format
 	 * @param bytes the byte count
@@ -334,7 +387,7 @@ public class Formatter {
 	    return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
 	}	
 	/**
-	 * Escape " with \" in strings
+	 * Escape " with &quot; in strings
 	 * @param source
 	 * @return escaped string
 	 */
@@ -582,7 +635,7 @@ public class Formatter {
 	public static String formatLatexFormulas(String htmlFragment) {
 		if (htmlFragment == null) return "";
 		// optimize, reduce jsmath calls on client
-		if ((htmlFragment.contains("class='math'") || htmlFragment.contains("class=\"math\""))) {
+		if (htmlFragment.contains("<math") || htmlFragment.contains("class='math'") || htmlFragment.contains("class=\"math\"")) {
 			// add math wrapper
 			String domid = "mw_" + CodeHelper.getRAMUniqueID();
 			String elem = htmlFragment.contains("<div") ? "div" : "span";
@@ -668,8 +721,8 @@ public class Formatter {
 	private static final Pattern sadPattern = Pattern.compile("(\\:-*\\()");
 	private static final Pattern smilePattern = Pattern.compile("(\\:-*\\))");
 	private static final Pattern tonguePattern = Pattern.compile("(\\:-*P)");
-	private static final Pattern upPattern = Pattern.compile("(\\+(\\s|$))");
-	private static final Pattern downPattern = Pattern.compile("(-(\\s|$))");
+	private static final Pattern upPattern = Pattern.compile("((^\\s*(\\+)\\s*$)|(\\(\\+\\)))");
+	private static final Pattern downPattern = Pattern.compile("((^\\s*(-)\\s*$)|(\\(\\-\\)))");
 	
 	private static final StringOutput emptyGifUrl = new StringOutput();
 	static {

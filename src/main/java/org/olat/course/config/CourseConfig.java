@@ -72,7 +72,7 @@ public class CourseConfig implements Serializable, Cloneable {
 	/**
 	 * current config file version
 	 */
-	transient private final static int CURRENTVERSION = 10;
+	transient private final static int CURRENTVERSION = 12;
 	/**
 	 * Log levels
 	 */
@@ -101,6 +101,18 @@ public class CourseConfig implements Serializable, Cloneable {
 	transient public static final String RECERTIFICATION_TIMELAPSE_UNIT = "RECERTIFICATION_TIMELAPSE_UNIT";
 	
 	/**
+	 * The menu is enabled by default
+	 */
+	transient public static final String MENU_ENABLED = "MENU_ENABLED";
+	/**
+	 * The toolbar is enabled by default
+	 */
+	transient public static final String TOOLBAR_ENABLED = "TOOLBAR_ENABLED";
+	/**
+	 * The course search is enabled by default
+	 */
+	transient public static final String COURSESEARCH_ENABLED = "COURSESEARCH_ENABLED";
+	/**
 	 * course calendar
 	 */
 	transient public static final String KEY_CALENDAR_ENABLED = "KEY_CALENDAR_ENABLED";
@@ -116,6 +128,10 @@ public class CourseConfig implements Serializable, Cloneable {
 	 * 
 	 */
 	transient public static final String KEY_SHAREDFOLDER_SOFTKEY = "SHAREDFOLDER_SOFTKEY";
+	/**
+	 * 
+	 */
+	transient public static final String KEY_SHAREDFOLDER_READONLY = "SHAREDFOLDER_RO";
 	/**
 	 * current key set
 	 */
@@ -164,6 +180,12 @@ public class CourseConfig implements Serializable, Cloneable {
 		configuration.remove(KEY_LOGLEVEL_ADMIN);
 		configuration.remove(KEY_LOGLEVEL_USER);
 		configuration.remove(KEY_LOGLEVEL_STATISTIC);
+		
+
+		configuration.put(MENU_ENABLED, Boolean.TRUE);
+		configuration.put(TOOLBAR_ENABLED, Boolean.TRUE);
+		
+		configuration.put(COURSESEARCH_ENABLED, Boolean.TRUE);
 
 		this.version = CURRENTVERSION;
 	}
@@ -241,7 +263,18 @@ public class CourseConfig implements Serializable, Cloneable {
 				if (!configuration.containsKey(RECERTIFICATION_TIMELAPSE)) configuration.put(RECERTIFICATION_TIMELAPSE, new Integer(0));
 				this.version = 10;
 			}
-
+			
+			if (version == 10) {
+				if (!configuration.containsKey(MENU_ENABLED)) configuration.put(MENU_ENABLED, Boolean.TRUE);
+				if (!configuration.containsKey(TOOLBAR_ENABLED)) configuration.put(TOOLBAR_ENABLED, Boolean.TRUE);
+				this.version = 11;
+			}
+			
+			if (version == 11) {
+				if (!configuration.containsKey(COURSESEARCH_ENABLED)) configuration.put(COURSESEARCH_ENABLED, Boolean.FALSE);
+				this.version = 12;
+			}
+			
 			/*
 			 * after resolving the issues, the version number is merged to the
 			 * CURRENTVERSION !! leave this!
@@ -365,6 +398,15 @@ public class CourseConfig implements Serializable, Cloneable {
 	public boolean hasCustomSharedFolder() {
 		return !(VALUE_EMPTY_SHAREDFOLDER_SOFTKEY.equals(getSharedFolderSoftkey()));
 	}
+	
+	public boolean isSharedFolderReadOnlyMount() {
+		Object obj = configuration.get(KEY_SHAREDFOLDER_READONLY);
+		return (obj == null || !Boolean.FALSE.equals(obj));
+	}
+	
+	public void setSharedFolderReadOnlyMount(boolean mount) {
+		configuration.put(KEY_SHAREDFOLDER_READONLY, new Boolean(mount));
+	}
 
 	/**
 	 * @param b
@@ -485,6 +527,33 @@ public class CourseConfig implements Serializable, Cloneable {
 	public void setCalendarEnabled(boolean b) {
 		configuration.put(KEY_CALENDAR_ENABLED, new Boolean(b));
 	}
+	
+	public boolean isMenuEnabled() {
+		Boolean bool = (Boolean) configuration.get(MENU_ENABLED);
+		return bool.booleanValue();
+	}
+	
+	public void setMenuEnabled(boolean b) {
+		configuration.put(MENU_ENABLED, new Boolean(b));
+	}
+	
+	public boolean isCourseSearchEnabled() {
+		Boolean bool = (Boolean) configuration.get(COURSESEARCH_ENABLED);
+		return bool.booleanValue();
+	}
+	
+	public void setCourseSearchEnabled(boolean b) {
+		configuration.put(COURSESEARCH_ENABLED, new Boolean(b));
+	}
+	
+	public boolean isToolbarEnabled() {
+		Boolean bool = (Boolean) configuration.get(TOOLBAR_ENABLED);
+		return bool.booleanValue();
+	}
+	
+	public void setToolbarEnabled(boolean b) {
+		configuration.put(TOOLBAR_ENABLED, new Boolean(b));
+	}
 
 	/**
 	 * Creates a deep clone for the current object.
@@ -500,12 +569,16 @@ public class CourseConfig implements Serializable, Cloneable {
 		clone.setEfficencyStatementIsEnabled(isEfficencyStatementEnabled());
 		clone.setGlossarySoftKey(getGlossarySoftKey());
 		clone.setSharedFolderSoftkey(getSharedFolderSoftkey());
+		clone.setSharedFolderReadOnlyMount(isSharedFolderReadOnlyMount());
 		clone.setAutomaticCertificationEnabled(isAutomaticCertificationEnabled());
 		clone.setManualCertificationEnabled(isManualCertificationEnabled());
 		clone.setCertificateTemplate(getCertificateTemplate());
 		clone.setRecertificationEnabled(isRecertificationEnabled());
 		clone.setRecertificationTimelapse(getRecertificationTimelapse());
 		clone.setRecertificationTimelapseUnit(getRecertificationTimelapseUnit());
+		clone.setMenuEnabled(isMenuEnabled());
+		clone.setToolbarEnabled(isToolbarEnabled());
+		clone.setCourseSearchEnabled(isCourseSearchEnabled());
 		return clone;
 	}
 
@@ -517,11 +590,12 @@ public class CourseConfig implements Serializable, Cloneable {
 	public boolean equals(Object obj) {
 		try {
 			CourseConfig aCourseConfig = (CourseConfig) obj;
-			boolean sameCalendarSettings = aCourseConfig.isCalendarEnabled() == this.isCalendarEnabled();
-			boolean sameChatSettings = aCourseConfig.isChatEnabled() == this.isChatEnabled();
-			boolean sameCssLayout = aCourseConfig.getCssLayoutRef().equals(this.getCssLayoutRef());
-			boolean sameEfficiencyStatementSettings = aCourseConfig.isEfficencyStatementEnabled() == this.isEfficencyStatementEnabled();
-			boolean sameSharedFolderSettings = aCourseConfig.getSharedFolderSoftkey().equals(this.getSharedFolderSoftkey());
+			boolean sameCalendarSettings = aCourseConfig.isCalendarEnabled() == isCalendarEnabled();
+			boolean sameChatSettings = aCourseConfig.isChatEnabled() == isChatEnabled();
+			boolean sameCssLayout = aCourseConfig.getCssLayoutRef().equals(getCssLayoutRef());
+			boolean sameEfficiencyStatementSettings = aCourseConfig.isEfficencyStatementEnabled() == isEfficencyStatementEnabled();
+			boolean sameSharedFolderSettings = aCourseConfig.getSharedFolderSoftkey().equals(getSharedFolderSoftkey())
+					&& aCourseConfig.isSharedFolderReadOnlyMount() == isSharedFolderReadOnlyMount();
 
 			boolean sameGlossarySettings = false;
 			if (aCourseConfig.getGlossarySoftKey() != null && this.getGlossarySoftKey() != null) {

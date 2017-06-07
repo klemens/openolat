@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.olat.core.commons.services.help.HelpModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -92,6 +93,8 @@ public class GTAWorkflowEditController extends FormBasicController {
 	private List<Long> groupKeys;
 	private final RepositoryEntry courseRe;
 	
+	@Autowired
+	private HelpModule helpModule;
 	@Autowired
 	private GTAManager gtaManager;
 	@Autowired
@@ -195,6 +198,7 @@ public class GTAWorkflowEditController extends FormBasicController {
 		stepsCont.setFormDescription(translate("task.steps.description"));
 		stepsCont.setElementCssClass("o_sel_course_gta_steps");
 		stepsCont.setRootForm(mainForm);
+		stepsCont.setFormContextHelp("Assessment#_task_workflow");
 		formLayout.add(stepsCont);
 
 		relativeDatesEl = uifactory.addCheckboxesHorizontal("relative.dates", "relative.dates", stepsCont, onKeys, new String[]{ "" });
@@ -390,14 +394,6 @@ public class GTAWorkflowEditController extends FormBasicController {
 			allOk &= false;
 		}
 		
-		typeEl.clearError();
-		if(typeEl.isSelected(0)) {
-			if(areaKeys.isEmpty() && groupKeys.isEmpty()) {
-				typeEl.setErrorKey("error.missing.group", null);
-				allOk &= false;
-			}
-		}
-		
 		boolean relativeDates = relativeDatesEl.isAtLeastSelected(1);
 		assignementDeadlineDaysEl.clearError();
 		if(relativeDates && taskAssignmentEl.isAtLeastSelected(1)) {
@@ -459,7 +455,8 @@ public class GTAWorkflowEditController extends FormBasicController {
 	
 	private void doConfirmChanges(UserRequest ureq) {
 		String title = translate("warning.tasks.in.process.title");
-		String text = translate("warning.tasks.in.process.text");
+		String url = helpModule.getHelpProvider().getURL(getLocale(), "Task - Further Configurations#_concurrent_edits");
+		String text = translate("warning.tasks.in.process.text", new String[]{ url });
 		confirmChangesCtrl = activateOkCancelDialog(ureq, title, text, confirmChangesCtrl);
 	}
 	

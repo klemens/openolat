@@ -1,0 +1,56 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+#set($containerId = "qtiworks_id_container_" + $responseIdentifier)
+#set($responseValue = $r.getResponseValue($interaction.responseIdentifier))
+#set($hotspots = $r.getVisibleAssociableHotspots($interaction))
+#set($gapImgs = $r.getVisibleGapImgs($interaction))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="$localName">
+ 	#if($interaction.getPrompt())
+	<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+	#end
+
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+	<div class="o_error badResponse">$r.translate("error.as.directed")</div>
+	#end
+      
+	<div id="${containerId}" style="position:relative;">
+		<img id="${containerId}_img" width="${interaction.object.width}" height="${interaction.object.height}" src="${r.convertLinkFull($interaction.object.data)}" usemap="#${containerId}_map"></img>
+		<map name="${containerId}_map">
+		#foreach($hotspot in $hotspots)
+			<!-- @matchGroup, @matchMax -->
+			<area id="ac_${responseIdentifier}_${hotspot.identifier}" data-qti-id="${hotspot.identifier}" shape="${r.shapeToString($hotspot.shape)}" coords="$r.coordsToString($hotspot.coords)" href="javascript:;" #if($hotspot.hotspotLabel && !${hotspot.getHotspotLabel().isEmpty()}) title="$hotspot.getHotspotLabel()" #end class="area-droppable"></area>
+			$r.appendFlexiFormDirtyForClick("ac_${responseIdentifier}_$hotspot.identifier")
+		#end
+		</map>
+		<div class="o_gap_container_help">
+			<p><i class="o_icon o_icon_help"> </i> $r.translate("graphic.gap.explanation")</p>
+		</div>
+		<div class="gap_container clearfix">
+			#foreach($gapImg in $gapImgs)
+				<!-- @matchGroup, @matchMax, @label -->
+            	<div id="ac_${responseIdentifier}_${gapImg.identifier}" data-qti-id="${gapImg.identifier}" class="gap_item o_gap_item" style="float:left; width:${gapImg.object.width}px; height:${gapImg.object.height}px; background-image:url('${r.convertLinkFull($gapImg.object.data)}');">&nbsp;</div>
+			#end
+		</div>
+		<script type="text/javascript">
+		jQuery(function() {
+			var map = jQuery('#${containerId}_img').maphilight({
+				fillColor: '888888',
+				strokeColor: '333333',
+				strokeOpacity: 0.5,
+				strokeWidth: 3,
+				alwaysOn: true
+			});
+
+			jQuery('#${containerId}').graphicGapInteraction({
+				maphilight: map,
+				responseIdentifier: '$responseIdentifier',
+				formDispatchFieldId: '$r.formDispatchFieldId',
+				responseValue: '$r.toString($responseValue,","," ")',
+				opened: $isItemSessionOpen
+			});
+	    });
+      	</script>
+	</div>
+</div>
+

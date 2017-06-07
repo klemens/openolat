@@ -50,6 +50,7 @@ import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.resource.OLATResourceableJustBeforeDeletedEvent;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.assessment.AssessmentMode;
+import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.fileresource.types.SharedFolderFileResource;
@@ -140,6 +141,11 @@ public class SharedFolderHandler implements RepositoryHandler {
 	public EditionSupport supportsEdit(OLATResourceable resource) {
 		return EditionSupport.embedded;
 	}
+	
+	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
+	}
 
 	/**
 	 * @see org.olat.repository.handlers.RepositoryHandler#getCreateWizardController(org.olat.core.id.OLATResourceable, org.olat.core.gui.UserRequest, org.olat.core.gui.control.WindowControl)
@@ -172,6 +178,8 @@ public class SharedFolderHandler implements RepositoryHandler {
 							RepositoryEntry entry, RepositoryEntrySecurity security, AssessmentMode assessmentMode) {
 						OLATResource res = entry.getOlatResource();
 						VFSContainer sfContainer = SharedFolderManager.getInstance().getSharedFolder(res);
+						CoreSpringFactory.getImpl(UserCourseInformationsManager.class)
+							.updateUserCourseInformations(res, uureq.getIdentity());
 						
 						Controller sfdCtr;
 						if(sfContainer == null || !sfContainer.exists()) {
@@ -189,6 +197,11 @@ public class SharedFolderHandler implements RepositoryHandler {
 			});
 		
 		return runtime;
+	}
+	
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		return null;
 	}
 
 	/**
@@ -229,11 +242,6 @@ public class SharedFolderHandler implements RepositoryHandler {
 			return false;
 		}
 		return true;
-	}
-
-	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		return SharedFolderManager.getInstance().archive(archivFilePath, repoEntry);
 	}
 
 	@Override

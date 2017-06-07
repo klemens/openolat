@@ -15,8 +15,6 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
@@ -59,6 +57,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private DialogBoxController changeToOralDialog;
 	private DialogBoxController changeToWrittenDialog;
 	private DialogBoxController archiveDialog;
+	private Controller detailsController;
 	private boolean inEditor;
 
 	/**
@@ -129,9 +128,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			toolbarStack.rootController(exam.getName(), examController);
 		} else if(view == View.LECTURER) {
 			if(exam.getIsOral()) {
-				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam);
+				examController = new ExamLecturerOralController(ureq, getWindowControl(), exam, toolbarStack);
 			} else {
-				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam);
+				examController = new ExamLecturerWrittenController(ureq, getWindowControl(), exam, toolbarStack);
 			}
 			toolbarStack.setInvisibleCrumb(0); // Show the toolbar also on the top level
 			toolbarStack.rootController(exam.getName(), examController);
@@ -201,7 +200,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 
 	private void pushDetails(UserRequest ureq) {
 		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
-		toolbarStack.pushController(translate("ExamMainController.stack.infopage"), new RepositoryEntryDetailsController(ureq, getWindowControl(), re));
+		detailsController = new RepositoryEntryDetailsController(ureq, getWindowControl(), re, true);
+		listenTo(detailsController);
+		toolbarStack.pushController(translate("ExamMainController.stack.infopage"), detailsController);
 	}
 
 	private void pushCatalog(UserRequest ureq) {
@@ -222,14 +223,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				updateExam(ureq, exam);
 			} else if(event == Event.CLOSE_EVENT) {
-				// close the tab we are in
-				DTabs tabs = getWindowControl().getWindowBackOffice().getWindow().getDTabs();
-				if (tabs != null) {
-					DTab tab = tabs.getDTab(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam).getOlatResource());
-					if (tab != null) {
-						tabs.removeDTab(ureq, tab);
-					}
-				}
+				// close the tab we are in (without providing a previous history point)
+				getWindowControl().getWindowBackOffice().getWindow().getDTabs()
+					.closeDTab(ureq, ExamDBManager.getInstance().findRepositoryEntryOfExam(exam).getOlatResource(), null);
 			}
 		} else if (source == editorLink) {
 			try {
@@ -302,6 +298,12 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 
 				updateExam(ureq, exam);
 			}
+		} else if(source == detailsController) {
+			if(event == Event.DONE_EVENT) {
+				toolbarStack.popUpToRootController(ureq);
+				removeAsListenerAndDispose(detailsController);
+				detailsController = null;
+			}
 		}
 	}
 
@@ -362,6 +364,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		removeAsListenerAndDispose(changeToOralDialog);
 		removeAsListenerAndDispose(changeToWrittenDialog);
 		removeAsListenerAndDispose(archiveDialog);
+		removeAsListenerAndDispose(detailsController);
 		if(inEditor) {
 			toolbarStack.popContent(); // disposes the editor controller and thus releases the lock
 		}

@@ -1,74 +1,54 @@
 package de.unileipzig.xman.admin;
 
+import java.util.Locale;
+
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.generic.layout.MainLayoutController;
+import org.olat.core.gui.control.navigation.AbstractSiteInstance;
 import org.olat.core.gui.control.navigation.DefaultNavElement;
 import org.olat.core.gui.control.navigation.NavElement;
-import org.olat.core.gui.control.navigation.SiteInstance;
-import org.olat.core.gui.translator.PackageTranslator;
+import org.olat.core.gui.control.navigation.SiteConfiguration;
+import org.olat.core.gui.control.navigation.SiteDefinition;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.StateSite;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.util.logging.activity.LoggingResourceable;
 
 import de.unileipzig.xman.admin.controller.ExamAdminMainController;
 
-import java.util.*;
-
-/**
- * 
- * @author
- */
-public class ExamAdminSite implements SiteInstance {
-	
-	// refer to the definitions in org.olat
-	private static final String PACKAGE = Util.getPackageName(ExamAdminSite.class);
-	
+public class ExamAdminSite extends AbstractSiteInstance {
 	private NavElement origNavElem;
 	private NavElement curNavElem;
-	
-	/**
-	 * creates the exam office tab
-	 * @param loc the locale
-	 */
-	public ExamAdminSite(Locale loc){
+
+	public ExamAdminSite(Locale locale, SiteDefinition siteDef) {
+		super(siteDef);
 		
-		Translator trans = new PackageTranslator(PACKAGE, loc);
-		origNavElem = new DefaultNavElement(trans.translate("ExamAdminSite.topNav.examAdmin"), trans.translate("ExamAdminSite.topNav.examAdmin.alt"), "o_xman_examAdmin");
+		Translator translator = Util.createPackageTranslator(ExamAdminSite.class, locale);
+		origNavElem = new DefaultNavElement(translator.translate("ExamAdminSite.topNav.examAdmin"), translator.translate("ExamAdminSite.topNav.examAdmin.alt"), "o_xman_examAdmin");
 		curNavElem = new DefaultNavElement(origNavElem);
 	}
 
-	/**
-	 * creates the maincontroller for the exam office tab
-	 * @param ureq - the UserRequest
-	 * @param wControl - the windowcontrol
-	 */
-	public MainLayoutController createController(UserRequest ureq, WindowControl wControl) {
-		
-		MainLayoutController c = new ExamAdminMainController(ureq, wControl);
-		return c;
-	}
-
-	/**
-	 * @return the current navigation element 
-	 */
+	@Override
 	public NavElement getNavElement() {
-		
 		return curNavElem;
 	}
 
-	/**
-	 * //TODO
-	 */
-	public boolean isKeepState() {
-
-		return true;
+	@Override
+	public void reset() {
+		curNavElem = new DefaultNavElement(origNavElem);
 	}
 
-	/**
-	 * resets the current navigation element
-	 */
-	public void reset() {
-		
-		curNavElem = new DefaultNavElement(origNavElem);
+	@Override
+	protected Controller createController(UserRequest ureq, WindowControl wControl, SiteConfiguration config) {
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(ExamAdminSite.class, 0l);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+		WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ureq, ores, new StateSite(this), wControl, true);
+
+		return new ExamAdminMainController(ureq, bwControl);
 	}
 }

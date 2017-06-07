@@ -224,6 +224,7 @@ class FeedFormController extends FormBasicController {
 		// title might be longer from external source
 		String saveTitle = PersistenceHelper.truncateStringDbSave(feed.getTitle(), 256, true);
 		title = uifactory.addTextElement("title", "feed.title.label", 256, saveTitle, formLayout);
+		title.setElementCssClass("o_sel_feed_title");
 		title.setMandatory(true);
 		title.setNotEmptyCheck("feed.form.field.is_mandatory");
 
@@ -240,7 +241,7 @@ class FeedFormController extends FormBasicController {
 		deleteImage= uifactory.addFormLink("feed.image.delete", formLayout, Link.BUTTON);
 		deleteImage.setVisible(false);
 
-		file = uifactory.addFileElement("feed.file.label", formLayout);
+		file = uifactory.addFileElement(getWindowControl(), "feed.file.label", formLayout);
 		file.addActionListener(FormEvent.ONCHANGE);
 		file.setPreview(ureq.getUserSession(), true);
 		if (feed.getImageName() != null) {
@@ -265,7 +266,8 @@ class FeedFormController extends FormBasicController {
 
 		// if external feed, display feed-url text-element:
 		if(feed.isExternal()){
-			feedUrl = uifactory.addTextElement("feedUrl", "feed.form.feedurl", 5000, feed.getExternalFeedUrl(), this.flc);
+			feedUrl = uifactory.addTextElement("feedUrl", "feed.form.feedurl", 5000, feed.getExternalFeedUrl(), flc);
+			feedUrl.setElementCssClass("o_sel_feed_url");
 			feedUrl.setDisplaySize(70);
 
 			String type = feed.getResourceableTypeName();

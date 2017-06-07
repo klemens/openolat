@@ -32,8 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.olat.commons.calendar.CalendarManager;
-import org.olat.commons.calendar.CalendarManagerFactory;
-import org.olat.commons.calendar.model.KalendarConfig;
+import org.olat.commons.calendar.CalendarModule;
+import org.olat.commons.calendar.model.CalendarUserConfiguration;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
 import org.olat.core.CoreSpringFactory;
@@ -116,6 +116,10 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 	private UserManager userManager;
 	@Autowired
 	private InvitationDAO invitationDao;
+	@Autowired
+	private CalendarModule calendarModule;
+	@Autowired
+	private CalendarManager calendarManager;
 
 	/**
 	 * @param ureq
@@ -251,17 +255,23 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 		boolean isInvitee = invitationDao.isInvitee(chosenIdentity);
 		boolean isDeleted = chosenIdentity.getStatus().equals(Identity.STATUS_DELETED);
 		
+		
+		
 		if ( !isDeleted && ! isInvitee) {
-			gtn = new GenericTreeNode();
-			gtn.setTitle(translate("menu.calendar"));
-			gtn.setUserObject(CMD_CALENDAR);
-			gtn.setAltText(translate("menu.calendar.alt"));
-			root.addChild(gtn);
+			if(calendarModule.isEnablePersonalCalendar()) {
+				gtn = new GenericTreeNode();
+				gtn.setTitle(translate("menu.calendar"));
+				gtn.setUserObject(CMD_CALENDAR);
+				gtn.setAltText(translate("menu.calendar.alt"));
+				gtn.setCssClass("o_visiting_card_calendar");
+				root.addChild(gtn);
+			}
 	
 			gtn = new GenericTreeNode();
 			gtn.setTitle(translate("menu.folder"));
 			gtn.setUserObject(CMD_FOLDER);
 			gtn.setAltText(translate("menu.folder.alt"));
+			gtn.setCssClass("o_visiting_card_folder");
 			root.addChild(gtn);
 		}	
 		if ( !isDeleted) {
@@ -269,6 +279,7 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 			gtn.setTitle(translate("menu.contact"));
 			gtn.setUserObject(CMD_CONTACT);
 			gtn.setAltText(translate("menu.contact.alt"));
+			gtn.setCssClass("o_visiting_card_contact");
 			root.addChild(gtn);
 		}
 		if ( !isDeleted && ! isInvitee) {
@@ -278,6 +289,7 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 				gtn.setTitle(translate("menu.portfolio"));
 				gtn.setUserObject(CMD_PORTFOLIO);
 				gtn.setAltText(translate("menu.portfolio.alt"));
+				gtn.setCssClass("o_visiting_card_portfolio");
 				root.addChild(gtn);
 			}
 		}			
@@ -314,15 +326,14 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 	private WeeklyCalendarController doOpenCalendar(UserRequest ureq) {
 		removeAsListenerAndDispose(calendarController);
 		
-		CalendarManager calendarManager = CalendarManagerFactory.getInstance().getCalendarManager();
 		KalendarRenderWrapper calendarWrapper = calendarManager.getPersonalCalendar(chosenIdentity);
-		calendarWrapper.setKalendarConfig(new KalendarConfig(chosenIdentity.getName(), KalendarRenderWrapper.CALENDAR_COLOR_BLUE, true));
-		KalendarConfig config = calendarManager.findKalendarConfigForIdentity(calendarWrapper.getKalendar(), ureq);
+		CalendarUserConfiguration config = calendarManager.findCalendarConfigForIdentity(calendarWrapper.getKalendar(), getIdentity());
 		if (config != null) {
-			calendarWrapper.getKalendarConfig().setCss(config.getCss());
-			calendarWrapper.getKalendarConfig().setVis(config.isVis());
+			calendarWrapper.setConfiguration(config);
 		}
-		if (ureq.getUserSession().getRoles().isOLATAdmin() || chosenIdentity.getName().equals(ureq.getIdentity().getName())) {
+		
+		calendarWrapper.setPrivateEventsVisible(chosenIdentity.equals(ureq.getIdentity()));
+		if (ureq.getUserSession().getRoles().isOLATAdmin() || chosenIdentity.equals(ureq.getIdentity())) {
 			calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
 		} else {
 			calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_ONLY);
@@ -332,7 +343,8 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 		
 		OLATResourceable ores = OresHelper.createOLATResourceableType(CMD_CALENDAR);
 		WindowControl bwControl = addToHistory(ureq, ores, null);
-		calendarController = new WeeklyCalendarController(ureq, bwControl, calendars, WeeklyCalendarController.CALLER_PROFILE, true);
+		calendarController = new WeeklyCalendarController(ureq, bwControl, calendars,
+				WeeklyCalendarController.CALLER_PROFILE, false);
 		listenTo(calendarController);
 		return calendarController;
 	}

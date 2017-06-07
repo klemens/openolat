@@ -39,8 +39,8 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.course.ICourse;
-import org.olat.course.assessment.EfficiencyStatementManager;
 import org.olat.course.assessment.UserEfficiencyStatement;
+import org.olat.course.assessment.manager.EfficiencyStatementManager;
 import org.olat.course.assessment.model.EfficiencyStatementVO;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
@@ -67,7 +67,7 @@ public class EfficiencyStatementTest extends OlatJerseyTestCase {
 		// create a standalone efficiency statement
 		Identity admin = BaseSecurityManager.getInstance().findIdentityByName("administrator");
 		Identity assessedIdentity = JunitTestHelper.createAndPersistIdentityAsRndUser("eff-1");
-		ICourse course = CoursesWebService.createEmptyCourse(admin, "courses1", "courses1 long name", null, null, RepositoryEntry.ACC_OWNERS, false, null, null, null, null);
+		ICourse course = CoursesWebService.createEmptyCourse(admin, "courses1", "courses1 long name", null, null, null, RepositoryEntry.ACC_OWNERS, false, null, null, null, null, null, null);
 		dbInstance.commitAndCloseSession();
 		
 		OLATResource resource = course.getCourseEnvironment().getCourseGroupManager().getCourseResource();

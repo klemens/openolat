@@ -21,9 +21,9 @@ package org.olat.admin.user.bulkChange;
 
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.velocity.VelocityContext;
@@ -101,8 +101,8 @@ public class UserBulkChangeManager extends BasicManager {
 		return INSTANCE;
 	}
 
-	public void changeSelectedIdentities(List<Identity> selIdentities, HashMap<String, String> attributeChangeMap,
-			HashMap<String, String> roleChangeMap, ArrayList<String> notUpdatedIdentities, boolean isAdministrativeUser, List<Long> ownGroups, List<Long> partGroups,
+	public void changeSelectedIdentities(List<Identity> selIdentities, Map<String, String> attributeChangeMap,
+			Map<String, String> roleChangeMap, List<String> notUpdatedIdentities, boolean isAdministrativeUser, List<Long> ownGroups, List<Long> partGroups,
 			Translator trans, Identity addingIdentity) {
 
 		Translator transWithFallback = UserManager.getInstance().getPropertyHandlerTranslator(trans);
@@ -299,7 +299,7 @@ public class UserBulkChangeManager extends BasicManager {
 		bundle.setToId(identity);
 		bundle.setContent(translator.translate("mailtemplate.login.denied.subject", args),
 			translator.translate("mailtemplate.login.denied.body", args));
-		CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null);
+		CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null, false);
 	}
 	
 	private String getServerURI() {

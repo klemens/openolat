@@ -182,7 +182,7 @@ public class JunitTestHelper {
 		return createAndPersistRepositoryEntry(initialAuthor, r, membersOnly);
 	}
 	
-	private static final RepositoryEntry createAndPersistRepositoryEntry(String initialAuthor, OLATResource r, boolean membersOnly) {
+	public static final RepositoryEntry createAndPersistRepositoryEntry(String initialAuthor, OLATResource r, boolean membersOnly) {
 		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry re = repositoryService.create(initialAuthor, "Lernen mit OLAT", r.getResourceableTypeName(), null, r);
 		if(membersOnly) {
@@ -212,7 +212,7 @@ public class JunitTestHelper {
 					.getRepositoryHandler(CourseModule.getCourseTypeName());
 			re = courseHandler.importResource(initialAuthor, null, displayname, description, true, Locale.ENGLISH, courseFile, null);
 			
-			ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(re);
 			CourseFactory.publishCourse(course, RepositoryEntry.ACC_USERS, false,  initialAuthor, Locale.ENGLISH);
 		} catch (Exception e) {
 			log.error("", e);
@@ -238,7 +238,7 @@ public class JunitTestHelper {
 					.getRepositoryHandler(CourseModule.getCourseTypeName());
 			re = courseHandler.importResource(initialAuthor, null, displayname, description, true, Locale.ENGLISH, courseFile, null);
 			
-			ICourse course = CourseFactory.loadCourse(re.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(re);
 			CourseFactory.publishCourse(course, RepositoryEntry.ACC_USERS, false,  initialAuthor, Locale.ENGLISH);
 		} catch (Exception e) {
 			log.error("", e);

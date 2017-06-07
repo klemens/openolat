@@ -23,7 +23,7 @@ import java.util.Date;
 import java.util.List;
 
 import org.jboss.arquillian.drone.api.annotation.Drone;
-import org.jcodec.common.Assert;
+import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -123,7 +123,7 @@ public class AssessmentModePage {
 				List<WebElement> linksEl = row.findElements(linkBy);
 				for(WebElement linkEl:linksEl) {
 					String href = linkEl.getAttribute("href");
-					if(href != null && href.contains("','start','")) {
+					if(href != null && href.contains(",'start',")) {
 						startEl = linkEl;
 					}
 				}
@@ -173,7 +173,7 @@ public class AssessmentModePage {
 				List<WebElement> linksEl = row.findElements(linkBy);
 				for(WebElement linkEl:linksEl) {
 					String href = linkEl.getAttribute("href");
-					if(href != null && href.contains("','stop','")) {
+					if(href != null && href.contains(",'stop',")) {
 						startEl = linkEl;
 					}
 				}

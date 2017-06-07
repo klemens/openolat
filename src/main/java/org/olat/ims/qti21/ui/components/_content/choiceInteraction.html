@@ -1,0 +1,76 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="choiceInteraction $r.renderClassAttr($interaction)">
+#if($r.isInvalidResponse($interaction.responseIdentifier))
+	<div class="badResponse">
+	#if($interaction.minChoices == $interaction.maxChoices && $interaction.minChoices > 0)
+		#if($interaction.minChoices == 1)
+			$r.translate("error.input.choice.minax.one")
+		#else
+			$r.translate("error.input.choice.minax")
+		#end
+	#elseif($interaction.minChoices > 0 && $interaction.maxChoices > 0)
+		$r.translate("error.input.choice.min.max", $interaction.minChoices, $interaction.maxChoices)
+	#elseif($interaction.minChoices > 0)
+		$r.translate("error.input.choice.min", $interaction.minChoices)
+	#elseif($interaction.maxChoices > 0)
+		$r.translate("error.input.choice.max", $interaction.maxChoices)
+	#end
+	</div>
+#end
+
+#set($visibleOrderedChoices = $r.getVisibleOrderedSimpleChoices($interaction))
+#if($r.getOrientation($interaction.orientation) == "horizontal")
+	#if($r.isNotNull($interaction.getPrompt()))
+		<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+	#end
+
+	#foreach($simpleChoice in $visibleOrderedChoices)
+	<div class="form-group o_qti_item_choice_option_flow">
+		<div #if($r.isSingleChoice($interaction)) class="radio" #else class="check" #end ><label for="oo_$r.toString($simpleChoice.identifier)">
+		#if($r.classContains($interaction,"choiceright"))
+	 		<span>$r.renderFlowStatics($simpleChoice.getFlowStatics())</span></label>
+		#end
+			<input id="oo_$r.toString($simpleChoice.identifier)" name="qtiworks_response_${responseIdentifier}" value="$r.toString($simpleChoice.identifier)" #if($r.isSingleChoice($interaction)) type="radio" #else type="checkbox" #end #if($r.isItemSessionEnded()) disabled #end #if($r.valueContains($r.getResponseValue($interaction.responseIdentifier), $simpleChoice.identifier)) checked #end />
+			$r.appendFlexiFormDirtyForCheckbox("oo_$r.toString($simpleChoice.identifier)")
+	 	#if(!$r.classContains($interaction,"choiceright"))
+	 		<span>$r.renderFlowStatics($simpleChoice.getFlowStatics())</span></label>
+	 	#end
+	 	</div>
+	 </div>
+	#end
+#else	
+	<table>
+		#if($interaction.getPrompt())
+         <tr class="prompt">
+           <td colspan="2">$r.renderPrompt($interaction.getPrompt())</td>
+         </tr>
+		#end
+		#if($interaction.getLabel() && !$interaction.getLabel().isEmpty())
+		<tr class="choiceInteractionLabelRow">
+			<td class="leftTextLabel">
+				$r.subStringBefore($interaction.getLabel(),"|")
+			</td>
+			<td class="rightTextLabel">
+				$r.subStringAfter($interaction.getLabel(),"|")
+			</td>
+		</tr>
+		#end
+		
+		#foreach($simpleChoice in $visibleOrderedChoices)
+			<tr class="choiceinteraction">
+				#if($r.classContains($interaction,"choiceright"))
+					<td class="choiceInteraction">$r.renderFlowStatics($simpleChoice.getFlowStatics())</td>
+				#end
+				<td class="control">
+					<input id="oo_$r.toString($simpleChoice.identifier)" name="qtiworks_response_${responseIdentifier}" value="$r.toString($simpleChoice.identifier)" #if($r.isSingleChoice($interaction)) type="radio" #else type="checkbox" #end #if($r.isItemSessionEnded()) disabled #end #if($r.valueContains($r.getResponseValue($interaction.responseIdentifier), $simpleChoice.identifier)) checked #end />
+					 $r.appendFlexiFormDirtyForCheckbox("oo_$r.toString($simpleChoice.identifier)")
+				</td>
+				#if(!$r.classContains($interaction,"choiceright"))
+					<td class="choiceInteraction">$r.renderFlowStatics($simpleChoice.getFlowStatics())</td>
+				#end
+			</tr>
+		#end
+	</table>
+#end
+</div>

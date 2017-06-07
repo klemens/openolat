@@ -3,9 +3,9 @@ package de.unileipzig.xman.esf.controller;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.table.Table;
@@ -19,13 +19,9 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.MainLayoutBasicController; //#### Änderung Name
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Util;
-import org.olat.resource.OLATResourceManager;
 
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.CommentManager;
@@ -34,7 +30,7 @@ import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.esf.form.ESFCommentCreateAndEditForm;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.exam.controllers.ExamMainController;
+import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.protocol.archived.ArchivedProtocol;
 import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
 import de.unileipzig.xman.protocol.archived.tables.ArchivedProtocolTableModel;
@@ -274,23 +270,9 @@ public class ESFEditController extends MainLayoutBasicController {
 				if(actionID.equals(ProtocolTableModel.EXAM_LAUNCH)) {
 					// open exam
 					Exam exam = protocolTableMdl.getObject(te.getRowId()).getExam();
-					OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
 
-					// add the esf in a dtab
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, null, exam.getName());
-						if(dt == null) return;
-						
-						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.LECTURER);
-						dt.setController(examMain);
-						
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
-
+					String businessPath = "[RepositoryEntry:" + ExamDBManager.getInstance().findRepositoryEntryKey(exam) + "]";
+					NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 				}
 			}
 		}

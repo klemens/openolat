@@ -31,6 +31,7 @@ import org.junit.Test;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.ims.qti.QTIConstants;
+import org.olat.ims.qti21.QTI21Constants;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
@@ -95,7 +96,7 @@ public class CollectionDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//add the item to the collection
-		collectionDao.addItemToCollection(item.getKey(), singletonList(coll));
+		collectionDao.addItemToCollection(item, singletonList(coll));
 		dbInstance.commit();//check if it's alright
 	}
 	
@@ -107,8 +108,8 @@ public class CollectionDAOTest extends OlatTestCase {
 		QuestionItemCollection coll = collectionDao.createCollection("NGC collection 4", id);
 		QuestionItem item1 = questionDao.createAndPersist(null, "NGC 99", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
 		QuestionItem item2 = questionDao.createAndPersist(null, "NGC 101", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
-		collectionDao.addItemToCollection(item1.getKey(), singletonList(coll));
-		collectionDao.addItemToCollection(item2.getKey(), singletonList(coll));
+		collectionDao.addItemToCollection(item1, singletonList(coll));
+		collectionDao.addItemToCollection(item2, singletonList(coll));
 		dbInstance.commit();//check if it's alright
 		
 		//load the items of the collection
@@ -133,6 +134,25 @@ public class CollectionDAOTest extends OlatTestCase {
 		Assert.assertTrue(items.contains(coll1));
 		Assert.assertTrue(items.contains(coll2));
 	}
+	
+	@Test
+	public void countItemsOfCollection() {
+		//create 2 collections with 2 items
+		QItemType fibType = qItemTypeDao.loadByType(QuestionType.FIB.name());
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("Coll-Onwer-4-" + UUID.randomUUID().toString());
+		QuestionItemCollection coll = collectionDao.createCollection("NGC collection 8", id);
+		QuestionItem item1 = questionDao.createAndPersist(null, "NGC 103", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
+		QuestionItem item2 = questionDao.createAndPersist(null, "NGC 104", QTI21Constants.QTI_21_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
+		collectionDao.addItemToCollection(item1, singletonList(coll));
+		collectionDao.addItemToCollection(item2, singletonList(coll));
+		dbInstance.commit();
+
+		//check if it's alright
+		int numOfItems = collectionDao.countItemsOfCollection(coll, null);
+		Assert.assertEquals(2, numOfItems);
+		int numOfItems_21 = collectionDao.countItemsOfCollection(coll, QTI21Constants.QTI_21_FORMAT);
+		Assert.assertEquals(1, numOfItems_21);
+	}
 
 	@Test
 	public void removeFromCollection_paranoid() {
@@ -143,16 +163,16 @@ public class CollectionDAOTest extends OlatTestCase {
 		QuestionItemCollection coll2 = collectionDao.createCollection("NGC collection 9", id);
 		QuestionItem item1 = questionDao.createAndPersist(null, "NGC 103", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
 		QuestionItem item2 = questionDao.createAndPersist(null, "NGC 104", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
-		collectionDao.addItemToCollection(item1.getKey(), singletonList(coll1));
-		collectionDao.addItemToCollection(item1.getKey(), singletonList(coll2));
-		collectionDao.addItemToCollection(item2.getKey(), singletonList(coll1));
-		collectionDao.addItemToCollection(item2.getKey(), singletonList(coll2));
+		collectionDao.addItemToCollection(item1, singletonList(coll1));
+		collectionDao.addItemToCollection(item1, singletonList(coll2));
+		collectionDao.addItemToCollection(item2, singletonList(coll1));
+		collectionDao.addItemToCollection(item2, singletonList(coll2));
 		dbInstance.commit();
 		
 		//check if it's alright
-		int numOfItems_1 = collectionDao.countItemsOfCollection(coll1);
+		int numOfItems_1 = collectionDao.countItemsOfCollection(coll1, null);
 		Assert.assertEquals(2, numOfItems_1);
-		int numOfItems_2 = collectionDao.countItemsOfCollection(coll2);
+		int numOfItems_2 = collectionDao.countItemsOfCollection(coll2, null);
 		Assert.assertEquals(2, numOfItems_2);
 		
 		//remove
@@ -160,11 +180,11 @@ public class CollectionDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check if the item has been removed
-		int numOfStayingItems_1 = collectionDao.countItemsOfCollection(coll1);
+		int numOfStayingItems_1 = collectionDao.countItemsOfCollection(coll1, null);
 		Assert.assertEquals(2, numOfStayingItems_1);
-		int numOfStayingItems_2 = collectionDao.countItemsOfCollection(coll2);
+		int numOfStayingItems_2 = collectionDao.countItemsOfCollection(coll2, null);
 		Assert.assertEquals(1, numOfStayingItems_2);
-		List<QuestionItemView> items_2 = qItemQueriesDao.getItemsOfCollection(id, coll2, null, 0, -1);
+		List<QuestionItemView> items_2 = qItemQueriesDao.getItemsOfCollection(id, coll2, null, null, 0, -1);
 		Assert.assertEquals(1, items_2.size());
 		Assert.assertEquals(item2.getKey(), items_2.get(0).getKey());
 	}
@@ -177,12 +197,12 @@ public class CollectionDAOTest extends OlatTestCase {
 		QuestionItemCollection coll = collectionDao.createCollection("NGC collection 10", id);
 		QuestionItem item1 = questionDao.createAndPersist(null, "NGC 107", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
 		QuestionItem item2 = questionDao.createAndPersist(null, "NGC 108", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
-		collectionDao.addItemToCollection(item1.getKey(), singletonList(coll));
-		collectionDao.addItemToCollection(item2.getKey(), singletonList(coll));
+		collectionDao.addItemToCollection(item1, singletonList(coll));
+		collectionDao.addItemToCollection(item2, singletonList(coll));
 		dbInstance.commit();
 		
 		//check if it's alright
-		int numOfItems = collectionDao.countItemsOfCollection(coll);
+		int numOfItems = collectionDao.countItemsOfCollection(coll, null);
 		Assert.assertEquals(2, numOfItems);
 		
 		//remove
@@ -190,9 +210,9 @@ public class CollectionDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		//check if the item has been removed
-		int numOfStayingItems = collectionDao.countItemsOfCollection(coll);
+		int numOfStayingItems = collectionDao.countItemsOfCollection(coll, null);
 		Assert.assertEquals(1, numOfStayingItems);
-		List<QuestionItemView> items_2 = qItemQueriesDao.getItemsOfCollection(id, coll, null, 0, -1);
+		List<QuestionItemView> items_2 = qItemQueriesDao.getItemsOfCollection(id, coll, null, null, 0, -1);
 		Assert.assertEquals(1, items_2.size());
 		Assert.assertEquals(item2.getKey(), items_2.get(0).getKey());
 	}

@@ -28,7 +28,6 @@ package org.olat.course.editor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -41,16 +40,21 @@ import org._3pq.jgrapht.alg.CycleDetector;
 import org._3pq.jgrapht.edge.EdgeFactories;
 import org._3pq.jgrapht.edge.EdgeFactories.DirectedEdgeFactory;
 import org._3pq.jgrapht.graph.DefaultDirectedGraph;
+import org.olat.core.util.Util;
 import org.olat.core.util.nodes.INode;
 import org.olat.core.util.tree.TreeVisitor;
 import org.olat.core.util.tree.Visitor;
+import org.olat.course.CourseFactory;
+import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.condition.interpreter.ConditionErrorMessage;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.ENCourseNode;
+import org.olat.course.nodes.bc.BCCourseNodeEditController;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.course.tree.CourseEditorTreeNode;
 import org.olat.group.area.BGArea;
@@ -95,10 +99,7 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 	 * <code>addSoftReference()</code>.
 	 */
 	private ConditionExpression currentConditionExpression = null;
-	/**
-	 * different organized info as in softRefs: (nodeId,{nodeid,nodeId,...})
-	 */
-	private Map<String, Set<String>> nodeRefs = new HashMap<String, Set<String>>();
+	
 	/**
 	 * the condition interpreter for evaluating the condtion expressions.
 	 */
@@ -248,14 +249,16 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 	 * @see org.olat.course.editor.CourseEditorEnv#addSoftReference(java.lang.String,
 	 *      java.lang.String)
 	 */
-	public void addSoftReference(String category, String softReference) {
-		currentConditionExpression.addSoftReference(category, softReference);
+	@Override
+	public void addSoftReference(String category, String softReference, boolean cycleDetector) {
+		currentConditionExpression.addSoftReference(category, softReference, cycleDetector);
 
 	}
 
 	/**
 	 * @see org.olat.course.editor.CourseEditorEnv#pushError(java.lang.Exception)
 	 */
+	@Override
 	public void pushError(Exception e) {
 		currentConditionExpression.pushError(e);
 	}
@@ -263,6 +266,7 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 	/**
 	 * @see org.olat.course.editor.CourseEditorEnv#validateCourse()
 	 */
+	@Override
 	public void validateCourse() {
 		/*
 		 * collect all condition error messages and soft references collect all
@@ -271,27 +275,9 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 		String currentNodeWas = currentCourseNodeId;
 		// reset all
 		softRefs = new HashMap<String,List<ConditionExpression>>();
-		nodeRefs = new HashMap<String, Set<String>>();
 		Visitor v = new CollectConditionExpressionsVisitor();
 		(new TreeVisitor(v, cetm.getRootNode(), true)).visitAll();
-		for (Iterator<String> iter = softRefs.keySet().iterator(); iter.hasNext();) {
-			String nodeId = iter.next();
-			List<ConditionExpression> conditionExprs = softRefs.get(nodeId);
-			for (int i = 0; i < conditionExprs.size(); i++) {
-				ConditionExpression ce = conditionExprs.get(i);
-				// DO NOT validateConditionExpression(ce) as this is already done in the
-				// CollectConditionExpressionsVisitor
-				Set<String> refs = new HashSet<String>(ce.getSoftReferencesOf("courseNodeId"));
-				if (refs != null && refs.size() > 0) {
-					Set<String> oldOnes = nodeRefs.put(nodeId, null);
-					if (oldOnes != null) {
-						refs.addAll(oldOnes);
-					}
-					nodeRefs.put(nodeId, refs);
-				}
-			}
 
-		}
 		// refresh,create status descriptions of the course
 		statusDescs = new HashMap<String,List<StatusDescription>>();
 		v = new CollectStatusDescriptionVisitor(this);
@@ -310,28 +296,54 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 		for (int i = a.length - 1; i >= 0; i--) {
 			all2gether.addAll(statusDescs.get(a[i]));
 		}
+
+
+		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
+		if(course!= null){
+			if(course.getCourseConfig().getSharedFolderSoftkey().equals("sf.notconfigured")){
+				INode rootNode = course.getEditorTreeModel().getRootNode();
+				List<StatusDescription> descriptions = new ArrayList<StatusDescription>();
+				descriptions = checkFolderNodes(rootNode, course, descriptions);
+				if(!descriptions.isEmpty()){
+					all2gether.addAll(descriptions);
+				}
+			}
+		}
+
+
+
 		StatusDescription[] retVal = new StatusDescription[all2gether.size()];
 		retVal = all2gether.toArray(retVal);
 		return retVal;
 	}
 
-	public List<String> getReferencingNodeIdsFor(String ident) {
-		List<String> refNodes = new ArrayList<String>();
-		for (Iterator<String> iter = nodeRefs.keySet().iterator(); iter.hasNext();) {
-			String nodeId = iter.next();
-			if (!nodeId.equals(ident)) {
-				// self references are catched during form entering
-				Set<String> refs = nodeRefs.get(nodeId);
-				if (refs.contains(ident)) {
-					// nodeId references ident
-					refNodes.add(nodeId);
+	private List<StatusDescription> checkFolderNodes(INode rootNode, ICourse course, List<StatusDescription> descriptions){
+		List<StatusDescription> descriptionsI = descriptions;
+		Visitor visitor = new Visitor() {
+			@Override
+			public void visit(INode node) {
+				CourseEditorTreeNode courseNode = (CourseEditorTreeNode) course.getEditorTreeModel().getNodeById(node.getIdent());
+				if(!courseNode.isDeleted() && courseNode.getCourseNode() instanceof BCCourseNode){
+					BCCourseNode bcNode = (BCCourseNode) courseNode.getCourseNode();
+					if (bcNode.isSharedFolder()) {
+						String translPackage = Util.getPackageName(BCCourseNodeEditController.class);
+						StatusDescription status = new StatusDescription(StatusDescription.ERROR, "warning.no.sharedfolder", "warning.no.sharedfolder", null, translPackage);
+						status.setDescriptionForUnit(bcNode.getIdent());
+						// set which pane is affected by error
+						status.setActivateableViewIdentifier(BCCourseNodeEditController.PANE_TAB_FOLDER);
+						descriptionsI.add(status);
+					}
 				}
 			}
-		}
-		return refNodes;
+		};
+
+		TreeVisitor v = new TreeVisitor(visitor, rootNode, false);
+		v.visitAll();
+
+		return descriptionsI;
 	}
 
-	
+	@Override
 	public String toString() {
 		String retVal = "";
 		Set<String> keys = softRefs.keySet();
@@ -411,13 +423,15 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 
 	}
 
-	class Convert2DGVisitor implements Visitor{
+	private static class Convert2DGVisitor implements Visitor{
 		private DirectedEdgeFactory def;
 		private DirectedGraph dg;
 		public Convert2DGVisitor(DirectedGraph dg) {
 			this.dg = dg;
 			def = new EdgeFactories.DirectedEdgeFactory();
 		}
+		
+		@Override
 		public void visit(INode node) {
 			CourseEditorTreeNode tmp = (CourseEditorTreeNode) node;
 			CourseNode cn = tmp.getCourseNode();
@@ -440,6 +454,7 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 	 * 
 	 * @see org.olat.course.editor.CourseEditorEnv#listCycles()
 	 */
+	@Override
 	public Set<String> listCycles() {
 		/*
 		 * convert nodeRefs datastructure to a directed graph 
@@ -455,17 +470,34 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 		 * iterate over nodeRefs, add each not existing node id as vertex, for each
 		 * key - child relation add an edge to the directed graph.
 		 */
-		Iterator<String> keys = nodeRefs.keySet().iterator();
-		while(keys.hasNext()) {
+		
+		Map<String,Set<String>> nodeSoftRefs = new HashMap<>();
+		for (Iterator<String> iter = softRefs.keySet().iterator(); iter.hasNext();) {
+			String nodeId = iter.next();
+			List<ConditionExpression> conditionExprs = softRefs.get(nodeId);
+			for (int i = 0; i < conditionExprs.size(); i++) {
+				ConditionExpression ce = conditionExprs.get(i);
+				Set<String> refs = ce.getSoftReferencesForCycleDetectorOf("courseNodeId");
+				if (refs != null && refs.size() > 0) {
+					if(nodeSoftRefs.containsKey(nodeId)) {
+						nodeSoftRefs.get(nodeId).addAll(refs);
+					} else {
+						nodeSoftRefs.put(nodeId, refs);
+					}
+				}
+			}
+		}
+	
+		for(Iterator<String> keys = nodeSoftRefs.keySet().iterator(); keys.hasNext(); ) {
 			//a node
 			String key = keys.next();
 			if(!dg.containsVertex(key)) {
 				dg.addVertex(key);
 			}
 			//and its children
-			Set<String> children = nodeRefs.get(key);
-			Iterator<String> childrenIt = children.iterator();
-			while(childrenIt.hasNext()){
+			Set<String> children = nodeSoftRefs.get(key);
+			
+			for(Iterator<String> childrenIt = children.iterator(); childrenIt.hasNext(); ){
 				String child = childrenIt.next();
 				if(!dg.containsVertex(child)) {
 					dg.addVertex(child);
@@ -481,7 +513,7 @@ public class CourseEditorEnvImpl implements CourseEditorEnv {
 		 */
 		CycleDetector cd = new CycleDetector(dg);
 		Set<String> cycleIds = cd.findCycles();
-		cycleIds.retainAll(nodeRefs.keySet());
+		cycleIds.retainAll(nodeSoftRefs.keySet());
 		return cycleIds;
 	}
 

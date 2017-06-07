@@ -60,9 +60,9 @@ import org.olat.fileresource.types.WikiResource;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.ForumNotificationsHandler;
 import org.olat.modules.fo.Message;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 
@@ -107,6 +107,9 @@ public class WikiPageChangeOrCreateNotificationHandler implements NotificationsH
 				if (p.getResName().equals( CourseModule.getCourseTypeName() ) ) {
 					// resId = CourseResourceableId           p.getSubidentifier() = wikiCourseNode.getIdent()
 					ICourse course = CourseFactory.loadCourse(resId);
+					if(!courseStatus(course)) {
+						return NotificationsManager.getInstance().getNoSubscriptionInfo();
+					}
 					CourseEnvironment cenv = course.getCourseEnvironment();
 					CourseNode courseNode = cenv.getRunStructure().getNode(p.getSubidentifier());
 					if(courseNode == null){
@@ -206,6 +209,12 @@ public class WikiPageChangeOrCreateNotificationHandler implements NotificationsH
 			si = NotificationsManager.getInstance().getNoSubscriptionInfo();
 		}
 		return si;
+	}
+	
+	private boolean courseStatus(ICourse course) {
+		return course != null
+				&& !course.getCourseEnvironment().getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isUnpublished()
+				&& !course.getCourseEnvironment().getCourseGroupManager().getCourseEntry().getRepositoryEntryStatus().isClosed();
 	}
 	
 	private void checkPublisher(Publisher p) {

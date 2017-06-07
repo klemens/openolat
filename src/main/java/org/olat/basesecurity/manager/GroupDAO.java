@@ -80,7 +80,11 @@ public class GroupDAO {
 		return group;
 	}
 	
-	public GroupMembership addMembership(Group group, Identity identity, String role) {
+	/**
+	 * Add a membership to the group, in the set of the group too which can be
+	 * reloaded.
+	 */
+	public GroupMembership addMembershipTwoWay(Group group, Identity identity, String role) {
 		GroupMembershipImpl membership = new GroupMembershipImpl();
 		membership.setCreationDate(new Date());
 		membership.setLastModified(new Date());
@@ -96,6 +100,19 @@ public class GroupDAO {
 		}
 		members.add(membership);
 		return membership;
+	}
+	
+	/**
+	 * Create a membership without updating the set in the group.
+	 */
+	public void addMembershipOneWay(Group group, Identity identity, String role) {
+		GroupMembershipImpl membership = new GroupMembershipImpl();
+		membership.setCreationDate(new Date());
+		membership.setLastModified(new Date());
+		membership.setGroup(group);
+		membership.setIdentity(identity);
+		membership.setRole(role);
+		dbInstance.getCurrentEntityManager().persist(membership);
 	}
 	
 	public int removeMemberships(Group group) {
@@ -200,14 +217,8 @@ public class GroupDAO {
 	}
 	
 	public List<String> getPermissions(IdentityRef identity, OLATResource resource) {
-		StringBuilder sb = new StringBuilder();
-		sb.append("select grant.permission from bgrant as grant")
-		  .append(" inner join grant.group as baseGroup")
-		  .append(" inner join baseGroup.members as membership")
-		  .append(" where membership.identity.key=:identityKey and grant.resource.key=:resourceKey")
-		  .append("   and membership.role=grant.role");
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), String.class)
+				.createNamedQuery("grantedPermissionByIdentityAndResource", String.class)
 				.setParameter("identityKey", identity.getKey())
 				.setParameter("resourceKey", resource.getKey())
 				.getResultList();

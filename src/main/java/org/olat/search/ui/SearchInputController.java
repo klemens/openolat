@@ -49,7 +49,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.media.RedirectMediaResource;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.BusinessControlFactory;
@@ -68,6 +67,7 @@ import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.search.ServiceNotAvailableException;
 import org.olat.search.model.AbstractOlatDocument;
 import org.olat.search.model.ResultDocument;
+import org.olat.search.service.QuickSearchEvent;
 import org.olat.search.service.searcher.SearchClient;
 
 /**
@@ -86,7 +86,6 @@ public class SearchInputController extends FormBasicController implements Generi
 	private static final String FUZZY_SEARCH = "~0.7";
 	private static final String CMD_DID_YOU_MEAN_LINK = "didYouMeanLink-";
 	private static final String SEARCH_STORE_KEY = "search-store-key";
-	private static final String SEARCH_CACHE_KEY = "search-cache-key";
 	
 	private String parentContext;
 	private String documentType;
@@ -103,7 +102,6 @@ public class SearchInputController extends FormBasicController implements Generi
 	protected List<FormLink> didYouMeanLinks;
 	
 	private Map<String,Properties> prefs;
-	private SearchLRUCache searchCache;
 	private SearchClient searchClient;
 	
 	public SearchInputController(UserRequest ureq, WindowControl wControl, String resourceUrl, DisplayOption displayOption) {
@@ -215,6 +213,7 @@ public class SearchInputController extends FormBasicController implements Generi
 			searchInput = uifactory.addTextElement("search_input", "search.title", 255, "", searchLayout);
 			searchInput.setLabel(null, null);
 			searchInput.setPlaceholderKey("search", null);
+			searchInput.setFocus(true);
 		}
 		
 		if (displayOption.equals(DisplayOption.STANDARD) || displayOption.equals(DisplayOption.BUTTON)) {
@@ -244,7 +243,7 @@ public class SearchInputController extends FormBasicController implements Generi
 		if(!context.isEmpty()) {
 			String scope = context.getValueAt(context.getSize() - 1);
 			String tooltip = getTranslator().translate("form.search.label.tooltip", new String[]{scope});
-			((Link)searchButton.getComponent()).setTooltip(tooltip);
+			searchButton.getComponent().setTooltip(tooltip);
 		}
 	}
 	
@@ -255,12 +254,6 @@ public class SearchInputController extends FormBasicController implements Generi
 			prefs = new HashMap<String,Properties>();
 			ureq.getUserSession().putEntry(SEARCH_STORE_KEY, prefs);
 		}
-		
-		searchCache = (SearchLRUCache)ureq.getUserSession().getEntry(SEARCH_CACHE_KEY);
-		if(searchCache == null) {
-			searchCache = new SearchLRUCache();
-			ureq.getUserSession().putEntry(SEARCH_CACHE_KEY, searchCache);
-		}
 	}
 	
 	@Override
@@ -269,7 +262,8 @@ public class SearchInputController extends FormBasicController implements Generi
 	}
 
 	@Override
-	protected void formOK(UserRequest ureq) {
+	public void formOK(UserRequest ureq) {
+		fireEvent(ureq, QuickSearchEvent.QUICKSEARCH_EVENT);
 		doSearch(ureq);
 	}
 	
@@ -279,8 +273,9 @@ public class SearchInputController extends FormBasicController implements Generi
 	}
 
 	@Override
-	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+	public void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if (source == searchButton) {
+			fireEvent(ureq, QuickSearchEvent.QUICKSEARCH_EVENT);
 			doSearch(ureq);
 		} else if (didYouMeanLinks != null && didYouMeanLinks.contains(source)) {
 			String didYouMeanWord = (String)source.getUserObject();
@@ -290,10 +285,7 @@ public class SearchInputController extends FormBasicController implements Generi
 	}
 	
 	protected void doSearch(UserRequest ureq) {
-		if (resultCtlr != null) {
-			removeAsListenerAndDispose(resultCtlr);
-			resultCtlr = null;
-		}
+		if (resultCtlr != null) return;
 		
 		String oldSearchString = null;
 		Properties props = getPersistedSearch();
@@ -411,7 +403,7 @@ public class SearchInputController extends FormBasicController implements Generi
 	}
 
 	@Override
-	protected void event(UserRequest ureq, Controller source, Event event) {
+	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == resultCtlr) {
 			if (event instanceof SearchEvent) {
 				SearchEvent goEvent = (SearchEvent)event;
@@ -421,6 +413,7 @@ public class SearchInputController extends FormBasicController implements Generi
 				setSearchString(resultCtlr.getSearchString());
 			}
 		} else if (source == searchDialogBox) {
+			cleanUp();
 			fireEvent(ureq, Event.DONE_EVENT);
 		}
 	}
@@ -428,8 +421,15 @@ public class SearchInputController extends FormBasicController implements Generi
 	public void closeSearchDialogBox() {
 		if(searchDialogBox != null) {
 			searchDialogBox.deactivate();
-			searchDialogBox = null;
+			cleanUp();
 		}
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(searchDialogBox);
+		removeAsListenerAndDispose(resultCtlr);
+		searchDialogBox = null;
+		resultCtlr = null;
 	}
 	
 	/**
@@ -439,22 +439,16 @@ public class SearchInputController extends FormBasicController implements Generi
 	 */
 	public void gotoSearchResult(UserRequest ureq, ResultDocument document) {
 		try {
-		// attach the launcher data
+			// attach the launcher data
 			closeSearchDialogBox();
 			String url = document.getResourceUrl();
 			if(!StringHelper.containsNonWhitespace(url)) {
 				//no url, no document
 				getWindowControl().setWarning(getTranslator().translate("error.resource.could.not.found"));
-			} else if(url != null && url.startsWith("[ContextHelpModule:")) {
-				//do something special for ContextHelp
-				int pathIndex = url.indexOf("path=");
-				String uri = url.substring(pathIndex + 5, url.length() - 1);
-				RedirectMediaResource rsrc = new RedirectMediaResource(uri);
-				ureq.getDispatchResult().setResultingMediaResource(rsrc);
 			} else {
 				BusinessControl bc = BusinessControlFactory.getInstance().createFromString(url);
-			  WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
-			  NewControllerFactory.getInstance().launch(ureq, bwControl);
+				WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(bc, getWindowControl());
+				NewControllerFactory.getInstance().launch(ureq, bwControl);
 			}
 		} catch (Exception ex) {
 			log.debug("Document not found");
@@ -475,24 +469,20 @@ public class SearchInputController extends FormBasicController implements Generi
 
 			query = getQueryString(searchString, false);
 			condQueries = getCondQueryStrings(condSearchStrings, parentCtxt, docType, rsrcUrl);
-			SearchResults searchResults = searchCache.get(getQueryCacheKey(firstResult, query, condQueries));
-			if(searchResults == null || true) {
-				searchResults = searchClient.doSearch(query, condQueries, ureq.getIdentity(), ureq.getUserSession().getRoles(), firstResult, maxReturns, true);
-				searchCache.put(getQueryCacheKey(firstResult, query, condQueries), searchResults);
-			}	
-			if ((firstResult == 0 && searchResults.getList().isEmpty())
-					&& !query.endsWith(FUZZY_SEARCH)) {
+			SearchResults searchResults = searchClient.doSearch(query, condQueries, ureq.getIdentity(), ureq.getUserSession().getRoles(), firstResult, maxReturns, true);
+
+			if (firstResult == 0 && searchResults.size() == 0 && !query.endsWith(FUZZY_SEARCH)) {
 				// result-list was empty => first try to find word via spell-checker
-	    	if (doSpellCheck) {
-	    		Set<String> didYouMeansWords = searchClient.spellCheck(searchString);
-		    	if (didYouMeansWords != null && !didYouMeansWords.isEmpty()) {
-		    		setDidYouMeanWords(didYouMeansWords);
+		    	if (doSpellCheck) {
+		    		Set<String> didYouMeansWords = searchClient.spellCheck(searchString);
+			    	if (didYouMeansWords != null && !didYouMeansWords.isEmpty()) {
+			    		setDidYouMeanWords(didYouMeansWords);
+			    	} else {
+			    		searchResults = doFuzzySearch(ureq, searchString, null, parentCtxt, docType, rsrcUrl, firstResult, maxReturns);
+			    	}
 		    	} else {
 		    		searchResults = doFuzzySearch(ureq, searchString, null, parentCtxt, docType, rsrcUrl, firstResult, maxReturns);
 		    	}
-	    	} else {
-	    		searchResults = doFuzzySearch(ureq, searchString, null, parentCtxt, docType, rsrcUrl, firstResult, maxReturns);
-	    	}
 			}
 			
 			if(firstResult == 0 && searchResults.getList().isEmpty()) {
@@ -518,21 +508,7 @@ public class SearchInputController extends FormBasicController implements Generi
 		hideDidYouMeanWords();
 		String query = getQueryString(searchString, true);
 		List<String> condQueries = getCondQueryStrings(condSearchStrings, parentCtxt, docType, rsrcUrl);
-		SearchResults searchResults = searchCache.get(getQueryCacheKey(firstResult, query, condQueries));
-		if(searchResults == null) {
-			searchResults = searchClient.doSearch(query, condQueries, ureq.getIdentity(), ureq.getUserSession().getRoles(), firstResult, maxReturns, true);
-			searchCache.put(getQueryCacheKey(firstResult, query, condQueries), searchResults);
-		}
-		return searchResults;
-	}
-	
-	private Object getQueryCacheKey(int firstResult, String query, List<String> condQueries) {
-		StringBuilder sb = new StringBuilder();
-		sb.append('[').append(firstResult).append(']').append(query).append(' ');
-		for(String condQuery:condQueries) {
-			sb.append(condQuery).append(' ');
-		}
-		return sb.toString();
+		return searchClient.doSearch(query, condQueries, ureq.getIdentity(), ureq.getUserSession().getRoles(), firstResult, maxReturns, true);
 	}
 	
 	public Set<String> getDidYouMeanWords() {

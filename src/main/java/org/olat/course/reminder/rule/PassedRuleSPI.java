@@ -19,17 +19,24 @@
  */
 package org.olat.course.reminder.rule;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.STCourseNode;
 import org.olat.course.reminder.manager.ReminderRuleDAO;
 import org.olat.course.reminder.ui.PassedRuleEditor;
+import org.olat.course.run.scoring.ScoreEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.reminder.FilterRuleSPI;
 import org.olat.modules.reminder.ReminderRule;
 import org.olat.modules.reminder.RuleEditorFragment;
@@ -46,6 +53,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PassedRuleSPI implements FilterRuleSPI {
+	
+	private static final OLog log = Tracing.createLoggerFor(PassedRuleSPI.class);
 	
 	@Autowired
 	private ReminderRuleDAO helperDao;
@@ -77,10 +86,32 @@ public class PassedRuleSPI implements FilterRuleSPI {
 			String nodeIdent = r.getLeftOperand();
 			String status = r.getRightOperand();
 			
-			ICourse course = CourseFactory.loadCourse(entry.getOlatResource());
+			ICourse course = CourseFactory.loadCourse(entry);
 			CourseNode courseNode = course.getRunStructure().getNode(nodeIdent);
+			if (courseNode == null) {
+				identities.clear();
+				log.error("Passed rule in course " + entry.getKey() + " (" + entry.getDisplayname() + ") is missing a course element");
+				return;
+			}
 			
-			Map<Long, Boolean> passeds = helperDao.getPassed(entry.getOlatResource().getResourceableId(), courseNode, identities);
+			Map<Long, Boolean> passeds;
+			if(courseNode instanceof STCourseNode) {
+				passeds = new HashMap<>();
+				
+				STCourseNode structureNode = (STCourseNode)courseNode;
+				if(structureNode.hasPassedConfigured()) {
+					for(Identity identity:identities) {
+						UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
+						ScoreEvaluation scoreEval = structureNode.getUserScoreEvaluation(uce);
+						Boolean passed = scoreEval.getPassed();
+						if(passed != null) {
+							passeds.put(identity.getKey(), passed);
+						}
+					}
+				}
+			} else {
+				passeds = helperDao.getPassed(entry, courseNode, identities);
+			}
 			
 			if("passed".equals(status)) {
 				for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {
@@ -89,7 +120,7 @@ public class PassedRuleSPI implements FilterRuleSPI {
 						identityIt.remove();
 					}
 				}
-			} else {
+			} else if("failed".equals(status)) {
 				for(Iterator<Identity> identityIt=identities.iterator(); identityIt.hasNext(); ) {
 					Boolean passed = passeds.get(identityIt.next().getKey());
 					if(passed != null && passed.booleanValue()) {

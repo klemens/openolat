@@ -43,6 +43,8 @@ import org.junit.Test;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.persistence.DB;
+import org.olat.core.commons.services.lock.pessimistic.PLock;
+import org.olat.core.commons.services.lock.pessimistic.PessimisticLockManager;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -464,10 +466,10 @@ public class PLockTest extends OlatTestCase {
 
 		// 4. wait till all are finished or it takes too long
 		try {
-			doneSignal.await(20, TimeUnit.SECONDS);
+			doneSignal.await(60, TimeUnit.SECONDS);
 			log.info("perf for Plocktest:testPerf(): "+(System.currentTimeMillis()-start));
 		} catch (InterruptedException e) {
-			fail("Test takes too long (more than 20s)");
+			fail("Test takes too long (more than 60s)");
 		}
 		
 		// repeat the same again - this time it should/could be faster
@@ -494,9 +496,9 @@ public class PLockTest extends OlatTestCase {
 		// 4. wait till all are finished or it takes too long
 		
 		try {
-			boolean interrupt = doneSignal.await(20, TimeUnit.SECONDS);
+			boolean interrupt = doneSignal.await(60, TimeUnit.SECONDS);
 			log.info("perf (again) for Plocktest:testPerf(): "+(System.currentTimeMillis()-start2));
-			assertTrue("Test takes too long (more than 20s)", interrupt);
+			assertTrue("Test takes too long (more than 60s)", interrupt);
 		} catch (InterruptedException e) {
 			fail("" + e.getMessage());
 		}

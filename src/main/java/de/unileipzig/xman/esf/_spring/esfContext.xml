@@ -12,8 +12,6 @@
 <bean id="olatsites_esf" class="de.unileipzig.xman.esf.site.ElectronicStudentFileSiteDefinition" scope="prototype" />
 
 <!-- Init the Manager via Spring so that it can register to user delete events -->
-<bean class="de.unileipzig.xman.esf.ElectronicStudentFileManager">
-	<constructor-arg ref="userDeletionManager" />
-</bean>
+<bean class="de.unileipzig.xman.esf.ElectronicStudentFileManager" />
 
 </beans>

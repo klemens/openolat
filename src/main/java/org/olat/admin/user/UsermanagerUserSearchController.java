@@ -30,8 +30,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.admin.user.bulkChange.UserBulkChangeStep00;
@@ -126,7 +128,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private UsermanagerUserSearchForm searchform;
 	private TableController tableCtr;
 	private List<Identity> identitiesList, selectedIdentities;
-	private ArrayList<String> notUpdatedIdentities = new ArrayList<String>();
+	private List<String> notUpdatedIdentities = new ArrayList<String>();
 	private ExtendedIdentitiesTableDataModel tdm;
 	private Identity foundIdentity = null;
 	private ContactFormController contactCtr;
@@ -140,6 +142,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private UserManager userManager;
 	@Autowired
 	private BaseSecurityModule securityModule;
+	@Autowired
+	private BaseSecurity securityManager;
 
 	/**
 	 * Constructor to trigger the user search workflow using a generic search form
@@ -193,7 +197,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		super(ureq, wControl);
 		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
 
-		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 
 		mailVC = createVelocityContainer("usermanagerMail");
@@ -206,9 +209,41 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		userListVC.contextPut("showBackButton", Boolean.FALSE);
 		userListVC.contextPut("showTitle", Boolean.TRUE);
 
-		identitiesList = BaseSecurityManager.getInstance().getIdentitiesByPowerSearch(null, null, true, searchGroups, searchPermissionOnResources, searchAuthProviders,
+		identitiesList = securityManager.getIdentitiesByPowerSearch(null, null, true, searchGroups, searchPermissionOnResources, searchAuthProviders,
 				searchCreatedAfter, searchCreatedBefore, null, null, status);
 
+		initUserListCtr(ureq, identitiesList, status);
+		userListVC.put("userlist", tableCtr.getInitialComponent());
+		userListVC.contextPut("emptyList", (identitiesList.size() == 0 ? Boolean.TRUE : Boolean.FALSE));
+
+		panel = putInitialPanel(userListVC);
+	}
+	
+	/**
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param identitiesList
+	 * @param status
+	 * @param showEmailButton
+	 */
+	public UsermanagerUserSearchController(UserRequest ureq, WindowControl wControl, List<Identity> identitiesList, Integer status, boolean showEmailButton) {
+		super(ureq, wControl);
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
+
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+
+		mailVC = createVelocityContainer("usermanagerMail");
+
+		backFromMail = LinkFactory.createLinkBack(mailVC, this);
+
+		userListVC = createVelocityContainer("usermanagerUserlist");
+		this.showEmailButton = showEmailButton;
+
+		userListVC.contextPut("showBackButton", Boolean.FALSE);
+		userListVC.contextPut("showTitle", Boolean.TRUE);
+
+		this.identitiesList = identitiesList;
 		initUserListCtr(ureq, identitiesList, status);
 		userListVC.put("userlist", tableCtr.getInitialComponent());
 		userListVC.contextPut("emptyList", (identitiesList.size() == 0 ? Boolean.TRUE : Boolean.FALSE));
@@ -231,7 +266,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		super(ureq, wControl);
 		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
 		
-		securityModule = CoreSpringFactory.getImpl(BaseSecurityModule.class);
 		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
 
 		mailVC = createVelocityContainer("usermanagerMail");
@@ -251,13 +285,11 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		panel = putInitialPanel(userListVC);
 	}
 	
-	//fxdiff BAKS-7 Resume function
 	public WindowControl getTableControl() {
 		return tableCtr == null ? null : tableCtr.getWindowControlForDebug();
 	}
 
 	@Override
-	//fxdiff BAKS-7 Resume function
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(state instanceof StateMapped) {
 			StateMapped searchState = (StateMapped)state;
@@ -274,15 +306,29 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		
 		if(entries == null || entries.isEmpty()) return;
 		
-		Long identityKey = entries.get(0).getOLATResourceable().getResourceableId();
-		if(identityKey != null && identitiesList != null) {
-			for(Identity identity:identitiesList) {
-				if(identityKey.equals(identity.getKey())) {
-					foundIdentity = identity;
-					fireEvent(ureq, new SingleIdentityChosenEvent(foundIdentity));
-					entries.remove(0);
-					break;
+		for(int i=0; i<entries.size(); i++) {
+			String resourceType = entries.get(i).getOLATResourceable().getResourceableTypeName();
+			if("Identity".equalsIgnoreCase(resourceType)) {
+				Long identityKey = entries.get(i).getOLATResourceable().getResourceableId();
+				Identity found = null;
+				if(tdm != null) {
+					for(Identity identity:tdm.getObjects()) {
+						if(identityKey.equals(identity.getKey())) {
+							found = identity;
+						}
+					}
 				}
+				
+				if(found == null) {
+					found = securityManager.loadIdentityByKey(identityKey);
+					if(found == null) return;
+					
+					List<Identity> foundIdentites = new ArrayList<>();
+					foundIdentites.add(found);
+					initUserListCtr(ureq, foundIdentites, 0);
+				}
+				foundIdentity = found;
+				fireEvent(ureq, new SingleIdentityChosenEvent(found));
 			}
 		}
 	}
@@ -301,10 +347,33 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	}
 
 	/**
+	 * Add the given identities to the list of identities in the table model 
+	 * and reinitialize the table controller
+	 * 
+	 * @param ureq
+	 * @param tobeAddedIdentities
+	 */
+	public void addIdentitiesToSearchResult(UserRequest ureq, List<Identity> tobeAddedIdentities) {
+		Set<Identity> identitiesSet = new HashSet<>();
+		if(identitiesList != null) {
+			identitiesSet.addAll(identitiesList);
+		}
+		for (Identity toBeAdded : tobeAddedIdentities) {
+			if (!identitiesSet.contains(toBeAdded)) {
+				identitiesList.add(toBeAdded);
+			}
+		}
+		initUserListCtr(ureq, identitiesList, null);
+		userListVC.put("userlist", tableCtr.getInitialComponent());		
+	}
+
+	
+	/**
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component,
 	 *      org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 
 		if (source == backFromMail) {

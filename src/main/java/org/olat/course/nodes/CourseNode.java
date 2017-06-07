@@ -371,7 +371,7 @@ public interface CourseNode extends INode, ShortName {
 	/**
 	 * Remap the node to the context of the course after import.
 	 */
-	public void postImport(CourseEnvironmentMapper envMapper, Processing type);
+	public void postImport(File importDirectory, ICourse course, CourseEnvironmentMapper envMapper, Processing type);
 	
 	/**
 	 * 
@@ -396,7 +396,7 @@ public interface CourseNode extends INode, ShortName {
 	 * @param course the course in which the copying is happening
 	 * @return
 	 */
-	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course);
+	public CourseNode createInstanceForCopy(boolean isNewTitle, ICourse course, Identity author);
 
 	/**
 	 * @return empty list, or list with active condition expressions of the course

@@ -26,7 +26,7 @@ public class ChooseStudyPathXMLFile extends FormBasicController{
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener,
 			UserRequest ureq) {
-		fileElement = uifactory.addFileElement("file", "ChooseStudyPathXMLFile.file", formLayout);
+		fileElement = uifactory.addFileElement(getWindowControl(), "file", "ChooseStudyPathXMLFile.file", formLayout);
 		fileElement.setMandatory(true, "ExamAdminStudyPathCotroller.NoFile");
 		
 		uifactory.addFormSubmitButton("submitKey", "ChooseStudyPathXMLFile.submit", formLayout);

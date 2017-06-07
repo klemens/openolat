@@ -19,18 +19,30 @@
  */
 package org.olat.login.oauth.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
+import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.generic.modal.DialogBoxController;
+import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.login.oauth.OAuthLoginModule;
+import org.olat.login.oauth.OAuthSPI;
+import org.olat.login.oauth.spi.OpenIdConnectFullConfigurableProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -44,6 +56,7 @@ public class OAuthAdminController extends FormBasicController {
 	private static final String[] keys = new String[]{ "on" };
 	private static final String[] values = new String[] { "" };
 	
+	private FormLink addProviderLink;
 
 	private MultipleSelectionElement userCreationEl;
 	
@@ -67,6 +80,21 @@ public class OAuthAdminController extends FormBasicController {
 	private MultipleSelectionElement adfsDefaultEl;
 	private TextElement adfsApiKeyEl;
 	private TextElement adfsOAuth2EndpointEl;
+	
+	private MultipleSelectionElement openIdConnectIFEl;
+	private MultipleSelectionElement openIdConnectIFDefaultEl;
+	private TextElement openIdConnectIFApiKeyEl;
+	private TextElement openIdConnectIFApiSecretEl;
+	private TextElement openIdConnectIFIssuerEl;
+	private TextElement openIdConnectIFAuthorizationEndPointEl;
+	
+	private FormLayoutContainer customProvidersCont;
+	
+	private CloseableModalController cmc;
+	private DialogBoxController confirmDeleteCtrl;
+	private AddOpenIDConnectIFFullConfigurableController addConfigCtrl;
+	
+	private List<ConfigurableProviderWrapper> providerWrappers = new ArrayList<>();
 	
 	@Autowired
 	private OAuthLoginModule oauthModule;
@@ -194,12 +222,61 @@ public class OAuthAdminController extends FormBasicController {
 		} else {
 			adfsApiKeyEl.setVisible(false);
 			adfsDefaultEl.setVisible(false);
+			adfsOAuth2EndpointEl.setVisible(false);
 		}
 		
 		if(oauthModule.isAdfsRootEnabled()) {
 			adfsDefaultEl.select(keys[0], true);
 		}
 		
+		//openIdConnectIF
+		FormLayoutContainer openIdConnectIFCont = FormLayoutContainer.createDefaultFormLayout("openidconnectif", getTranslator());
+		openIdConnectIFCont.setFormTitle(translate("openidconnectif.admin.title"));
+		openIdConnectIFCont.setFormTitleIconCss("o_icon o_icon_provider_openid");
+		openIdConnectIFCont.setRootForm(mainForm);
+		formLayout.add(openIdConnectIFCont);
+		
+		openIdConnectIFEl = uifactory.addCheckboxesHorizontal("openidconnectif.enabled", openIdConnectIFCont, keys, values);
+		openIdConnectIFEl.addActionListener(FormEvent.ONCHANGE);
+		
+		openIdConnectIFDefaultEl = uifactory.addCheckboxesHorizontal("openidconnectif.default.enabled", openIdConnectIFCont, keys, values);
+		openIdConnectIFDefaultEl.addActionListener(FormEvent.ONCHANGE);
+
+		String openIdConnectIFApiKey = oauthModule.getOpenIdConnectIFApiKey();
+		openIdConnectIFApiKeyEl = uifactory.addTextElement("openidconnectif.id", "openidconnectif.api.id", 256, openIdConnectIFApiKey, openIdConnectIFCont);
+		String openIdConnectIFApiSecret = oauthModule.getOpenIdConnectIFApiSecret();
+		openIdConnectIFApiSecretEl = uifactory.addTextElement("openidconnectif.secret", "openidconnectif.api.secret", 256, openIdConnectIFApiSecret, openIdConnectIFCont);
+		
+		String openIdConnectIFIssuer = oauthModule.getOpenIdConnectIFIssuer();
+		openIdConnectIFIssuerEl = uifactory.addTextElement("openidconnectif.issuer", "openidconnectif.issuer",
+				256, openIdConnectIFIssuer, openIdConnectIFCont);
+		openIdConnectIFIssuerEl.setExampleKey("openidconnectif.issuer.example", null);
+
+		String openIdConnectIFAuthorizationEndPoint = oauthModule.getOpenIdConnectIFAuthorizationEndPoint();
+		openIdConnectIFAuthorizationEndPointEl = uifactory.addTextElement("openidconnectif.authorization.endpoint", "openidconnectif.authorization.endpoint",
+				256, openIdConnectIFAuthorizationEndPoint, openIdConnectIFCont);
+		openIdConnectIFAuthorizationEndPointEl.setExampleKey("openidconnectif.authorization.endpoint.example", null);
+
+		if(oauthModule.isOpenIdConnectIFEnabled()) {
+			openIdConnectIFEl.select(keys[0], true);
+		} else {
+			openIdConnectIFApiKeyEl.setVisible(false);
+			openIdConnectIFDefaultEl.setVisible(false);
+			openIdConnectIFApiSecretEl.setVisible(false);
+			openIdConnectIFIssuerEl.setVisible(false);
+			openIdConnectIFAuthorizationEndPointEl.setVisible(false);
+		}
+		
+		if(oauthModule.isOpenIdConnectIFRootEnabled()) {
+			openIdConnectIFDefaultEl.select(keys[0], true);
+		}
+		
+		customProvidersCont = FormLayoutContainer.createBareBoneFormLayout("custom.providers", getTranslator());
+		customProvidersCont.setRootForm(mainForm);
+		formLayout.add(customProvidersCont);
+		
+		//highly configurable providers
+		initCustomProviders();
 		
 		//buttons
 		FormLayoutContainer buttonBonesCont = FormLayoutContainer.createDefaultFormLayout("button_bones", getTranslator());
@@ -209,14 +286,39 @@ public class OAuthAdminController extends FormBasicController {
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		buttonBonesCont.add(buttonLayout);
 		uifactory.addFormSubmitButton("save", buttonLayout);
+		addProviderLink = uifactory.addFormLink("add.openidconnectif.custom", buttonLayout, Link.BUTTON);
+	}
+	
+	private void initCustomProviders() {
+		// remove old ones
+		for(ConfigurableProviderWrapper providerWrapper:providerWrappers) {
+			FormItemContainer layoutCont = providerWrapper.getLayoutCont();
+			customProvidersCont.remove(layoutCont);	
+		}
+
+		providerWrappers.clear();
+		List<OAuthSPI> configurableSpies = oauthModule.getAllConfigurableSPIs();
+		for(OAuthSPI configurableSpi:configurableSpies) {
+			if(configurableSpi instanceof OpenIdConnectFullConfigurableProvider) {
+				ConfigurableProviderWrapper wrapper =
+						initOpenIDConnectIFFullConfigurableProviders(customProvidersCont, (OpenIdConnectFullConfigurableProvider)configurableSpi);
+				if(wrapper != null) {
+					providerWrappers.add(wrapper);
+				}
+			}
+		}
+	}
+
+	private ConfigurableProviderWrapper initOpenIDConnectIFFullConfigurableProviders(FormItemContainer formLayout, OpenIdConnectFullConfigurableProvider provider) {
+		ConfigurableProviderWrapper wrapper = new ConfigurableProviderWrapper(provider);
+		wrapper.initForm(formLayout);
+		return wrapper;
 	}
 	
 	@Override
 	protected void doDispose() {
 		//
 	}
-	
-	
 
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
@@ -231,6 +333,12 @@ public class OAuthAdminController extends FormBasicController {
 		allOk &= mandatory(facebookEl, facebookApiKeyEl, facebookApiSecretEl);
 		//adfs
 		allOk &= mandatory(adfsEl, adfsApiKeyEl, adfsOAuth2EndpointEl);
+		//open id connect
+		allOk &= mandatory(openIdConnectIFEl, openIdConnectIFAuthorizationEndPointEl, openIdConnectIFApiKeyEl, openIdConnectIFApiSecretEl);
+		
+		for(ConfigurableProviderWrapper wrapper:providerWrappers) {
+			allOk &= wrapper.validateFormLogic();
+		}
 
 		return allOk & super.validateFormLogic(ureq);
 	}
@@ -248,6 +356,25 @@ public class OAuthAdminController extends FormBasicController {
 							textEl.setErrorKey("form.legende.mandatory", null);
 							allOk = false;
 						}
+					}
+				}
+			}
+		}
+		
+		return allOk;
+	}
+	
+	private boolean mandatory(TextElement... textEls) {
+		boolean allOk = true;
+		
+		if(textEls != null) {
+			for(int i=textEls.length; i-->0; ) {
+				TextElement textEl = textEls[i];
+				if(textEl != null) {
+					textEl.clearError();
+					if(!StringHelper.containsNonWhitespace(textEl.getValue())) {
+						textEl.setErrorKey("form.legende.mandatory", null);
+						allOk &= false;
 					}
 				}
 			}
@@ -274,6 +401,20 @@ public class OAuthAdminController extends FormBasicController {
 			adfsApiKeyEl.setVisible(adfsEl.isAtLeastSelected(1));
 			adfsDefaultEl.setVisible(adfsEl.isAtLeastSelected(1));
 			adfsOAuth2EndpointEl.setVisible(adfsEl.isAtLeastSelected(1));
+		} else if(source == openIdConnectIFEl) {
+			openIdConnectIFIssuerEl.setVisible(openIdConnectIFEl.isAtLeastSelected(1));
+			openIdConnectIFApiKeyEl.setVisible(openIdConnectIFEl.isAtLeastSelected(1));
+			openIdConnectIFDefaultEl.setVisible(openIdConnectIFEl.isAtLeastSelected(1));
+			openIdConnectIFApiSecretEl.setVisible(openIdConnectIFEl.isAtLeastSelected(1));
+			openIdConnectIFAuthorizationEndPointEl.setVisible(openIdConnectIFEl.isAtLeastSelected(1));
+		} else if(addProviderLink == source) {
+			doAddOpenIDConnectIFCustom(ureq);
+		} else if(source instanceof FormLink) {
+			FormLink link = (FormLink)source;
+			if("delete".equals(link.getCmd())) {
+				ConfigurableProviderWrapper providerWrapper = (ConfigurableProviderWrapper)link.getUserObject();
+				doConfirmDelete(ureq, providerWrapper);
+			}	
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
@@ -332,6 +473,158 @@ public class OAuthAdminController extends FormBasicController {
 			oauthModule.setAdfsApiKey("");
 			oauthModule.setAdfsRootEnabled(false);
 			oauthModule.setAdfsOAuth2Endpoint("");
+		}
+		
+		if(openIdConnectIFEl.isAtLeastSelected(1)) {
+			oauthModule.setOpenIdConnectIFEnabled(true);
+			oauthModule.setOpenIdConnectIFApiKey(openIdConnectIFApiKeyEl.getValue());
+			oauthModule.setOpenIdConnectIFApiSecret(openIdConnectIFApiSecretEl.getValue());
+			oauthModule.setOpenIdConnectIFRootEnabled(openIdConnectIFDefaultEl.isAtLeastSelected(1));
+			oauthModule.setOpenIdConnectIFIssuer(openIdConnectIFIssuerEl.getValue());
+			oauthModule.setOpenIdConnectIFAuthorizationEndPoint(openIdConnectIFAuthorizationEndPointEl.getValue());
+		} else {
+			oauthModule.setOpenIdConnectIFEnabled(false);
+			oauthModule.setOpenIdConnectIFApiKey("");
+			oauthModule.setOpenIdConnectIFApiSecret("");
+			oauthModule.setOpenIdConnectIFRootEnabled(false);
+			oauthModule.setOpenIdConnectIFIssuer("");
+			oauthModule.setOpenIdConnectIFAuthorizationEndPoint("");
+		}
+		
+		for(ConfigurableProviderWrapper wrapper:providerWrappers) {
+			wrapper.commit();
+		}
+	}
+	
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(addConfigCtrl == source) {
+			if(event == Event.DONE_EVENT) {
+				initCustomProviders();
+			}
+			cmc.deactivate();
+			cleanUp();
+		} else if(confirmDeleteCtrl == source) {
+			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
+				ConfigurableProviderWrapper providerWrapper = (ConfigurableProviderWrapper)confirmDeleteCtrl.getUserObject();
+				doDelete(providerWrapper);
+			}
+		} else if(cmc == source) {
+			cleanUp();
+		}
+		super.event(ureq, source, event);
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(addConfigCtrl);
+		removeAsListenerAndDispose(cmc);
+		addConfigCtrl = null;
+		cmc = null;
+	}
+
+	private void doAddOpenIDConnectIFCustom(UserRequest ureq) {
+		addConfigCtrl = new AddOpenIDConnectIFFullConfigurableController(ureq, getWindowControl());
+		listenTo(addConfigCtrl);
+
+		String title = translate("add.openidconnectif.custom");
+		cmc = new CloseableModalController(getWindowControl(), null, addConfigCtrl.getInitialComponent(), true, title, true);
+		listenTo(cmc);
+		cmc.activate();
+	}
+	
+	private void doConfirmDelete(UserRequest ureq, ConfigurableProviderWrapper providerWrapper) {
+		OAuthSPI spi = providerWrapper.getSpi();
+		String title = translate("confirm.delete.provider.title", new String[]{ spi.getProviderName() });
+		String text = translate("confirm.delete.provider.text", new String[]{ spi.getProviderName() });
+		confirmDeleteCtrl = activateOkCancelDialog(ureq, title, text, confirmDeleteCtrl);
+		confirmDeleteCtrl.setUserObject(providerWrapper);
+	}
+	
+	private void doDelete(ConfigurableProviderWrapper providerWrapper) {
+		OAuthSPI spi = providerWrapper.getSpi();
+		if(spi instanceof OpenIdConnectFullConfigurableProvider) {
+			oauthModule.removeAdditionalOpenIDConnectIF(spi.getProviderName());
+		}
+		initCustomProviders();
+	}
+	
+	public class ConfigurableProviderWrapper {
+		
+		private FormLayoutContainer openIdConnectIFCont;
+		
+		private FormLink deleteButton;
+		private MultipleSelectionElement openIdConnectIFConfEl;
+		private TextElement openIdConnectIFConfName;
+		private TextElement openIdConnectIFConfDisplayName;
+		private TextElement openIdConnectIFConfApiKeyEl;
+		private TextElement openIdConnectIFConfApiSecretEl;
+		private TextElement openIdConnectIFConfIssuerEl;
+		private TextElement openIdConnectIFConfAuthorizationEndPointEl;
+		
+		private final OpenIdConnectFullConfigurableProvider spi;
+		
+		public ConfigurableProviderWrapper(OpenIdConnectFullConfigurableProvider spi) {
+			this.spi = spi;
+		}
+		
+		public OpenIdConnectFullConfigurableProvider getSpi() {
+			return spi;
+		}
+		
+		public FormItemContainer getLayoutCont() {
+			return openIdConnectIFCont;
+		}
+		
+		public void initForm(FormItemContainer container) {
+			String counter = Long.toString(CodeHelper.getRAMUniqueID());
+			openIdConnectIFCont = FormLayoutContainer.createDefaultFormLayout("openidconnectif." + counter, getTranslator());
+			openIdConnectIFCont.setFormTitle(translate("openidconnectif.admin.custom.title", new String[]{ spi.getProviderName() }));
+			openIdConnectIFCont.setFormTitleIconCss("o_icon o_icon_provider_openid");
+			openIdConnectIFCont.setRootForm(mainForm);
+			container.add(openIdConnectIFCont);
+			openIdConnectIFConfEl = uifactory.addCheckboxesHorizontal("openidconnectif." + counter + ".default.enabled", "openidconnectif.default.enabled", openIdConnectIFCont, keys, values);
+			if(spi.isRootEnabled()) {
+				openIdConnectIFConfEl.select(keys[0], true);
+			}
+			
+			String providerName = spi.getProviderName();
+			openIdConnectIFConfName = uifactory.addTextElement("openidconnectif." + counter + ".name", "openidconnectif.name", 256, providerName, openIdConnectIFCont);
+			openIdConnectIFConfName.setEnabled(false);
+			
+			String displayName = spi.getDisplayName();
+			openIdConnectIFConfDisplayName = uifactory.addTextElement("openidconnectif." + counter + ".displayname", "openidconnectif.displayname", 256, displayName, openIdConnectIFCont);
+			String apiKey = spi.getAppKey();
+			openIdConnectIFConfApiKeyEl = uifactory.addTextElement("openidconnectif." + counter + ".id", "openidconnectif.api.id", 256, apiKey, openIdConnectIFCont);
+			String apiSecret = spi.getAppSecret();
+			openIdConnectIFConfApiSecretEl = uifactory.addTextElement("openidconnectif." + counter + ".secret", "openidconnectif.api.secret", 256, apiSecret, openIdConnectIFCont);
+			String issuer = spi.getIssuer();
+			openIdConnectIFConfIssuerEl = uifactory.addTextElement("openidconnectif." + counter + ".issuer", "openidconnectif.issuer", 256, issuer, openIdConnectIFCont);
+			openIdConnectIFConfIssuerEl.setExampleKey("openidconnectif.issuer.example", null);
+			String endPoint = spi.getEndPoint();
+			openIdConnectIFConfAuthorizationEndPointEl = uifactory.addTextElement("openidconnectif." + counter + ".authorization.endpoint", "openidconnectif.authorization.endpoint", 256, endPoint, openIdConnectIFCont);
+			openIdConnectIFConfAuthorizationEndPointEl.setExampleKey("openidconnectif.authorization.endpoint.example", null);
+
+			deleteButton  = uifactory.addFormLink("delete.".concat(counter), "delete", "delete", null, openIdConnectIFCont, Link.BUTTON);
+			deleteButton.setUserObject(this);
+		}
+
+		protected boolean validateFormLogic() {
+			boolean allOk = true;
+			
+			allOk &= mandatory(openIdConnectIFConfName, openIdConnectIFConfDisplayName, openIdConnectIFConfApiKeyEl, openIdConnectIFConfApiSecretEl,
+					openIdConnectIFConfIssuerEl, openIdConnectIFConfAuthorizationEndPointEl);
+			
+			return allOk;
+		}
+		
+		protected void commit() {
+			String displayName = openIdConnectIFConfDisplayName.getValue();
+			String issuer = openIdConnectIFConfIssuerEl.getValue();
+			String endPoint = openIdConnectIFConfAuthorizationEndPointEl.getValue();
+			String apiKey = openIdConnectIFConfApiKeyEl.getValue();
+			String apiSecret = openIdConnectIFConfApiSecretEl.getValue();
+			boolean rootEnabled = openIdConnectIFConfEl.isAtLeastSelected(1);
+			oauthModule.setAdditionalOpenIDConnectIF(spi.getProviderName(), displayName, rootEnabled, issuer, endPoint, apiKey, apiSecret);
 		}
 	}
 }

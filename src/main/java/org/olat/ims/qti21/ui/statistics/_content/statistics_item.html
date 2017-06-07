@@ -1,0 +1,56 @@
+#if($r.available("filter"))
+<div class="o_button_group o_button_group_right">
+	$r.render("filter")
+</div>
+#end
+
+<div class="o_qti_statistics">
+	#if($sectionTitle)
+	<h5>$r.translate("section"): $r.escapeHtml($sectionTitle)</h5>
+	#end
+	<h3><i class="o_icon $itemCss""> </i> $r.escapeHtml($title)</h3>
+	#if ($question && $question != "")
+		<h4>$r.translate("chart.item")</h4>
+		<div class="o_qti_statistics_question clearfix">$r.escapeHtml($question)</div>
+	#end
+	
+	<h4>$r.translate("fig.title")</h4>
+	<table class="o_qti_statistics_figures"><tbody>
+		#if($numOfParticipants)
+		<tr><td>$r.translate("fig.participants")</td>
+			<td>$numOfParticipants</td></tr>
+		#end
+		#if($maxScore)
+		<tr><td>$r.translate("chart.maxscore")</td>
+			<td>$maxScore</td></tr>
+		#end
+		#if($rightAnswers)
+		<tr><td>$r.translate("fig.correctanswers")</td>
+			<td>$rightAnswers</td></tr>
+		#end
+		#if($wrongAnswers)
+		<tr><td>$r.translate("fig.wronganswers")</td>
+			<td>$wrongAnswers</td></tr>
+		#end
+		#if($notAnswered)
+		<tr><td>$r.translate("fig.notanswered")</td>
+			<td>$notAnswered</td></tr>
+		#end
+		#if($itemDifficulty)
+		<tr><td>$r.translate("fig.itemdiff")</td>
+			<td>$itemDifficulty</td></tr>
+		#end
+		#if($averageScore)
+		<tr><td>$r.translate("fig.averagescore")</td>
+			<td>$averageScore</td></tr>
+		#end
+		#if($averageDuration)
+		<tr><td>$r.translate("fig.averagedur")</td>
+			<td>$averageDuration</td></tr>
+		#end
+	</tbody></table>
+
+	#foreach($interactionId in $interactionIds)
+		$r.render($interactionId)
+	#end
+</div>

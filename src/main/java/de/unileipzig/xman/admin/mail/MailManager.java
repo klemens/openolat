@@ -63,6 +63,6 @@ public class MailManager {
 		}
 		mail.setContent(subject, body);
 		
-		return mailer.sendExternMessage(mail, null).isSuccessful();
+		return mailer.sendExternMessage(mail, null, false).isSuccessful();
 	}
 }

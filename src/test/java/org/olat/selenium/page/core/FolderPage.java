@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.junit.Assert;
+import org.olat.core.gui.render.URLBuilder;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -38,6 +39,8 @@ import org.openqa.selenium.WebElement;
  */
 public class FolderPage {
 	
+	public static final By folderBy = By.cssSelector("div.o_briefcase_folder");
+	
 	@Drone
 	private WebDriver browser;
 	
@@ -51,6 +54,7 @@ public class FolderPage {
 	
 	public FolderPage assertOnFolderCmp() {
 		By folderCmpBy = By.className("o_briefcase_foldercomp");
+		OOGraphene.waitElement(folderCmpBy, 5, browser);
 		List<WebElement> folderCmpEl = browser.findElements(folderCmpBy);
 		Assert.assertFalse(folderCmpEl.isEmpty());
 		return this;
@@ -72,8 +76,10 @@ public class FolderPage {
 	}
 	
 	public FolderPage assertOnDirectory(String name) {
-		String escapedName = name.replace(" ", "%20");
-		By directoryBy = By.xpath("//table[contains(@class,'o_bc_table')]//a[contains(@href,'" + escapedName + "')]");
+		// encode name same was as in UI
+		URLBuilder urlBuilder = new URLBuilder("", "", "");
+		String escapedName = urlBuilder.encodeUrl(name);
+		By directoryBy = By.xpath("//table[contains(@class,'o_bc_table')]//a[contains(@onclick,'" + escapedName + "')]");
 		List<WebElement> directoryEls = browser.findElements(directoryBy);
 		Assert.assertFalse(directoryEls.isEmpty());
 		return this;

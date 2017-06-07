@@ -25,6 +25,7 @@
 
 package org.olat.core.commons.services.notifications.manager;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -100,7 +101,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 
 	private static final int PUB_STATE_OK = 0;
 	private static final int PUB_STATE_NOT_OK = 1;
-	private static final int BATCH_SIZE = 100;
+	private static final int BATCH_SIZE = 500;
 	private static final String LATEST_EMAIL_USER_PROP = "noti_latest_email";
 	private final SubscriptionInfo NOSUBSINFO = new NoSubscriptionInfo();
 
@@ -209,6 +210,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(IdentityRef identity, List<String> types) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select sub from notisub as sub ")
 		  .append("inner join fetch sub.publisher as publisher ")
@@ -235,6 +238,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(IdentityRef identity, long resId) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select sub from notisub as sub ")
 		  .append("inner join fetch sub.publisher as publisher ")
@@ -254,6 +259,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getValidSubscribers(Identity identity) {
+		if(identity == null) return Collections.emptyList();
+		
 		StringBuilder q = new StringBuilder();
 		q.append("select sub from notisub sub ")
 		 .append(" inner join fetch sub.publisher as pub ")
@@ -315,14 +322,16 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		return sis;
 	}
 	
+	@Override
 	public void notifyAllSubscribersByEmail() {
 		logAudit("starting notification cronjob to send email", null);
 		WorkThreadInformations.setLongRunningTask("sendNotifications");
 		
 		int counter = 0;
+		int closeConnection = 0;
 		List<Identity> identities;
 		do {
-			identities = securityManager.loadIdentities(counter, BATCH_SIZE);
+			identities = securityManager.loadVisibleIdentities(counter, BATCH_SIZE);
 			for(Identity identity:identities) {
 				if(identity.getName().startsWith("guest_")) {
 					Roles roles = securityManager.getRoles(identity);
@@ -330,8 +339,11 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 						continue;
 					}
 				}
-				
+				closeConnection++;
 				processSubscribersByEmail(identity);
+				if(closeConnection % 20 == 0) {
+					dbInstance.commitAndCloseSession();
+				}
 			}
 			counter += identities.size();
 			dbInstance.commitAndCloseSession();
@@ -343,7 +355,6 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	}
 	
 	private void processSubscribersByEmail(Identity ident) {
-		long start = System.currentTimeMillis();
 		if(ident.getStatus().compareTo(Identity.STATUS_VISIBLE_LIMIT) >= 0) {
 			return;//send only to active user
 		}
@@ -353,6 +364,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			return;
 		}
 
+		long start = System.currentTimeMillis();
 		Date compareDate = getCompareDateFromInterval(userInterval);
 		Property p = propertyManager.findProperty(ident, null, null, null, LATEST_EMAIL_USER_PROP);
 		if(p != null) {
@@ -390,10 +402,10 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 					//no notification older than a month
 					latestEmail = defaultCompareDate;
 				}
-				subsitem = createSubscriptionItem(sub, locale, SubscriptionInfo.MIME_PLAIN, SubscriptionInfo.MIME_PLAIN, latestEmail);
+				subsitem = createSubscriptionItem(sub, locale, SubscriptionInfo.MIME_HTML, SubscriptionInfo.MIME_HTML, latestEmail);
 			}	else if(latestEmail != null && latestEmail.after(compareDate)) {
 				//already send an email within the user's settings interval
-				veto = true;
+				//veto = true;
 			}
 			if (subsitem != null) {
 				items.add(subsitem);
@@ -487,7 +499,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	
 	@Override
 	public boolean sendMailToUserAndUpdateSubscriber(Identity curIdent, List<SubscriptionItem> items, Translator translator, List<Subscriber> subscribersToUpdate) {
-		boolean sentOk = sendEmail(curIdent, translator.translate("rss.title", new String[] { NotificationHelper.getFormatedName(curIdent) }), items);
+		boolean sentOk = sendEmail(curIdent, translator, items);
 		// save latest email sent date for the subscription just emailed
 		// do this only if the mail was successfully sent
 		if (sentOk) {
@@ -518,28 +530,55 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 	}
 	
-	private boolean sendEmail(Identity to, String title, List<SubscriptionItem> subItems) {
-		StringBuilder plaintext = new StringBuilder();
+	private boolean sendEmail(Identity to, Translator translator, List<SubscriptionItem> subItems) {
+		String title = translator.translate("rss.title", new String[] { NotificationHelper.getFormatedName(to) });
+		StringBuilder htmlText = new StringBuilder();
+		htmlText.append("<style>");
+		htmlText.append(".o_m_sub h4 {margin: 0 0 10px 0;}");
+		htmlText.append(".o_m_sub ul {padding: 0 0 5px 20px; margin: 0;}");
+		htmlText.append(".o_m_sub ul li {padding: 0; margin: 1px 0;}");
+		htmlText.append(".o_m_go {padding: 5px 0 0 0}");
+		htmlText.append(".o_date {font-size: 90%; color: #888}");		
+		htmlText.append("</style>");
+		
 		for (Iterator<SubscriptionItem> it_subs = subItems.iterator(); it_subs.hasNext();) {
 			SubscriptionItem subitem = it_subs.next();
-			plaintext.append(subitem.getTitle());
-			if(StringHelper.containsNonWhitespace(subitem.getLink())) {
-				plaintext.append("\n");
-				plaintext.append(subitem.getLink());
+			// o_m_wrap class for overriding styles in master mail template		
+			htmlText.append("<div class='o_m_wrap'>");	 
+			// add background here for gmail as they ignore classes. 
+			htmlText.append("<div class='o_m_sub' style='background: #FAFAFA; padding: 5px 5px; margin: 10px 0;'>");			
+			// 1: title
+			htmlText.append(subitem.getTitle());				
+			htmlText.append("\n");
+			// 2: content
+			String desc = subitem.getDescription();
+			if(StringHelper.containsNonWhitespace(desc)) {
+				htmlText.append(desc);
 			}
-			plaintext.append("\n");
-			if(StringHelper.containsNonWhitespace(subitem.getDescription())) {
-				plaintext.append(subitem.getDescription());
+			// 3: goto-link
+			String link = subitem.getLink();
+			if(StringHelper.containsNonWhitespace(link)) {
+				htmlText.append("<div class='o_m_go'><a href=\"").append(link).append("\">");
+				SubscriptionInfo subscriptionInfo = subitem.getSubsInfo();
+				if (subscriptionInfo != null) {
+					String innerType = subscriptionInfo.getType();
+					String typeName = NewControllerFactory.translateResourceableTypeName(innerType, translator.getLocale());
+					String open = translator.translate("resource.open", new String[] { typeName });
+					htmlText.append(open);
+					htmlText.append(" &raquo;</a></div>");
+				}
 			}
-			plaintext.append("\n\n");
+
+			htmlText.append("\n");
+			htmlText.append("</div></div>");
 		}
 
 		MailerResult result = null;
 		try {
 			MailBundle bundle = new MailBundle();
 			bundle.setToId(to);
-			bundle.setContent(title, plaintext.toString());
-			result = CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null);
+			bundle.setContent(title, htmlText.toString());
+			result = CoreSpringFactory.getImpl(MailManager.class).sendExternMessage(bundle, null, true);
 		} catch (Exception e) {
 			// FXOLAT-294 :: sending the mail will throw nullpointer exception if To-Identity has no
 			// valid email-address!, catch it...
@@ -639,7 +678,17 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		if (res.size() != 1) throw new AssertException("only one subscriber per person and publisher!!");
 		return res.get(0);
 	}
-	
+
+	@Override
+	public void updatePublisherData(SubscriptionContext subsContext, PublisherData data){
+		Publisher publisher= getPublisherForUpdate(subsContext);
+		if(publisher != null){
+			publisher.setData(data.getData());
+			dbInstance.getCurrentEntityManager().merge(publisher);
+			dbInstance.commit();
+		}
+	}
+
 	private Publisher getPublisherForUpdate(SubscriptionContext subsContext) {
 		Publisher pub = getPublisher(subsContext);
 		if(pub != null && pub.getKey() != null) {
@@ -679,6 +728,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * 
 	 * @param ores
 	 */
+	@Override
 	public void deletePublishersOf(OLATResourceable ores) {
 		String type = ores.getResourceableTypeName();
 		Long id = ores.getResourceableId();
@@ -705,12 +755,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public Subscriber getSubscriber(Identity identity, Publisher publisher) {
-		StringBuilder q = new StringBuilder();
-		q.append("select sub from notisub as sub ")
-		 .append(" where sub.publisher.key=:publisherKey and sub.identity.key=:identityKey");
-		
 		List<Subscriber> res = dbInstance.getCurrentEntityManager()
-				.createQuery(q.toString(), Subscriber.class)
+				.createNamedQuery("subscribersByPublisherAndIdentity", Subscriber.class)
 				.setParameter("publisherKey", publisher.getKey())
 				.setParameter("identityKey", identity.getKey())
 				.getResultList();
@@ -726,9 +772,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Subscriber> getSubscribers(Publisher publisher) {
-		String q = "select sub notisub sub where sub.publisher = :publisher";
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(q, Subscriber.class)
+				.createNamedQuery("subscribersByPublisher", Subscriber.class)
 				.setParameter("publisher", publisher)
 				.getResultList();
 	}
@@ -739,9 +784,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	@Override
 	public List<Identity> getSubscriberIdentities(Publisher publisher) {
-		String q = "select sub.identity from notisub sub where sub.publisher = :publisher";
 		return dbInstance.getCurrentEntityManager()
-				.createQuery(q, Identity.class)
+				.createNamedQuery("identitySubscribersByPublisher", Identity.class)
 				.setParameter("publisher", publisher)
 				.getResultList();
 	}
@@ -772,6 +816,15 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	private void deleteSubscriber(Subscriber subscriber) {
 		dbInstance.deleteObject(subscriber);
+	}
+	
+	public boolean deleteSubscriber(Long subscriberKey) {
+		String sb = "delete from notisub sub where sub.key=:subscriberKey";
+		int rows = dbInstance.getCurrentEntityManager()
+				.createQuery(sb)
+				.setParameter("subscriberKey", subscriberKey)
+				.executeUpdate();
+		return rows > 0;
 	}
 
 	/**
@@ -824,6 +877,31 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 		dbInstance.commit();
 	}
+	
+	@Override
+	public void subscribe(List<Identity> identities, SubscriptionContext subscriptionContext,
+			PublisherData publisherData) {
+		if(identities == null || identities.isEmpty()) return;
+		
+		Publisher toUpdate = getPublisherForUpdate(subscriptionContext);
+		if(toUpdate == null) {
+			//create the publisher
+			findOrCreatePublisher(subscriptionContext, publisherData);
+			//lock the publisher
+			toUpdate = getPublisherForUpdate(subscriptionContext);
+		}
+
+		for(Identity identity:identities) {
+			Subscriber s = getSubscriber(identity, toUpdate);
+			if (s == null) {
+				// no subscriber -> create.
+				// s.latestReadDate >= p.latestNewsDate == no news for subscriber when no
+				// news after subscription time
+				doCreateAndPersistSubscriber(toUpdate, identity);
+			}
+		}
+		dbInstance.commit();	
+	}
 
 	/**
 	 * call this method to indicate that there is news for the given
@@ -874,6 +952,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	/**
 	 * @see org.olat.core.commons.services.notifications.NotificationsManager#registerAsListener(org.olat.core.util.event.GenericEventListener, org.olat.core.id.Identity)
 	 */
+	@Override
 	public void registerAsListener(GenericEventListener gel, Identity ident) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(gel, ident, oresMyself);
 	}
@@ -881,6 +960,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	/**
 	 * @see org.olat.core.commons.services.notifications.NotificationsManager#deregisterAsListener(org.olat.core.util.event.GenericEventListener)
 	 */
+	@Override
 	public void deregisterAsListener(GenericEventListener gel) {
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(gel, oresMyself);
 	}
@@ -889,17 +969,33 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param identity
 	 * @param subscriptionContext
 	 */
+	@Override
 	public void unsubscribe(Identity identity, SubscriptionContext subscriptionContext) {
-		// no need to sync, since an identity only has one gui thread / one mouse
 		Publisher p = getPublisherForUpdate(subscriptionContext);
-		// if no publisher yet.
-		//TODO: check race condition: can p be null at all?
 		if (p != null) {
 			Subscriber s = getSubscriber(identity, p);
 			if (s != null) {
 				deleteSubscriber(s);
 			} else {
 				logWarn("could not unsubscribe " + identity.getName() + " from publisher:" + p.getResName() + ","	+ p.getResId() + "," + p.getSubidentifier(), null);
+			}
+		}
+		dbInstance.commit();
+	}
+	
+	@Override
+	public void unsubscribe(List<Identity> identities, SubscriptionContext subscriptionContext) {
+		if(identities == null || identities.isEmpty()) return;
+
+		Publisher p = getPublisherForUpdate(subscriptionContext);
+		if (p != null) {
+			for(Identity identity:identities) {
+				Subscriber s = getSubscriber(identity, p);
+				if (s != null) {
+					deleteSubscriber(s);
+				} else {
+					logWarn("could not unsubscribe " + identity.getName() + " from publisher:" + p.getResName() + ","	+ p.getResId() + "," + p.getSubidentifier(), null);
+				}
 			}
 		}
 		dbInstance.commit();
@@ -958,6 +1054,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * 
 	 * @param scontext the subscriptioncontext
 	 */
+	@Override
 	public void delete(SubscriptionContext scontext) {
 		Publisher p = getPublisher(scontext);
 		// if none found, no one has subscribed yet and therefore no publisher has
@@ -1071,7 +1168,9 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 		
 		String description = subsInfo.getSpecificInfo(mimeTypeContent, locale);
-		return new SubscriptionItem(title, itemLink, description);
+		SubscriptionItem subscriptionItem =  new SubscriptionItem(title, itemLink, description);
+		subscriptionItem.setSubsInfo(subsInfo);
+		return subscriptionItem;
 	}
 	
 	/**
@@ -1083,19 +1182,16 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 */
 	private String getFormatedTitle(SubscriptionInfo subsInfo, Subscriber subscriber, Locale locale, String mimeType){
 		Publisher pub = subscriber.getPublisher();
-		String innerType = pub.getType();
-		String typeName = NewControllerFactory.translateResourceableTypeName(innerType, locale);
 		StringBuilder titleSb = new StringBuilder();
-		titleSb.append(typeName);
 		
 		String title = subsInfo.getTitle(mimeType);
 		if (StringHelper.containsNonWhitespace(title)) {
-			titleSb.append(": ").append(title);
+			titleSb.append(title);
 		} else {
 			NotificationsHandler notifHandler = getNotificationsHandler(pub);
 			String titleInfo = notifHandler.createTitleInfo(subscriber, locale);
 			if (StringHelper.containsNonWhitespace(titleInfo)) {
-				titleSb.append(": ").append(titleInfo);
+				titleSb.append(titleInfo);
 			}
 		}
 		
@@ -1114,7 +1210,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * Delete all subscribers for certain identity.
 	 * @param identity
 	 */
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	@Override
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		List<Subscriber> subscribers = getSubscribers(identity);
 		for (Iterator<Subscriber> iter = subscribers.iterator(); iter.hasNext();) {
 			deleteSubscriber( iter.next() );
@@ -1146,6 +1243,9 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 	 * @param defaultNotificationInterval
 	 */
 	public void setDefaultNotificationInterval(String defaultNotificationInterval) {
+		if (defaultNotificationInterval != null) {
+			defaultNotificationInterval = defaultNotificationInterval.trim();
+		}
 		this.defaultNotificationInterval = defaultNotificationInterval;
 	}
 

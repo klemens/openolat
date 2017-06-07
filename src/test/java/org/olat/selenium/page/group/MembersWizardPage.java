@@ -88,6 +88,7 @@ public class MembersWizardPage {
 		
 		//check
 		By checkAllBy = By.cssSelector("div.modal div.o_table_wrapper input[type='checkbox']");
+		OOGraphene.waitElement(checkAllBy, 5, browser);
 		List<WebElement> checkAll = browser.findElements(checkAllBy);
 		Assert.assertFalse(checkAll.isEmpty());
 		for(WebElement check:checkAll) {
@@ -105,6 +106,37 @@ public class MembersWizardPage {
 		By importAreaBy = By.cssSelector(".modal-content textarea");
 		WebElement importAreaEl = browser.findElement(importAreaBy);
 		OOGraphene.textarea(importAreaEl, sb.toString(), browser);
+		return this;
+	}
+	
+	public MembersWizardPage selectRepositoryEntryRole(boolean owner, boolean coach, boolean participant) {
+		if(owner) {
+			By ownerBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='owner']");
+			WebElement ownerEl = browser.findElement(ownerBy);
+			OOGraphene.check(ownerEl, new Boolean(owner));
+			OOGraphene.waitBusy(browser);
+		}
+		
+		if(coach) {
+			By coachBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='tutor']");
+			WebElement coachEl = browser.findElement(coachBy);
+			OOGraphene.check(coachEl, new Boolean(coach));
+			OOGraphene.waitBusy(browser);
+		}
+		
+		if(participant) {
+			By participantBy = By.cssSelector("label input[name='repoRights'][type='checkbox'][value='participant']");
+			WebElement participantEl = browser.findElement(participantBy);
+			OOGraphene.check(participantEl, new Boolean(participant));
+			OOGraphene.waitBusy(browser);
+		}
+		return this;
+	}
+	
+	public MembersWizardPage selectGroupAsParticipant(String groupName) {
+		By rolesBy = By.xpath("//div[contains(@class,'o_table_wrapper')]//table//tr[td[text()='" + groupName + "']]//label[contains(@class,'o_sel_role_participant')]/input");
+		List<WebElement> roleEls = browser.findElements(rolesBy);
+		roleEls.get(0).click();
 		return this;
 	}
 }

@@ -37,7 +37,7 @@ import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.SecurityGroup;
 import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.commons.services.notifications.NotificationUIFactory;
+import org.olat.core.commons.services.notifications.ui.NotificationSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
@@ -165,6 +165,11 @@ public class UserAdminController extends BasicController implements Activateable
 		String entryPoint = entries.get(0).getOLATResourceable().getResourceableTypeName();
 		if("tab".equals(entryPoint)) {
 			userTabP.activate(ureq, entries, state);
+		} else if("table".equals(entryPoint)) {
+			if(entries.size() > 2) {
+				List<ContextEntry> subEntries = entries.subList(2, entries.size());
+				userTabP.activate(ureq, subEntries, state);
+			}
 		} else if (userTabP != null) {
 			userTabP.setSelectedPane(translate(entryPoint));
 		}
@@ -324,7 +329,7 @@ public class UserAdminController extends BasicController implements Activateable
 
 		Boolean canSubscriptions = BaseSecurityModule.USERMANAGER_CAN_MODIFY_SUBSCRIPTIONS;
 		if (canSubscriptions.booleanValue() || isOlatAdmin) {
-			Controller subscriptionsCtr = NotificationUIFactory.createSubscriptionListingController(identity, ureq, getWindowControl());
+			Controller subscriptionsCtr = new NotificationSubscriptionController(ureq, getWindowControl(), identity, true);
 			listenTo(subscriptionsCtr); // auto-dispose
 			userTabP.addTab(translate(NLS_VIEW_SUBSCRIPTIONS), subscriptionsCtr.getInitialComponent());			
 		}

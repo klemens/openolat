@@ -30,7 +30,6 @@ import org.olat.core.commons.services.notifications.PublisherData;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
-import org.olat.core.util.mail.MailerResult;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.ICourse;
@@ -61,6 +60,8 @@ public interface CertificatesManager {
 	
 	//repository maintenance
 	public int deleteRepositoryEntry(RepositoryEntry re);
+	
+	public List<OLATResource> getResourceWithCertificates();
 	
 	//templates management
 	public List<CertificateTemplate> getTemplates();
@@ -130,12 +131,15 @@ public interface CertificatesManager {
 	
 	public List<Certificate> getCertificatesForNotifications(Identity identity, RepositoryEntry entry, Date lastNews);
 
+	public List<Certificate> getCertificates(OLATResource resource);
 	
 	public boolean hasCertificate(IdentityRef identity, Long resourceKey);
 	
 	public Certificate getLastCertificate(IdentityRef identity, Long resourceKey);
 	
 	public List<Certificate> getCertificates(IdentityRef identity, OLATResource resource);
+	
+	
 	
 	/**
 	 * Check if recertification is allowed and if it is the case, check the
@@ -149,15 +153,23 @@ public interface CertificatesManager {
 	
 	public boolean isCertificationAllowed(Identity identity, RepositoryEntry entry);
 	
+	/**
+	 * Get the next re-certification date or NULL if no recertification possible
+	 * @param certificate An exiting certificate
+	 * @param entry The repository entry of the course
+	 * @return Date representing the next possible recertification date or NULL if no recertification possible at this time
+	 */
+	public Date getDateNextRecertification(Certificate certificate, RepositoryEntry entry);
+	
 	public File previewCertificate(CertificateTemplate template, RepositoryEntry entry, Locale locale);
 
 	public Certificate uploadCertificate(Identity identity, Date creationDate, OLATResource resource, File certificateFile);
 	
 	public Certificate uploadStandaloneCertificate(Identity identity, Date creationDate, String courseTitle, Long resourceKey, File certificateFile);
 	
-	public void generateCertificates(List<CertificateInfos> identities, RepositoryEntry entry, CertificateTemplate template, MailerResult result);
+	public void generateCertificates(List<CertificateInfos> identities, RepositoryEntry entry, CertificateTemplate template, boolean sendMail);
 
-	public Certificate generateCertificate(CertificateInfos identity, RepositoryEntry entry, CertificateTemplate template, MailerResult result);
+	public Certificate generateCertificate(CertificateInfos identity, RepositoryEntry entry, CertificateTemplate template, boolean sendMail);
 	
 	public void deleteCertificate(Certificate certificate);
 

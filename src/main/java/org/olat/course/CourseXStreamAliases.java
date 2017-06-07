@@ -24,6 +24,7 @@ import org.olat.core.gui.control.generic.iframe.DeliveryOptions;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ExtendedCondition;
+import org.olat.course.condition.operators.AttributeEndswithOperator;
 import org.olat.course.condition.operators.AttributeStartswithOperator;
 import org.olat.course.condition.operators.EqualsOperator;
 import org.olat.course.condition.operators.GreaterThanEqualsOperator;
@@ -97,6 +98,7 @@ public class CourseXStreamAliases {
 		//start read configuration (mostly for compatibility with OLAT 7.3 and greater)
 		readXstream.alias("CourseConfig", CourseConfig.class);
 		readXstream.alias("com.frentix.olat.course.nodes.ViteroCourseNode", ViteroCourseNode.class);
+		readXstream.alias("org.olat.course.nodes.QTI21AssessmentCourseNode", IQTESTCourseNode.class);
 		readXstream.alias("CourseEditorTreeModel", CourseEditorTreeModel.class);
 		readXstream.alias("CourseEditorTreeNode", CourseEditorTreeNode.class);
 		readXstream.alias("Structure", Structure.class);
@@ -139,6 +141,7 @@ public class CourseXStreamAliases {
 		readXstream.alias("HasAttributeOperator", HasAttributeOperator.class);
 		readXstream.alias("HasNotAttributeOperator", HasNotAttributeOperator.class);
 		readXstream.alias("AttributeStartswithOperator", AttributeStartswithOperator.class);
+		readXstream.alias("AttributeEndswithOperator", AttributeEndswithOperator.class);
 		
 		//deleted attributes
 		readXstream.omitField(DeliveryOptions.class, "noJavascript");

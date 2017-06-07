@@ -123,10 +123,16 @@ public class IQManager implements UserDataDeletable {
 		// -- VERY RARE CASE -- 1) qti is open in an editor session right now on the screen (or session on the way to timeout)
 		// -- 99% of cases   -- 2) qti is ready to be run as test/survey
 		String repositorySoftkey = (String) moduleConfiguration.get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
-		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftkey, true);
-		if (CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(re.getOlatResource(), null)){
+		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftkey, false);
+		if(re == null) {
+			log.error("The test repository entry with this soft key could not be found: " + repositorySoftkey);
 			Translator translator = Util.createPackageTranslator(this.getClass(), ureq.getLocale());
-      //so this resource is locked, let's find out who locked it
+			String title = translator.translate("error.test.deleted.title");
+			String msg = translator.translate("error.test.deleted.msg");
+			return MessageUIFactory.createInfoMessage(ureq, wControl, title, msg);
+		} else if (CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(re.getOlatResource(), null)){
+			Translator translator = Util.createPackageTranslator(this.getClass(), ureq.getLocale());
+			//so this resource is locked, let's find out who locked it
 			LockResult lockResult = CoordinatorManager.getInstance().getCoordinator().getLocker().acquireLock(re.getOlatResource(), ureq.getIdentity(), null);
 			String fullName = userManager.getUserDisplayName(lockResult.getOwner());
 			return MessageUIFactory.createInfoMessage(ureq, wControl, translator.translate("status.currently.locked.title"), 
@@ -175,7 +181,9 @@ public class IQManager implements UserDataDeletable {
 		// -- VERY RARE CASE -- 1) qti is open in an editor session right now on the screen (or session on the way to timeout)
 		// -- 99% of cases   -- 2) qti is ready to be run as test/survey
 		if (CoordinatorManager.getInstance().getCoordinator().getLocker().isLocked(res, null)){
-			GenericMainController glc = createLockedMessageController(ureq, wControl);
+			LockResult lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().aquirePersistentLock(res, ureq.getIdentity(), null);
+			String fullName = userManager.getUserDisplayName(lockEntry.getOwner());
+			GenericMainController glc = createLockedMessageController(ureq, wControl, fullName);
 			return glc;
 		}else{
 			Controller controller = new IQDisplayController(resolver, type, secCallback, ureq, wControl);
@@ -185,23 +193,23 @@ public class IQManager implements UserDataDeletable {
 		}
 	}
 
-	private GenericMainController createLockedMessageController(UserRequest ureq, WindowControl wControl) {
+	private GenericMainController createLockedMessageController(UserRequest ureq, WindowControl wControl, String fullName) {
 		//wrap simple message into mainLayout
 		GenericMainController glc = new GenericMainController(ureq, wControl) {
 			@Override
-			public void init(UserRequest ureq) {
-				Panel empty = new Panel("empty");			
-				setTranslator(Util.createPackageTranslator(this.getClass(), ureq.getLocale())); 
-				Controller contentCtr = MessageUIFactory.createInfoMessage(ureq, getWindowControl(), translate("status.currently.locked.title"), translate("status.currently.locked"));
+			public void init(UserRequest uureq) {
+				Panel empty = new Panel("empty");
+				setTranslator(Util.createPackageTranslator(this.getClass(), uureq.getLocale()));
+				Controller contentCtr = MessageUIFactory.createInfoMessage(uureq, getWindowControl(), translate("status.currently.locked.title"), translate("status.currently.locked", fullName));
 				listenTo(contentCtr); // auto dispose later
 				Component resComp = contentCtr.getInitialComponent();
-				LayoutMain3ColsController columnLayoutCtr = new LayoutMain3ColsController(ureq, getWindowControl(), empty, resComp, /*do not save no prefs*/null);
+				LayoutMain3ColsController columnLayoutCtr = new LayoutMain3ColsController(uureq, getWindowControl(), empty, resComp, /*do not save no prefs*/null);
 				listenTo(columnLayoutCtr); // auto dispose later
 				putInitialPanel(columnLayoutCtr.getInitialComponent());
 			}
 		
 			@Override
-			protected Controller handleOwnMenuTreeEvent(Object uobject, UserRequest ureq) {
+			protected Controller handleOwnMenuTreeEvent(Object uobject, UserRequest uureq) {
 				//no menutree means no menu events.
 				return null;
 			}
@@ -254,8 +262,7 @@ public class IQManager implements UserDataDeletable {
 			default: // default => Strip nothing 
 				break;
 		}
-		StringBuilder sb = LocalizedXSLTransformer.getInstance(locale).renderResults(docResReporting);
-		return sb.toString();
+		return LocalizedXSLTransformer.getInstance(locale).renderResults(docResReporting);
 	}
 
 	/**
@@ -431,7 +438,8 @@ public class IQManager implements UserDataDeletable {
 	 * Delete all qti.ser and qti-resreporting files.
 	 * @see org.olat.user.UserDataDeletable#deleteUserData(org.olat.core.id.Identity)
 	 */
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	@Override
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		FilePersister.deleteUserData(identity);
 		if(log.isDebug())
 			log.debug("Delete all qti.ser data and qti-resreporting data for identity=" + identity);

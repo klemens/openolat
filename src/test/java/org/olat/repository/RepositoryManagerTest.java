@@ -30,6 +30,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.hibernate.LazyInitializationException;
 import org.junit.Assert;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
@@ -203,6 +205,25 @@ public class RepositoryManagerTest extends OlatTestCase {
 		OLATResource resource = repositoryManager.lookupRepositoryEntryResource(re.getKey());
 		Assert.assertNotNull(resource);
 		Assert.assertEquals(re.getOlatResource(), resource);
+	}
+	
+	@Test
+	public void lookupExistingExternalIds() {
+		RepositoryEntry re = JunitTestHelper.createAndPersistRepositoryEntry();
+		String externalId = UUID.randomUUID().toString();
+		re.setExternalId(externalId);
+		repositoryService.update(re);
+		dbInstance.commitAndCloseSession();
+		
+		//load
+		String nonExistentExternalId = UUID.randomUUID().toString();
+		List<String> externalIds = new ArrayList<>();
+		externalIds.add(externalId);
+		externalIds.add(nonExistentExternalId);
+		List<String> existentExternalIds = repositoryManager.lookupExistingExternalIds(externalIds);
+		Assert.assertNotNull(existentExternalIds);
+		Assert.assertTrue(existentExternalIds.contains(externalId));
+		Assert.assertFalse(existentExternalIds.contains(nonExistentExternalId));
 	}
 	
 	@Test
@@ -1161,6 +1182,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 		String newName = "Brand new name";
 		String newDesc = "Brand new description";
 		String newAuthors = "Me and only me";
+		String newLocation = "Far away";
 		String newExternalId = "Brand - ext";
 		String newExternalRef = "Brand - ref";
 		String newManagedFlags = RepositoryEntryManagedFlag.access.name();
@@ -1168,7 +1190,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 		RepositoryEntryLifecycle newCycle
 			= lifecycleDao.create("New cycle 1", "New cycle soft 1", false, new Date(), new Date());
 		
-		re = repositoryManager.setDescriptionAndName(re, newName, newDesc, newAuthors, newExternalId, newExternalRef, newManagedFlags, newCycle);
+		re = repositoryManager.setDescriptionAndName(re, newName, newDesc, newLocation, newAuthors, newExternalId, newExternalRef, newManagedFlags, newCycle);
 		Assert.assertNotNull(re);
 		
 		dbInstance.commitAndCloseSession();
@@ -1176,6 +1198,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 		RepositoryEntry reloaded = repositoryManager.lookupRepositoryEntry(re.getKey());
 		Assert.assertNotNull(reloaded);
 		Assert.assertEquals("Me and only me", reloaded.getAuthors());
+		Assert.assertEquals("Far away", reloaded.getLocation());
 		Assert.assertEquals("Brand new name", reloaded.getDisplayname());
 		Assert.assertEquals("Brand new description", reloaded.getDescription());
 		Assert.assertEquals("Brand - ext", reloaded.getExternalId());
@@ -1196,7 +1219,7 @@ public class RepositoryManagerTest extends OlatTestCase {
 		
 		String newName = "Brand new name";
 		String newDesc = "Brand new description";
-		re = repositoryManager.setDescriptionAndName(re, newName, null, null, newDesc, null, null, null, null, null, publicCycle);
+		re = repositoryManager.setDescriptionAndName(re, newName, null, null, newDesc, null, null, null, null, null, null, publicCycle);
 		Assert.assertNotNull(re);
 		
 		dbInstance.commitAndCloseSession();
@@ -1304,6 +1327,36 @@ public class RepositoryManagerTest extends OlatTestCase {
 		Assert.assertTrue(group1CoachRole);
 		boolean group2CoachRole = businessGroupRelationDao.hasRole(owner, group2, GroupRoles.coach.name());
 		Assert.assertTrue(group2CoachRole);
+	}
+	
+	/**
+	 * This is a simulation of OO-2667 to make sure that the LazyInitializationException don't
+	 * set the transaction on rollback.
+	 */
+	@Test
+	public void lazyLoadingCheck() {
+		RepositoryEntry re = repositoryService.create("Rei Ayanami", "-", "Repository entry DAO Test 5", "", null);
+		dbInstance.commitAndCloseSession();
+		
+		RepositoryEntryLifecycle cycle = lifecycleDao.create("New cycle 1", "New cycle soft 1", false, new Date(), new Date());
+		re = repositoryManager.setDescriptionAndName(re, "Updated repo entry", null, null, "", null, null, null, null, null, null, cycle);
+		dbInstance.commitAndCloseSession();
+		
+		RepositoryEntry lazyRe = repositoryManager.setAccess(re, 2, false);
+		dbInstance.commitAndCloseSession();
+		
+		try {// produce the exception
+			lazyRe.getLifecycle().getValidFrom();
+			Assert.fail();
+		} catch (LazyInitializationException e) {
+			//
+		}
+		
+		//load a fresh entry
+		RepositoryEntry entry = repositoryManager.lookupRepositoryEntry(lazyRe.getKey());
+		Date validFrom = entry.getLifecycle().getValidFrom();
+		Assert.assertNotNull(validFrom);
+		dbInstance.commitAndCloseSession();
 	}
 
 	private RepositoryEntry createRepositoryEntry(final String type, Identity owner, long i) {

@@ -27,8 +27,11 @@ package org.olat.course.nodes.bc;
 
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
+import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.modules.bc.FolderRunController;
 import org.olat.core.commons.modules.bc.vfs.OlatNamedContainerImpl;
+import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -39,7 +42,12 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.UserSession;
+import org.olat.core.util.vfs.NamedContainerImpl;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
+import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
@@ -48,14 +56,17 @@ import org.olat.course.groupsandrights.CourseRights;
 import org.olat.course.nodes.BCCourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.NodeEvaluation;
+import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
  * Initial Date: Apr 22, 2004
- * 
+ * Updated: Dez 10, 2015
+ *
  * @author gnaegi
+ * @author dfurrer, dirk.furrer@frentix.com, http://www.frentix.com
  */
 public class BCCourseNodeRunController extends DefaultController implements Activateable2 {
 
@@ -70,39 +81,108 @@ public class BCCourseNodeRunController extends DefaultController implements Acti
 	 * @param bcCourseNode
 	 * @param scallback
 	 */
-	public BCCourseNodeRunController(UserRequest ureq, WindowControl wContr, CourseEnvironment courseEnv, BCCourseNode courseNode, NodeEvaluation ne) {
+	public BCCourseNodeRunController(UserRequest ureq, WindowControl wContr, UserCourseEnvironment userCourseEnv, BCCourseNode courseNode, NodeEvaluation ne) {
 		super(wContr);
-
-		boolean isOlatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
-		boolean isGuestOnly = ureq.getUserSession().getRoles().isGuestOnly();
+		
+		CourseEnvironment courseEnv = userCourseEnv.getCourseEnvironment();
+		UserSession usess = ureq.getUserSession();
+		boolean isOlatAdmin = usess.getRoles().isOLATAdmin();
+		boolean isGuestOnly = usess.getRoles().isGuestOnly();
 		// set logger on this run controller
 		addLoggingResourceable(LoggingResourceable.wrap(courseNode));
 
 		// offer subscription, but not to guests
 		SubscriptionContext nodefolderSubContext = (isGuestOnly ? null : CourseModule.createSubscriptionContext(courseEnv, courseNode));
-
-		OlatNamedContainerImpl namedContainer = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv);
-		VFSSecurityCallback scallback = new FolderNodeCallback(namedContainer.getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
-		namedContainer.setLocalSecurityCallback(scallback);
-	
-		// fxdiff VCRP-12: copy files from course folder
-		// Allow copying of files from course folder if allowed to write and user
-		// has course editor rights (course owner and users in a right group with
-		// the author right)
-		VFSContainer courseContainer = null;
-		if(scallback.canWrite() && scallback.canCopy()) {
-			Identity identity = ureq.getIdentity();
-			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
-			RepositoryManager rm = RepositoryManager.getInstance();
-			RepositoryEntry entry = rm.lookupRepositoryEntry(course, true);
-			if (isOlatAdmin || rm.isOwnerOfRepositoryEntry(identity, entry)
-					|| courseEnv.getCourseGroupManager().hasRight(identity, CourseRights.RIGHT_COURSEEDITOR)) {
-				// use course folder as copy source
-				courseContainer = courseEnv.getCourseFolderContainer();
+		boolean noFolder = false;
+		VFSContainer target = null;
+		VFSSecurityCallback scallback;
+		if(courseNode.getModuleConfiguration().getBooleanSafe(BCCourseNodeEditController.CONFIG_AUTO_FOLDER)) {
+			OlatNamedContainerImpl directory = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv);
+			scallback = new FolderNodeCallback(directory.getRelPath(), ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
+			target = directory;
+		} else if(courseNode.isSharedFolder()) {
+			String subpath = courseNode.getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH, "");
+			VFSItem item = courseEnv.getCourseFolderContainer().resolve(subpath);
+			if(item == null){
+				noFolder = true;
+				BCCourseNodeNoFolderForm noFolderForm = new BCCourseNodeNoFolderForm(ureq, getWindowControl());
+				setInitialComponent(noFolderForm.getInitialComponent());
+			} else if(item instanceof VFSContainer){
+				target = new NamedContainerImpl(courseNode.getShortTitle(), (VFSContainer) item);
+			}
+			if(courseEnv.getCourseConfig().isSharedFolderReadOnlyMount()) {
+				scallback = new FolderNodeReadOnlyCallback(nodefolderSubContext);
+			} else {
+				String relPath = BCCourseNode.getNodeFolderContainer(courseNode, courseEnv).getRelPath();
+				scallback = new FolderNodeCallback(relPath, ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
+			}
+		} else{
+			//create folder automatically if not found
+			String subPath = courseNode.getModuleConfiguration().getStringValue(BCCourseNodeEditController.CONFIG_SUBPATH);
+			VFSContainer item = VFSManager.resolveOrCreateContainerFromPath(courseEnv.getCourseFolderContainer(), subPath);
+			
+			String relPath;
+			if(item == null) {
+				noFolder = true;
+				BCCourseNodeNoFolderForm noFolderForm = new BCCourseNodeNoFolderForm(ureq, getWindowControl());
+				setInitialComponent(noFolderForm.getInitialComponent());
+				scallback = new ReadOnlyCallback();
+			} else {
+				target = new NamedContainerImpl(courseNode.getShortTitle(), item);
+				
+				VFSContainer inheritingContainer = VFSManager.findInheritingSecurityCallbackContainer(target);
+				if (inheritingContainer != null && inheritingContainer.getLocalSecurityCallback() != null
+						&& inheritingContainer.getLocalSecurityCallback() .getQuota() != null) {
+					relPath = inheritingContainer.getLocalSecurityCallback().getQuota().getPath();
+				} else {
+					relPath = VFSManager.getRelativeItemPath(target, courseEnv.getCourseFolderContainer(), null);
+				}
+				scallback = new FolderNodeCallback(relPath, ne, isOlatAdmin, isGuestOnly, nodefolderSubContext);
 			}
 		}
-		frc = new FolderRunController(namedContainer, false, true, true, ureq, getWindowControl(), null, null, courseContainer);
-		setInitialComponent(frc.getInitialComponent());
+		
+		//course is read only, override the security callback
+		if(userCourseEnv.isCourseReadOnly()) {
+			scallback = new FolderNodeReadOnlyCallback(nodefolderSubContext);
+		}
+		
+		if(!noFolder) {
+			target.setLocalSecurityCallback(scallback);
+
+			VFSContainer courseContainer = null;
+			if(scallback.canWrite() && scallback.canCopy()) {
+				Identity identity = ureq.getIdentity();
+				ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
+				RepositoryManager rm = RepositoryManager.getInstance();
+				RepositoryEntry entry = rm.lookupRepositoryEntry(course, true);
+				if (isOlatAdmin || rm.isOwnerOfRepositoryEntry(identity, entry)
+						|| courseEnv.getCourseGroupManager().hasRight(identity, CourseRights.RIGHT_COURSEEDITOR)) {
+					// use course folder as copy source
+					courseContainer = courseEnv.getCourseFolderContainer();
+				}
+			}
+	
+			OlatNamedContainerImpl olatNamed;
+			if(!courseNode.isSharedFolder()){
+				String realPath = VFSManager.getRealPath(target);
+				String relPath = StringUtils.difference(FolderConfig.getCanonicalRoot(), realPath);
+	
+				OlatRootFolderImpl olatRel = new OlatRootFolderImpl(relPath, null);
+				olatNamed = new OlatNamedContainerImpl(target.getName(), olatRel);
+				olatNamed.setLocalSecurityCallback(scallback);
+			}else{
+				String realPath = VFSManager.getRealPath(((NamedContainerImpl)target).getDelegate());
+				String relPath = StringUtils.difference(FolderConfig.getCanonicalRoot(), realPath);
+	
+				OlatRootFolderImpl olatRel = new OlatRootFolderImpl(relPath, null);
+				olatNamed = new OlatNamedContainerImpl(target.getName(), olatRel);
+				olatNamed.setLocalSecurityCallback(scallback);
+			}
+	
+			boolean canMail = !userCourseEnv.isCourseReadOnly();
+			frc = new FolderRunController(olatNamed, true, true, canMail, ureq, getWindowControl(), null, null, courseContainer);
+			setInitialComponent(frc.getInitialComponent());
+		}
 	}
 
 	/**

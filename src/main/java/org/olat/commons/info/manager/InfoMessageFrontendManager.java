@@ -24,10 +24,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.basesecurity.IdentityRef;
 import org.olat.commons.info.model.InfoMessage;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupRef;
 
 /**
  * 
@@ -41,7 +44,7 @@ public interface InfoMessageFrontendManager {
 
 	public static  final OLATResourceable oresFrontend = OresHelper.lookupType(InfoMessageFrontendManager.class);
 	
-
+	public static final String businessGroupResSubPath = "";// may not be null
 	
 	public InfoMessage loadInfoMessage(Long key);
 	
@@ -57,7 +60,13 @@ public interface InfoMessageFrontendManager {
 	 */
 	public boolean sendInfoMessage(InfoMessage msgs, MailFormatter mailFormatter, Locale locale, Identity from, List<Identity> tos);
 	
+	public void saveInfoMessage(InfoMessage msg);
+	
 	public void deleteInfoMessage(InfoMessage infoMessage);
+	
+	public void updateInfoMessagesOfIdentity(BusinessGroupRef businessGroup, IdentityRef identity);
+	
+	public void removeInfoMessagesAndSubscriptionContext(BusinessGroup group);
 	
 	public List<InfoMessage> loadInfoMessageByResource(OLATResourceable ores, String subPath, String businessPath,
 			Date after, Date before, int firstResult, int maxReturn);

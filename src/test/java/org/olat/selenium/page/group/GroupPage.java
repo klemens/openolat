@@ -27,9 +27,10 @@ import org.olat.selenium.page.core.CalendarPage;
 import org.olat.selenium.page.core.ContactPage;
 import org.olat.selenium.page.core.FolderPage;
 import org.olat.selenium.page.core.IMPage;
+import org.olat.selenium.page.course.InfoMessageCEPage;
 import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
-import org.olat.selenium.page.portfolio.PortfolioPage;
+import org.olat.selenium.page.portfolio.BinderPage;
 import org.olat.selenium.page.wiki.WikiPage;
 import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
@@ -49,6 +50,35 @@ public class GroupPage {
 	private static final By toolsBy = By.className("o_sel_collab_tools");
 	private static final By editDetails = By.className("o_sel_group_edit_title");
 	private static final By bookingConfigBy = By.className("o_sel_accesscontrol_create");
+	private static final By memberMenuItem = By.cssSelector("li.o_sel_group_members a");
+	
+	private static final Tool calendarTool = new Tool(
+			By.cssSelector("li.o_sel_group_calendar a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasCalendar input[type='checkbox']"));
+	private static final Tool chatTool = new Tool(
+			By.cssSelector("li.o_sel_group_chat a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasChat input[type='checkbox']"));
+	private static final Tool contactTool = new Tool(
+			By.cssSelector("li.o_sel_group_contact a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasContactForm input[type='checkbox']"));
+	private static final Tool membersTool = new Tool(
+			By.cssSelector("li.o_sel_group_members a"), null);
+	private static final Tool newsTool = new Tool(
+			By.cssSelector("li.o_sel_group_news a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasNews input[type='checkbox']"));
+	private static final Tool folderTool = new Tool(
+			By.cssSelector("li.o_sel_group_folder a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasFolder input[type='checkbox']"));
+	private static final Tool forumTool = new Tool(
+			By.cssSelector("li.o_sel_group_forum a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasForum input[type='checkbox']"));
+	private static final Tool wikiTool = new Tool(
+			By.cssSelector("li.o_sel_group_wiki a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasWiki input[type='checkbox']"));
+	private static final Tool portfolioTool = new Tool(
+			By.cssSelector("li.o_sel_group_portfolio a"),
+			By.cssSelector(".o_sel_collab_tools label.o_sel_hasPortfolio input[type='checkbox']"));
+
 	
 	private WebDriver browser;
 	
@@ -65,7 +95,7 @@ public class GroupPage {
 	}
 	
 	public GroupPage openAdministration() {
-		By adminBy = By.xpath("//div[contains(@class,'o_tree')]//a[contains(@href,'MENU_ADMINISTRATION')]");
+		By adminBy = By.xpath("//div[contains(@class,'o_tree')]//a[contains(@onclick,'MENU_ADMINISTRATION')]");
 		WebElement adminLink = browser.findElement(adminBy);
 		adminLink.click();
 		OOGraphene.waitBusy(browser);
@@ -93,53 +123,74 @@ public class GroupPage {
 	}
 	
 	public IMPage openChat() {
-		openMenuItem("o_sel_group_chat");
+		openMenuItem(chatTool);
+		OOGraphene.waitElement(By.cssSelector("a.o_sel_im_open_tool_chat"), 2, browser);
 		return new IMPage(browser);
 	}
 	
 	public CalendarPage openCalendar() {
-		openMenuItem("o_sel_group_calendar");
+		openMenuItem(calendarTool);
+		OOGraphene.waitElement(CalendarPage.calendarToolbatBy, 2, browser);
 		return new CalendarPage(browser);
 	}
 	
 	public ContactPage openContact() {
-		openMenuItem("o_sel_group_contact");
+		openMenuItem(contactTool);
+		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_contact_form"), 5, browser);
 		return new ContactPage(browser);
 	}
 	
 	public GroupPage openMembers() {
-		return openMenuItem("o_sel_group_members");
+		openMenuItem(membersTool);
+		return this;
 	}
 	
-	public GroupPage openNews() {
-		return openMenuItem("o_sel_group_news");
+	public InfoMessageCEPage openNews() {
+		openMenuItem(newsTool);
+		OOGraphene.waitElement(By.className("o_infomsg"), 5, browser);
+		return new InfoMessageCEPage(browser);
 	}
 	
 	public FolderPage openFolder() {
-		openMenuItem("o_sel_group_folder");
+		openMenuItem(folderTool);
+		OOGraphene.waitElement(FolderPage.folderBy, 5, browser);
 		return new FolderPage(browser);
 	}
 	
 	public ForumPage openForum() {
-		openMenuItem("o_sel_group_forum");
+		openMenuItem(forumTool);
+		OOGraphene.waitElement(ForumPage.threadTableBy, 5, browser);
 		return ForumPage.getGroupForumPage(browser);
 	}
 	
 	public WikiPage openWiki() {
-		openMenuItem("o_sel_group_wiki");
+		openMenuItem(wikiTool);
+		OOGraphene.waitElement(WikiPage.wikiWrapperBy, 5, browser);
 		return WikiPage.getGroupWiki(browser);
 	}
 	
-	public PortfolioPage openPortfolio() {
-		openMenuItem("o_sel_group_portfolio");
-		return new PortfolioPage(browser);
+	public BinderPage openPortfolio() {
+		openMenuItem(portfolioTool);
+		OOGraphene.waitElement(BinderPage.portfolioBy, 5, browser);
+		return new BinderPage(browser);
 	}
 	
-	private GroupPage openMenuItem(String cssClass) {
-		By newsBy = By.cssSelector("li." + cssClass + " a");
-		browser.findElement(newsBy).click();
+	private GroupPage openMenuItem(Tool tool) {
+		browser.findElement(tool.getMenuItemBy()).click();
 		OOGraphene.waitBusy(browser);
 		return this;
+	}
+	
+	/**
+	 * Grap the REST url of the group (only, you need
+	 * to be in administration > description changes.
+	 * @return
+	 */
+	public String getGroupURL() {
+		By urlBy = By.cssSelector("p.o_sel_group_url");
+		WebElement urlEl = browser.findElement(urlBy);
+		String url = urlEl.getText();
+		return url;
 	}
 	
 	public void close() {
@@ -148,30 +199,27 @@ public class GroupPage {
 		OOGraphene.waitBusy(browser);
 	}
 	
-	public GroupPage setVisibility(boolean owners, boolean participants, boolean waitingList) {	
+	public GroupPage setVisibility(boolean owners, boolean participants, boolean waitingList) {
 		if(owners) {
 			By showOwnersBy = By.cssSelector(".o_sel_group_show_owners input[type='checkbox']");
 			browser.findElement(showOwnersBy).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.closeBlueMessageWindow(browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
 		
 		if(participants) {
 			By showParticipants = By.cssSelector(".o_sel_group_show_participants input[type='checkbox']");
 			browser.findElement(showParticipants).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.closeBlueMessageWindow(browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
 		
 		if(waitingList) {
 			By showWaitingListBy = By.cssSelector(".o_sel_group_show_waiting_list input[type='checkbox']");
 			browser.findElement(showWaitingListBy).click();
 			OOGraphene.waitBusy(browser);
-			OOGraphene.closeBlueMessageWindow(browser);
+			OOGraphene.waitElement(memberMenuItem, 5, browser);
 		}
-		
-		OOGraphene.waitBusy(browser);
-		OOGraphene.closeBlueMessageWindow(browser);
 		return this;
 	}
 	
@@ -201,22 +249,26 @@ public class GroupPage {
 	}
 	
 	public GroupPage enableTools() {
-		By checkToolsBy = By.cssSelector(".o_sel_collab_tools input[type='checkbox']");
-		List<WebElement> checkTools = browser.findElements(checkToolsBy);
-		Assert.assertFalse(checkTools.isEmpty());
-		for(WebElement checkTool:checkTools) {
-			checkTool.click();
-			OOGraphene.waitBusy(browser);
-		}
-		return this;
+		return enableTool(calendarTool)
+				.enableTool(chatTool)
+				.enableTool(contactTool)
+				.enableTool(newsTool)
+				.enableTool(folderTool)
+				.enableTool(forumTool)
+				.enableTool(wikiTool)
+				.enableTool(portfolioTool);
 	}
 	
-	public GroupPage setMembersInfos(String text) {		
-		OOGraphene.tinymce(text, browser);
-		
-		By submitBy = By.cssSelector(".o_sel_collaboration_news_save button.btn-primary");
-		browser.findElement(submitBy).click();
+	public GroupPage enableCalendarTool() {
+		return enableTool(calendarTool);
+	}
+	
+	private GroupPage enableTool(Tool tool) {
+		By checkToolsBy = tool.getCheckboxBy();
+		WebElement checkToolEl = browser.findElement(checkToolsBy);
+		checkToolEl.click();
 		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(tool.getMenuItemBy(), 2, browser);
 		return this;
 	}
 	
@@ -248,7 +300,7 @@ public class GroupPage {
 	}
 	
 	public GroupPage assertOnInfosPage(String name) {
-		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//p[contains(text(),'" + name+ "')]");
+		By groupNameBy = By.xpath("//div[@id='o_main_center_content_inner']//div[contains(@class,'o_name')]//div[contains(text(),'" + name + "')]");
 		List<WebElement> groupNameEls = browser.findElements(groupNameBy);
 		Assert.assertFalse(groupNameEls.isEmpty());
 		return this;
@@ -274,24 +326,22 @@ public class GroupPage {
 	}
 	
 	public GroupPage assertParticipantList() {
-		By participantListBy = By.id("o_sel_group_participants");
+		By participantListBy = By.className("o_sel_participants");
 		List<WebElement> participantListEl = browser.findElements(participantListBy);
-		if(participantListEl.size() == 0) {
-			System.out.println();
-		}
+		Assert.assertFalse(participantListEl.isEmpty());
 		return this;
 	}
 	
 	public GroupPage assertMembersInOwnerList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_coaches");
+		return assertMembers(owner, "o_sel_coaches");
 	}
 	
 	public GroupPage assertMembersInParticipantList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_participants");
+		return assertMembers(owner, "o_sel_participants");
 	}
 	
 	public GroupPage assertMembersInWaitingList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_waiting_list");
+		return assertMembers(owner, "o_sel_waiting_list");
 	}
 	
 	private GroupPage assertMembers(UserVO member, String cssClass) {
@@ -301,21 +351,39 @@ public class GroupPage {
 	}
 	
 	public boolean isInMembersOwnerList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_coaches");
+		return isMembers(owner, "o_sel_coaches");
 	}
 	
 	public boolean isInMembersParticipantList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_participants");
+		return isMembers(owner, "o_sel_participants");
 	}
 	
 	public boolean isInMembersInWaitingList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_waiting_list");
+		return isMembers(owner, "o_sel_waiting_list");
 	}
 	
 	private boolean isMembers(UserVO member, String cssClass) {
 		String firstName = member.getFirstName();
-		By longBy = By.xpath("//div[@id='" + cssClass + "']//table//tr//td//a[contains(text(),'" + firstName + "')]");
+		By longBy = By.xpath("//div[contains(@class,'" + cssClass + "')]//div[contains(@class,'o_cmember_info_wrapper')]/a/span[contains(text(),'" + firstName + "')]");
 		List<WebElement> elements = browser.findElements(longBy);
 		return elements.size() > 0;
+	}
+	
+	private static class Tool {
+		private final By menuItemBy;
+		private final By checkboxBy;
+		
+		public Tool(By menuItemBy, By checkboxBy) {
+			this.menuItemBy = menuItemBy;
+			this.checkboxBy = checkboxBy;
+		}
+
+		public By getMenuItemBy() {
+			return menuItemBy;
+		}
+
+		public By getCheckboxBy() {
+			return checkboxBy;
+		}
 	}
 }

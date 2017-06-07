@@ -34,7 +34,6 @@ import org.imsglobal.basiclti.BasicLTIUtil;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.dispatcher.mapper.Mapper;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -55,8 +54,10 @@ import org.olat.core.util.SortedProperties;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.BasicLTICourseNode;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
@@ -111,6 +112,14 @@ public class LTIRunController extends BasicController {
 		// push title and learning objectives, only visible on intro page
 		run.contextPut("menuTitle", courseNode.getShortTitle());
 		run.contextPut("displayTitle", courseNode.getLongTitle());
+		
+		if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, wControl, userCourseEnv, courseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				run.put("highScore", highScoreComponent);							
+			}
+		}
 
 		doBasicLTI(ureq, run);
 		mainPanel = putInitialPanel(run);
@@ -207,11 +216,20 @@ public class LTIRunController extends BasicController {
 		final User user = getIdentity().getUser();
 		//user data
 		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDNAME, false)) {
-			userData.put("lastName", user.getProperty(UserConstants.LASTNAME, getLocale()));
-			userData.put("firstName", user.getProperty(UserConstants.FIRSTNAME, getLocale()));
+			String lastName = user.getProperty(UserConstants.LASTNAME, getLocale());
+			if(StringHelper.containsNonWhitespace(lastName)) {
+				userData.put("lastName", lastName);
+			}
+			String firstName = user.getProperty(UserConstants.FIRSTNAME, getLocale());
+			if(StringHelper.containsNonWhitespace(firstName)) {
+				userData.put("firstName", firstName);
+			}
 		}
 		if (config.getBooleanSafe(LTIConfigForm.CONFIG_KEY_SENDEMAIL, false)) {
-			userData.put("email", user.getProperty(UserConstants.EMAIL, getLocale()));
+			String email = user.getProperty(UserConstants.EMAIL, getLocale());
+			if(StringHelper.containsNonWhitespace(email)) {
+				userData.put("email", email);
+			}
 		}
 		// customUserData
 		String custom = (String)config.get(LTIConfigForm.CONFIG_KEY_CUSTOM);
@@ -303,6 +321,14 @@ public class LTIRunController extends BasicController {
 		startPage.contextPut("menuTitle", courseNode.getShortTitle());
 		startPage.contextPut("displayTitle", courseNode.getLongTitle());
 		
+		if (courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+			HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(), userCourseEnv, courseNode);
+			if (highScoreCtr.isViewHighscore()) {
+				Component highScoreComponent = highScoreCtr.getInitialComponent();
+				startPage.put("highScore", highScoreComponent);							
+			}
+		}
+		
 		startButton = LinkFactory.createButton("start", startPage, this);
 		startButton.setPrimary(true);
 
@@ -319,12 +345,12 @@ public class LTIRunController extends BasicController {
 				startPage.contextPut("hasPassedValue", Boolean.TRUE);
 				startPage.contextPut("passed", eval.getPassed());
 			}
-			startPage.contextPut("score", eval.getScore()); 
+			startPage.contextPut("score", eval.getScore());
+			startPage.contextPut("hasScore", Boolean.TRUE);
+			boolean resultsVisible = eval.getUserVisible() == null || eval.getUserVisible().booleanValue();
+			startPage.contextPut("resultsVisible", resultsVisible);
 			mainPanel.setContent(startPage);
 		} else if(display == LTIDisplayOptions.window) {
-			mainPanel.setContent(startPage);
-		} else if(display == LTIDisplayOptions.fullscreen && Windows.getWindows(ureq).getChiefController() == null) {
-			// directly opening the LTI after resume is not supported
 			mainPanel.setContent(startPage);
 		} else {
 			openBasicLTIContent(ureq);
@@ -335,7 +361,7 @@ public class LTIRunController extends BasicController {
 		// container is "run", "runFullscreen" or "runPopup" depending in configuration
 		doBasicLTI(ureq, run);
 		if (display == LTIDisplayOptions.fullscreen) {
-			ChiefController cc = Windows.getWindows(ureq).getChiefController();
+			ChiefController cc = getWindowControl().getWindowBackOffice().getChiefController();
 			if (cc != null) {
 				thebaseChief = cc;
 				thebaseChief.getScreenMode().setMode(Mode.full);

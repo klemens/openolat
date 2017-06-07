@@ -35,34 +35,38 @@ import org.olat.resource.OLATResource;
  */
 public class RepositoryEntryAuthorImpl implements RepositoryEntryAuthorView {
 
-	private Long key;
+	private final Long key;
 	
-	private Date creationDate;
+	private final Date creationDate;
 	
-	private String displayname;
-	private String description;
-	private String author;
-	private String authors;
+	private final String displayname;
+	private final String description;
+	private final String author;
+	private final String authors;
+	private final String location;
 	
-	private String softkey;
-	private String externalId;
-	private String externalRef;
-	private RepositoryEntryManagedFlag[] managedFlags;
+	private final String softkey;
+	private final String externalId;
+	private final String externalRef;
+	private final RepositoryEntryManagedFlag[] managedFlags;
 	
-	private boolean membersOnly;
-	private int access;
-	private int statusCode;
+	private final boolean membersOnly;
+	private final int access;
+	private final int statusCode;
 	
-	private Date lastUsage;
+	private final Date lastUsage;
 	
-	private OLATResource olatResource;
-	private RepositoryEntryLifecycle lifecycle;
+	private final Date deletionDate;
+	private final String deletedByFullName;
 	
-	private boolean marked;
+	private final OLATResource olatResource;
+	private final RepositoryEntryLifecycle lifecycle;
 	
-	private long offers;
+	private final boolean marked;
 	
-	public RepositoryEntryAuthorImpl(RepositoryEntry re, boolean marked, long offers) {
+	private final long offers;
+	
+	public RepositoryEntryAuthorImpl(RepositoryEntry re, boolean marked, long offers, String deletedByFullName) {
 		key = re.getKey();
 		creationDate = re.getCreationDate();
 		
@@ -70,6 +74,7 @@ public class RepositoryEntryAuthorImpl implements RepositoryEntryAuthorView {
 		description = re.getDescription();
 		author = re.getInitialAuthor();
 		authors = re.getAuthors();
+		location = re.getLocation();
 		
 		softkey = re.getSoftkey();
 		externalId = re.getExternalId();
@@ -81,6 +86,9 @@ public class RepositoryEntryAuthorImpl implements RepositoryEntryAuthorView {
 		statusCode = re.getStatusCode();
 		
 		lastUsage = re.getStatistics().getLastUsage();
+		
+		deletionDate = re.getDeletionDate();
+		this.deletedByFullName = deletedByFullName;
 		
 		olatResource = re.getOlatResource();
 		lifecycle = re.getLifecycle();
@@ -158,6 +166,11 @@ public class RepositoryEntryAuthorImpl implements RepositoryEntryAuthorView {
 	}
 
 	@Override
+	public String getLocation() {
+		return location;
+	}
+
+	@Override
 	public boolean isMembersOnly() {
 		return membersOnly;
 	}
@@ -190,5 +203,14 @@ public class RepositoryEntryAuthorImpl implements RepositoryEntryAuthorView {
 	@Override
 	public boolean isOfferAvailable() {
 		return offers > 0;
+	}
+
+	@Override
+	public String getDeletedByFullName() {
+		return deletedByFullName;
+	}
+
+	public Date getDeletionDate() {
+		return deletionDate;
 	}
 }

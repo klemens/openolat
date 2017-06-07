@@ -25,6 +25,7 @@
 
 package org.olat.ims.qti;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -37,22 +38,25 @@ import javax.persistence.TypedQuery;
 import org.olat.basesecurity.Group;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
-import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.user.UserDataDeletable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * Description: Useful functions for download
  * 
  * @author Alexander Schneider
  */
+@Service("qtiResultManager")
 public class QTIResultManager implements UserDataDeletable {
 	
 	private static final OLog log = Tracing.createLoggerFor(QTIResultManager.class);
 
 	private static QTIResultManager instance;
 	
+	@Autowired
 	private DB dbInstance;
 
 	/**
@@ -147,7 +151,7 @@ public class QTIResultManager implements UserDataDeletable {
 		
 		if(type == 1 || type == 2) {
 			 // 1 -> iqtest, 2 -> iqself
-		    sb.append(" order by usr.userProperties['").append(UserConstants.LASTNAME).append("'] , rset.assessmentID, res.itemIdent");
+		    sb.append(" order by usr.lastName, rset.assessmentID, res.itemIdent");
 		} else {
 			//3 -> iqsurv: the alphabetical assortment above could destroy the anonymization
 		    // if names and quantity of the persons is well-known
@@ -332,7 +336,8 @@ public class QTIResultManager implements UserDataDeletable {
 	 * Delete all ResultSet for certain identity.
 	 * @param identity
 	 */
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	@Override
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		List<QTIResultSet> qtiResults = findQtiResultSets(identity);
 		for (QTIResultSet set:qtiResults) {
 			deleteResultSet(set);

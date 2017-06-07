@@ -36,6 +36,7 @@ import org.olat.basesecurity.SecurityGroupMembershipImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.mark.impl.MarkImpl;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItem2Resource;
@@ -111,7 +112,13 @@ public class QuestionItemDAO {
 		}
 	}
 	
-	public QuestionItemImpl copy(Identity owner, QuestionItemImpl original) {
+	/**
+	 * The method make a copy of the original question. The copy is not persisted.
+	 * 
+	 * @param original
+	 * @return A copy of the question.
+	 */
+	public QuestionItemImpl copy(QuestionItemImpl original) {
 		String subject = "(Copy) " + original.getTitle();
 		QuestionItemImpl copy = create(subject, original.getFormat(), null, original.getRootFilename());
 		
@@ -149,8 +156,6 @@ public class QuestionItemDAO {
 		//technical
 		copy.setEditor(original.getEditor());
 		copy.setEditorVersion(original.getEditorVersion());
-
-		persist(owner, copy);
 		return copy;
 	}
 
@@ -161,8 +166,8 @@ public class QuestionItemDAO {
 		return (QuestionItemImpl)dbInstance.getCurrentEntityManager().merge(item);
 	}
 	
-	public void addAuthors(List<Identity> authors, Long itemKey) {
-		QuestionItemImpl lockedItem = loadForUpdate(itemKey);
+	public void addAuthors(List<Identity> authors, QuestionItemShort item) {
+		QuestionItemImpl lockedItem = loadForUpdate(item);
 		SecurityGroup secGroup = lockedItem.getOwnerGroup();
 		for(Identity author:authors) {
 			if(!securityManager.isIdentityInSecurityGroup(author, secGroup)) {
@@ -172,8 +177,8 @@ public class QuestionItemDAO {
 		dbInstance.commit();
 	}
 	
-	public void removeAuthors(List<Identity> authors, Long itemKey) {
-		QuestionItemImpl lockedItem = loadForUpdate(itemKey);
+	public void removeAuthors(List<Identity> authors, QuestionItemShort item) {
+		QuestionItemImpl lockedItem = loadForUpdate(item);
 		SecurityGroup secGroup = lockedItem.getOwnerGroup();
 		for(Identity author:authors) {
 			if(securityManager.isIdentityInSecurityGroup(author, secGroup)) {
@@ -259,15 +264,15 @@ public class QuestionItemDAO {
 		return items;
 	}
 	
-	public QuestionItemImpl loadForUpdate(Long key) {
+	public QuestionItemImpl loadForUpdate(QuestionItemShort item) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select item from questionitem item where item.key=:key");
-		QuestionItemImpl item = dbInstance.getCurrentEntityManager()
+		QuestionItemImpl lockedItem = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), QuestionItemImpl.class)
-				.setParameter("key", key)
+				.setParameter("key", item.getKey())
 				.setLockMode(LockModeType.PESSIMISTIC_WRITE)
 				.getSingleResult();
-		return item;
+		return lockedItem;
 	}
 	
 	public int getNumOfQuestions() {
@@ -289,7 +294,7 @@ public class QuestionItemDAO {
 	}
 	
 	public void share(QuestionItem item, OLATResource resource) {
-		QuestionItem lockedItem = loadForUpdate(item.getKey());
+		QuestionItem lockedItem = loadForUpdate(item);
 		if(!isShared(item, resource)) {
 			EntityManager em = dbInstance.getCurrentEntityManager();
 			ResourceShareImpl share = new ResourceShareImpl();
@@ -301,9 +306,9 @@ public class QuestionItemDAO {
 		dbInstance.commit();//release the lock asap
 	}
 	
-	public void share(Long itemKey, List<OLATResource> resources, boolean editable) {
+	public void share(QuestionItemShort item, List<OLATResource> resources, boolean editable) {
 		EntityManager em = dbInstance.getCurrentEntityManager();
-		QuestionItem lockedItem = loadForUpdate(itemKey);
+		QuestionItem lockedItem = loadForUpdate(item);
 		for(OLATResource resource:resources) {
 			if(!isShared(lockedItem, resource)) {
 				ResourceShareImpl share = new ResourceShareImpl();
@@ -330,21 +335,29 @@ public class QuestionItemDAO {
 		return count.intValue() > 0;
 	}
 	
-	public int countSharedItemByResource(OLATResource resource) {
+	public int countSharedItemByResource(OLATResource resource, String format) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select count(share.item) from qshareitem share")
+		sb.append("select count(item.key) from qshareitem share")
+		  .append(" inner join share.item item")
 		  .append(" where share.resource.key=:resourceKey");
+		if(StringHelper.containsNonWhitespace(format)) {
+			sb.append(" and item.format=:format");
+		}
 
-		Number count = dbInstance.getCurrentEntityManager()
+		TypedQuery<Number> countQuery = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Number.class)
-				.setParameter("resourceKey", resource.getKey())
-				.getSingleResult();
+				.setParameter("resourceKey", resource.getKey());
+		if(StringHelper.containsNonWhitespace(format)) {
+			countQuery.setParameter("format", format);
+		}
+		
+		Number count = countQuery.getSingleResult();
 		return count.intValue();
 	}
 	
 	public List<BusinessGroup> getResourcesWithSharedItems(Identity identity) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select distinct(bgi) from ").append(org.olat.group.BusinessGroupImpl.class.getName()).append(" as bgi ")
+		sb.append("select distinct(bgi) from businessgroup as bgi ")
 		  .append(" inner join fetch bgi.resource bgResource")
 		  .append(" inner join fetch bgi.baseGroup as baseGroup")
 		  .append(" inner join fetch baseGroup.members as membership")

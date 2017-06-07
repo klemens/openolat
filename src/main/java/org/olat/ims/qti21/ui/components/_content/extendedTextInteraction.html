@@ -1,0 +1,36 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+#set($responseDeclaration = $r.getResponseDeclaration($interaction.responseIdentifier))
+#set($minStrings = $r.getMinStrings($interaction))
+#set($maxStrings = $r.getMaxStrings($interaction))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="$localName">
+	#if($interaction.getPrompt())
+	<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+	#end
+	
+	#if($r.isBadResponse($interaction.responseIdentifier))
+	<div class="o_error badResponse">
+		$r.translate("error.input.invalid", $r.translate("error.input.invalid.${responseDeclaration.cardinality.toQtiString()}"))
+	</div>
+	#end
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+		<div class="o_error badResponse">
+		#if($interaction.minStrings > 0 && $interaction.maxStrings > 0)
+			$r.translate("error.input.extendedText.min.max", $interaction.minStrings, $interaction.maxStrings)
+		#elseif($interaction.minStrings > 0)
+			$r.translate("error.input.extendedText.min", $interaction.minStrings)
+		#elseif($interaction.maxStrings > 0)
+			$r.translate("error.input.extendedText.max", $interaction.maxStrings)
+		#end
+
+		#if($interaction.patternMask)
+			$r.translate("error.required.format")
+ 		#end
+        </div>
+	#end
+
+	$r.renderExtendedTextBox($interaction)
+	<div class='o_qti_essay_last_save' style='display:none'>$r.translate("last.saved") <span class='o_qti_essay_last_save-time'></span></div>
+</div>
+

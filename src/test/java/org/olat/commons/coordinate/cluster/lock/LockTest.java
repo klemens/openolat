@@ -35,14 +35,13 @@ import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.model.GroupImpl;
 import org.olat.commons.coordinate.cluster.ClusterCoordinator;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.commons.persistence.TestTable;
 import org.olat.core.gui.control.Event;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -54,6 +53,7 @@ import org.olat.core.util.coordinate.LockEntry;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.coordinate.Locker;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -95,7 +95,7 @@ public class LockTest extends OlatTestCase {
 		// some setup
 		List<Identity> identities = new ArrayList<Identity>();
 		for (int i = 0; i < MAX_COUNT + MAX_USERS_MORE; i++) {
-			Identity i1 = securityManager.createAndPersistIdentity("lock-" + UUID.randomUUID().toString(), null, null, null, null);
+			Identity i1 = JunitTestHelper.createAndPersistIdentityAsRndUser("lock-");
 			identities.add(i1);
 		}
 		dbInstance.closeSession();
@@ -117,8 +117,9 @@ public class LockTest extends OlatTestCase {
 		assertEquals(li.getKey(), l2.getKey());
 		
 		// delete it 
-		clusterLockManager.deleteLock(l2);
+		int deletedLock = clusterLockManager.deleteLock(asset, ident);
 		dbInstance.closeSession();
+		Assert.assertEquals(1, deletedLock);
 		
 		// may not find it again
 		LockImpl l3 = clusterLockManager.findLock(asset);
@@ -150,6 +151,10 @@ public class LockTest extends OlatTestCase {
 		LockResult res3 = cl.acquireLock(ores, ident, "abc");
 		assertTrue(res3.isSuccess());
 		dbInstance.closeSession();
+		
+		// make sure it is not locked anymore
+		boolean lo3 = cl.isLocked(ores, "abc");
+		assertTrue(lo3);
 
 		// test the admin
 		List<LockEntry> entries = cl.adminOnlyGetLockEntries();
@@ -172,30 +177,29 @@ public class LockTest extends OlatTestCase {
 
 	@Test
 	public void testSaveEvent() {
-		BaseSecurity baseSecurityManager = applicationContext.getBean(BaseSecurity.class);
-    Identity identity = baseSecurityManager.createAndPersistIdentity("lock-save-event-" + UUID.randomUUID().toString(), null, null, null, null);
-    dbInstance.closeSession();
-    log.info("Created identity=" + identity);
-		//
-		TestTable entry = new TestTable();
-		entry.setField1("bar");
-		entry.setField2(2221234354566776L);
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("lock-save-event-");
+		dbInstance.closeSession();
+		log.info("Created identity=" + identity);
+		
+		//The group has no creation date -> commit will fail
+		GroupImpl entry = new GroupImpl();
+		entry.setName("bar");
 		try {
 			dbInstance.saveObject(entry);
 			dbInstance.commit();
-	    fail("Should generate an error");
+			fail("Should generate an error");
 		} catch (DBRuntimeException dre) {
 			log.info("DB connection is in error-state");
 		}
+		
 		// DB transaction must be in error state for this test
 		try {
-			
 			Locker locker = clusterCoordinator.getLocker();
 			assertTrue(locker instanceof ClusterLocker);
 			log.info("ClusterLocker created");
-	    Event event = new SignOnOffEvent(identity, false);
-	    log.info("START locker.event(event)");
-	    ((ClusterLocker)locker).event(event);
+			Event event = new SignOnOffEvent(identity, false);
+			log.info("START locker.event(event)");
+			((ClusterLocker)locker).event(event);
 			log.info("DONE locker.event(event)");
 		} catch(Exception ex) {
 			log.error("", ex);

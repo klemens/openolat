@@ -55,7 +55,7 @@ public abstract class NotificationsManager extends BasicManager {
 	 * 
 	 * @see org.olat.core.commons.services.notifications.NotificationsHandler and the corresponding code
 	 *      in such as
-	 * @see org.olat.modules.fo.ForumController where you add the subscription stuff
+	 * @see org.olat.modules.fo.ui.ForumController where you add the subscription stuff
 	 *      to the constructor and for the action that creates a new entry you have
 	 *      to inform the
 	 * @see org.olat.core.commons.services.notifications.manager.NotificationsManagerImpl#markPublisherNews(SubscriptionContext,
@@ -131,6 +131,14 @@ public abstract class NotificationsManager extends BasicManager {
 	 *         given publisher
 	 */
 	public abstract Subscriber getSubscriber(Identity identity, Publisher publisher);
+	
+	/**
+	 * Delete the subscriber with the specified primary key.
+	 * 
+	 * @param subscriberKey
+	 * @return True if something was deleted.
+	 */
+	public abstract boolean deleteSubscriber(Long subscriberKey);
 	
 	/**
 	 * Return all subscribers of a publisher
@@ -254,11 +262,6 @@ public abstract class NotificationsManager extends BasicManager {
 
 	public abstract SubscriptionInfo getNoSubscriptionInfo();
 
-	/**
-	 * Delete all subscribers for certain identity.
-	 * @param identity
-	 */
-	public abstract void deleteUserData(Identity identity, String newDeletedUserName);
 
 	/**
 	 * subscribers for ONE person (e.g. subscribed to 5 forums -> 5 subscribers
@@ -306,6 +309,8 @@ public abstract class NotificationsManager extends BasicManager {
 	 * @param publisherData
 	 */
 	public abstract void subscribe(Identity identity, SubscriptionContext subscriptionContext, PublisherData publisherData);
+	
+	public abstract void subscribe(List<Identity> identities, SubscriptionContext subscriptionContext, PublisherData publisherData);
 
 	public abstract void unsubscribe(Subscriber s);
 	
@@ -316,6 +321,13 @@ public abstract class NotificationsManager extends BasicManager {
 	 * @param subscriptionContext
 	 */
 	public abstract void unsubscribe(Identity identity, SubscriptionContext subscriptionContext);
+	
+	/**
+	 * 
+	 * @param identities
+	 * @param subscriptionContext
+	 */
+	public abstract void unsubscribe(List<Identity> identities, SubscriptionContext subscriptionContext);
 	
 	/**
 	 * @return the handler for the type
@@ -331,5 +343,10 @@ public abstract class NotificationsManager extends BasicManager {
 	 * @return the default notification interval
 	 */
 	public abstract String getDefaultNotificationInterval();
-		
+
+	/**
+	 * @param subscriptionContext
+	 * @param publisherData new data to write
+	 */
+	public abstract void updatePublisherData(SubscriptionContext subscriptionContext, PublisherData publisherData);
 }

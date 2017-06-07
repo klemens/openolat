@@ -27,6 +27,7 @@
 package org.olat.core.gui.control.generic.iframe;
 
 import java.io.File;
+import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -39,9 +40,14 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.textmarker.TextMarkerManagerImpl;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.event.MultiUserEvent;
@@ -60,7 +66,7 @@ import org.olat.core.util.vfs.VFSMediaResource;
  *         
  * @author guido
  */
-public class IFrameDisplayController extends BasicController implements GenericEventListener {
+public class IFrameDisplayController extends BasicController implements GenericEventListener, Activateable2 {
 	private static final String NEW_URI_EVENT = "newUriEvent";
 	protected static final String FILE_SUFFIX_HTM = "htm";
 	protected static final String FILE_SUFFIX_JS = ".js";
@@ -105,7 +111,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param ores - send an OLATresourcable of the context (e.g. course) where the iframe runs and it will be checked if the user has textmarking (glossar) enabled in this course
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, File fileRoot, OLATResourceable ores) {
-		this(ureq, wControl, new LocalFolderImpl(fileRoot), null, ores, null, false);
+		this(ureq, wControl, new LocalFolderImpl(fileRoot), null, ores, null, false, false);
 	}
 	/**
 	 * 
@@ -114,7 +120,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param rootDir VFSItem that points to the root folder of the resource
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir) {
-		this(ureq, wControl, rootDir, null, null, null, false);
+		this(ureq, wControl, rootDir, null, null, null, false, false);
 	}
 	/**
 	 * 
@@ -124,7 +130,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param ores - send an OLATresourcable of the context (e.g. course) where the iframe runs and it will be checked if the user has textmarking (glossar) enabled in this course
 	 */
 	public IFrameDisplayController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, OLATResourceable ores, DeliveryOptions deliveryOptions) {
-		this(ureq, wControl, rootDir, null, ores, deliveryOptions, false);
+		this(ureq, wControl, rootDir, null, ores, deliveryOptions, false, false);
 	}
 	/**
 	 * 
@@ -135,17 +141,17 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @param enableTextmarking to enable textmakring of the content in the iframe enable it here
 	 */
 	public IFrameDisplayController(final UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String frameId,
-			OLATResourceable contextRecourcable, DeliveryOptions options, boolean persistMapper) {
+			OLATResourceable contextResourceable, DeliveryOptions options, boolean persistMapper, boolean randomizeMapper) {
 		super(ureq, wControl);
 		
 		//register this object for textMarking on/off events
 		//TODO:gs how to unregister and where? unregister need ureq so dispose does not work
-		if (contextRecourcable != null) {
-			ureq.getUserSession().getSingleUserEventCenter().registerFor(this, getIdentity(), contextRecourcable);
+		if (contextResourceable != null) {
+			ureq.getUserSession().getSingleUserEventCenter().registerFor(this, getIdentity(), contextResourceable);
 		}
 		this.deliveryOptions = options;
 		
-		boolean  enableTextmarking = TextMarkerManagerImpl.getInstance().isTextmarkingEnabled(ureq, contextRecourcable);
+		boolean  enableTextmarking = TextMarkerManagerImpl.getInstance().isTextmarkingEnabled(ureq, contextResourceable);
 		// Set correct user content theme
 		String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
 		if (frameId == null) {
@@ -176,6 +182,9 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			// Add classname to the file path to remove conflicts with other
 			// usages of the same file path
 			mapperID = this.getClass().getSimpleName() + ":" + mapperID;
+			if(randomizeMapper) {
+				mapperID += CodeHelper.getRAMUniqueID();
+			}
 			baseURI = registerCacheableMapper(ureq, mapperID, contentMapper);				
 		}
 		myContent.contextPut("baseURI", baseURI);
@@ -323,7 +332,20 @@ public class IFrameDisplayController extends BasicController implements GenericE
 		if(!allowDownload || !StringHelper.containsNonWhitespace(uri)) {
 			return false;
 		}
+		// remove any URL parameters
 		String uriLc = uri.toLowerCase();
+		int qmarkPos = uriLc.indexOf("?");
+		if (qmarkPos != -1) {
+			// e.g. index.html?olatraw=true
+			uriLc = uriLc.substring(0, qmarkPos);
+		}
+		// remove any anchor references
+		int hTagPos = uri.indexOf("#");
+		if (hTagPos != -1) {
+			// e.g. index.html#checkThisOut
+			uriLc = uriLc.substring(0, hTagPos);
+		}
+		// HTML pages are rendered inline, everything else is regarded as "downloadable"
 		if(uriLc.endsWith(".html") || uriLc.endsWith(".htm") || uriLc.endsWith(".xhtml")) {
 			return false;
 		}
@@ -353,12 +375,14 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == eventVC) {
-			if (event.getCommand().equals(NEW_URI_EVENT)) {
+			if (NEW_URI_EVENT.equals(event.getCommand())) {
 				// This event gets triggered from the iframe content by calling a js function outside 
 				// Get new uri from JS method and fire to parents
 				String newUri = ureq.getModuleURI();
+				newUri = ureq.getHttpReq().getParameter("uri");
 				int baseUriPos = newUri.indexOf(baseURI);
 				if (baseUriPos != -1) {
 					int newUriPos =  baseUriPos + baseURI.length();
@@ -410,6 +434,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * this event gets fired from the TextMarkerController when the user swiches on/off textmarking
 	 * @see org.olat.core.util.event.GenericEventListener#event(org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(Event event) {
 		if (event instanceof MultiUserEvent) {
 			if (event.getCommand().equals("glossaryOn")) {
@@ -417,8 +442,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			} else if (event.getCommand().equals("glossaryOff")) {
 				contentMapper.setEnableTextmarking(false);
 			}
-		}
-		else if (event.equals(Window.BEFORE_INLINE_RENDERING)){
+		} else if (event.equals(Window.BEFORE_INLINE_RENDERING)){
 			// Set the custom CSS URL that is used by the current tab or site if
 			// available. The reason why we do this here and not in the constructor is
 			// that during the constructing phase this property is not yet set on the
@@ -426,10 +450,21 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
 			CustomCSS currentCustomCSS = myWindow.getCustomCSS();
 			if (currentCustomCSS != null) {
-				contentMapper.setCustomCssURL(currentCustomCSS.getCSSURLIFrame());
+				contentMapper.setCustomCssDelegate(myWindow);
 			}
 			// done, remove us as listener
 			getWindowControl().getWindowBackOffice().removeCycleListener(this);
 		}
 	}
+	
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) return;
+		Long id = entries.get(0).getOLATResourceable().getResourceableId();
+		if(id == 0) {
+			String path = BusinessControlFactory.getInstance().getPath(entries.get(0));
+			changeCurrentURI(path, false);
+		}
+	}
+
 }

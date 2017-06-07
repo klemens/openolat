@@ -44,7 +44,6 @@ import org.olat.course.assessment.UserCourseInformations;
 import org.olat.course.assessment.model.UserCourseInfosImpl;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.OLATResource;
-import org.olat.resource.OLATResourceManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,22 +60,20 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 
 	@Autowired
 	private DB dbInstance;
-	@Autowired
-	private OLATResourceManager resourceManager;
 
 	@Override
-	public UserCourseInfosImpl getUserCourseInformations(Long courseResourceId, IdentityRef identity) {
+	public UserCourseInfosImpl getUserCourseInformations(OLATResource resource, IdentityRef identity) {
 		try {
 			StringBuilder sb = new StringBuilder();
 			sb.append("select infos from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
 			  .append(" inner join fetch infos.resource as resource")
 			  .append(" inner join infos.identity as identity")
-			  .append(" where identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
+			  .append(" where identity.key=:identityKey and resource.key=:resKey and resource.resName='CourseModule'");
 
 			List<UserCourseInfosImpl> infoList = dbInstance.getCurrentEntityManager()
 					.createQuery(sb.toString(), UserCourseInfosImpl.class)
 					.setParameter("identityKey", identity.getKey())
-					.setParameter("resId", courseResourceId)
+					.setParameter("resKey", resource.getKey())
 					.getResultList();
 
 			if(infoList.isEmpty()) {
@@ -116,22 +113,18 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 		}
 	}
 	
-	@Override
-	public List<UserCourseInformations> getUserCourseInformations(List<Long> keys) {
-		if(keys == null || keys.isEmpty()) {
-			return Collections.emptyList();
-		}
-
-		StringBuilder sb = new StringBuilder();
-		sb.append("select infos from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
-		  .append(" inner join fetch infos.resource as resource")
-		  .append(" inner join infos.identity as identity")
-		  .append(" where infos.key in (:keys)");
-
-		return dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), UserCourseInformations.class)
-				.setParameter("keys", keys)
-				.getResultList();
+	/**
+	 * Execute the update statement
+	 * @param courseResource
+	 * @param identity
+	 * @return
+	 */
+	protected int lowLevelUpdate(OLATResource courseResource, Identity identity) {
+		return dbInstance.getCurrentEntityManager().createNamedQuery("updateLaunchDates")
+			.setParameter("identityKey", identity.getKey())
+			.setParameter("resourceKey", courseResource.getKey())
+			.setParameter("now", new Date())
+			.executeUpdate();
 	}
 	
 	/**
@@ -140,17 +133,17 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 	 * @return
 	 */
 	@Override
-	public void updateUserCourseInformations(final Long courseResourceableId, final Identity identity, final boolean strict) {
-		UltraLightInfos ulInfos = getUserCourseInformationsKey(courseResourceableId, identity);
-		if(ulInfos == null) {
+	public void updateUserCourseInformations(final OLATResource courseResource, final Identity identity) {
+		int updatedRows = lowLevelUpdate(courseResource, identity);
+		dbInstance.commit();//to make it quick
+		if(updatedRows == 0) {
 			OLATResourceable lockRes = OresHelper.createOLATResourceableInstance("CourseLaunchDate::Identity", identity.getKey());
 			CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync(lockRes, new SyncerExecutor(){
 				@Override
 				public void execute() {
 					try {
-						UltraLightInfos reloadedUlInfos = getUserCourseInformationsKey(courseResourceableId, identity);
-						if(reloadedUlInfos == null) {
-							OLATResource courseResource = resourceManager.findResourceable(courseResourceableId, "CourseModule");
+						int retryUpdatedRows = lowLevelUpdate(courseResource, identity);
+						if(retryUpdatedRows == 0) {
 							UserCourseInfosImpl infos = new UserCourseInfosImpl();
 							infos.setIdentity(identity);
 							infos.setCreationDate(new Date());
@@ -160,102 +153,26 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 							infos.setVisit(1);
 							infos.setResource(courseResource);
 							dbInstance.getCurrentEntityManager().persist(infos);
-						} else if(strict || needUpdate(reloadedUlInfos)) {
-							UserCourseInfosImpl infos = loadById(reloadedUlInfos.getKey());
-							if(infos != null) {
-								infos.setVisit(infos.getVisit() + 1);
-								infos.setRecentLaunch(new Date());
-								infos.setLastModified(new Date());
-								infos = dbInstance.getCurrentEntityManager().merge(infos);
-							}
 						}
 					} catch (Exception e) {
 						log.error("Cannot update course informations for: " + identity + " from " + identity, e);
 					}
 				}
 			});
-		} else if(strict || needUpdate(ulInfos)) {
-			UserCourseInfosImpl infos = loadById(ulInfos.getKey());
-			if(infos != null) {
-				infos.setVisit(infos.getVisit() + 1);
-				infos.setRecentLaunch(new Date());
-				infos.setLastModified(new Date());
-				infos = dbInstance.getCurrentEntityManager().merge(infos);
-			}
 		}
-	}
-	
-	private UserCourseInfosImpl loadById(Long id) {
-		try {
-			String sb = "select infos from usercourseinfos as infos where infos.key=:key";
-
-			TypedQuery<UserCourseInfosImpl> query = dbInstance.getCurrentEntityManager()
-					.createQuery(sb, UserCourseInfosImpl.class)
-					.setParameter("key", id);
-
-			List<UserCourseInfosImpl> infoList = query.getResultList();
-			if(infoList.isEmpty()) {
-				return null;
-			}
-			return infoList.get(0);
-		} catch (Exception e) {
-			log.error("Cannot retrieve course informations for: " + id, e);
-			return null;
-		}
-	}
-	
-	private UltraLightInfos getUserCourseInformationsKey(Long courseResourceId, Identity identity) {
-		try {
-			StringBuilder sb = new StringBuilder();
-			sb.append("select infos.key, infos.lastModified from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
-			  .append(" inner join infos.resource as resource")
-			  .append(" inner join infos.identity as identity")
-			  .append(" where identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
-
-			List<Object[]> infoList = dbInstance.getCurrentEntityManager()
-					.createQuery(sb.toString(), Object[].class)
-					.setParameter("identityKey", identity.getKey())
-					.setParameter("resId", courseResourceId)
-					.getResultList();
-
-			if(infoList.isEmpty()) {
-				return null;
-			}
-			Object[] infos = infoList.get(0);
-			
-			return new UltraLightInfos((Long)infos[0], (Date)infos[1]);
-		} catch (Exception e) {
-			log.error("Cannot retrieve course informations for: " + identity + " from " + identity, e);
-			return null;
-		}
-	}
-	
-	/**
-	 * Don't update the course infos if it was always updated
-	 * a minute ago or less. It's again the Parkinson behavior
-	 * where people double/triple click on a REST url which
-	 * opens a course several times.
-	 * @return
-	 */
-	private final boolean needUpdate(UltraLightInfos infos) {
-		Date lastModified = infos.getLastModified();
-		if(System.currentTimeMillis() - lastModified.getTime()  < 60000) {
-			return false;
-		}
-		return true;
 	}
 	
 	@Override
-	public Date getRecentLaunchDate(Long courseResourceId, IdentityRef identity) {
+	public Date getRecentLaunchDate(OLATResource resource, IdentityRef identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select infos.recentLaunch from usercourseinfos as infos ")
 		  .append(" inner join infos.resource as resource")
-		  .append(" where infos.identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
+		  .append(" where infos.identity.key=:identityKey and resource.key=:resKey and resource.resName='CourseModule'");
 
 		List<Date> infoList = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Date.class)
 				.setParameter("identityKey", identity.getKey())
-				.setParameter("resId", courseResourceId)
+				.setParameter("resKey", resource.getKey())
 				.getResultList();
 
 		if(infoList.isEmpty()) {
@@ -265,21 +182,21 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 	}
 
 	@Override
-	public Date getInitialLaunchDate(Long courseResourceId, IdentityRef identity) {
-		return getInitialLaunchDate(courseResourceId, identity.getKey());
+	public Date getInitialLaunchDate(OLATResource resource, IdentityRef identity) {
+		return getInitialLaunchDate(resource, identity.getKey());
 	}
 	
-	public Date getInitialLaunchDate(Long courseResourceId, Long identityKey) {
+	public Date getInitialLaunchDate(OLATResource resource, Long identityKey) {
 		try {
 			StringBuilder sb = new StringBuilder();
 			sb.append("select infos.initialLaunch from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
 			  .append(" inner join infos.resource as resource")
-			  .append(" where infos.identity.key=:identityKey and resource.resId=:resId and resource.resName='CourseModule'");
+			  .append(" where infos.identity.key=:identityKey and resource.key=:resKey and resource.resName='CourseModule'");
 
 			List<Date> infoList = dbInstance.getCurrentEntityManager()
 					.createQuery(sb.toString(), Date.class)
 					.setParameter("identityKey", identityKey)
-					.setParameter("resId", courseResourceId)
+					.setParameter("resKey", resource.getKey())
 					.getResultList();
 
 			if(infoList.isEmpty()) {
@@ -287,7 +204,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			}
 			return infoList.get(0);
 		} catch (Exception e) {
-			log.error("Cannot retrieve course informations for: " + courseResourceId, e);
+			log.error("Cannot retrieve course informations for: " + resource.getResourceableId(), e);
 			return null;
 		}
 	}
@@ -299,7 +216,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 	 * @return
 	 */
 	@Override
-	public Map<Long,Date> getInitialLaunchDates(Long courseResourceId, List<Identity> identities) {
+	public Map<Long,Date> getInitialLaunchDates(OLATResource resource, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Date>();
 		}
@@ -309,7 +226,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			StringBuilder sb = new StringBuilder();
 			sb.append("select infos.identity.key, infos.initialLaunch from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
 			  .append(" inner join infos.resource as resource")
-			  .append(" where resource.resId=:resId and resource.resName='CourseModule'");
+			  .append(" where resource.key=:resKey and resource.resName='CourseModule'");
 			
 			Set<Long> identityKeySet = null;
 			if(identityKeys.size() < 100) {
@@ -317,8 +234,9 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 				identityKeySet = new HashSet<Long>(identityKeys);
 			}
 
-			TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Object[].class)
-					.setParameter("resId", courseResourceId);
+			TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), Object[].class)
+					.setParameter("resKey", resource.getKey());
 			if(identityKeys.size() < 100) {
 				query.setParameter("identityKeys", identityKeys);
 			}
@@ -334,7 +252,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			}
 			return dateMap;
 		} catch (Exception e) {
-			log.error("Cannot retrieve course informations for: " + courseResourceId, e);
+			log.error("Cannot retrieve course informations for: " + resource.getResourceableId(), e);
 			return Collections.emptyMap();
 		}
 	}
@@ -373,13 +291,36 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 		}
 	}
 
+	@Override
+	public Map<Long, Date> getRecentLaunchDates(OLATResource resource) {
+		try {
+			StringBuilder sb = new StringBuilder();
+			sb.append("select infos.identity.key, infos.recentLaunch from usercourseinfos as infos where infos.resource.key=:resKey");
+			
+			List<Object[]> infoList = dbInstance.getCurrentEntityManager()
+					.createQuery(sb.toString(), Object[].class)
+					.setParameter("resKey", resource.getKey())
+					.getResultList();
+			Map<Long, Date> dateMap = new HashMap<>();
+			for(Object[] infos:infoList) {
+				Long identityKey = (Long)infos[0];
+				Date recentLaunch = (Date)infos[1];
+				dateMap.put(identityKey, recentLaunch);
+			}
+			return dateMap;
+		} catch (Exception e) {
+			log.error("Cannot retrieve course informations for: " + resource.getResourceableId(), e);
+			return Collections.emptyMap();
+		}
+	}
+
 	/**
 	 * Return a map of identity keys to initial launch date.
 	 * @param courseEnv
 	 * @return
 	 */
 	@Override
-	public Map<Long,Date> getRecentLaunchDates(Long courseResourceId, List<Identity> identities) {
+	public Map<Long,Date> getRecentLaunchDates(OLATResource resource, List<Identity> identities) {
 		if(identities == null || identities.isEmpty()) {
 			return new HashMap<Long,Date>();
 		}
@@ -389,7 +330,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			StringBuilder sb = new StringBuilder();
 			sb.append("select infos.identity.key, infos.recentLaunch from ").append(UserCourseInfosImpl.class.getName()).append(" as infos ")
 			  .append(" inner join infos.resource as resource")
-			  .append(" where resource.resId=:resId and resource.resName='CourseModule'");
+			  .append(" where resource.key=:resKey and resource.resName='CourseModule'");
 			
 			Set<Long> identityKeySet = null;
 			if(identityKeys.size() < 100) {
@@ -398,7 +339,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			}
 
 			TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager().createQuery(sb.toString(), Object[].class)
-					.setParameter("resId", courseResourceId);
+					.setParameter("resKey", resource.getKey());
 			if(identityKeys.size() < 100) {
 				query.setParameter("identityKeys", identityKeys);
 			}
@@ -414,7 +355,7 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 			}
 			return dateMap;
 		} catch (Exception e) {
-			log.error("Cannot retrieve course informations for: " + courseResourceId, e);
+			log.error("Cannot retrieve course informations for: " + resource.getResourceableId(), e);
 			return Collections.emptyMap();
 		}
 	}
@@ -435,23 +376,6 @@ public class UserCourseInformationsManagerImpl implements UserCourseInformations
 		} catch (Exception e) {
 			log.error("Cannot Delete course informations for: " + entry, e);
 			return -1;
-		}
-	}
-	
-	private static class UltraLightInfos {
-		private final Long key;
-		private final Date lastModified;
-		
-		public UltraLightInfos(Long key, Date lastModified) {
-			this.key = key;
-			this.lastModified = lastModified;
-		}
-		
-		public Long getKey() {
-			return key;
-		}
-		public Date getLastModified() {
-			return lastModified;
 		}
 	}
 }

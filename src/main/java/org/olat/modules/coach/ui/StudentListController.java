@@ -19,38 +19,39 @@
  */
 package org.olat.modules.coach.ui;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.table.ColumnDescriptor;
-import org.olat.core.gui.components.table.CustomRenderColumnDescriptor;
-import org.olat.core.gui.components.table.DefaultColumnDescriptor;
-import org.olat.core.gui.components.table.TableController;
-import org.olat.core.gui.components.table.TableDataModel;
-import org.olat.core.gui.components.table.TableEvent;
-import org.olat.core.gui.components.table.TableGuiConfiguration;
-import org.olat.core.gui.components.velocity.VelocityContainer;
+import org.olat.core.gui.components.form.flexible.FormItem;
+import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
+import org.olat.core.gui.components.form.flexible.impl.FormEvent;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableSearchEvent;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
+import org.olat.core.gui.components.stack.PopEvent;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.modules.coach.CoachingService;
 import org.olat.modules.coach.model.StudentStatEntry;
 import org.olat.modules.coach.ui.StudentsTableDataModel.Columns;
 import org.olat.user.UserManager;
+import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -63,72 +64,112 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class StudentListController extends BasicController implements Activateable2 {
+public class StudentListController extends FormBasicController implements Activateable2 {
 	
-	private final Panel content;
-	private final TableController tableCtr;
-	private final VelocityContainer mainVC;
+	private FlexiTableElement tableEl;
+	private StudentsTableDataModel model;
+	private TooledStackedPanel stackPanel;
+	
 	private StudentCoursesController studentCtrl;
 	
 	private boolean hasChanged;
-	
-	private final Map<Long,String> identityFullNameMap= new HashMap<Long,String>();
+
+	private final boolean isAdministrativeUser;
+	private final List<UserPropertyHandler> userPropertyHandlers;
 	
 	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private BaseSecurity securityManager;
 	@Autowired
+	private BaseSecurityModule securityModule;
+	@Autowired
 	private CoachingService coachingService;
 	
-	public StudentListController(UserRequest ureq, WindowControl wControl) {
-		super(ureq, wControl);
+	public StudentListController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel) {
+		super(ureq, wControl, LAYOUT_BAREBONE);
+		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(ureq.getUserSession().getRoles());
+		userPropertyHandlers = userManager.getUserPropertyHandlersFor(UserListController.usageIdentifyer, isAdministrativeUser);
+
+		this.stackPanel = stackPanel;
+		stackPanel.addListener(this);
 		
-		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
-		tableConfig.setTableEmptyMessage(translate("error.no.found"));
-		tableConfig.setDownloadOffered(true);
-		tableConfig.setPreferencesOffered(true, "studentListController");
-
-		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), null, null, null, null, true, getTranslator());
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("student.name", Columns.name.ordinal(), "select", getLocale()));
-		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("table.header.countCourses", Columns.countCourse.ordinal(), null, getLocale()));
-		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.login", Columns.initialLaunch.ordinal(), null, getLocale(),
-				ColumnDescriptor.ALIGNMENT_LEFT, new LightIconRenderer()));
-		tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor("table.header.passed", Columns.countPassed.ordinal(), null, getLocale(),
-				ColumnDescriptor.ALIGNMENT_LEFT, new ProgressRenderer(false, getTranslator())));
-
+		initForm(ureq);
 		loadModel();
-		listenTo(tableCtr);
-		
-		mainVC = createVelocityContainer("student_list");
-		content = new Panel("studentList");
-		content.setContent(tableCtr.getInitialComponent());
-		mainVC.put("content", content);
+	}
 
-		putInitialPanel(mainVC);
+	@Override
+	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		//add the table
+		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
+		if(isAdministrativeUser) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.name, "select"));
+		}
+		
+		int colIndex = UserListController.USER_PROPS_OFFSET;
+		for (int i = 0; i < userPropertyHandlers.size(); i++) {
+			UserPropertyHandler userPropertyHandler	= userPropertyHandlers.get(i);
+			boolean visible = userManager.isMandatoryUserProperty(UserListController.usageIdentifyer , userPropertyHandler);
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colIndex++, "select",
+					true, userPropertyHandler.i18nColumnDescriptorLabelKey()));
+		}
+		
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.countCourse));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.initialLaunch, new LightIconRenderer()));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.countPassed, new ProgressRenderer(false, getTranslator())));
+		
+		model = new StudentsTableDataModel(columnsModel);
+		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, 20, false, getTranslator(), formLayout);
+		tableEl.setExportEnabled(true);
+		tableEl.setEmtpyTableMessageKey("error.no.found");
+		tableEl.setAndLoadPersistedPreferences(ureq, "fStudentListController");
+
+		UserSession usess = ureq.getUserSession();
+		boolean autoCompleteAllowed = securityModule.isUserAllowedAutoComplete(usess.getRoles());
+		if(autoCompleteAllowed) {
+			tableEl.setSearchEnabled(new StudentListProvider(model, userManager), usess);
+		}
 	}
 	
 	@Override
 	protected void doDispose() {
+		stackPanel.removeListener(this);
+	}
+
+	@Override
+	protected void formOK(UserRequest ureq) {
 		//
+	}
+
+	@Override
+	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
+		if(tableEl == source) {
+			if(event instanceof SelectionEvent) {
+				SelectionEvent se = (SelectionEvent)event;
+				String cmd = se.getCommand();
+				StudentStatEntry selectedRow = model.getObject(se.getIndex());
+				if("select".equals(cmd)) {
+					selectStudent(ureq, selectedRow);
+				}
+			} else if(event instanceof FlexiTableSearchEvent) {
+				FlexiTableSearchEvent ftse = (FlexiTableSearchEvent)event;
+				String searchString = ftse.getSearch();
+				model.search(searchString);
+				tableEl.reset();
+				tableEl.reloadData();
+			}
+		} 
+		super.formInnerEvent(ureq, source, event);
 	}
 	
 	private void loadModel() {
-		List<StudentStatEntry> students = coachingService.getStudentsStatistics(getIdentity());
-		Set<Long> identityKeys = new HashSet<Long>();
-		for(StudentStatEntry student:students) {
-			if(!identityFullNameMap.containsKey(student.getStudentKey())) {
-				identityKeys.add(student.getStudentKey());
-			}
-		}
-		if(!identityKeys.isEmpty()) {
-			Map<Long,String> newIdentityFullNameMap = userManager.getUserDisplayNamesByKey(identityKeys);
-			identityFullNameMap.putAll(newIdentityFullNameMap);
-		}
-		TableDataModel<StudentStatEntry> model = new StudentsTableDataModel(students, identityFullNameMap);
-		tableCtr.setTableDataModel(model);
+		List<StudentStatEntry> students = coachingService.getStudentsStatistics(getIdentity(), userPropertyHandlers);
+		model.setObjects(students);
+		tableEl.reset();
+		tableEl.reloadData();
 	}
-	
+
 	private void reloadModel() {
 		if(hasChanged) {
 			loadModel();
@@ -137,27 +178,8 @@ public class StudentListController extends BasicController implements Activateab
 	}
 
 	@Override
-	protected void event(UserRequest ureq, Component source, Event event) {
-		//
-	}
-
-	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(source == tableCtr) {
-			if(event instanceof TableEvent) {
-				TableEvent e = (TableEvent) event;
-				if("select".equals(e.getActionId())) {
-					StudentStatEntry studentStat = (StudentStatEntry)tableCtr.getTableDataModel().getObject(e.getRowId());
-					selectStudent(ureq, studentStat);
-				}
-			}
-		} else if(event == Event.BACK_EVENT) {
-			reloadModel();
-			content.setContent(tableCtr.getInitialComponent());
-			removeAsListenerAndDispose(studentCtrl);
-			studentCtrl = null;
-			addToHistory(ureq);
-		} else if (source == studentCtrl) {
+		if (source == studentCtrl) {
 			if(event == Event.CHANGED_EVENT) {
 				hasChanged = true;
 			} else if("next.student".equals(event.getCommand())) {
@@ -168,20 +190,32 @@ public class StudentListController extends BasicController implements Activateab
 		}
 		super.event(ureq, source, event);
 	}
-	
+
+	@Override
+	public void event(UserRequest ureq, Component source, Event event) {
+		if(stackPanel == source) {
+			if(event instanceof PopEvent) {
+				PopEvent pe = (PopEvent)event;
+				if(pe.getController() == this.studentCtrl && hasChanged) {
+					reloadModel();
+				}
+			}
+		}
+		super.event(ureq, source, event);
+	}
+
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
 		if(entries == null || entries.isEmpty()) return;
-		
+
 		ContextEntry ce = entries.get(0);
 		OLATResourceable ores = ce.getOLATResourceable();
 		if("Identity".equals(ores.getResourceableTypeName())) {
 			Long identityKey = ores.getResourceableId();
-			for(int i=tableCtr.getRowCount(); i-->0; ) {
-				StudentStatEntry studentStat = (StudentStatEntry)tableCtr.getTableDataModel().getObject(i);
-				if(identityKey.equals(studentStat.getStudentKey())) {
-					selectStudent(ureq, studentStat);
-					studentCtrl.activate(ureq, entries.subList(1, entries.size()), ce.getTransientState());
+			for(StudentStatEntry entry:model.getObjects()) {
+				if(identityKey.equals(entry.getIdentityKey())) {
+					selectStudent(ureq, entry)
+						.activate(ureq, entries.subList(1, entries.size()), ce.getTransientState());
 					break;
 				}
 			}
@@ -190,34 +224,36 @@ public class StudentListController extends BasicController implements Activateab
 	
 	protected void previousStudent(UserRequest ureq) {
 		StudentStatEntry currentEntry = studentCtrl.getEntry();
-		int previousIndex = tableCtr.getIndexOfSortedObject(currentEntry) - 1;
-		if(previousIndex < 0 || previousIndex >= tableCtr.getRowCount()) {
-			previousIndex = tableCtr.getRowCount() - 1;
+		int previousIndex = model.getObjects().indexOf(currentEntry) - 1;
+		if(previousIndex < 0 || previousIndex >= model.getRowCount()) {
+			previousIndex = model.getRowCount() - 1;
 		}
-		StudentStatEntry previousEntry = (StudentStatEntry)tableCtr.getSortedObjectAt(previousIndex);
+		StudentStatEntry previousEntry = model.getObject(previousIndex);
 		selectStudent(ureq, previousEntry);
 	}
 	
 	protected void nextStudent(UserRequest ureq) {
 		StudentStatEntry currentEntry = studentCtrl.getEntry();
-		int nextIndex = tableCtr.getIndexOfSortedObject(currentEntry) + 1;
-		if(nextIndex < 0 || nextIndex >= tableCtr.getRowCount()) {
+		int nextIndex = model.getObjects().indexOf(currentEntry) + 1;
+		if(nextIndex < 0 || nextIndex >= model.getRowCount()) {
 			nextIndex = 0;
 		}
-		StudentStatEntry nextEntry = (StudentStatEntry)tableCtr.getSortedObjectAt(nextIndex);
+		StudentStatEntry nextEntry = model.getObject(nextIndex);
 		selectStudent(ureq, nextEntry);
 	}
 
-	protected void selectStudent(UserRequest ureq, StudentStatEntry studentStat) {
-		removeAsListenerAndDispose(studentCtrl);
-		Identity student = securityManager.loadIdentityByKey(studentStat.getStudentKey());
+	protected StudentCoursesController selectStudent(UserRequest ureq, StudentStatEntry studentStat) {
+		Identity student = securityManager.loadIdentityByKey(studentStat.getIdentityKey());
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Identity.class, student.getKey());
 		WindowControl bwControl = addToHistory(ureq, ores, null);
 		
-		int index = tableCtr.getIndexOfSortedObject(studentStat);
-		studentCtrl = new StudentCoursesController(ureq, bwControl, studentStat, student, index, tableCtr.getRowCount(), false);
-		
+		int index = model.getObjects().indexOf(studentStat);
+		studentCtrl = new StudentCoursesController(ureq, bwControl, stackPanel, studentStat, student, index, model.getRowCount(), false);
 		listenTo(studentCtrl);
-		content.setContent(studentCtrl.getInitialComponent());
+		
+		stackPanel.popUpToRootController(ureq);
+		String displayName = userManager.getUserDisplayName(student);
+		stackPanel.pushController(displayName, studentCtrl);
+		return studentCtrl;
 	}
 }

@@ -141,12 +141,12 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		QuestionItemCollection coll = collectionDao.createCollection("NGC collection 3", id);
 		QuestionItem item1 = questionDao.createAndPersist(null, "NGC 92", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
 		QuestionItem item2 = questionDao.createAndPersist(null, "NGC 97", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
-		collectionDao.addItemToCollection(item1.getKey(), singletonList(coll));
-		collectionDao.addItemToCollection(item2.getKey(), singletonList(coll));
+		collectionDao.addItemToCollection(item1, singletonList(coll));
+		collectionDao.addItemToCollection(item2, singletonList(coll));
 		dbInstance.commit();//check if it's alright
 		
 		//load the items of the collection
-		List<QuestionItemView> items = qItemQueriesDao.getItemsOfCollection(id, coll, null, 0, -1);
+		List<QuestionItemView> items = qItemQueriesDao.getItemsOfCollection(id, coll, null, null, 0, -1);
 		List<Long> itemKeys = new ArrayList<Long>();
 		for(QuestionItemView item:items) {
 			itemKeys.add(item.getKey());
@@ -156,11 +156,11 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		Assert.assertTrue(itemKeys.contains(item1.getKey()));
 		Assert.assertTrue(itemKeys.contains(item2.getKey()));
 		//count them
-		int numOfItems = collectionDao.countItemsOfCollection(coll);
+		int numOfItems = collectionDao.countItemsOfCollection(coll, null);
 		Assert.assertEquals(2, numOfItems);
 		
 		//load limit sub set
-		List<QuestionItemView> limitedItems = qItemQueriesDao.getItemsOfCollection(id, coll, Collections.singletonList(item1.getKey()), 0, -1);
+		List<QuestionItemView> limitedItems = qItemQueriesDao.getItemsOfCollection(id, coll, Collections.singletonList(item1.getKey()), null, 0, -1);
 		Assert.assertNotNull(limitedItems);
 		Assert.assertEquals(1, limitedItems.size());
 		Assert.assertEquals(item1.getKey(), limitedItems.get(0).getKey());
@@ -173,17 +173,17 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("Coll-Onwer-3-" + UUID.randomUUID().toString());
 		QuestionItemCollection coll = collectionDao.createCollection("NGC collection 3", id);
 		QuestionItem item = questionDao.createAndPersist(null, "NGC 92", QTIConstants.QTI_12_FORMAT, Locale.GERMAN.getLanguage(), null, null, null, fibType);
-		collectionDao.addItemToCollection(item.getKey(), singletonList(coll));
+		collectionDao.addItemToCollection(item, singletonList(coll));
 		dbInstance.commit();//check if it's alright
 		
 		//test order by
 		for(QuestionItemView.OrderBy order: QuestionItemView.OrderBy.values()) {
 			SortKey sortAsc = new SortKey(order.name(), true);
-			List<QuestionItemView> ascOrderedItems = qItemQueriesDao.getItemsOfCollection(id, coll, null, 0, -1, sortAsc);
+			List<QuestionItemView> ascOrderedItems = qItemQueriesDao.getItemsOfCollection(id, coll, null, null, 0, -1, sortAsc);
 			Assert.assertNotNull(ascOrderedItems);
 			
 			SortKey sortDesc = new SortKey(order.name(), false);
-			List<QuestionItemView> descOrderedItems = qItemQueriesDao.getItemsOfCollection(id, coll, null, 0, -1, sortDesc);
+			List<QuestionItemView> descOrderedItems = qItemQueriesDao.getItemsOfCollection(id, coll, null, null, 0, -1, sortDesc);
 			Assert.assertNotNull(descOrderedItems);
 		}
 	}
@@ -315,14 +315,14 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		List<OLATResource> resources = new ArrayList<OLATResource>();
 		resources.add(group1.getResource());
 		resources.add(group2.getResource());
-		questionDao.share(item.getKey(), resources, false);
+		questionDao.share(item, resources, false);
 		
 		//retrieve them
-		List<QuestionItemView> sharedItems1 = qItemQueriesDao.getSharedItemByResource(id, group1.getResource(), null, 0, -1);
+		List<QuestionItemView> sharedItems1 = qItemQueriesDao.getSharedItemByResource(id, group1.getResource(), null, null, 0, -1);
 		Assert.assertNotNull(sharedItems1);
 		Assert.assertEquals(1, sharedItems1.size());
 		Assert.assertEquals(item.getKey(), sharedItems1.get(0).getKey());
-		List<QuestionItemView> sharedItems2 = qItemQueriesDao.getSharedItemByResource(id, group2.getResource(), null, 0, -1);
+		List<QuestionItemView> sharedItems2 = qItemQueriesDao.getSharedItemByResource(id, group2.getResource(), null, null, 0, -1);
 		Assert.assertNotNull(sharedItems2);
 		Assert.assertEquals(1, sharedItems2.size());
 		Assert.assertEquals(item.getKey(), sharedItems2.get(0).getKey());
@@ -340,7 +340,7 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		//share them
 		List<OLATResource> resources = new ArrayList<OLATResource>();
 		resources.add(group.getResource());
-		questionDao.share(item.getKey(), resources, false);
+		questionDao.share(item, resources, false);
 		dbInstance.commitAndCloseSession();
 		
 		
@@ -348,12 +348,12 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		for(QuestionItemView.OrderBy order: QuestionItemView.OrderBy.values()) {
 			SortKey sortAsc = new SortKey(order.name(), true);
 			List<QuestionItemView> ascOrderedItems = qItemQueriesDao
-					.getSharedItemByResource(id, group.getResource(), null, 0, -1, sortAsc);
+					.getSharedItemByResource(id, group.getResource(), null, null, 0, -1, sortAsc);
 			Assert.assertNotNull(ascOrderedItems);
 			
 			SortKey sortDesc = new SortKey(order.name(), false);
 			List<QuestionItemView> descOrderedItems = qItemQueriesDao
-					.getSharedItemByResource(id, group.getResource(), null, 0, -1, sortDesc);
+					.getSharedItemByResource(id, group.getResource(), null, null, 0, -1, sortDesc);
 			Assert.assertNotNull(descOrderedItems);
 		}
 	}
@@ -373,7 +373,7 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		questionDao.share(item2, group.getResource());
 		
 		//retrieve them
-		List<QuestionItemView> sharedItems = qItemQueriesDao.getSharedItemByResource(id, group.getResource(), null, 0, -1);
+		List<QuestionItemView> sharedItems = qItemQueriesDao.getSharedItemByResource(id, group.getResource(), null, null, 0, -1);
 		List<Long> sharedItemKeys = new ArrayList<Long>();
 		for(QuestionItemView sharedItem:sharedItems) {
 			sharedItemKeys.add(sharedItem.getKey());
@@ -384,7 +384,7 @@ public class QItemQueriesDAOTest extends OlatTestCase  {
 		Assert.assertTrue(sharedItemKeys.contains(item2.getKey()));
 		
 		//retrieve limited sub set
-		List<QuestionItemView> limitedSharedItems = qItemQueriesDao.getSharedItemByResource(id, group.getResource(), Collections.singletonList(item1.getKey()), 0, -1);
+		List<QuestionItemView> limitedSharedItems = qItemQueriesDao.getSharedItemByResource(id, group.getResource(), Collections.singletonList(item1.getKey()), null, 0, -1);
 		Assert.assertNotNull(limitedSharedItems);
 		Assert.assertEquals(1, limitedSharedItems.size());
 		Assert.assertEquals(item1.getKey(), limitedSharedItems.get(0).getKey());

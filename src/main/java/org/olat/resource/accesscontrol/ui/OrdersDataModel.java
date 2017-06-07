@@ -17,161 +17,114 @@
  * frentix GmbH, http://www.frentix.com
  * <p>
  */
-
 package org.olat.resource.accesscontrol.ui;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 
-import org.olat.core.gui.components.table.TableDataModel;
-import org.olat.core.id.User;
-import org.olat.core.id.UserConstants;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataSourceModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiSortableColumnDef;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataSourceDelegate;
 import org.olat.core.util.StringHelper;
-import org.olat.resource.accesscontrol.model.AccessTransaction;
-import org.olat.resource.accesscontrol.model.Order;
-import org.olat.resource.accesscontrol.model.OrderLine;
-import org.olat.resource.accesscontrol.model.OrderPart;
-import org.olat.resource.accesscontrol.model.PSPTransaction;
+import org.olat.resource.accesscontrol.model.AccessMethod;
+import org.olat.user.UserManager;
 
 /**
  * 
- * Description:<br>
- * A data model which hold the orders and their transactions
- * 
- * <P>
- * Initial Date:  20 avr. 2011 <br>
+ * Initial date: 5 janv. 2017<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
+ *
  */
-public class OrdersDataModel implements TableDataModel<OrderTableItem> {
+public class OrdersDataModel extends DefaultFlexiTableDataSourceModel<OrderTableItem> {
 	
 	private final Locale locale;
-	private List<OrderTableItem> orders;
+	private final UserManager userManager;
 	
-	public OrdersDataModel(List<OrderTableItem> orders, Locale locale) {
-		this.orders = orders;
+	public OrdersDataModel(FlexiTableDataSourceDelegate<OrderTableItem> dataSource, Locale locale, UserManager userManager, FlexiTableColumnModel columnModel) {
+		super(dataSource, columnModel);
 		this.locale = locale;
-	}
-
-	@Override
-	public int getColumnCount() {
-		return 1;
-	}
-
-	@Override
-	public int getRowCount() {
-		return orders.size();
+		this.userManager = userManager;
 	}
 
 	@Override
 	public Object getValueAt(int row, int col) {
-		OrderTableItem order = orders.get(row);
-		switch(Col.get(col)) {
+		OrderTableItem order = getObject(row);
+		 if(col >= OrdersAdminController.USER_PROPS_OFFSET) {
+			int propIndex = col - OrdersAdminController.USER_PROPS_OFFSET;
+			return order.getUserProperties()[propIndex];
+		}
+		
+		switch(OrderCol.values()[col]) {
 			case status: {
 				return order;
 			}
-			case orderNr: return order.getOrder().getOrderNr();
-			case creationDate: return order.getOrder().getCreationDate();
+			case orderNr: return order.getOrderNr();
+			case creationDate: return order.getCreationDate();
 			case delivery: {
-				User user = order.getOrder().getDelivery().getUser();
-				return user.getProperty(UserConstants.FIRSTNAME, null) + " " + user.getProperty(UserConstants.LASTNAME, null);
+				Long deliveryKey = order.getDeliveryKey();
+				return userManager.getUserDisplayName(deliveryKey);
 			}
 			case methods: {
-				return order.getTransactions();
+				return order.getMethods();
 			}
 			case total: {
 				boolean paymentMethod = false;
-				Collection<AccessTransaction> transactions = order.getTransactions();
-				for(AccessTransaction transaction:transactions) {
-					paymentMethod |= transaction.getMethod().isPaymentMethod();
+				Collection<AccessMethod> methods = order.getMethods();
+				for(AccessMethod method:methods) {
+					paymentMethod |= method.isPaymentMethod();
 				}
 				
 				if(paymentMethod) {
-					String total = PriceFormat.fullFormat(order.getOrder().getTotal());
+					String total = PriceFormat.fullFormat(order.getTotal());
 					if(StringHelper.containsNonWhitespace(total)) {
 						return total;
 					}
 				}
 				return "-";
 			}
-			case summary: {
-				StringBuilder sb = new StringBuilder();
-				for(OrderPart part:order.getOrder().getParts()) {
-					for(OrderLine lines:part.getOrderLines()) {
-						String displayName = lines.getOffer().getResourceDisplayName();
-						if(sb.length() > 0) {
-							sb.append(", ");
-						}
-						sb.append(displayName);
-					}
-				}
-				return sb.toString();
-			}
+			case summary: return order.getResourceDisplayname();
+			case username: return order.getUsername();
 			default: return order;
 		}
 	}
 
 	@Override
-	public OrderTableItem getObject(int row) {
-		return orders.get(row);
+	public OrdersDataModel createCopyWithEmptyList() {
+		return new OrdersDataModel(getSourceDelegate(), locale, userManager, getTableColumnModel());
 	}
 	
-	public OrderTableItem getItem(Long key) {
-		if(orders == null) return null;
-		for(OrderTableItem item:orders) {
-			if(item.getOrder().getKey().equals(key)) {
-				return item;
-			}
-		}
-		return null;
-	}
+	public enum OrderCol implements FlexiSortableColumnDef {
+		orderNr("order.nr", "order_id"),
+		creationDate("order.creationDate", "creationdate"),
+		delivery("order.delivery", "delivery_id"),
+		methods("order.part.payment", "trxMethodIds"),
+		total("order.total", "total_amount"),
+		summary("order.summary", "resDisplaynames"),
+		status("order.status", "o_status"),
+		username("order.username", "delivery_ident_name");
 
-	@Override
-	public void setObjects(List<OrderTableItem> objects) {
-		this.orders = objects;
-	}
-
-	@Override
-	public Object createCopyWithEmptyList() {
-		return new OrdersDataModel(Collections.<OrderTableItem>emptyList(), locale);
-	}
-	
-	
-	public static List<OrderTableItem> create(List<Order> orders, List<AccessTransaction> transactions, List<PSPTransaction> pspTransactions) {
-		List<OrderTableItem> items = new ArrayList<OrderTableItem>();
+		private final String i18nKey;
+		private final String sortKey;
 		
-		for(Order order:orders) {
-			OrderTableItem item = new OrderTableItem(order);
-			for(AccessTransaction transaction:transactions) {
-				if(transaction.getOrder().equals(order)) {
-					item.getTransactions().add(transaction);
-				}
-			}
-			for(PSPTransaction transaction:pspTransactions) {
-				if(transaction.getOrderId().equals(order.getKey())) {
-					item.getPSPTransactions().add(transaction);
-				}
-			}
-			
-			items.add(item);
+		private OrderCol(String i18nKey, String sortKey) {
+			this.i18nKey = i18nKey;
+			this.sortKey = sortKey;
 		}
-		
-		return items;
-	}
-	
-	public enum Col {
-		orderNr,
-		creationDate,
-		delivery,
-		methods,
-		total,
-		summary,
-		status;
 
-		public static Col get(int index) {
-			return values()[index];
+		@Override
+		public String i18nHeaderKey() {
+			return i18nKey;
+		}
+
+		@Override
+		public boolean sortable() {
+			return true;
+		}
+
+		@Override
+		public String sortKey() {
+			return sortKey;
 		}
 	}
 }

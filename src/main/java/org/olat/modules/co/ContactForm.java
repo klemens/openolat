@@ -398,13 +398,15 @@ public class ContactForm extends FormBasicController {
 		tsubject.setDisplaySize(emailCols);
 		tbody = uifactory.addRichTextElementForStringDataMinimalistic("tbody", NLS_CONTACT_BODY, "", 15, emailCols, formLayout, getWindowControl());
 		tbody.setEnabled(!readOnly);
+		tbody.getEditorConfiguration().setRelativeUrls(false);
+		tbody.getEditorConfiguration().setRemoveScriptHost(false);
 		
 		String VELOCITY_ROOT = Util.getPackageVelocityRoot(this.getClass());
 		uploadCont = FormLayoutContainer.createCustomFormLayout("file_upload_inner", getTranslator(), VELOCITY_ROOT + "/attachments.html");
 		uploadCont.setRootForm(mainForm);
 		formLayout.add(uploadCont);
 		
-		attachmentEl = uifactory.addFileElement("file_upload_1", NLS_CONTACT_ATTACHMENT, formLayout);
+		attachmentEl = uifactory.addFileElement(getWindowControl(), "file_upload_1", NLS_CONTACT_ATTACHMENT, formLayout);
 		attachmentEl.setLabel(NLS_CONTACT_ATTACHMENT, null);
 		attachmentEl.addActionListener(FormEvent.ONCHANGE);
 		attachmentEl.setExampleKey(NLS_CONTACT_ATTACHMENT_EXPL, new String[]{Integer.toString(contactAttachmentMaxSizeInMb)});

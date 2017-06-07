@@ -35,6 +35,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
 import org.olat.core.gui.components.link.FormLinkFactory;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Event;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.ValidationStatus;
 
@@ -62,11 +63,13 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	private boolean hasCustomEnabledCss = false;
 	private boolean hasCustomDisabledCss = false;
 	private boolean domReplacementWrapperRequired = false;
+	private boolean ownDirtyFormWarning = false;
 	private String iconLeftCSS;
 	private String iconRightCSS;
 	private String customEnabledLinkCSS;
 	private String customDisabledLinkCSS;
 	private String title;
+	private String textReasonForDisabling;
 
 	/**
 	 * creates a form link with the given name which acts also as command, i18n
@@ -104,10 +107,41 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	}
 	
 	@Override
+	public Link getComponent() {
+		return component;
+	}
+
+	@Override
 	public void setDomReplacementWrapperRequired(boolean required) {
 		this.domReplacementWrapperRequired = required;
 		if(component != null) {
 			component.setDomReplacementWrapperRequired(required);
+		}
+	}
+	
+	@Override
+	public String getTextReasonForDisabling() {
+		return textReasonForDisabling;
+	}
+
+	@Override
+	public void setTextReasonForDisabling(String textReasonForDisabling) {
+		this.textReasonForDisabling = textReasonForDisabling;
+		if(component != null) {
+			component.setTextReasonForDisabling(textReasonForDisabling);
+		}
+	}
+
+	@Override
+	public boolean isForceOwnDirtyFormWarning() {
+		return ownDirtyFormWarning;
+	}
+
+	@Override
+	public void setForceOwnDirtyFormWarning(boolean warning) {
+		ownDirtyFormWarning = warning;
+		if(component != null) {
+			component.setForceFlexiDirtyFormWarning(ownDirtyFormWarning);
 		}
 	}
 
@@ -154,7 +188,12 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 		component.setIconRightCSS(iconRightCSS);
 		component.setElementCssClass(getElementCssClass());
 		component.setTitle(title);
+		component.setForceFlexiDirtyFormWarning(ownDirtyFormWarning);
+		if(textReasonForDisabling != null) {
+			component.setTextReasonForDisabling(textReasonForDisabling);
+		}
 		component.setDomReplacementWrapperRequired(domReplacementWrapperRequired);
+		component.setFocus(super.hasFocus());
 		if(StringHelper.containsNonWhitespace(getElementCssClass())) {
 			component.setElementCssClass(getElementCssClass());
 		}
@@ -188,6 +227,14 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	@Override
 	public String getCmd() {
 		return cmd;
+	}
+
+	@Override
+	public void setTranslator(Translator translator) {
+		if(this.component != null) {
+			this.component.setTranslator(translator);
+		}
+		super.setTranslator(translator);
 	}
 
 	@Override
@@ -285,6 +332,20 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	}
 
 	@Override
+	public String getLinkTitleText() {
+		String title = null;
+		if (component != null) {
+			title = component.getCustomDisplayText();
+			if (title == null && getTranslator() != null) {
+				if (StringHelper.containsNonWhitespace(component.getI18n())) {
+					title = getTranslator().translate(component.getI18n());
+				}
+			}
+		}
+		return title;
+	}
+
+	@Override
 	public void setActive(boolean isActive) {
 		if (component != null) {
 			component.setActive(isActive);
@@ -297,4 +358,24 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 			component.setPrimary(isPrimary);
 		}		
 	}
+	
+	@Override
+	public void setFocus(boolean hasFocus){
+		if (component != null) {
+			component.setFocus(hasFocus);
+		}
+		// set also on parent as fallback
+		super.setFocus(hasFocus);
+	}
+	
+	@Override
+	public boolean hasFocus(){
+		if (component != null) {
+			return component.isFocus();
+		} else {
+			// fallback
+			return super.hasFocus();			
+		}
+	}
+
 }

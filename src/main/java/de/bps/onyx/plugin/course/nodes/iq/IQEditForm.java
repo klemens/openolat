@@ -31,6 +31,7 @@ package de.bps.onyx.plugin.course.nodes.iq;
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -45,6 +46,7 @@ import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
+import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -52,6 +54,7 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Util;
+import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.iq.IQ12EditForm;
 import org.olat.course.nodes.iq.IQEditController;
 import org.olat.ims.qti.process.AssessmentInstance;
@@ -97,6 +100,7 @@ public class IQEditForm extends FormBasicController {
 	private DateChooser endDateElement;
 	private SelectionElement showResultsAfterFinishTest;
 	private SelectionElement showResultsOnHomePage;
+	private FormLayoutContainer variablesCont;
 
 	private ModuleConfiguration modConfig;
 
@@ -105,6 +109,7 @@ public class IQEditForm extends FormBasicController {
 	private SingleSelection template;
 	private TextElement cutValue;
 
+	private final CourseNode courseNode;
 	private boolean isAssessment, isSelfTest, isSurvey;
 	//<OLATCE-1012>
 	private RepositoryEntry repoEntry;
@@ -119,7 +124,7 @@ public class IQEditForm extends FormBasicController {
 	 * @param modConfig
 	 */
 	// <OLATCE-654>
-	public IQEditForm(UserRequest ureq, WindowControl wControl, ModuleConfiguration modConfig, RepositoryEntry repoEntry) {
+	public IQEditForm(UserRequest ureq, WindowControl wControl, ModuleConfiguration modConfig, CourseNode courseNode, RepositoryEntry repoEntry) {
 	// </OLATCE-654>
 		super (ureq, wControl);
 
@@ -128,7 +133,7 @@ public class IQEditForm extends FormBasicController {
 		//</OLATCE-1012>
 		Translator translator = Util.createPackageTranslator(IQ12EditForm.class, getLocale(), getTranslator());
 		setTranslator(translator);
-
+		this.courseNode = courseNode;
 		this.modConfig = modConfig;
 
 		configKeyType = (String) modConfig.get(IQEditController.CONFIG_KEY_TYPE);
@@ -174,11 +179,34 @@ public class IQEditForm extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		modConfig.set(IQEditController.CONFIG_KEY_TEMPLATE, getTemplate());
+		if (!isSurvey) {
+			modConfig.set(IQEditController.CONFIG_KEY_ATTEMPTS, getAttempts());
+			modConfig.set(IQEditController.CONFIG_KEY_CUTVALUE, getCutValue());
+		}
+		modConfig.set(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS, new Boolean(isShowResultsDateDependent()));
+		modConfig.set(IQEditController.CONFIG_KEY_RESULTS_START_DATE, getShowResultsStartDate());
+		modConfig.set(IQEditController.CONFIG_KEY_RESULTS_END_DATE, getShowResultsEndDate());
+		modConfig.set(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE, isShowResultsOnHomePage());
+		//<OLATCE-982>
+		modConfig.set(IQEditController.CONFIG_KEY_ALLOW_SHOW_SOLUTION, allowShowSolution());
+		//</OLATCE-982>
+		//<OLATCE-2009>
+		modConfig.set(IQEditController.CONFIG_KEY_ALLOW_SUSPENSION_ALLOWED, allowSuspension());
+		//</OLATCE-2009>
+		
 		fireEvent(ureq, Event.DONE_EVENT);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		
+		String variablePages = velocity_root + "/variables.html";
+		variablesCont = FormLayoutContainer.createCustomFormLayout("variables", getTranslator(), variablePages);
+		variablesCont.setLabel("outcomes.title", null);
+		variablesCont.setVisible(false);
+		variablesCont.setRootForm(mainForm);
+		formLayout.add(variablesCont);
 
 		limitAttempts = uifactory.addCheckboxesVertical("limitAttempts", "qti.form.limit.attempts", formLayout, new String[] { "xx" }, new String[] { null }, 1);
 
@@ -193,8 +221,6 @@ public class IQEditForm extends FormBasicController {
 
 		// Only assessments have a limitation on number of attempts
 		if (isAssessment) {
-			uifactory.addSpacerElement("s1", formLayout, true);
-			
 			limitAttempts.select("xx", confAttempts > 0);
 			limitAttempts.addActionListener(FormEvent.ONCLICK);
 		} else {
@@ -204,7 +230,7 @@ public class IQEditForm extends FormBasicController {
 		}
 
 		//<OLATCE-982>
-		Boolean confAllowShowSolution = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_ALLOW_SHOW_SOLUTION);
+		Boolean confAllowShowSolution = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ALLOW_SHOW_SOLUTION);
 		String[] allowShowSolution=new String[]{ALLOW};
 		String[] valuesShowSolution = new String[]{""};
 		//Surveys do not have a solution
@@ -219,7 +245,7 @@ public class IQEditForm extends FormBasicController {
 		}
 		//</OLATCE-982>
 		//<OLATCE-2009>
-		Boolean confAllowSuspension = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_ALLOW_SUSPENSION_ALLOWED);
+		Boolean confAllowSuspension = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ALLOW_SUSPENSION_ALLOWED);
 		String[] allowSuspension = new String[] { ALLOW };
 		String[] valuesSuspesion = new String[] { "" };
 		allowSuspensionBox = uifactory.addCheckboxesHorizontal("allowSuspension", "qti.form.allowSuspension", formLayout, allowSuspension,
@@ -283,7 +309,7 @@ public class IQEditForm extends FormBasicController {
 		String configuredSummary = (String) modConfig.get(IQEditController.CONFIG_KEY_SUMMARY);
 		boolean noSummary = configuredSummary != null && configuredSummary.equals(AssessmentInstance.QMD_ENTRY_SUMMARY_NONE) ? true : false;
 
-		Boolean showResultOnHomePage = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);
+		Boolean showResultOnHomePage = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);
 		boolean confEnableShowResultOnHomePage = (showResultOnHomePage != null) ? showResultOnHomePage.booleanValue() : false;
 		confEnableShowResultOnHomePage = !noSummary && confEnableShowResultOnHomePage;
 		showResultsOnHomePage = uifactory.addCheckboxesVertical("qti_enableResultsOnHomePage", "qti.form.results.onhomepage", formLayout, new String[] { "xx" },
@@ -292,7 +318,7 @@ public class IQEditForm extends FormBasicController {
 		showResultsOnHomePage.addActionListener(FormEvent.ONCLICK);
 		showResultsOnHomePage.setVisible(!isSurvey);
 
-		Boolean showResultsActive = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
+		Boolean showResultsActive = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_DATE_DEPENDENT_RESULTS);
 		boolean showResultsDateDependent = false; // default false
 		if (showResultsActive != null) {
 			showResultsDateDependent = showResultsActive.booleanValue();
@@ -353,6 +379,20 @@ public class IQEditForm extends FormBasicController {
 			endDateElement.setValue("");
 		}
 		endDateElement.setVisible(startDateElement.isVisible());
+	}
+	
+	public void update(RepositoryEntry testEntry) {
+		variablesCont.contextPut("onyxDisplayName", testEntry.getDisplayname());
+		variablesCont.contextPut("showOutcomes", Boolean.TRUE);
+		Map<String, String> outcomes = new HashMap<String, String>();
+		try {
+			OnyxReporterConnector onyxReporter = new OnyxReporterConnector();
+			outcomes = onyxReporter.getPossibleOutcomeVariables(courseNode);
+		} catch (OnyxReporterException e) {
+			getWindowControl().setWarning(translate("reporter.unavailable"));
+		}
+		variablesCont.contextPut("outcomes", outcomes);
+		variablesCont.setVisible(outcomes.size() > 0);
 	}
 
 	/**

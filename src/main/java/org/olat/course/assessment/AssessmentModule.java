@@ -42,6 +42,7 @@ import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.Structure;
+import org.olat.course.assessment.manager.UpdateEfficiencyStatementsWorker;
 import org.olat.course.editor.PublishEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -130,12 +131,11 @@ public class AssessmentModule extends AbstractSpringModule implements GenericEve
 	public void event(Event event) {
 		if (event instanceof PublishEvent) {
 			PublishEvent pe = (PublishEvent) event;
-			//FIXME: LD: temporary introduced the (pe.getCommand() == PublishEvent.EVENT_IDENTIFIER) to filter the events from the same VM
-			if (pe.getState() == PublishEvent.PRE_PUBLISH && pe.getEventIdentifier() == PublishEvent.EVENT_IDENTIFIER) {
+			if (pe.getState() == PublishEvent.PRE_PUBLISH && pe.isEventOnThisNode()) {
 				// PRE PUBLISH -> check node for changes
 				addToUpcomingWork(pe);
 				return;
-			} else if (pe.getState() == PublishEvent.PUBLISH && pe.getEventIdentifier() == PublishEvent.EVENT_IDENTIFIER) {
+			} else if (pe.getState() == PublishEvent.PUBLISH && pe.isEventOnThisNode()) {
 				// a publish event, check if it matches a previous checked
 				prepareUpdate(pe.getPublishedCourseResId());
 			}
@@ -154,7 +154,9 @@ public class AssessmentModule extends AbstractSpringModule implements GenericEve
 		synchronized (upcomingWork) { //o_clusterOK by:ld synchronized OK - only one cluster node must update the EfficiencyStatements (the course is locked for editing) (same as e.g. file indexer)
 			recalc = upcomingWork.contains(resId);
 			if (recalc) {
-				upcomingWork.remove(resId);
+				for(; upcomingWork.remove(resId); ) {
+					//remove all with the same res id
+				}
 			}
 		}
 		if (recalc) {

@@ -70,8 +70,8 @@ import org.olat.group.BusinessGroupMembership;
 import org.olat.group.BusinessGroupService;
 import org.olat.group.BusinessGroupShort;
 import org.olat.group.model.BGRepositoryEntryRelation;
-import org.olat.group.ui.main.BusinessGroupTableModelWithType;
 import org.olat.group.ui.main.CourseMembership;
+import org.olat.group.ui.main.CourseMembershipComparator;
 import org.olat.group.ui.main.EditSingleMembershipController;
 import org.olat.group.ui.main.MemberPermissionChangeEvent;
 import org.olat.repository.RepositoryEntry;
@@ -84,6 +84,7 @@ import org.olat.repository.controllers.RepositoryEntryFilter;
 import org.olat.repository.controllers.RepositorySearchController.Can;
 import org.olat.repository.model.RepositoryEntryMembership;
 import org.olat.repository.model.RepositoryEntryPermissionChangeEvent;
+import org.olat.repository.ui.RepositoryEntryIconRenderer;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -102,6 +103,7 @@ public class CourseOverviewController extends BasicController  {
 	private final Link addAsOwner, addAsTutor, addAsParticipant;
 	private TableController courseListCtr;
 	private MembershipDataModel tableDataModel;
+	private final CourseMembershipComparator membershipComparator = new CourseMembershipComparator();
 	
 	private CloseableModalController cmc;
 	private DialogBoxController confirmSendMailBox;
@@ -123,7 +125,7 @@ public class CourseOverviewController extends BasicController  {
 	private BusinessGroupService businessGroupService;
 	
 	public CourseOverviewController(UserRequest ureq, WindowControl wControl, Identity identity) {
-		super(ureq, wControl, Util.createPackageTranslator(BusinessGroupTableModelWithType.class, ureq.getLocale()));
+		super(ureq, wControl, Util.createPackageTranslator(CourseMembership.class, ureq.getLocale()));
 		this.setTranslator(Util.createPackageTranslator(RepositoryService.class, getLocale(), getTranslator()));
 
 		editedIdentity = identity;
@@ -139,6 +141,10 @@ public class CourseOverviewController extends BasicController  {
 		listenTo(courseListCtr);
 		courseListCtr.addColumnDescriptor(false, new DefaultColumnDescriptor(MSCols.key.i18n(), MSCols.key.ordinal(),
 				TABLE_ACTION_LAUNCH, getLocale()));
+		
+		courseListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(MSCols.entry.i18n(), MSCols.entry.ordinal(),
+				null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new RepositoryEntryIconRenderer()));
+		
 		courseListCtr.addColumnDescriptor(new DefaultColumnDescriptor(MSCols.title.i18n(), MSCols.title.ordinal(),
 				TABLE_ACTION_LAUNCH, getLocale()));
 		if(repositoryModule.isManagedRepositoryEntries()) {
@@ -148,7 +154,19 @@ public class CourseOverviewController extends BasicController  {
 		courseListCtr.addColumnDescriptor(false, new DefaultColumnDescriptor(MSCols.externalRef.i18n(), MSCols.externalRef.ordinal(),
 				TABLE_ACTION_LAUNCH, getLocale()));
 		CustomCellRenderer roleRenderer = new CourseRoleCellRenderer();
-		courseListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(MSCols.role.i18n(), MSCols.role.ordinal(), null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, roleRenderer));
+		courseListCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(MSCols.role.i18n(), MSCols.role.ordinal(), null, getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, roleRenderer){
+			@Override
+			public int compareTo(int rowa, int rowb) {
+				CourseMemberView cmv1 = (CourseMemberView)table.getTableDataModel().getValueAt(rowa,dataColumn);
+				CourseMemberView cmv2 = (CourseMemberView)table.getTableDataModel().getValueAt(rowb,dataColumn);
+				if(cmv1 == null || cmv1.getMembership() == null) {
+					return -1;
+				} else if(cmv2 == null || cmv2.getMembership() == null) {
+					return 1;
+				}
+				return membershipComparator.compare(cmv1.getMembership(), cmv2.getMembership());
+			}
+		});
 		courseListCtr.addColumnDescriptor(new DefaultColumnDescriptor(MSCols.firstTime.i18n(), MSCols.firstTime.ordinal(), null, getLocale()));
 		if(isLastVisitVisible) {
 			courseListCtr.addColumnDescriptor(new DefaultColumnDescriptor(MSCols.lastTime.i18n(), MSCols.lastTime.ordinal(), null, getLocale()));
@@ -277,9 +295,7 @@ public class CourseOverviewController extends BasicController  {
 		for(CourseMemberView memberView:repoKeyToViewMap.values()) {
 			RepositoryEntry entry = entryKeyToRepoEntryMap.get(memberView.getRepoKey());
 			if(entry != null) {
-				memberView.setDisplayName(entry.getDisplayname());
-				memberView.setExternalId(entry.getExternalId());
-				memberView.setExternalRef(entry.getExternalRef());
+				memberView.setEntry(entry);
 				
 				boolean managedMembersRepo = RepositoryEntryManagedFlag.isManaged(entry,
 						RepositoryEntryManagedFlag.membersmanagement);
@@ -394,7 +410,7 @@ public class CourseOverviewController extends BasicController  {
 	
 	private void doOpenEdit(UserRequest ureq, CourseMemberView member) {
 		RepositoryEntry repoEntry = repositoryManager.lookupRepositoryEntry(member.getRepoKey());
-		editSingleMemberCtrl = new EditSingleMembershipController(ureq, getWindowControl(), editedIdentity, repoEntry, null, true);
+		editSingleMemberCtrl = new EditSingleMembershipController(ureq, getWindowControl(), editedIdentity, repoEntry, null, true, false);
 		listenTo(editSingleMemberCtrl);
 		cmc = new CloseableModalController(getWindowControl(), translate("close"), editSingleMemberCtrl.getInitialComponent(),
 				true, translate("edit.member"));
@@ -585,7 +601,8 @@ public class CourseOverviewController extends BasicController  {
 	
 	public enum MSCols {
 		key("table.header.key"),
-		title("table.header.displayName"),
+		entry("table.header.typeimg"),
+		title("cif.displayname"),
 		externalId("table.header.externalid"),
 		externalRef("table.header.externalref"),
 		role("table.header.role"),
@@ -655,6 +672,7 @@ public class CourseOverviewController extends BasicController  {
 			CourseMemberView  view = getObject(row);
 			switch(MSCols.values()[col]) {
 				case key: return view.getRepoKey();
+				case entry: return view.getEntry();
 				case title: return view.getDisplayName();
 				case externalId: return view.getExternalId();
 				case externalRef: return view.getExternalRef();
@@ -669,9 +687,7 @@ public class CourseOverviewController extends BasicController  {
 	
 	private class CourseMemberView {
 		private final Long repoKey;
-		private String displayName;
-		private String externalId;
-		private String externalRef;
+		private RepositoryEntry entry;
 		private Date firstTime;
 		private Date lastTime;
 		private final CourseMembership membership = new CourseMembership();
@@ -686,27 +702,23 @@ public class CourseOverviewController extends BasicController  {
 		}
 		
 		public String getDisplayName() {
-			return displayName;
-		}
-
-		public void setDisplayName(String displayName) {
-			this.displayName = displayName;
+			return entry == null ? "???" : entry.getDisplayname();
 		}
 		
 		public String getExternalId() {
-			return externalId;
-		}
-
-		public void setExternalId(String externalId) {
-			this.externalId = externalId;
+			return entry == null ? "" : entry.getExternalId();
 		}
 
 		public String getExternalRef() {
-			return externalRef;
+			return entry == null ? "" : entry.getExternalRef();
 		}
 
-		public void setExternalRef(String externalRef) {
-			this.externalRef = externalRef;
+		public RepositoryEntry getEntry() {
+			return entry;
+		}
+
+		public void setEntry(RepositoryEntry entry) {
+			this.entry = entry;
 		}
 
 		public Date getFirstTime() {
@@ -807,4 +819,5 @@ public class CourseOverviewController extends BasicController  {
 			return !RepositoryEntryManagedFlag.isManaged(re, RepositoryEntryManagedFlag.membersmanagement);
 		}
 	}
+
 }

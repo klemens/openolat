@@ -31,8 +31,11 @@ import javax.servlet.http.HttpSession;
 
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.manager.AuthenticationDAO;
 import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 
@@ -45,6 +48,7 @@ import org.olat.core.util.StringHelper;
  * Initial Date:  7 apr. 2010 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
+@Service("restSecurityBean")
 public class RestSecurityBeanImpl implements RestSecurityBean {
 	
 	public static final String REST_AUTH_PROVIDER = "REST";
@@ -53,15 +57,10 @@ public class RestSecurityBeanImpl implements RestSecurityBean {
 	private Map<String,List<String>> tokenToSessionIds = new ConcurrentHashMap<String,List<String>>();
 	private Map<String,String> sessionIdToTokens = new ConcurrentHashMap<String,String>();
 	
+	@Autowired
 	private BaseSecurity securityManager;
-	
-	/**
-	 * [used by Spring]
-	 * @param securityManager
-	 */
-	public void setSecurityManager(BaseSecurity securityManager) {
-		this.securityManager = securityManager;
-	}
+	@Autowired
+	private AuthenticationDAO authenticationDao;
 
 	@Override
 	public String generateToken(Identity identity, HttpSession session) {
@@ -73,8 +72,7 @@ public class RestSecurityBeanImpl implements RestSecurityBean {
 		if(auth == null) {
 			auth = securityManager.createAndPersistAuthentication(identity, REST_AUTH_PROVIDER, identity.getName(), token, null);
 		} else {
-			auth.setCredential(token);
-			auth = securityManager.updateAuthentication(auth);
+			authenticationDao.updateCredential(auth, token);
 		}
 		return token;
 	}

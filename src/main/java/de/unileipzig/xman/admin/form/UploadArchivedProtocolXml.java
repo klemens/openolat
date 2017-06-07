@@ -36,7 +36,7 @@ public class UploadArchivedProtocolXml extends FormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		xmlFile = uifactory.addFileElement("AdminArchiveController.uploadForm.file", formLayout);
+		xmlFile = uifactory.addFileElement(getWindowControl(), "AdminArchiveController.uploadForm.file", formLayout);
 		xmlFile.setMandatory(true, "AdminArchiveController.uploadForm.file.error");
 		xsdLink = uifactory.addFormLink("AdminArchiveController.uploadForm.link.downloadSchema", formLayout);
 

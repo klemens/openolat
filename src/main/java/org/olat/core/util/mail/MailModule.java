@@ -21,13 +21,16 @@ package org.olat.core.util.mail;
 
 import java.io.File;
 
-import org.olat.core.commons.modules.bc.FolderConfig;
-import org.olat.core.configuration.AbstractOLATModule;
-import org.olat.core.configuration.PersistedProperties;
+import org.olat.core.commons.modules.bc.FolderModule;
+import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 /**
  * 
@@ -38,39 +41,34 @@ import org.olat.core.util.vfs.VFSContainer;
  * Initial Date:  24 mars 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http.//www.frentix.com
  */
-public class MailModule extends AbstractOLATModule {
+@Service("mailModule")
+public class MailModule extends AbstractSpringModule {
 	
 	private static final String INTERN_MAIL_SYSTEM = "internSystem";
+	private static final String SHOW_RECIPIENT_NAMES = "showRecipientNames";
+	private static final String SHOW_MAIL_ADDRESSES = "showMailAddresses";
 	private static final String RECEIVE_REAL_MAIL_USER_DEFAULT_SETTING = "receiveRealMailUserDefaultSetting";
 	
+	@Value("${mail.intern:false}")
 	private boolean internSystem;
+	@Value("${mail.showRecipientNames:true}")
+	private boolean showRecipientNames;
+	@Value("${mail.showMailAddresses:false}")
+	private boolean showMailAddresses;
+	@Value("${mail.receiveRealMailUserDefaultSetting:true}")
 	private boolean receiveRealMailUserDefaultSetting;
+	
 	private int maxSizeOfAttachments = 5;
 	
 	private static final String ATTACHMENT_DEFAULT = "/mail";
 	private String attachmentsRoot = ATTACHMENT_DEFAULT;
 	
-	private WebappHelper webappHelper;
+	private final FolderModule folderModule;
 	
-	public MailModule() {
-		//make Spring happy
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @param webappHelper
-	 */
-	public void setWebappHelper(WebappHelper webappHelper) {
-		this.webappHelper = webappHelper;
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @see org.olat.core.configuration.AbstractOLATModule#setPersistedProperties(org.olat.core.configuration.PersistedProperties)
-	 */
-	@Override
-	public void setPersistedProperties(PersistedProperties persistedProperties) {
-		this.moduleConfigProperties = persistedProperties;
+	@Autowired
+	public MailModule(CoordinatorManager coordinatorManager, FolderModule folderModule) {
+		super(coordinatorManager);
+		this.folderModule = folderModule;
 	}
 
 	@Override
@@ -84,12 +82,16 @@ public class MailModule extends AbstractOLATModule {
 		if(StringHelper.containsNonWhitespace(receiveRealMailUserDefaultSettingValue)) {
 			receiveRealMailUserDefaultSetting = "true".equalsIgnoreCase(receiveRealMailUserDefaultSettingValue);
 		}
-	}
 
-	@Override
-	protected void initDefaultProperties() {
-		internSystem = getBooleanConfigParameter(INTERN_MAIL_SYSTEM, false);
-		receiveRealMailUserDefaultSetting = getBooleanConfigParameter(RECEIVE_REAL_MAIL_USER_DEFAULT_SETTING, true);
+		String showRecipientNamesValue = getStringPropertyValue(SHOW_RECIPIENT_NAMES, true);
+		if(StringHelper.containsNonWhitespace(showRecipientNamesValue)) {
+			showRecipientNames = "true".equalsIgnoreCase(showRecipientNamesValue);
+		}
+
+		String showMailAddressesValue = getStringPropertyValue(SHOW_MAIL_ADDRESSES, true);
+		if(StringHelper.containsNonWhitespace(showMailAddressesValue)) {
+			showMailAddresses = "true".equalsIgnoreCase(showMailAddressesValue);
+		}
 	}
 
 	@Override
@@ -113,6 +115,28 @@ public class MailModule extends AbstractOLATModule {
 		String internSystemStr = internSystem ? "true" : "false";
 		setStringProperty(INTERN_MAIL_SYSTEM, internSystemStr, true);
 	}
+
+
+	public boolean isShowRecipientNames() {
+		return showRecipientNames;
+	}
+
+	public void setShowRecipientNames(boolean showRecipientNames) {
+		this.showRecipientNames = showRecipientNames;
+		String showRecipientNamesStr = showRecipientNames ? "true" : "false";
+		setStringProperty(SHOW_RECIPIENT_NAMES, showRecipientNamesStr, true);
+	}
+
+	public boolean isShowMailAddresses() {
+		return showMailAddresses;
+	}
+
+	public void setShowMailAddresses(boolean showMailAddresses) {
+		this.showMailAddresses = showMailAddresses;
+		String showMailAddressesStr = showMailAddresses ? "true" : "false";
+		setStringProperty(SHOW_MAIL_ADDRESSES, showMailAddressesStr, true);
+	}
+
 	
 	/**
 	 * Users can receive real e-mail too. This setting is the default for
@@ -149,7 +173,7 @@ public class MailModule extends AbstractOLATModule {
 	}
 	
 	public VFSContainer getRootForAttachments() {
-		String root = FolderConfig.getCanonicalRoot() + attachmentsRoot;
+		String root = folderModule.getCanonicalRoot() + attachmentsRoot;
 		File rootFile = new File(root);
 		if(!rootFile.exists()) {
 			rootFile.mkdirs();

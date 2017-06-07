@@ -28,11 +28,14 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.NamedQueries;
+import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
 import org.olat.basesecurity.Grant;
 import org.olat.basesecurity.Group;
 import org.olat.core.id.Persistable;
@@ -47,13 +50,23 @@ import org.olat.resource.OLATResourceImpl;
  */
 @Entity(name="bgrant")
 @Table(name="o_bs_grant")
+@NamedQueries({
+	@NamedQuery(name="grantedPermissionByIdentityAndResource", query="select grant.permission from bgrant as grant inner join grant.group as baseGroup inner join baseGroup.members as membership where membership.identity.key=:identityKey and grant.resource.key=:resourceKey and membership.role=grant.role")
+})
 public class GrantImpl implements Grant, Persistable {
 
 	private static final long serialVersionUID = -9157469088175205845L;
 
 	@Id
 	@GeneratedValue(generator = "system-uuid")
-	@GenericGenerator(name = "system-uuid", strategy = "hilo")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
 	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
 	private Long key;
 	

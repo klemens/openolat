@@ -40,7 +40,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
-import org.olat.core.util.WorkThreadInformations;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.filters.VFSLeafFilter;
@@ -52,10 +51,11 @@ import org.olat.modules.dialog.DialogElementsController;
 import org.olat.modules.dialog.DialogElementsPropertyManager;
 import org.olat.modules.dialog.DialogPropertyElements;
 import org.olat.modules.fo.Forum;
-import org.olat.modules.fo.ForumManager;
 import org.olat.modules.fo.Message;
 import org.olat.modules.fo.Status;
+import org.olat.modules.fo.manager.ForumManager;
 import org.olat.search.service.SearchResourceContext;
+import org.olat.search.service.document.CourseNodeDocument;
 import org.olat.search.service.document.ForumMessageDocument;
 import org.olat.search.service.document.file.DocumentAccessException;
 import org.olat.search.service.document.file.FileDocumentFactory;
@@ -82,11 +82,10 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 
 	@Override
 	public void doIndex(SearchResourceContext repositoryResourceContext, ICourse course, CourseNode courseNode, OlatFullIndexer indexWriter) throws IOException,InterruptedException  {
-		SearchResourceContext courseNodeResourceContext = new SearchResourceContext(repositoryResourceContext);
-		courseNodeResourceContext.setBusinessControlFor(courseNode);
-		courseNodeResourceContext.setTitle(courseNode.getShortTitle());
-		courseNodeResourceContext.setDescription(courseNode.getLongTitle());
-    
+		SearchResourceContext courseNodeResourceContext = createSearchResourceContext(repositoryResourceContext, courseNode, null);
+		Document document = CourseNodeDocument.createDocument(courseNodeResourceContext, courseNode);
+		indexWriter.addDocument(document);
+		
 		CoursePropertyManager coursePropMgr = course.getCourseEnvironment().getCoursePropertyManager();
 		DialogElementsPropertyManager dialogElmsMgr = DialogElementsPropertyManager.getInstance();
 		DialogPropertyElements elements = dialogElmsMgr.findDialogElements(coursePropMgr, courseNode);
@@ -123,7 +122,6 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 				leafResourceContext.setFilePath(filename);
 				leafResourceContext.setDocumentType(TYPE_FILE);
 				
-				WorkThreadInformations.set("Index Dialog VFSLeaf=" + filename + " at " + leafResourceContext.getResourceUrl());
 				Document document = CoreSpringFactory.getImpl(FileDocumentFactory.class).createDocument(leafResourceContext, leaf);
 				indexWriter.addDocument(document);
 			} else {
@@ -137,8 +135,6 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 			throw new InterruptedException(iex.getMessage());
 		} catch (Exception ex) {
 			logWarn("Exception: Can not index leaf=" + leaf.getName(), ex);
-		} finally {
-			WorkThreadInformations.unset();
 		}
 	}
 

@@ -25,10 +25,12 @@ import static org.olat.restapi.support.ObjectFactory.getInformation;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -99,9 +101,9 @@ public class LearningGroupWebService {
 	
 	/**
 	 * Retrieves the version of the Group Web Service.
-   * @response.representation.200.mediaType text/plain
-   * @response.representation.200.doc The version of this specific Web Service
-   * @response.representation.200.example 1.0
+	 * @response.representation.200.mediaType text/plain
+	 * @response.representation.200.doc The version of this specific Web Service
+	 * @response.representation.200.example 1.0
 	 * @return
 	 */
 	@GET
@@ -115,12 +117,12 @@ public class LearningGroupWebService {
 	 * Return the list of all groups if you have group manager permission, or all
 	 * learning group that you particip with or owne.
 	 * @response.representation.200.qname {http://www.example.com}groupVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc This is the list of all groups in OLAT system
-   * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVOes}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc This is the list of all groups in OLAT system
+	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVOes}
 	 * @param externalId Search with an external ID
 	 * @param managed (true / false) Search only managed / not managed groups 
-   * @param request The HTTP Request
+	 * @param request The HTTP Request
 	 * @return
 	 */
 	@GET
@@ -232,13 +234,13 @@ public class LearningGroupWebService {
 	/**
 	 * Updates a group.
 	 * @response.representation.qname {http://www.example.com}groupVO
-   * @response.representation.mediaType application/xml, application/json
-   * @response.representation.doc A business group in the OLAT system
-   * @response.representation.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
+	 * @response.representation.mediaType application/xml, application/json
+	 * @response.representation.doc A business group in the OLAT system
+	 * @response.representation.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
 	 * @response.representation.200.qname {http://www.example.com}groupVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc The saved business group
-   * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc The saved business group
+	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPVO}
 	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
 	 * @response.representation.404.doc The business group cannot be found
 	 * @param groupKey The key of the group
@@ -272,6 +274,104 @@ public class LearningGroupWebService {
 		return Response.ok(savedVO).build();
 	}
 	
+	/**
+	 * Returns the  news.
+	 * 
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The business group cannot be found or the news tool is not enabled
+	 * @param groupKey The key of the group
+	 * @param request The HTTP Request
+	 * @return
+	 */
+	@GET
+	@Path("{groupKey}/news")
+	@Produces({MediaType.TEXT_PLAIN})
+	public Response getNews(@PathParam("groupKey") Long groupKey, @Context HttpServletRequest request) {
+		BusinessGroupService bgs = CoreSpringFactory.getImpl(BusinessGroupService.class);
+		BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+		if(bg == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		
+		if(!isGroupManager(request)) {
+			Identity identity = RestSecurityHelper.getIdentity(request);
+			if(!bgs.isIdentityInBusinessGroup(identity, bg)) {
+				return Response.serverError().status(Status.UNAUTHORIZED).build();
+			}
+		}
+
+		CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(bg);
+		if(tools.isToolEnabled(CollaborationTools.TOOL_NEWS)) {
+			String news = tools.lookupNews();
+			if(news == null) {
+				return Response.serverError().status(Status.NOT_FOUND).build();
+			}
+			return Response.ok(news).build();
+		} else {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+	}
+	
+	/**
+	 * Update the news.
+	 * 
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The business group cannot be found or the news tool is not enabled
+	 * @param groupKey The key of the group
+	 * @param news The news
+	 * @param request The HTTP request
+	 * @return
+	 */
+	@POST
+	@Path("{groupKey}/news")
+	@Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+	public Response postNews(@PathParam("groupKey") Long groupKey, @FormParam("news") String news, @Context HttpServletRequest request) {
+		BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+		if(bg == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		if(!isGroupManager(request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+
+		CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(bg);
+		if(tools.isToolEnabled(CollaborationTools.TOOL_NEWS)) {
+			tools.saveNews(news);
+			return Response.ok(news).build();
+		} else {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+	}
+	
+	/**
+	 * Deletes the news of the group if the news tool is enabled.
+	 * @response.representation.200.doc The news are deleted
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The business group cannot be found or hte news tool is not enabled
+	 * @param groupKey The key of the group
+	 * @param request The HTTP request
+	 * @return
+	 */
+	@DELETE
+	@Path("{groupKey}/news")
+	public Response deleteNews(@PathParam("groupKey") Long groupKey, @Context HttpServletRequest request) {
+		BusinessGroup bg = CoreSpringFactory.getImpl(BusinessGroupService.class).loadBusinessGroup(groupKey);
+		if(bg == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		if(!isGroupManager(request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+
+		CollaborationTools tools = CollaborationToolsFactory.getInstance().getOrCreateCollaborationTools(bg);
+		if(tools.isToolEnabled(CollaborationTools.TOOL_NEWS)) {
+			tools.saveNews(null);
+			return Response.ok().build();
+		} else {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+	}
+	
 	@POST
 	@Path("{groupKey}/configuration")
 	public Response postGroupConfiguration(@PathParam("groupKey") Long groupKey, final GroupConfigurationVO group, @Context HttpServletRequest request) {
@@ -302,6 +402,18 @@ public class LearningGroupWebService {
 			tools.setToolEnabled(tool, enable);
 		}
 		
+		Map<String,Integer> toolsAccess = group.getToolsAccess();
+		if (toolsAccess != null) {
+			// ignore null for backward compatibility, don't change current configuration
+			for (String tool : toolsAccess.keySet()) {
+				tools.setToolAccess(tool, toolsAccess.get(tool));
+			}
+		}
+		
+		if(StringHelper.containsNonWhitespace(group.getNews())) {
+			tools.saveNews(group.getNews());
+		}
+		
 		boolean ownersIntern = bg.isOwnersVisibleIntern();
 		if(group.getOwnersVisible() != null) {
 			ownersIntern = group.getOwnersVisible().booleanValue();
@@ -330,6 +442,7 @@ public class LearningGroupWebService {
 				ownersIntern, participantsIntern, waitingListIntern,
 				ownersPublic, participantsPublic, waitingListPublic,
 				bg.isDownloadMembersLists());
+
 		return Response.ok().build();
 	}
 	
@@ -361,9 +474,9 @@ public class LearningGroupWebService {
 	/**
 	 * Returns the informations of the group specified by the groupKey.
 	 * @response.representation.200.qname {http://www.example.com}groupInfoVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc Participants of the business group
-   * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPINFOVO}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc Participants of the business group
+	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_GROUPINFOVO}
 	 * @response.representation.404.doc The business group cannot be found
 	 * @param groupKey The key of the group
 	 * @param request The HTTP Request

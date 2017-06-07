@@ -19,6 +19,8 @@
  */
 package org.olat.restapi.support.vo;
 
+import java.util.Map;
+
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -34,6 +36,9 @@ import javax.xml.bind.annotation.XmlRootElement;
 public class GroupConfigurationVO {
 	
 	private String[] tools;
+	private Map<String,Integer> toolsAccess;
+	private String news;
+	
 	private Boolean ownersVisible;
 	private Boolean participantsVisible;
 	private Boolean waitingListVisible;
@@ -41,6 +46,10 @@ public class GroupConfigurationVO {
 	private Boolean ownersPublic;
 	private Boolean participantsPublic;
 	private Boolean waitingListPublic;
+	
+	public GroupConfigurationVO() {
+		//
+	}
 	
 	public String[] getTools() {
 		return tools;
@@ -50,6 +59,22 @@ public class GroupConfigurationVO {
 		this.tools = tools;
 	}
 	
+	public Map<String,Integer> getToolsAccess() {
+		return toolsAccess;
+	}
+	
+	public void setToolsAccess(Map<String,Integer> toolsAccess) {
+		this.toolsAccess = toolsAccess;
+	}
+	
+	public String getNews() {
+		return news;
+	}
+
+	public void setNews(String news) {
+		this.news = news;
+	}
+
 	public Boolean getOwnersVisible() {
 		return ownersVisible;
 	}

@@ -47,7 +47,6 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataModelFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SelectionEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiCellRenderer;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.StaticFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.TextFlexiCellRenderer;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
@@ -123,14 +122,15 @@ public class CatalogNodeManagerController extends FormBasicController implements
 	private CloseableModalController cmc;
 	private ContactFormController contactCtrl;
 	private RepositorySearchController entrySearchCtrl;
+
 	private CatalogNodeManagerController childNodeCtrl;
 	private CatalogEntryMoveController categoryMoveCtrl;
 	private CatalogEntryMoveController entryResourceMoveCtrl;
 	private CatalogEntryEditController addEntryCtrl, editEntryCtrl;
 	private DialogBoxController dialogDeleteLink, dialogDeleteSubtree;
 	
-	private FlexiTableElement entriesEl;
-	private CatalogEntryRowModel entriesModel;
+	private FlexiTableElement entriesEl, closedEntriesEl;
+	private CatalogEntryRowModel entriesModel, closedEntriesModel;
 	
 	private Link editLink, moveLink, deleteLink;
 	private Link nominateLink, contactLink;
@@ -138,6 +138,7 @@ public class CatalogNodeManagerController extends FormBasicController implements
 
 	private LockResult catModificationLock;
 	private final MapperKey mapperThumbnailKey;
+	private final WindowControl rootwControl;
 
 	private final boolean isGuest;
 	private final boolean isAuthor;
@@ -165,13 +166,14 @@ public class CatalogNodeManagerController extends FormBasicController implements
 	@Autowired
 	private RepositoryManager repositoryManager;
 	
-	public CatalogNodeManagerController(UserRequest ureq, WindowControl wControl,
+	public CatalogNodeManagerController(UserRequest ureq, WindowControl wControl, WindowControl rootwControl,
 			CatalogEntry catalogEntry, TooledStackedPanel stackPanel, boolean localTreeAdmin) {
 		super(ureq, wControl, "node");
 		setTranslator(Util.createPackageTranslator(RepositoryService.class, ureq.getLocale(), getTranslator()));
 		
 		this.toolbarPanel = stackPanel;
 		this.catalogEntry = catalogEntry;
+		this.rootwControl = rootwControl;
 		mapperThumbnailKey = mapperService.register(null, "catalogentryImage", new CatalogEntryImageMapper());
 		
 		isAuthor = ureq.getUserSession().getRoles().isAuthor();
@@ -215,13 +217,23 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			flc.contextPut("extLink", url);
 		}
 		
+		FlexiTableColumnModel entriesColumnsModel = getCatalogFlexiTableColumnModel("opened-");
+		entriesModel = new CatalogEntryRowModel(entriesColumnsModel);
+		entriesEl = uifactory.addTableElement(getWindowControl(), "entries", entriesModel, getTranslator(), formLayout);
+		
+		FlexiTableColumnModel closedEntriesColumnsModel = getCatalogFlexiTableColumnModel("closed-");
+		closedEntriesModel = new CatalogEntryRowModel(closedEntriesColumnsModel);
+		closedEntriesEl = uifactory.addTableElement(getWindowControl(), "closedEntries", closedEntriesModel, getTranslator(), formLayout);
+	}
+	
+	private FlexiTableColumnModel getCatalogFlexiTableColumnModel(String cmdPrefix) {
 		//add the table
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.key.i18nKey(), Cols.key.ordinal(), true, OrderBy.key.name()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(true, Cols.type.i18nKey(), Cols.type.ordinal(), true, OrderBy.type.name(),
 				FlexiColumnModel.ALIGNMENT_LEFT, new TypeRenderer()));
-		FlexiCellRenderer renderer = new StaticFlexiCellRenderer("select", new TextFlexiCellRenderer());
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.displayName.i18nKey(), Cols.displayName.ordinal(), "select",
+		FlexiCellRenderer renderer = new StaticFlexiCellRenderer(cmdPrefix + "select", new TextFlexiCellRenderer());
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.displayName.i18nKey(), Cols.displayName.ordinal(), cmdPrefix + "select",
 				true, OrderBy.displayname.name(), renderer));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.authors.i18nKey(), Cols.authors.ordinal(),
 				true, OrderBy.authors.name()));
@@ -245,13 +257,11 @@ public class CatalogNodeManagerController extends FormBasicController implements
 				true, OrderBy.ac.name(), FlexiColumnModel.ALIGNMENT_LEFT, new ACRenderer()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Cols.creationDate.i18nKey(), Cols.creationDate.ordinal(),
 				true, OrderBy.creationDate.name()));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.delete.i18nKey(), translate(Cols.delete.i18nKey()), "delete"));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.move.i18nKey(), translate(Cols.move.i18nKey()), "move"));
-		columnsModel.addFlexiColumnModel(new StaticFlexiColumnModel(Cols.detailsSupported.i18nKey(), Cols.detailsSupported.ordinal(), "details",
-				new StaticFlexiCellRenderer("", "details", "o_icon o_icon-lg o_icon_details", translate("details"))));
-		
-		entriesModel = new CatalogEntryRowModel(columnsModel);
-		entriesEl = uifactory.addTableElement(getWindowControl(), "entries", entriesModel, getTranslator(), formLayout);
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.delete.i18nKey(), translate(Cols.delete.i18nKey()), cmdPrefix + "delete"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.move.i18nKey(), translate(Cols.move.i18nKey()), cmdPrefix + "move"));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.detailsSupported.i18nKey(), Cols.detailsSupported.ordinal(), cmdPrefix + "details",
+				new StaticFlexiCellRenderer("", cmdPrefix + "details", "o_icon o_icon-lg o_icon_details", translate("details"))));
+		return columnsModel;
 	}
 
 	private void loadEntryInfos() {
@@ -282,7 +292,8 @@ public class CatalogNodeManagerController extends FormBasicController implements
 
 		List<OLATResourceAccess> resourcesWithOffer = acService.getAccessMethodForResources(resourceKeys, null, true, new Date());
 		
-		List<CatalogEntryRow> items = new ArrayList<CatalogEntryRow>();
+		List<CatalogEntryRow> items = new ArrayList<>();
+		List<CatalogEntryRow> closedItems = new ArrayList<>();
 		for(RepositoryEntry entry:repoEntries) {
 			CatalogEntryRow row = new CatalogEntryRow(entry);
 			List<PriceMethod> types = new ArrayList<PriceMethod>();
@@ -308,13 +319,21 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			if(!types.isEmpty()) {
 				row.setAccessTypes(types);
 			}
-
-			items.add(row);
+			
+			if(entry.getRepositoryEntryStatus().isClosed()) {
+				closedItems.add(row);
+			} else {
+				items.add(row);
+			}
 		}
 		
 		entriesModel.setObjects(items);
 		entriesEl.reset();
 		entriesEl.setVisible(entriesModel.getRowCount() > 0);
+		
+		closedEntriesModel.setObjects(closedItems);
+		closedEntriesEl.reset();
+		closedEntriesEl.setVisible(closedEntriesModel.getRowCount() > 0);
 	}
 	
 	protected void loadNodesChildren() {
@@ -407,7 +426,12 @@ public class CatalogNodeManagerController extends FormBasicController implements
 		
 		ContextEntry entry = entries.get(0);
 		String type = entry.getOLATResourceable().getResourceableTypeName();
-		if("Node".equalsIgnoreCase(type)) {
+		if("CatalogEntry".equalsIgnoreCase(type)) {
+			Long entryKey = entry.getOLATResourceable().getResourceableId();
+			if(entryKey != null && entryKey.longValue() > 0) {
+				activateRoot(ureq, entryKey); 
+			}
+		} else if("Node".equalsIgnoreCase(type)) {
 			//the "Node" is only for internal usage
 			StateEntry stateEntry = entry.getTransientState();
 			if(stateEntry instanceof CatalogStateEntry) {
@@ -418,6 +442,25 @@ public class CatalogNodeManagerController extends FormBasicController implements
 				}
 			}
 		}
+	}
+	
+	/**
+	 * Build an internal business path made of "Node" with the category
+	 * as state entry to prevent loading several times the same entries.
+	 * 
+	 * @param ureq
+	 * @param entryKey
+	 */
+	private void activateRoot(UserRequest ureq, Long entryKey) {
+		List<ContextEntry> parentLine = new ArrayList<>();
+		for(CatalogEntry node = catalogManager.getCatalogEntryByKey(entryKey); node.getParent() != null; node=node.getParent()) {
+			OLATResourceable nodeRes = OresHelper.createOLATResourceableInstance("Node", node.getKey());
+			ContextEntry ctxEntry = BusinessControlFactory.getInstance().createContextEntry(nodeRes);
+			ctxEntry.setTransientState(new CatalogStateEntry(node));
+			parentLine.add(ctxEntry);
+		}
+		Collections.reverse(parentLine);
+		activate(ureq, parentLine, null);
 	}
 
 	@Override
@@ -431,16 +474,34 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			if(event instanceof SelectionEvent) {
 				SelectionEvent se = (SelectionEvent)event;
 				String cmd = se.getCommand();
-				CatalogEntryRow row = entriesModel.getObject(se.getIndex());
-				if("details".equals(cmd) || "select".equals(cmd)) {
-					launchDetails(ureq, row);	
-				} else if("move".equals(cmd)) {
-					doMoveCategory(ureq, row);
-				} else if("delete".equals(cmd)) {
-					doConfirmDelete(ureq, row);
+				if(cmd != null && cmd.startsWith("opened-")) {
+					CatalogEntryRow row = entriesModel.getObject(se.getIndex());
+					if("opened-details".equals(cmd) || "opened-select".equals(cmd)) {
+						launchDetails(ureq, row);	
+					} else if("opened-move".equals(cmd)) {
+						doMoveCategory(ureq, row);
+					} else if("opened-delete".equals(cmd)) {
+						doConfirmDelete(ureq, row);
+					}
+				}
+			}
+		} else if(closedEntriesEl == source) {
+			if(event instanceof SelectionEvent) {
+				SelectionEvent se = (SelectionEvent)event;
+				String cmd = se.getCommand();
+				if(cmd != null && cmd.startsWith("closed-")) {
+					CatalogEntryRow row = closedEntriesModel.getObject(se.getIndex());
+					if("closed-details".equals(cmd) || "closed-select".equals(cmd)) {
+						launchDetails(ureq, row);	
+					} else if("closed-move".equals(cmd)) {
+						doMoveCategory(ureq, row);
+					} else if("closed-delete".equals(cmd)) {
+						doConfirmDelete(ureq, row);
+					}
 				}
 			}
 		}
+		
 		super.formInnerEvent(ureq, source, event);
 	}
 
@@ -603,9 +664,9 @@ public class CatalogNodeManagerController extends FormBasicController implements
 			
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("CatalogEntry", entry.getKey());
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
-			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, rootwControl);
 			
-			childNodeCtrl = new CatalogNodeManagerController(ureq, bwControl, entry, toolbarPanel, isLocalTreeAdmin);
+			childNodeCtrl = new CatalogNodeManagerController(ureq, bwControl, rootwControl, entry, toolbarPanel, isLocalTreeAdmin);
 			listenTo(childNodeCtrl);
 			toolbarPanel.pushController(entry.getName(), childNodeCtrl);
 			childNodeCtrl.initToolbar();

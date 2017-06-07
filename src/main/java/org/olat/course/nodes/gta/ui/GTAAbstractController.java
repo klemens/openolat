@@ -21,7 +21,9 @@ package org.olat.course.nodes.gta.ui;
 
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
+import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.services.notifications.PublisherData;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
@@ -32,8 +34,16 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.Identity;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.coordinate.CoordinatorManager;
+import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.course.CourseFactory;
+import org.olat.course.CourseModule;
+import org.olat.course.ICourse;
+import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
@@ -42,9 +52,11 @@ import org.olat.course.nodes.gta.GTAType;
 import org.olat.course.nodes.gta.Task;
 import org.olat.course.nodes.gta.TaskList;
 import org.olat.course.nodes.gta.TaskProcess;
+import org.olat.course.nodes.gta.ui.events.TaskMultiUserEvent;
 import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryService;
@@ -57,7 +69,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public abstract class GTAAbstractController extends BasicController {
+public abstract class GTAAbstractController extends BasicController implements GenericEventListener {
 	
 	protected VelocityContainer mainVC;
 
@@ -71,6 +83,7 @@ public abstract class GTAAbstractController extends BasicController {
 	protected final ModuleConfiguration config;
 	protected final RepositoryEntry courseEntry;
 	
+	protected final boolean withSubscription;
 	protected final PublisherData publisherData;
 	protected final SubscriptionContext subsContext;
 
@@ -78,6 +91,8 @@ public abstract class GTAAbstractController extends BasicController {
 	protected final boolean withGrading;
 	
 	protected final boolean businessGroupTask;
+	
+	protected final OLATResourceable taskListEventResource;
 	
 	protected GTAStepPreferences stepPreferences;
 	
@@ -92,25 +107,30 @@ public abstract class GTAAbstractController extends BasicController {
 	@Autowired
 	protected RepositoryService repositoryService;
 	@Autowired
+	protected BusinessGroupService businessGroupService;
+	@Autowired
 	protected UserCourseInformationsManager userCourseInformationsManager;
+	@Autowired
+	protected CourseModule courseModule;
 	
 	public GTAAbstractController(UserRequest ureq, WindowControl wControl,
-			GTACourseNode gtaNode, CourseEnvironment courseEnv, boolean withTitle, boolean withGrading) {
-		this(ureq, wControl, gtaNode, courseEnv, null, null, null, withTitle, withGrading);
+			GTACourseNode gtaNode, CourseEnvironment courseEnv, boolean withTitle, boolean withGrading, boolean withSubscription) {
+		this(ureq, wControl, gtaNode, courseEnv, null, null, null, withTitle, withGrading, withSubscription);
 	}
 	
 	public GTAAbstractController(UserRequest ureq, WindowControl wControl,
-			GTACourseNode gtaNode, CourseEnvironment courseEnv, UserCourseEnvironment userCourseEnv, boolean withTitle, boolean withGrading) {
-		this(ureq, wControl, gtaNode, courseEnv, userCourseEnv, null, null, withTitle, withGrading);
+			GTACourseNode gtaNode, CourseEnvironment courseEnv, UserCourseEnvironment userCourseEnv, boolean withTitle, boolean withGrading, boolean withSubscription) {
+		this(ureq, wControl, gtaNode, courseEnv, userCourseEnv, null, null, withTitle, withGrading, withSubscription);
 	}
 
 	public GTAAbstractController(UserRequest ureq, WindowControl wControl,
 			GTACourseNode gtaNode, CourseEnvironment courseEnv, UserCourseEnvironment userCourseEnv,
-			BusinessGroup assessedGroup, Identity assessedIdentity, boolean withTitle, boolean withGrading) {
+			BusinessGroup assessedGroup, Identity assessedIdentity, boolean withTitle, boolean withGrading, boolean withSubscription) {
 		super(ureq, wControl);
 		
 		this.withTitle = withTitle;
 		this.withGrading = withGrading;
+		this.withSubscription = withSubscription;
 		
 		this.gtaNode = gtaNode;
 		this.config = gtaNode.getModuleConfiguration();
@@ -135,15 +155,31 @@ public abstract class GTAAbstractController extends BasicController {
 			stepPreferences = new GTAStepPreferences();
 		}
 		
-		initContainer(ureq);
-		process(ureq);
+		taskListEventResource = OresHelper.createOLATResourceableInstance("GTaskList", taskList.getKey());
+		CoordinatorManager.getInstance().getCoordinator()
+			.getEventBus().registerFor(this, getIdentity(), taskListEventResource);
 	}
 
 	@Override
 	protected void doDispose() {
-		//
+		CoordinatorManager.getInstance().getCoordinator()
+			.getEventBus().deregisterFor(this, taskListEventResource);
+	}
+
+	@Override
+	public void event(Event event) {
+		if(event instanceof TaskMultiUserEvent) {
+			TaskMultiUserEvent ste = (TaskMultiUserEvent)event;
+			if(!getIdentity().getKey().equals(ste.getEmitterKey())
+					&& ((assessedGroup != null && assessedGroup.getKey().equals(ste.getForGroupKey()))
+							|| (assessedIdentity != null && assessedIdentity.getKey().equals(ste.getForIdentityKey())))) {
+				processEvent(ste);
+			}
+		}
 	}
 	
+	protected abstract void processEvent(TaskMultiUserEvent event);
+
 	protected abstract void initContainer(UserRequest ureq);
 	
 	protected final void process(UserRequest ureq) {
@@ -154,7 +190,7 @@ public abstract class GTAAbstractController extends BasicController {
 			task = gtaManager.getTask(assessedIdentity, taskList);
 		}
 		
-		if (subsContext != null) {
+		if (withSubscription && subsContext != null) {
 			contextualSubscriptionCtr = new ContextualSubscriptionController(ureq, getWindowControl(), subsContext, publisherData);
 			listenTo(contextualSubscriptionCtr);
 			mainVC.put("contextualSubscription", contextualSubscriptionCtr.getInitialComponent());
@@ -209,6 +245,9 @@ public abstract class GTAAbstractController extends BasicController {
 			task = gtaManager.nextStep(task, gtaNode);
 		}
 		
+		mainVC.contextPut("changelogconfig", courseModule.isDisplayChangeLog());
+		
+		nodeLog();
 		collapsedContents(task);
 	}
 	
@@ -247,21 +286,21 @@ public abstract class GTAAbstractController extends BasicController {
 	}
 	
 	protected Task stepAssignment(@SuppressWarnings("unused") UserRequest ureq, Task assignedTask) {
-		DueDate assignmentDueDate = getAssignementDueDate(assignedTask);
-		if(assignmentDueDate != null) {
-			if(assignmentDueDate.getDueDate() != null) {
-				Date dueDate = assignmentDueDate.getDueDate();
-				String date = formatDueDate(assignmentDueDate, true);
-				mainVC.contextPut("assignmentDueDate", date);
+		DueDate dueDate = getAssignementDueDate(assignedTask);
+		if(dueDate != null) {
+			if(dueDate.getDueDate() != null) {
+				Date date = dueDate.getDueDate();
+				String dateAsString = formatDueDate(dueDate, true);
+				mainVC.contextPut("assignmentDueDate", dateAsString);
 				mainVC.contextRemove("assignmentDueDateMsg");
 				
 				if(assignedTask != null && assignedTask.getTaskStatus() == TaskProcess.assignment
-						&& dueDate.compareTo(new Date()) < 0) {
+						&& date.compareTo(new Date()) < 0) {
 					//push to the next step
 					assignedTask = gtaManager.nextStep(assignedTask, gtaNode);
 				}
-			} else if(assignmentDueDate.getMessage() != null) {
-				mainVC.contextPut("assignmentDueDateMsg", assignmentDueDate.getMessage());
+			} else if(dueDate.getMessage() != null) {
+				mainVC.contextPut("assignmentDueDateMsg", dueDate.getMessage());
 				mainVC.contextRemove("assignmentDueDate");
 			}
 		}
@@ -332,7 +371,7 @@ public abstract class GTAAbstractController extends BasicController {
 				}
 				case courseLaunch: {
 					referenceDate = userCourseInformationsManager
-							.getInitialLaunchDate(courseEnv.getCourseResourceableId(), assessedIdentity);
+							.getInitialLaunchDate(courseEnv.getCourseGroupManager().getCourseResource(), assessedIdentity);
 					break;
 				}
 				case enrollment: {
@@ -363,21 +402,22 @@ public abstract class GTAAbstractController extends BasicController {
 	}
 	
 	protected Task stepSubmit(@SuppressWarnings("unused")UserRequest ureq, Task assignedTask) {
-		DueDate submissionDueDate = getSubmissionDueDate(assignedTask);
-		if(submissionDueDate != null) {
-			if(submissionDueDate.getDueDate() != null) {
-				Date dueDate = submissionDueDate.getDueDate();
-				String date = formatDueDate(submissionDueDate, true);
-				mainVC.contextPut("submitDueDate", date);
+		DueDate dueDate = getSubmissionDueDate(assignedTask);
+		if(dueDate != null) {
+			if(dueDate.getDueDate() != null) {
+				Date date = dueDate.getDueDate();
+				String dateAsString = formatDueDate(dueDate, true);
+				mainVC.contextPut("submitDueDate", dateAsString);
 				mainVC.contextRemove("submitDueDateMsg");
 				
 				if(assignedTask != null && assignedTask.getTaskStatus() == TaskProcess.submit
-						&& dueDate.compareTo(new Date()) < 0) {
+						&& date.compareTo(new Date()) < 0) {
 					//push to the next step
 					assignedTask = gtaManager.nextStep(assignedTask, gtaNode);
+					doUpdateAttempts();
 				}
-			} else if(submissionDueDate.getMessage() != null) {
-				mainVC.contextPut("submitDueDateMsg", submissionDueDate.getMessage());
+			} else if(dueDate.getMessage() != null) {
+				mainVC.contextPut("submitDueDateMsg", dueDate.getMessage());
 				mainVC.contextRemove("submitDueDate");
 			}
 		}
@@ -443,6 +483,10 @@ public abstract class GTAAbstractController extends BasicController {
 	}
 	
 	protected Task stepGrading(@SuppressWarnings("unused") UserRequest ureq, Task assignedTask) {
+		return assignedTask;
+	}
+	
+	protected void nodeLog() {
 		if(businessGroupTask) {
 			String groupLog = courseEnv.getAuditManager().getUserNodeLog(gtaNode, assessedGroup);
 			if(StringHelper.containsNonWhitespace(groupLog)) {
@@ -458,7 +502,28 @@ public abstract class GTAAbstractController extends BasicController {
 				mainVC.contextRemove("userLog");
 			}
 		}
-		return assignedTask;
+	}
+	
+	protected void doUpdateAttempts() {
+		if(businessGroupTask) {
+			List<Identity> identities = businessGroupService.getMembers(assessedGroup, GroupRoles.participant.name());
+			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseGroupManager().getCourseEntry());
+			for(Identity identity:identities) {
+				UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(identity, course);
+				gtaNode.incrementUserAttempts(uce);
+			}
+		} else {
+			UserCourseEnvironment assessedUserCourseEnv = getAssessedUserCourseEnvironment();
+			gtaNode.incrementUserAttempts(assessedUserCourseEnv);
+		}
+	}
+	
+	protected UserCourseEnvironment getAssessedUserCourseEnvironment() {
+		if(userCourseEnv == null) {
+			ICourse course = CourseFactory.loadCourse(courseEnv.getCourseResourceableId());
+			userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+		}
+		return userCourseEnv;
 	}
 	
 	@Override

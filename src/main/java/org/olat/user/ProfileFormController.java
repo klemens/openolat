@@ -37,14 +37,13 @@ import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
-import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.RichTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
-import org.olat.core.gui.components.link.Link;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -54,6 +53,7 @@ import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.SyncerExecutor;
@@ -65,7 +65,6 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.xml.XStreamHelper;
 import org.olat.registration.RegistrationManager;
 import org.olat.registration.TemporaryKey;
-import org.olat.registration.TemporaryKeyImpl;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -85,16 +84,17 @@ public class ProfileFormController extends FormBasicController {
 	private static final String usageIdentifier= ProfileFormController.class.getCanonicalName();
 	private static final String SEPARATOR = "\n____________________________________________________________________\n";
 
-	private final Map<String, FormItem> formItems = new HashMap<String, FormItem>();
-	private final Map<String, String> formContext = new HashMap<String, String>();
+	private final Map<String, FormItem> formItems = new HashMap<>();
+	private final Map<String, String> formContext = new HashMap<>();
 	private RichTextElement textAboutMe;
 
 	private Identity identityToModify;
 	private DialogBoxController dialogCtr;
-	
-	private FormLink deletePortrait;
+
+	private FileElement logoUpload;
 	private FileElement portraitUpload;
 	
+	private final boolean logoEnabled;
 	private final boolean isAdministrativeUser;
 	private final List<UserPropertyHandler> userPropertyHandlers;
 	
@@ -102,6 +102,8 @@ public class ProfileFormController extends FormBasicController {
 	private String changedEmail;
 	private String currentEmail;
 	
+	@Autowired
+	private UserModule userModule;
 	@Autowired
 	private UserManager userManager;
 	@Autowired
@@ -139,9 +141,11 @@ public class ProfileFormController extends FormBasicController {
 			Identity identityToModify, boolean isAdministrativeUser) {
 		super(ureq, wControl, LAYOUT_BAREBONE);
 		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
+		setFormStyle("o_user_profile_form");
 		
 		this.identityToModify = identityToModify;
 		this.isAdministrativeUser = isAdministrativeUser;
+		this.logoEnabled = userModule.isLogoByProfileEnabled();
 		
 		userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifier, isAdministrativeUser);
 		initForm(ureq);
@@ -179,7 +183,7 @@ public class ProfileFormController extends FormBasicController {
 				groupContainer = FormLayoutContainer.createDefaultFormLayout(formId, getTranslator());
 				groupContainer.setFormTitle(translate("form.group." + group));
 				if(first) {
-					groupContainer.setFormContextHelp("org.olat.user","home-vcard.html","help.hover.vcard");
+					groupContainer.setFormContextHelp("Configuration");
 					first = false;
 				}
 				formItems.put(formId, groupContainer);
@@ -210,7 +214,7 @@ public class ProfileFormController extends FormBasicController {
 			// special case for email field
 			if (userPropertyHandler.getName().equals("email")) {
 				String key = user.getProperty("emchangeKey", null);
-				TemporaryKeyImpl tempKey = rm.loadTemporaryKeyByRegistrationKey(key);
+				TemporaryKey tempKey = rm.loadTemporaryKeyByRegistrationKey(key);
 				if (tempKey != null) {
 					XStream xml = XStreamHelper.createXStreamInstance();
 					@SuppressWarnings("unchecked")
@@ -223,6 +227,7 @@ public class ProfileFormController extends FormBasicController {
 		// add the "about me" text field.
 		FormLayoutContainer groupContainer = FormLayoutContainer.createDefaultFormLayout("group.about", getTranslator());
 		groupContainer.setFormTitle(translate("form.group.about"));
+		groupContainer.setElementCssClass("o_user_aboutme");
 		formLayout.add(groupContainer);
 		
 		HomePageConfig conf = hpcm.loadConfigFor(identityToModify.getName());
@@ -234,12 +239,9 @@ public class ProfileFormController extends FormBasicController {
 		//upload image
 		groupContainer = FormLayoutContainer.createDefaultFormLayout("portraitupload", getTranslator());
 		groupContainer.setFormTitle(translate("ul.header"));
-		groupContainer.setFormContextHelp("org.olat.user","home-picture.html","chelp.home-picture.hover");
 		formLayout.add(groupContainer);
 
-		deletePortrait = uifactory.addFormLink("command.delete", groupContainer, Link.BUTTON);
-
-		File portraitFile = dps.getBigPortrait(identityToModify.getName());
+		File portraitFile = dps.getLargestPortrait(identityToModify.getName());
 		// Init upload controller
 		Set<String> mimeTypes = new HashSet<String>();
 		mimeTypes.add("image/gif");
@@ -247,14 +249,35 @@ public class ProfileFormController extends FormBasicController {
 		mimeTypes.add("image/jpeg");
 		mimeTypes.add("image/png");
 
-		portraitUpload = uifactory.addFileElement("ul.select", "ul.select", groupContainer);
+		portraitUpload = uifactory.addFileElement(getWindowControl(), "ul.select", "ul.select", groupContainer);
 		portraitUpload.setMaxUploadSizeKB(10000, null, null);
 		portraitUpload.setPreview(ureq.getUserSession(), true);
 		portraitUpload.addActionListener(FormEvent.ONCHANGE);
+		portraitUpload.setHelpTextKey("ul.select.fhelp", null);
+		portraitUpload.setDeleteEnabled(true);
 		if(portraitFile != null) {
 			portraitUpload.setInitialFile(portraitFile);
 		}
 		portraitUpload.limitToMimeType(mimeTypes, null, null);
+		
+		if(logoEnabled) {
+			//upload image
+			groupContainer = FormLayoutContainer.createDefaultFormLayout("logoupload", getTranslator());
+			groupContainer.setFormTitle(translate("logo.header"));
+			formLayout.add(groupContainer);
+
+			File logoFile = dps.getLargestLogo(identityToModify.getName());
+			logoUpload = uifactory.addFileElement(getWindowControl(), "logo.select", "logo.select", groupContainer);
+			logoUpload.setMaxUploadSizeKB(10000, null, null);
+			logoUpload.setPreview(ureq.getUserSession(), true);
+			logoUpload.addActionListener(FormEvent.ONCHANGE);
+			logoUpload.setHelpTextKey("ul.select.fhelp", null);
+			logoUpload.setDeleteEnabled(true);
+			if(logoFile != null) {
+				logoUpload.setInitialFile(logoFile);
+			}
+			logoUpload.limitToMimeType(mimeTypes, null, null);
+		}
 		
 		// Create submit and cancel buttons
 		FormLayoutContainer buttonLayoutWrappper = FormLayoutContainer.createDefaultFormLayout("buttonLayoutWrappper", getTranslator());
@@ -359,26 +382,45 @@ public class ProfileFormController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		 if (source == portraitUpload) {
-			if (portraitUpload.isUploadSuccess()) {
-				deletePortrait.setVisible(true);
+			if(event instanceof FileElementEvent) {
+				if(FileElementEvent.DELETE.equals(event.getCommand())) {
+					File img = dps.getLargestPortrait(identityToModify.getName());
+					if(portraitUpload.getUploadFile() != null) {
+						portraitUpload.reset();
+						if(img != null) {
+							portraitUpload.setInitialFile(img);
+						}
+					} else if(img != null) {
+						dps.deletePortrait(identityToModify);
+						portraitUpload.setInitialFile(null);
+						notifyPortraitChanged();
+					}
 					flc.setDirty(true);
-			}
-		} else if (source == deletePortrait) {
-			File img = dps.getBigPortrait(identityToModify.getName());
-			if(portraitUpload.getUploadFile() != null) {
-				portraitUpload.reset();
-				if(img == null) {
-					deletePortrait.setVisible(false);
-				} else {
-					deletePortrait.setVisible(true);
+					
 				}
-			} else if(img != null) {
-				dps.deletePortrait(identityToModify);
-				deletePortrait.setVisible(false);
-				portraitUpload.setInitialFile(null);
-				notifyPortraitChanged();
+			} else if (portraitUpload.isUploadSuccess()) {
+				flc.setDirty(true);
 			}
-			flc.setDirty(true);
+		} else if (source == logoUpload) {
+			if(event instanceof FileElementEvent) {
+				if(FileElementEvent.DELETE.equals(event.getCommand())) {
+					File img = dps.getLargestLogo(identityToModify.getName());
+					if(logoUpload.getUploadFile() != null) {
+						logoUpload.reset();
+						if(img != null) {
+							logoUpload.setInitialFile(img);
+						}
+					} else if(img != null) {
+						dps.deleteLogo(identityToModify);
+						logoUpload.setInitialFile(null);
+						notifyPortraitChanged();
+					}
+					flc.setDirty(true);
+					
+				}
+			} else if (logoUpload.isUploadSuccess()) {
+				flc.setDirty(true);
+			}
 		}
 
 		super.formInnerEvent(ureq, source, event);
@@ -408,6 +450,15 @@ public class ProfileFormController extends FormBasicController {
 			notifyPortraitChanged();
 		}
 		
+		if(logoUpload != null) {
+			File uploadedLogo = logoUpload.getUploadFile();
+			String uploadedLogoname = logoUpload.getUploadFileName();
+			if(uploadedLogo != null) {
+				dps.setLogo(uploadedLogo, uploadedLogoname, identityToModify.getName());
+				notifyPortraitChanged();
+			}
+		}
+		
 		// Store the "about me" text.
 		HomePageConfig conf = hpcm.loadConfigFor(identityToModify.getName());
 		conf.setTextAboutMe(textAboutMe.getValue());
@@ -427,16 +478,16 @@ public class ProfileFormController extends FormBasicController {
 
 				identityToModify = updateIdentityFromFormData(identityToModify);
 				changedEmail = identityToModify.getUser().getProperty("email", null);
-				if (!currentEmail.equals(changedEmail)) {
+				if ((currentEmail == null && StringHelper.containsNonWhitespace(changedEmail))
+						|| (currentEmail != null && !currentEmail.equals(changedEmail))) {
 					// allow an admin to change email without verification workflow. usermanager is only permitted to do so, if set by config.
-					if ( !(ureq.getUserSession().getRoles().isOLATAdmin()
-							|| (BaseSecurityModule.USERMANAGER_CAN_BYPASS_EMAILVERIFICATION && ureq.getUserSession().getRoles().isUserManager() ))) {
+					if ( !(ureq.getUserSession().getRoles().isOLATAdmin() || (BaseSecurityModule.USERMANAGER_CAN_BYPASS_EMAILVERIFICATION && ureq.getUserSession().getRoles().isUserManager()))) {
 						emailChanged = true;
 						// change email address to old address until it is verified
 						identityToModify.getUser().setProperty("email", currentEmail);
 					} else {
 						String key = identityToModify.getUser().getProperty("emchangeKey", null);
-						TemporaryKeyImpl tempKey = rm.loadTemporaryKeyByRegistrationKey(key);
+						TemporaryKey tempKey = rm.loadTemporaryKeyByRegistrationKey(key);
 						if (tempKey != null) {
 							rm.deleteTemporaryKey(tempKey);
 						}		
@@ -461,9 +512,8 @@ public class ProfileFormController extends FormBasicController {
 		if (emailChanged) {
 			removeAsListenerAndDispose(dialogCtr);
 
-			String changerEMail = ureq.getIdentity().getUser().getProperty("email", ureq.getLocale());
 			String dialogText = "";
-			if(changerEMail != null && changerEMail.length() > 0 && changerEMail.equals(currentEmail)) {
+			if(identityToModify.equals(ureq.getIdentity())) {
 				dialogText = translate("email.change.dialog.text");
 			} else {
 				dialogText = translate("email.change.dialog.text.usermanager");

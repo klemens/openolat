@@ -107,7 +107,7 @@ body.o_dmz {
 		.o_infomessage_wrapper {
 			background: $o-login-infomessage-bg;
 			border: 1px solid $o-login-infomessage-border;
-			border-radius: $o-login-infomessage-radius; ;
+			border-radius: $o-login-infomessage-radius;
 			padding: $padding-base-vertical $padding-base-horizontal;
 			
 			.o_info, .o_warning, .o_note {
@@ -212,7 +212,11 @@ body.o_dmz {
 		}
 		
 		.btn-default.o_sel_auth_adfs {
-			@include button-variant(#fff, #1a1a1a, darken(#1a1a1a, 5%));
+			@include button-variant(#fff, $brand-primary, darken($brand-primary, 5%));
+		}
+		
+		.btn-default.o_sel_auth_OpenIDConnect {
+			@include button-variant(#fff, $brand-primary, darken($brand-primary, 5%));
 		}
 	}
 }

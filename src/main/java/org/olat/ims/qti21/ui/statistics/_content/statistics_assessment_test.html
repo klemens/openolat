@@ -1,0 +1,73 @@
+#if($r.available("filter") && !$printMode)
+<div class="o_button_group o_button_group_right">
+	$r.render("filter")
+</div>
+#end
+
+<div class="o_qti_statistics">
+<div class="panel panel-default">
+	<div class="panel-heading"><h4>$r.translate("fig.title")</h4></div>	  	
+	<table class="table"><tbody>
+		<tr><th>$r.translate("fig.courseId")</th>
+			<td>#if($r.isNotEmpty($courseId))$courseId#end</td>
+			<th>#if($type == "survey") $r.translate("fig.surveyId") #else $r.translate("fig.testId") #end</th>
+			<td>$testId</td></tr>
+		<tr><th>$r.translate("fig.participants")</th>
+			<td>$numOfParticipants</td>
+			<th>$r.translate("fig.passed")</th>
+			<td>$numOfPassed</td></tr>
+		<tr><th>$r.translate("fig.failed")</th>
+			<td>$numOfFailed</td>
+			<th>$r.translate("chart.maxscore")</th>
+			<td>$maxScore</td></tr>
+		<tr>
+			<th>$r.translate("chart.cutscore")</th>
+			<td>$cutScore</td>
+			<th>$r.translate("fig.avg")</th>
+			<td>$average</td></tr>
+		<tr><th>$r.translate("fig.span")</th>
+			<td>$range</td>
+			<th>$r.translate("fig.stddev")</th>
+			<td>$standardDeviation</td></tr>
+		<tr><th>$r.translate("fig.mode")</th>
+			<td>$mode</td>
+			<th>$r.translate("fig.median")</th>
+			<td>$median</td></tr>
+		<tr><th>$r.translate("fig.averagedur")</th>
+			<td>$averageDuration</td>
+			<th></th><td></td>
+			</tr>
+	</tbody></table>
+</div>
+
+#if($r.available("scoreHistogram") && $r.visible("scoreHistogram"))
+	$r.render("scoreHistogram")
+#end
+#if($r.available("durationHistogram") && $r.visible("durationHistogram"))
+	$r.render("durationHistogram")
+#end
+
+#if($r.available("averageScorePerItemChart"))
+<div class="o_print_break_avoid">
+	<h4>$r.translate("chart.averagescore.peritem")</h4>
+	$r.render("averageScorePerItemChart")
+	<ul>
+	#foreach($itemInfo in $itemInfoList)
+		<li><strong>${itemInfo.label}.</strong> $itemInfo.text</li>
+	#end
+	</ul>
+</div>
+#end
+
+#if($r.available("percentRightAnswersPerItemChart"))
+<div class="o_print_break_avoid">
+	<h4>$r.translate("chart.rightanswers.peritem")</h4>
+	$r.render("percentRightAnswersPerItemChart")
+	<ul>
+	#foreach($itemInfo in $itemInfoList)
+		<li><strong>${itemInfo.label}.</strong> $itemInfo.text</li>
+	#end
+	</ul>
+</div>
+#end
+</div>

@@ -69,6 +69,12 @@ public class LearningResourceLoggingAction extends BaseLoggingAction {
 		new LearningResourceLoggingAction(ActionType.statistic, CrudAction.exit, ActionVerb.close, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction LEARNING_RESOURCE_CREATE = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.create, ActionVerb.add, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction LEARNING_RESOURCE_TRASH = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.delete, ActionVerb.trash, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction LEARNING_RESOURCE_DEACTIVATE = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.delete, ActionVerb.deactivate, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction LEARNING_RESOURCE_RESTORE = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.restore, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction LEARNING_RESOURCE_DELETE = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.delete, ActionVerb.remove, ActionObject.resource).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction LEARNING_RESOURCE_UPDATE = 
@@ -80,6 +86,10 @@ public class LearningResourceLoggingAction extends BaseLoggingAction {
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.chat).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_IM_DISABLED = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.chat).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_COURSESEARCH_ENABLED = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.search).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_COURSESEARCH_DISABLED = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.search).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_GLOSSARY_ENABLED = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.glossar).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_GLOSSARY_DISABLED = 

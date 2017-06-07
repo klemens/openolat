@@ -26,6 +26,7 @@
 package org.olat.modules.iq;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -223,7 +224,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 		
 		qtiscoreprogress = new ProgressBar("qtiscoreprogress", 150, 0, 0, "");
 		myContent.put("qtiscoreprogress", qtiscoreprogress);
-		Boolean displayScoreProgress = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_SCOREPROGRESS);
+		Boolean displayScoreProgress = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_SCOREPROGRESS);
 		if (displayScoreProgress == null) displayScoreProgress = Boolean.TRUE; // migration,
 																																						// display
 																																						// menu
@@ -232,7 +233,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 
 		qtiquestionprogress = new ProgressBar("qtiquestionprogress", 150, 0, 0, "");
 		myContent.put("qtiquestionprogress", qtiquestionprogress);
-		Boolean displayQuestionProgress = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_QUESTIONPROGRESS);
+		Boolean displayQuestionProgress = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_QUESTIONPROGRESS);
 		if (displayQuestionProgress == null) displayQuestionProgress = Boolean.FALSE; // migration,
 																																									// don't
 																																									// display
@@ -241,11 +242,11 @@ public class IQDisplayController extends DefaultController implements GenericEve
 		if (!displayQuestionProgress.booleanValue()) qtiquestionprogress.setVisible(false);
 		myContent.contextPut("displayQuestionProgress", displayQuestionProgress);
 
-		Boolean displayMenu = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_DISPLAYMENU);
+		Boolean displayMenu = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_DISPLAYMENU);
 		if (displayMenu == null) displayMenu = Boolean.TRUE; // migration
 		myContent.contextPut("displayMenu", displayMenu);
 
-		Boolean enableCancel = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_ENABLECANCEL);
+		Boolean enableCancel = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLECANCEL);
 		if (enableCancel == null) {
 			if (modConfig.get(IQEditController.CONFIG_KEY_TYPE).equals(AssessmentInstance.QMD_ENTRY_TYPE_ASSESS)) enableCancel = Boolean.FALSE; // migration:
 																																																																					// disable
@@ -256,7 +257,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 		}
 		myContent.contextPut("enableCancel", enableCancel);
 
-		Boolean enableSuspend = (Boolean) modConfig.get(IQEditController.CONFIG_KEY_ENABLESUSPEND);
+		Boolean enableSuspend = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLESUSPEND);
 		if (enableSuspend == null) enableSuspend = Boolean.FALSE; // migration
 		myContent.contextPut("enableSuspend", enableSuspend);
 
@@ -312,12 +313,12 @@ public class IQDisplayController extends DefaultController implements GenericEve
 		}else {
 			renderSectionsOnly = (Boolean)tmp;
 		}
-		boolean enabledMenu = ((Boolean)modConfig.get(IQEditController.CONFIG_KEY_ENABLEMENU)).booleanValue();
+		boolean enabledMenu = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_ENABLEMENU).booleanValue();
 		boolean itemPageSequence = ((String)modConfig.get(IQEditController.CONFIG_KEY_SEQUENCE)).equals(AssessmentInstance.QMD_ENTRY_SEQUENCE_ITEM);
 		IQMenuDisplayConf mdc = new IQMenuDisplayConf(renderSectionsOnly.booleanValue(), enabledMenu, itemPageSequence);
 
-		tmp = modConfig.get(IQEditController.CONFIG_KEY_MEMO);
-		boolean memo = tmp == null ? false : ((Boolean)tmp).booleanValue();
+		Boolean tmpMemo = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_MEMO);
+		boolean memo = tmpMemo == null ? false : tmpMemo.booleanValue();
 		
 		qticomp = new IQComponent("qticomponent", translator, ai, mdc, memo);
 		
@@ -456,9 +457,14 @@ public class IQDisplayController extends DefaultController implements GenericEve
 			}
 			
 			if (wfCommand.equals("memo")) {
-				ai.setMemo(ureq.getParameter("id"), ureq.getParameter("p"));
-				ai.persist();
-				return;	
+				try {
+					String memo = java.net.URLDecoder.decode(ureq.getParameter("p"), "UTF-8");
+					ai.setMemo(ureq.getParameter("id"), memo);
+					ai.persist();
+					return;
+				} catch (UnsupportedEncodingException ex) {
+					log.info("Could not decode memo text " + ureq.getParameter("p"));
+				}
 			}
 
 			logAudit(ureq);
@@ -596,7 +602,7 @@ public class IQDisplayController extends DefaultController implements GenericEve
 			fireEvent(ureq, new IQSubmittedEvent());
 		}
 		
-		Boolean showResultsOnFinishObj = (Boolean)modConfig.get(IQEditController.CONFIG_KEY_RESULT_ON_FINISH);
+		Boolean showResultsOnFinishObj = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_FINISH);
 		boolean showResultsOnFinish = showResultsOnFinishObj==null || showResultsOnFinishObj!=null && showResultsOnFinishObj.booleanValue();
 		if (ai.getSummaryType() == AssessmentInstance.SUMMARY_NONE || !showResultsOnFinish) { 
 			// do not display results reporting

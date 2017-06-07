@@ -57,9 +57,15 @@ public class DialogNodeForumCallback implements ForumCallback {
 		this.subscriptionContext = subscriptionContext;
 	}
 
+	@Override
+	public boolean mayUsePseudonym() {
+		return false;
+	}
+
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayOpenNewThread()
 	 */
+	@Override
 	public boolean mayOpenNewThread() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("poster") || ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -68,14 +74,26 @@ public class DialogNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayReplyMessage()
 	 */
+	@Override
 	public boolean mayReplyMessage() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("poster") || ne.isCapabilityAccessible("moderator") || isOlatAdmin;
 	}
 
+	@Override
+	public boolean mayEditOwnMessage() {
+		return true;
+	}
+
+	@Override
+	public boolean mayDeleteOwnMessage() {
+		return true;
+	}
+
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayEditMessageAsModerator()
 	 */
+	@Override
 	public boolean mayEditMessageAsModerator() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -84,6 +102,7 @@ public class DialogNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayDeleteMessageAsModerator()
 	 */
+	@Override
 	public boolean mayDeleteMessageAsModerator() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -93,6 +112,7 @@ public class DialogNodeForumCallback implements ForumCallback {
 	 * 
 	 * @see org.olat.modules.fo.ForumCallback#mayArchiveForum()
 	 */
+	@Override
 	public boolean mayArchiveForum() {
 		if (isGuestOnly) return false;
 		else return true;
@@ -101,6 +121,7 @@ public class DialogNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#mayFilterForUser()
 	 */
+	@Override
 	public boolean mayFilterForUser() {
 		if (isGuestOnly) return false;
 		return ne.isCapabilityAccessible("moderator") || isOlatAdmin;
@@ -109,6 +130,7 @@ public class DialogNodeForumCallback implements ForumCallback {
 	/**
 	 * @see org.olat.modules.fo.ForumCallback#getSubscriptionContext()
 	 */
+	@Override
 	public SubscriptionContext getSubscriptionContext() {
 		return (isGuestOnly ? null : subscriptionContext);
 	}

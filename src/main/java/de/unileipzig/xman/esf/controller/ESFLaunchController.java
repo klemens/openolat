@@ -2,70 +2,36 @@ package de.unileipzig.xman.esf.controller;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Vector;
-
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.NewControllerFactory;
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.Windows;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
-import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.table.Table;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.components.table.TableEvent;
 import org.olat.core.gui.components.table.TableGuiConfiguration;
-import org.olat.core.gui.components.util.ComponentUtil;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
-import org.olat.core.gui.control.ControllerEventListener;
-import org.olat.core.gui.control.DefaultController;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.control.controller.BasicController; // import org.olat.core.gui.control.controller.MainLayoutBasicController;
+import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
-import org.olat.core.gui.control.generic.dtabs.DTab;
-import org.olat.core.gui.control.generic.dtabs.DTabs;
-import org.olat.core.gui.control.generic.layout.MainLayoutController;
-import org.olat.core.gui.control.generic.modal.DialogBoxController;
-import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
-import org.olat.core.gui.render.StringOutput;
-import org.olat.core.gui.translator.PackageTranslator;
-import org.olat.core.gui.translator.Translator;
-import org.olat.core.id.Identity;
-import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing; // import org.olat.core.logging.UserActivityLogger;    // wird nicht aufgerufen
 import org.olat.core.util.Util;
-import org.olat.core.util.event.GenericEventListener;
-import org.olat.repository.RepositoryEntry;
-import org.olat.repository.RepositoryManager;
-import org.olat.repository.handlers.RepositoryHandlerFactory;
-import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserManager;
-import org.olat.user.UserPropertiesConfig;
-
-import de.unileipzig.xman.admin.ExamAdminSite;
 import de.unileipzig.xman.comment.CommentEntry;
 import de.unileipzig.xman.comment.table.CommentEntryTableModel;
-import de.unileipzig.xman.esf.DuplicateObjectException;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
-import de.unileipzig.xman.esf.form.ESFCreateForm;
-import de.unileipzig.xman.esf.table.ESFTableModel;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
-import de.unileipzig.xman.exam.controllers.ExamMainController;
 import de.unileipzig.xman.protocol.Protocol;
-import de.unileipzig.xman.protocol.ProtocolManager;
 import de.unileipzig.xman.protocol.archived.ArchivedProtocol;
 import de.unileipzig.xman.protocol.archived.ArchivedProtocolManager;
 import de.unileipzig.xman.protocol.archived.tables.ArchivedProtocolTableModel;
 import de.unileipzig.xman.protocol.tables.ProtocolTableModel;
-import de.unileipzig.xman.studyPath.StudyPath;
 
 /**
  * 
@@ -344,21 +310,9 @@ public class ESFLaunchController extends BasicController {
 					Exam exam = protoTableMdl.getObject(te.getRowId()).getExam();
 					// reload exam
 					exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
-					OLATResourceable ores = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), Exam.ORES_TYPE_NAME);
 
-					DTabs dts = Windows.getWindows(ureq).getWindow(ureq).getDTabs();
-					DTab dt = dts.getDTab(ores);
-					if (dt == null) {
-						// does not yet exist -> create and add
-						dt = dts.createDTab(ores, null, exam.getName());
-						if(dt == null) return;
-						
-						ExamMainController examMain = new ExamMainController(ureq, getWindowControl(), exam, ExamMainController.View.STUDENT);
-						dt.setController(examMain);
-						
-						dts.addDTab(ureq, dt);
-					}
-					dts.activate(ureq, dt, null);
+					String businessPath = "[RepositoryEntry:" + ExamDBManager.getInstance().findRepositoryEntryKey(exam) + "]";
+					NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 				}
 			}
 		}

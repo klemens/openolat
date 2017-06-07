@@ -28,11 +28,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.FixMethodOrder;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 import org.olat.basesecurity.BaseSecurity;
@@ -46,7 +49,10 @@ import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.mail.ContactList;
+import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.mail.MailPackage;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupModule;
@@ -58,8 +64,8 @@ import org.olat.group.model.MembershipModification;
 import org.olat.group.model.SearchBusinessGroupParams;
 import org.olat.repository.RepositoryEntry;
 import org.olat.resource.accesscontrol.ACService;
+import org.olat.resource.accesscontrol.ResourceReservation;
 import org.olat.resource.accesscontrol.manager.ACReservationDAO;
-import org.olat.resource.accesscontrol.model.ResourceReservation;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
 import org.olat.user.UserManager;
@@ -72,6 +78,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class BusinessGroupServiceTest extends OlatTestCase {
 	
+	private static final OLog log = Tracing.createLoggerFor(BusinessGroupServiceTest.class);
 	private static boolean initialize = false;
 	
 	@Autowired
@@ -92,6 +99,8 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 	private BusinessGroupModule businessGroupModule;
 	@Autowired
 	private BusinessGroupService businessGroupService;
+	@Autowired
+	private MailModule mailModule;
 	
 	// Identities for tests
 	private static Identity id1 = null;
@@ -174,8 +183,8 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 			bgWithWaitingList.setMaxParticipants(new Integer(2));
 			// Identities
 			String suffix = UUID.randomUUID().toString();
-			User userWg1 = userManager.createAndPersistUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
-			wg1 = securityManager.createAndPersistIdentity(suffix, userWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, "wg1");
+			User userWg1 = userManager.createUser("FirstName_" + suffix, "LastName_" + suffix, suffix + "_junittest@olat.unizh.ch");
+			wg1 = securityManager.createAndPersistIdentityAndUser(suffix, null, userWg1, BaseSecurityModule.getDefaultAuthProviderIdentifier(), suffix, "wg1");
 
 			dbInstance.commitAndCloseSession();
 
@@ -474,10 +483,10 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Identity ident2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-2-" + UUID.randomUUID().toString());
 		Identity ident3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w1-3-" + UUID.randomUUID().toString());
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-1", "move-desc", 0, 10, true, false, null);
+		dbInstance.commitAndCloseSession();
 		businessGroupService.addToWaitingList(admin, Collections.singletonList(ident1), group, null);
 		businessGroupService.addToWaitingList(admin, Collections.singletonList(ident2), group, null);
 		businessGroupService.addParticipants(admin, JunitTestHelper.getAdminRoles(), Collections.singletonList(ident3), group, null);
-		
 		dbInstance.commitAndCloseSession();
 		
 		//move id1 from waiting-list to participant
@@ -501,6 +510,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Identity ident2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w2-2-" + UUID.randomUUID().toString());
 		Identity ident3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w2-3-" + UUID.randomUUID().toString());
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-1", "move-desc", 0, 10, true, false, null);
+		dbInstance.commitAndCloseSession();
 		//add id1
 		businessGroupService.addToWaitingList(ident1, Collections.singletonList(ident1), group, null);
 		dbInstance.commitAndCloseSession();
@@ -534,6 +544,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Identity ident2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w3-2-" + UUID.randomUUID().toString());
 		Identity ident3 = JunitTestHelper.createAndPersistIdentityAsUser("move-w3-3-" + UUID.randomUUID().toString());
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-3", "move-desc", 0, 10, true, false, null);
+		dbInstance.commitAndCloseSession();
 		businessGroupService.addToWaitingList(ident1, Collections.singletonList(ident1), group, null);
 		businessGroupService.addToWaitingList(ident2, Collections.singletonList(ident2), group, null);
 		businessGroupService.addToWaitingList(ident3, Collections.singletonList(ident3), group, null);
@@ -632,6 +643,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Identity ident1 = JunitTestHelper.createAndPersistIdentityAsUser("move-w4-1-" + UUID.randomUUID().toString());
 		Roles rolesId1 = securityManager.getRoles(ident1);
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-4", "move-desc", 0, 10, true, false, null);
+		dbInstance.commitAndCloseSession();
 		businessGroupService.addParticipants(ident1, rolesId1, Collections.singletonList(ident1), group, null);
 		dbInstance.commitAndCloseSession();
 
@@ -657,6 +669,7 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Identity ident2 = JunitTestHelper.createAndPersistIdentityAsUser("move-w5-2-" + UUID.randomUUID().toString());;
 		Roles rolesId1 = securityManager.getRoles(ident1);
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "move-bg-5", "move-desc", 0, 1, true, true, null);
+		dbInstance.commitAndCloseSession();
 		businessGroupService.addParticipants(ident1, rolesId1, Collections.singletonList(ident1), group, null);
 		businessGroupService.addToWaitingList(ident2, Collections.singletonList(ident2), group, null);
 		dbInstance.commitAndCloseSession();
@@ -1110,9 +1123,6 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 		Assert.assertFalse(optionToLeaveLearnersGroup.isAllowToLeave());
 	}
 	
-	/**
-	 * 
-	 */
 	@Test
 	public void allowToLeavingBusinessGroup_withCourse() {
 		//authors group
@@ -1139,6 +1149,102 @@ public class BusinessGroupServiceTest extends OlatTestCase {
 			Roles roles = securityManager.getRoles(contact);
 			Assert.assertNotNull(roles);
 			Assert.assertTrue(roles.isOLATAdmin());
+		}
+	}
+	
+	@Ignore @Test
+	public void parallelRemoveParticipants() {
+		mailModule.setInterSystem(true);
+		businessGroupModule.setMandatoryEnrolmentEmailForUsers("true");
+		
+		Identity admin = JunitTestHelper.createAndPersistIdentityAsRndUser("remove-p1-1");
+		
+		int NUM_OF_THREADS = 20;
+		int NUM_OF_GROUPS = 50;
+		int NUM_OF_PARTICIPANTS = 10;
+		
+		//create the members
+		List<Identity> members = new ArrayList<>();
+		for(int i=0; i<NUM_OF_PARTICIPANTS; i++) {
+			Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("remove-p1-1");
+			for(int j=0;j<20;j++) {
+				members.add(participant);
+			}
+		}
+		dbInstance.commitAndCloseSession();
+		
+		//prepare the business groups
+		final CountDownLatch finishCount = new CountDownLatch(NUM_OF_THREADS);
+		List<RemoveParticipantsThread> threads = new ArrayList<>(NUM_OF_THREADS);
+		for(int i=0; i<NUM_OF_THREADS; i++) {
+			List<BusinessGroup> groups = new ArrayList<>();
+			for(int j=0;j<NUM_OF_GROUPS;j++) {
+				BusinessGroup group = businessGroupService.createBusinessGroup(admin, "move-bg-5", "move-desc", 0, 1, true, true, null);
+				for(Identity identity:members) {
+					businessGroupRelationDao.addRole(identity, group, GroupRoles.participant.name());
+				}
+				dbInstance.commitAndCloseSession();
+			}
+			threads.add(new RemoveParticipantsThread(groups, members, admin, finishCount));
+		}		
+		
+		// remove the participants
+		for(RemoveParticipantsThread thread:threads) {
+			thread.start();
+		}
+		
+		// sleep until threads should have terminated/excepted
+		try {
+			finishCount.await(120, TimeUnit.SECONDS);
+		} catch (InterruptedException e) {
+			log.error("", e);
+			Assert.fail();
+		}
+
+		for(RemoveParticipantsThread thread:threads) {
+			assertTrue("Subscriber does not exists", thread.isOk());
+		}	
+		
+
+		businessGroupModule.setMandatoryEnrolmentEmailForUsers("false");
+	}
+	
+	private class RemoveParticipantsThread extends Thread {
+
+		private boolean ok = false;
+		private Identity uIdentity;
+		private List<Identity> members;
+		private List<BusinessGroup> businessGroups;
+
+		private final List<Exception> exceptionHolder = new ArrayList<>();
+		private final CountDownLatch countDown;
+
+		public RemoveParticipantsThread(List<BusinessGroup> businessGroups, List<Identity> members, Identity uIdentity, CountDownLatch countDown) {
+			this.members = members;
+			this.uIdentity = uIdentity;
+			this.businessGroups = businessGroups;
+			this.countDown = countDown;
+		}
+		
+		public boolean isOk() {
+			return ok;
+		}
+		
+		@Override
+		public void run() {
+			try {
+				Thread.sleep(10);
+				for(BusinessGroup businessGroup:businessGroups) {
+					businessGroupService.removeParticipants(uIdentity, members, businessGroup, null);
+				}
+				ok = true;
+			} catch (Exception ex) {
+				exceptionHolder.add(ex);// no exception should happen
+				ex.printStackTrace();
+			} finally {
+				countDown.countDown();
+				dbInstance.commitAndCloseSession();
+			}
 		}
 	}
 }

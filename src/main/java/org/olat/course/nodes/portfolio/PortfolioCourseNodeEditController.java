@@ -36,6 +36,8 @@ import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
+import org.olat.course.highscore.ui.HighScoreEditController;
+import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.PortfolioCourseNode;
 import org.olat.course.nodes.ms.MSEditFormController;
 import org.olat.course.run.userview.UserCourseEnvironment;
@@ -57,6 +59,7 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 	private static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
 	public static final String PANE_TAB_CONFIG = "pane.tab.portfolio_config";
 	public static final String PANE_TAB_SCORING = "pane.tab.portfolio_scoring";
+	public static final String PANE_TAB_HIGHSCORE = "pane.tab.highscore";
 	static final String[] paneKeys = { PANE_TAB_CONFIG, PANE_TAB_SCORING };
 	
 	private VelocityContainer configContent;
@@ -64,6 +67,7 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 	private PortfolioTextForm textForm;
 	private Component scoringContent;
 	private MSEditFormController scoringController;
+	private HighScoreEditController highScoreNodeConfigController;
 	
 	private TabbedPane myTabbedPane;
 	
@@ -93,9 +97,13 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 		//Accessibility precondition
 		CourseEditorTreeModel editorModel = course.getEditorTreeModel();
 		Condition accessCondition = node.getPreConditionAccess();
-		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), accessCondition,
-				AssessmentHelper.getAssessableNodes(editorModel, node), euce);		
+		accessibilityCondContr = new ConditionEditController(ureq, getWindowControl(), euce, accessCondition,
+				AssessmentHelper.getAssessableNodes(editorModel, node));		
 		listenTo(accessibilityCondContr);
+		
+		//highscore
+		highScoreNodeConfigController = new HighScoreEditController(ureq, wControl, config);
+		listenTo(highScoreNodeConfigController);
 		
 	// if there is already user data available, make for read only
 		UserNodeAuditManager am = course.getCourseEnvironment().getAuditManager();
@@ -118,7 +126,8 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 	 * @return boolean
 	 */
 	public static boolean isModuleConfigValid(ModuleConfiguration moduleConfiguration) {
-		return (moduleConfiguration.get(PortfolioCourseNodeConfiguration.MAP_KEY) != null);
+		return (moduleConfiguration.get(PortfolioCourseNodeConfiguration.MAP_KEY) != null)
+				|| (moduleConfiguration.get(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY) != null);
 	}
 	
 	@Override
@@ -137,11 +146,10 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 		} else if (source == configForm) {
 			if (event == Event.DONE_EVENT) {
 				configForm.getUpdatedConfig();
-				configForm.setDirtyFromOtherForm(false);
 				fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
-			} else if (event == Event.CHANGED_EVENT) {
-				// disable modification in other forms!
-				configForm.setDirtyFromOtherForm(true);
+				textForm.loadMapOrBinder();
+				textForm.updateUI();
+				configContent.setDirty(true);
 			}
 		} else if (source == textForm) {
 			if (event == Event.DONE_EVENT) {
@@ -160,9 +168,19 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 				return;				
 			} else if (event == Event.DONE_EVENT){
 				scoringController.updateModuleConfiguration(config);
+				updateHighscoreTab();
+				fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
+			}
+		} else if (source == highScoreNodeConfigController){
+			if (event == Event.DONE_EVENT) {
 				fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
 			}
 		}
+	}
+	
+	private void updateHighscoreTab() {
+		Boolean sf = courseNode.getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false);
+		myTabbedPane.setEnabled(5, sf);
 	}
 
 	@Override
@@ -171,6 +189,8 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 		tabbedPane.addTab(translate(PANE_TAB_ACCESSIBILITY), accessibilityCondContr.getWrappedDefaultAccessConditionVC(translate(PANE_TAB_ACCESSIBILITY)));
 		tabbedPane.addTab(translate(PANE_TAB_CONFIG), configContent);
 		tabbedPane.addTab(translate(PANE_TAB_SCORING), scoringContent);
+		tabbedPane.addTab(translate(PANE_TAB_HIGHSCORE) , highScoreNodeConfigController.getInitialComponent());
+		updateHighscoreTab();
 	}
 
 	@Override
@@ -190,6 +210,12 @@ public class PortfolioCourseNodeEditController extends ActivateableTabbableDefau
 	
 	public static void setReference(RepositoryEntry repoEntry, PortfolioStructure map, ModuleConfiguration moduleConfig) {
 		moduleConfig.set(PortfolioCourseNodeConfiguration.MAP_KEY, map.getKey());
+		if(repoEntry != null && repoEntry.getSoftkey() != null) {
+			moduleConfig.set(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY, repoEntry.getSoftkey());
+		}
+	}
+	
+	public static void setReference(RepositoryEntry repoEntry, ModuleConfiguration moduleConfig) {
 		if(repoEntry != null && repoEntry.getSoftkey() != null) {
 			moduleConfig.set(PortfolioCourseNodeConfiguration.REPO_SOFT_KEY, repoEntry.getSoftkey());
 		}

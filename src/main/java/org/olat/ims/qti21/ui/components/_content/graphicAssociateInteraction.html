@@ -1,0 +1,41 @@
+#set($responseIdentifier = $r.responseUniqueId($interaction))
+#set($containerId = "qtiworks_id_container_" + $responseIdentifier)
+#set($responseValue = $r.getResponseValue($interaction.responseIdentifier))
+#set($hotspots = $r.getVisibleAssociableHotspots($interaction))
+
+<input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
+<div class="$localName">
+	#if($interaction.getPrompt())
+	<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
+	#end
+
+	#if($r.isInvalidResponse($interaction.responseIdentifier))
+	<div class="o_error badResponse">$r.translate("error.as.directed")</div>
+	#end
+
+	<div id="${containerId}">
+      	<div id="${containerId}_container" style="width:${interaction.object.width}px; height:${interaction.object.height}px; position:relative; background-image: url('${r.convertLinkFull($interaction.object.data)}') " data-openolat="">
+			<canvas id="${containerId}_canvas" width="${interaction.object.width}" height="${interaction.object.height}" style="position:absolute; top:0;left:0; "></canvas>
+			<img id="${containerId}" width="${interaction.object.width}" height="${interaction.object.height}" src="${r.convertLinkFull($interaction.object.data)}" usemap="#${containerId}_map" style="position:absolute; top:0; left:0; opacity:0;" />
+			<map name="${containerId}_map">
+			#foreach($hotspot in $hotspots)
+				<!-- @label, @matchGroup, @matchMax -->
+				<area id="ac_${responseIdentifier}_${hotspot.identifier}" data-qti-id="${hotspot.identifier}" shape="${hotspot.getShape().name().toLowerCase()}" coords="$r.coordsToString($hotspot.coords)" href="javascript:;" data-maphilight=''></area>
+				$r.appendFlexiFormDirtyForClick("ac_${responseIdentifier}_$hotspot.identifier")
+          	#end
+          	</map>
+		</div>
+		<script type="text/javascript">
+		jQuery(function() {
+			jQuery('#${containerId}').graphicAssociateInteraction({
+				responseIdentifier: '$responseIdentifier',
+				formDispatchFieldId: '$r.formDispatchFieldId',
+				responseValue: '$r.toString($responseValue,",")',
+				maxAssociations: $interaction.maxAssociations,
+				opened: $isItemSessionOpen
+			});
+		});
+		</script>
+	</div>
+</div>
+

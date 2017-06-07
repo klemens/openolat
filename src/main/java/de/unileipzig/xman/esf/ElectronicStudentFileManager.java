@@ -1,18 +1,23 @@
 package de.unileipzig.xman.esf;
 
+import java.io.File;
 import java.util.List;
 
-import org.olat.admin.user.delete.service.UserDeletionManager;
+import org.olat.NewControllerFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
+import org.olat.core.id.context.SiteContextEntryControllerCreator;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.user.UserDataDeletable;
+import org.springframework.beans.factory.InitializingBean;
 
+import de.unileipzig.xman.admin.ExamAdminSite;
+import de.unileipzig.xman.esf.site.ElectronicStudentFileSite;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.studyPath.StudyPathManager;
 
@@ -20,19 +25,19 @@ import de.unileipzig.xman.studyPath.StudyPathManager;
  * 
  * @author gerb
  */
-public class ElectronicStudentFileManager implements UserDataDeletable {
-
+public class ElectronicStudentFileManager implements UserDataDeletable, InitializingBean {
 	private static ElectronicStudentFileManager INSTANCE = null;
 	private OLog log = Tracing.createLoggerFor(ElectronicStudentFileManager.class);
-	
-	/**
-	 * [spring]
-	 * @param userDeletionManager
-	 */
-	private ElectronicStudentFileManager(UserDeletionManager userDeletionManager) {
+
+	@Override
+	public void afterPropertiesSet() throws Exception {
 		INSTANCE = this;
+		NewControllerFactory.getInstance().addContextEntryControllerCreator(ElectronicStudentFileSite.class.getSimpleName(),
+				new SiteContextEntryControllerCreator(ElectronicStudentFileSite.class));
+		NewControllerFactory.getInstance().addContextEntryControllerCreator(ExamAdminSite.class.getSimpleName(),
+				new SiteContextEntryControllerCreator(ExamAdminSite.class));
 	}
-	
+
 	/**
 	 * @return Singleton.
 	 */
@@ -170,7 +175,7 @@ public class ElectronicStudentFileManager implements UserDataDeletable {
      * This method is called when a user is deleted and then deletes its esf
      */
 	@Override
-	public void deleteUserData(Identity identity, String newDeletedUserName) {
+	public void deleteUserData(Identity identity, String newDeletedUserName, File archivePath) {
 		ElectronicStudentFile esf = retrieveESFByIdentity(identity);
 		if(esf != null) {
 			removeElectronicStudentFile(esf);

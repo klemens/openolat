@@ -74,6 +74,11 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
+	public boolean supportsAssessmentDetails() {
+		return false;
+	}
+
+	@Override
 	public RepositoryEntry createResource(Identity initialAuthor, String displayname, String description, Object createObject, Locale locale) {
 		Exam exam = ExamDBManager.getInstance().createExam();
 		exam.setName(displayname);
@@ -131,12 +136,6 @@ public class ExamHandler implements RepositoryHandler {
 	}
 
 	@Override
-	public String archive(Identity archiveOnBehalfOf, String archivFilePath, RepositoryEntry repoEntry) {
-		// not needed (archive user data upon deletion)
-		return null;
-	}
-
-	@Override
 	public MediaResource getAsMediaResource(OLATResourceable res, boolean backwardsCompatible) {
 		throw new AssertException("download not supported");
 	}
@@ -144,6 +143,11 @@ public class ExamHandler implements RepositoryHandler {
 	@Override
 	public StepsMainRunController createWizardController(OLATResourceable res, UserRequest ureq, WindowControl wControl) {
 		throw new AssertException("createWizardController not implemented for Exam");
+	}
+
+	@Override
+	public Controller createAssessmentDetailsController(RepositoryEntry re, UserRequest ureq, WindowControl wControl, TooledStackedPanel toolbar, Identity assessedIdentity) {
+		throw new AssertException("createAssessmentDetailsController not implemented for Exam");
 	}
 
 	@Override

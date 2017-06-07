@@ -30,7 +30,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.portfolio.model.artefacts.AbstractArtefact;
 import org.olat.portfolio.model.structel.PortfolioStructure;
 import org.olat.portfolio.model.structel.PortfolioStructureMap;
-import org.olat.portfolio.ui.EPArtefactPoolRunController;
 import org.olat.portfolio.ui.PortfolioAdminController;
 import org.olat.portfolio.ui.artefacts.collect.ArtefactWizzardStepsController;
 import org.olat.portfolio.ui.artefacts.view.EPArtefactViewController;
@@ -53,17 +52,6 @@ import org.olat.portfolio.ui.structel.edit.EPStructureDetailsController;
 public class EPUIFactory {
 
 	/**
-	 * get the artefact pool controller
-	 * used directly over extension-config, therefore needs to be static
-	 * @param ureq
-	 * @param wControl
-	 * @return
-	 */
-	public static Controller createPortfolioPoolController(UserRequest ureq, WindowControl wControl) {
-		return new EPArtefactPoolRunController(ureq, wControl);
-	}
-
-	/**
 	 * get a controller for admin-setup of e Portfolio
 	 * used directly over extension-config, therefore needs to be static
 	 * @param ureq
@@ -84,7 +72,7 @@ public class EPUIFactory {
 		return new EPMapViewController(ureq, wControl, map, false, true, secCallback);
 	}
 	
-	public static Controller createMapViewController(UserRequest ureq, WindowControl wControl,
+	public static EPMapViewController createMapViewController(UserRequest ureq, WindowControl wControl,
 			PortfolioStructureMap map, EPSecurityCallback secCallback) {
 		EPMapViewController mapViewController = 
 			new EPMapViewController(ureq, wControl, map, false, false, secCallback);
@@ -100,11 +88,22 @@ public class EPUIFactory {
 	 * @param businessPath
 	 * @return
 	 */
-	public static Controller createArtefactCollectWizzardController(UserRequest ureq, WindowControl wControl, OLATResourceable ores, String businessPath) {
+	public static Controller createArtefactCollectWizzardController(UserRequest ureq, WindowControl wControl,
+			OLATResourceable ores, String businessPath) {
 		PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
 		EPArtefactHandler<?> handler = portfolioModule.getArtefactHandler(ores.getResourceableTypeName());
 		if (portfolioModule.isEnabled() && handler != null && handler.isEnabled()) {
 			return new ArtefactWizzardStepsController(ureq, wControl, ores, businessPath);
+		}
+		return null;
+	}
+	
+	public static Controller createArtefactCollectWizzardController(UserRequest ureq, WindowControl wControl,
+			int numOfArtefact, OLATResourceable ores, String businessPath) {
+		PortfolioModule portfolioModule = (PortfolioModule) CoreSpringFactory.getBean("portfolioModule");
+		EPArtefactHandler<?> handler = portfolioModule.getArtefactHandler(ores.getResourceableTypeName());
+		if (portfolioModule.isEnabled() && handler != null && handler.isEnabled()) {
+			return new ArtefactWizzardStepsController(ureq, wControl, numOfArtefact, ores, businessPath);
 		}
 		return null;
 	}
@@ -139,7 +138,7 @@ public class EPUIFactory {
 		if (artefacts.size() != 0) {
 			EPMultiArtefactsController artefactCtrl;
 			if (EPStructureDetailsController.VIEWMODE_TABLE.equals(viewMode)){
-				artefactCtrl = new EPMultipleArtefactsAsTableController(ureq, wControl, artefacts, struct, false, secCallback);
+				artefactCtrl = new EPMultipleArtefactsAsTableController(ureq, wControl, artefacts, struct, false, false, secCallback);
 			} else {
 				artefactCtrl = new EPMultipleArtefactSmallReadOnlyPreviewController(ureq, wControl, artefacts, struct, secCallback);
 			}

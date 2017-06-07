@@ -55,14 +55,21 @@ public class ProgressBarRenderer extends DefaultComponentRenderer {
 		ProgressBar ubar = (ProgressBar) source;
 		boolean renderLabels = (args == null) ? true : false;
 		float percent = 100;
-		if (!ubar.getIsNoMax()) percent = 100 * ubar.getActual() / ubar.getMax();
-		if (percent < 0) percent = 0;
-		if (percent > 100) percent = 100;
+		if (!ubar.getIsNoMax()) {
+			percent = 100 * ubar.getActual() / ubar.getMax();
+		}
+		if (percent < 0) {
+			percent = 0;
+		}
+		if (percent > 100) {
+			percent = 100;
+		}
 		target.append("<div class='progress' style=\"width:")
 			.append(ubar.getWidth())
-			.append("px;\"><div class='progress-bar' style=\"width:")
+			.append("%", "px", ubar.isWidthInPercent())
+			.append(";\"><div class='progress-bar' style=\"width:")
 			.append(Math.round(percent * ubar.getWidth() / 100))
-			.append("px\" title=\"")
+			.append("%", "px", ubar.isWidthInPercent()).append("\" title=\"")
 			.append(Math.round(percent))
 			.append("%\">");
 		if (renderLabels) {

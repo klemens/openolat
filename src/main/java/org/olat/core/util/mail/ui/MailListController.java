@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.gui.ShortName;
 import org.olat.core.gui.UserRequest;
@@ -70,6 +69,7 @@ import org.olat.core.util.mail.model.DBMailRecipient;
 import org.olat.core.util.mail.ui.MailDataModel.Columns;
 import org.olat.core.util.mail.ui.MailDataModel.ContextPair;
 import org.olat.core.util.resource.OresHelper;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -106,7 +106,8 @@ public class MailListController extends BasicController implements Activateable2
 	
 	private final boolean outbox;
 	private final String metaId;
-	private final MailManager mailManager;
+	@Autowired
+	private MailManager mailManager;
 	private final MailContextResolver contextResolver;
 	
 	public MailListController(UserRequest ureq, WindowControl wControl, boolean outbox, MailContextResolver resolver) {
@@ -119,8 +120,6 @@ public class MailListController extends BasicController implements Activateable2
 		this.outbox = outbox;
 		this.metaId = metaId;
 		this.contextResolver = resolver;
-		
-		mailManager = CoreSpringFactory.getImpl(MailManager.class);
 
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableConfig.setDownloadOffered(true);
@@ -158,10 +157,10 @@ public class MailListController extends BasicController implements Activateable2
 			//read / marked / context / from / subject / receivedDate
 			CustomCellRenderer readRenderer = new BooleanCSSCellRenderer(getTranslator(), "o_icon o_icon-lg o_icon_read", "o_icon o_icon-lg o_icon_to_read", "mail.read", "mail.unread");
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.read.i18nKey(), Columns.read.ordinal(), CMD_READ_TOGGLE, 
-				getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, readRenderer));
+				getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, readRenderer));
 			CustomCellRenderer markRenderer = new BooleanCSSCellRenderer(getTranslator(), Mark.MARK_CSS_LARGE, Mark.MARK_ADD_CSS_LARGE, "mail.marked", "mail.unmarked");
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.marked.i18nKey(), Columns.marked.ordinal(), CMD_MARK_TOGGLE, 
-					getLocale(), ColumnDescriptor.ALIGNMENT_CENTER, markRenderer));
+					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, markRenderer));
 			tableCtr.addColumnDescriptor(new CustomRenderColumnDescriptor(Columns.context.i18nKey(), Columns.context.ordinal(), null,
 					getLocale(), ColumnDescriptor.ALIGNMENT_LEFT, new MailContextCellRenderer(this, tableVC, getTranslator())){
 						@Override
@@ -422,7 +421,10 @@ public class MailListController extends BasicController implements Activateable2
 
 	@Override
 	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
-		if(entries == null || entries.isEmpty()) return;
+		if(entries == null || entries.isEmpty()) {
+			backFromMail();
+			return;
+		}
 		
 		ContextEntry entry = entries.get(0);
 		String type = entry.getOLATResourceable().getResourceableTypeName();

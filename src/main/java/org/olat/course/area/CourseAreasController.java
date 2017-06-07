@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.StackedPanel;
@@ -74,7 +75,7 @@ public class CourseAreasController extends MainLayoutBasicController {
 	
 	private final OLATResource resource;
 	
-	public CourseAreasController(UserRequest ureq, WindowControl wControl, OLATResource resource) {
+	public CourseAreasController(UserRequest ureq, WindowControl wControl, OLATResource resource, boolean readOnly) {
 		super(ureq, wControl);
 		
 		this.resource = resource;
@@ -86,9 +87,13 @@ public class CourseAreasController extends MainLayoutBasicController {
 		listenTo(tableCtrl);
 		
 		tableCtrl.addColumnDescriptor(new DefaultColumnDescriptor("table.header.name", 0, null, getLocale()));
-		tableCtrl.addColumnDescriptor(new DefaultColumnDescriptor("table.header.description", 1, null, getLocale()));
-		tableCtrl.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_EDIT, "action", translate("edit")));
-		tableCtrl.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_DELETE, "action", translate("delete")));
+		DefaultColumnDescriptor descriptionColDesc = new DefaultColumnDescriptor("table.header.description", 1, null, getLocale());
+		descriptionColDesc.setEscapeHtml(EscapeMode.antisamy);
+		tableCtrl.addColumnDescriptor(descriptionColDesc);
+		if(!readOnly) {
+			tableCtrl.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_EDIT, "action", translate("edit")));
+			tableCtrl.addColumnDescriptor(new StaticColumnDescriptor(TABLE_ACTION_DELETE, "action", translate("delete")));
+		}
 
 		areaDataModel = new BGAreaTableModel(Collections.<BGArea>emptyList());
 		tableCtrl.setTableDataModel(areaDataModel);
@@ -98,6 +103,7 @@ public class CourseAreasController extends MainLayoutBasicController {
 		mainVC.put("areaList", tableCtrl.getInitialComponent());
 		
 		createAreaLink = LinkFactory.createButton("create.area", mainVC, this);
+		createAreaLink.setVisible(!readOnly);
 		mainVC.put("createArea", createAreaLink);
 		
 		mainPanel = putInitialPanel(mainVC);

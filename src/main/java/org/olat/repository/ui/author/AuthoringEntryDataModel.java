@@ -22,7 +22,7 @@ package org.olat.repository.ui.author;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataSourceModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
-import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryEntryStatus;
 import org.olat.repository.handlers.EditionSupport;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
@@ -35,12 +35,10 @@ import org.olat.repository.handlers.RepositoryHandlerFactory;
  */
 class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<AuthoringEntryRow> {
 
-	private final RepositoryManager repositoryManager;
 	private final RepositoryHandlerFactory handlerFactory;
 	
 	public AuthoringEntryDataModel(AuthoringEntryDataSource source, FlexiTableColumnModel columnModel) {
 		super(source, columnModel);
-		repositoryManager = CoreSpringFactory.getImpl(RepositoryManager.class);
 		handlerFactory = CoreSpringFactory.getImpl(RepositoryHandlerFactory.class);
 	}
 
@@ -80,9 +78,12 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 			case externalRef: return item.getExternalRef();
 			case author: return item.getAuthor();
 			case authors: return item.getAuthors();
+			case location: return item.getLocation();
 			case access: return item;
 			case creationDate: return item.getCreationDate();
 			case lastUsage: return item.getLastUsage();
+			case deletedBy: return item.getDeletedByFullName();
+			case deletionDate: return item.getDeletionDate();
 			case mark: return item.getMarkLink();
 			case detailsSupported: {
 				RepositoryHandler handler = handlerFactory.getRepositoryHandler(item.getResourceType());
@@ -97,7 +98,8 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 				if(handler.supportsEdit(item.getOLATResourceable()) == EditionSupport.no) {
 					return Boolean.FALSE;
 				}
-				if(repositoryManager.createRepositoryEntryStatus(item.getStatusCode()).isClosed()) {
+				RepositoryEntryStatus status = new RepositoryEntryStatus(item.getStatusCode());
+				if(status.isClosed() || status.isUnpublished()) {
 					return Boolean.FALSE;
 				}
 				return Boolean.TRUE;
@@ -119,9 +121,12 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 		displayName("cif.displayname"),
 		author("table.header.author"),
 		authors("table.header.authors"),
+		location("table.header.location"),
 		access("table.header.access"),
 		creationDate("table.header.date"),
 		lastUsage("table.header.lastusage"),
+		deletedBy("table.header.deletedby"),
+		deletionDate("table.header.deletiondate"),
 		mark("table.header.mark"),
 		detailsSupported("table.header.details"),
 		tools("table.header.actions"),
