@@ -53,6 +53,11 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 	}
 
 	@Override
+	public String getWindowTitle() {
+		return "Shibboleth error";
+	}
+
+	@Override
 	public void addBodyCssClass(String cssClass) {
 		// not supported
 	}
@@ -74,6 +79,11 @@ public class SimpleShibbolethErrorController extends DefaultChiefController {
 
 	@Override
 	public boolean hasStaticSite(Class<? extends SiteInstance> type) {
+		return false;
+	}
+
+	@Override
+	public boolean isLoginInterceptionInProgress() {
 		return false;
 	}
 }
