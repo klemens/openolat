@@ -97,7 +97,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.studypath", 5, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.result", 6, null, getLocale()));
 		DefaultColumnDescriptor comment = new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.comment", 7, null, getLocale());
-		comment.setEscapeHtml(EscapeMode.none);
+		comment.setEscapeHtml(EscapeMode.antisamy);
 		tableController.addColumnDescriptor(comment);
 		DefaultColumnDescriptor status = new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.status", 8, null, getLocale()) {
 			/**
