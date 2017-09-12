@@ -3,6 +3,7 @@ package de.unileipzig.xman.protocol.archived.tables;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
@@ -22,7 +23,9 @@ public class ArchivedProtocolTableModel extends DefaultTableDataModel<ArchivedPr
 		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.name", columnCount++, null, getLocale()));
 		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.date", columnCount++, null, getLocale()));
 		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.location", columnCount++, null, getLocale()));
-		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.comment", columnCount++, null, getLocale()));
+		DefaultColumnDescriptor comments = new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.comment", columnCount++, null, getLocale());
+		comments.setEscapeHtml(EscapeMode.antisamy);
+		table.addColumnDescriptor(comments);
 		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.result", columnCount++, null, getLocale()));
 		table.addColumnDescriptor(new DefaultColumnDescriptor("ArchivedProtocolTableModel.header.studyPath", columnCount++, null, getLocale()));
 	}
