@@ -1,5 +1,9 @@
 package de.unileipzig.xman.exam.controllers;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.security.InvalidParameterException;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -7,6 +11,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
+import org.apache.activemq.util.IOHelper;
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.commons.persistence.DBFactory;
@@ -27,12 +32,18 @@ import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.media.MediaResource;
+import org.olat.core.gui.media.NamedFileMediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Util;
+import org.olat.core.util.WebappHelper;
 import org.olat.user.HomePageConfigManagerImpl;
 import org.olat.user.UserInfoMainController;
 import org.olat.user.UserManager;
@@ -42,6 +53,7 @@ import de.unileipzig.xman.admin.mail.form.MailForm;
 import de.unileipzig.xman.appointment.Appointment;
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.appointment.tables.AppointmentLecturerOralTableModel;
+import de.unileipzig.xman.calendar.CalendarManager;
 import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
 import de.unileipzig.xman.esf.ElectronicStudentFileManager;
@@ -64,6 +76,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	private CloseableModalController cmc;
 	
 	private Link refreshTableButton;
+	private Link downloadCalendarButton;
 
 	private UserSearchController userSearchController;
 	private Appointment userSearchControllerAppointmentHolder;
@@ -78,6 +91,8 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	private List<Appointment> editMailFormAppointmentHolder;
 
 	private ExamDetailsController examDetailsController;
+
+	private OLog log = Tracing.createLoggerFor(getClass());
 
 	/**
 	 * The exam given MUST be oral, otherwise InvalidParameterException is thrown!
@@ -112,6 +127,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 			mainVC.contextPut("showAppointmentTable", true);
 			
 			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);
+			downloadCalendarButton = LinkFactory.createButton("ExamLecturerOralController.downloadCalendar", mainVC, this);
 			
 			buildAppointmentTable(ureq);
 		} else {
@@ -576,6 +592,30 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 			// update view
 			appointmentTableModel.update();
 			appointmentTable.modelChanged();
+		} else if(source == downloadCalendarButton) {
+			File tmpFile = new File(WebappHelper.getTmpDir(), "xman-calendar-export-" + CodeHelper.getUniqueID());
+
+			OutputStream out = null;
+			try {
+				out = new FileOutputStream(tmpFile);
+				CalendarManager.exportProtocolsIcal(exam, out, getLocale());
+
+				String fileName = translate("ExamLecturerOralController.downloadCalendarFileName", IOHelper.toFileSystemSafeName(exam.getName()));
+				MediaResource mr = new NamedFileMediaResource(tmpFile, fileName, "Calendar Export", true);
+				ureq.getDispatchResult().setResultingMediaResource(mr);
+			} catch(IOException e) {
+				log.error("error while creating tmp file for calendar export", e);
+				showError("ExamLecturerOralController.downloadCalendarError");
+			} finally {
+				if(out != null) {
+					try {
+						out.close();
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				}
+			}
+
 		}
 	}
 
