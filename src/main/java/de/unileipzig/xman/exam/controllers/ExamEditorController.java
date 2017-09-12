@@ -220,6 +220,8 @@ public class ExamEditorController extends BasicController {
 		authorTableCtr = new TableController(authorTableConfig, ureq, getWindowControl(), getTranslator());
 		listenTo(authorTableCtr);
 
+		Identity currentAuthor = ureq.getIdentity();
+
 		List<Identity> authors = repositoryService.getMembers(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam), GroupRoles.owner.name());
 		authorTableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ExamEditorController.authorTable.name", 0, null, ureq.getLocale()));
 		authorTableCtr.addColumnDescriptor(new DefaultColumnDescriptor("ExamEditorController.authorTable.action", 1, ACTION_DELETE_AUTHOR, ureq.getLocale(), DefaultColumnDescriptor.ALIGNMENT_RIGHT));
@@ -233,7 +235,7 @@ public class ExamEditorController extends BasicController {
 					User user = id.getUser();
 					return user.getFirstName() + " " + user.getLastName();
 				} else {
-					if(id.equals(ureq.getIdentity())) {
+					if(id.equals(currentAuthor)) {
 						// Authors should not remove themselves
 						return "";
 					} else {
