@@ -151,7 +151,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		toolbarStack.removeAllTools();
 
 		editorLink = LinkFactory.createToolLink("editor", translate("ExamMainController.tool.editExam"), this, "o_icon_courseeditor");
-		toolbarStack.addTool(editorLink);
+		toolbarStack.addTool(editorLink, Align.left);
 
 		catalogLink = LinkFactory.createToolLink("catalog", translate("ExamMainController.tool.catalog"), this, "o_icon_catalog");
 		toolbarStack.addTool(catalogLink);
