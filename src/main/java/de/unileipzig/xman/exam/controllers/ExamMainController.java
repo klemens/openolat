@@ -18,14 +18,18 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
+import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Util;
+import org.olat.core.util.resource.OresHelper;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.ui.author.CatalogSettingsController;
 import org.olat.repository.ui.list.RepositoryEntryDetailsController;
 import org.olat.resource.OLATResourceManager;
+import org.olat.util.logging.activity.LoggingResourceable;
 
 import de.unileipzig.xman.appointment.AppointmentManager;
 import de.unileipzig.xman.exam.AlreadyLockedException;
@@ -57,8 +61,10 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	private DialogBoxController changeToOralDialog;
 	private DialogBoxController changeToWrittenDialog;
 	private DialogBoxController archiveDialog;
-	private Controller detailsController;
-	private boolean inEditor;
+	private RepositoryEntryDetailsController detailsController;
+	private ExamEditorController editorController;
+	private CatalogSettingsController catalogController;
+	private Controller currentController;
 
 	/**
 	 * The Controller that manages the display and the edit of an exam
@@ -189,25 +195,28 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 			showInfo("ExamMainController.info.closed");
 			return;
 		}
-		if(inEditor) {
-			return;
-		}
-		
-		OLATResourceable res = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
-		toolbarStack.pushController(translate("examEditor_html.header"), new ExamEditorController(ureq, getWindowControl(), res));
-		inEditor = true;
+
+		OLATResourceable examOres = OLATResourceManager.getInstance().findResourceable(exam.getResourceableId(), exam.getResourceableTypeName());
+
+		WindowControl wControl = getSubWindowControl("Editor");
+		ExamEditorController ctrl = new ExamEditorController(ureq, addToHistory(ureq, wControl), examOres);
+		editorController = pushController(ureq, translate("examEditor_html.header"), ctrl);
 	}
 
 	private void pushDetails(UserRequest ureq) {
 		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
-		detailsController = new RepositoryEntryDetailsController(ureq, getWindowControl(), re, true);
-		listenTo(detailsController);
-		toolbarStack.pushController(translate("ExamMainController.stack.infopage"), detailsController);
+
+		WindowControl wControl = getSubWindowControl("Infos");
+		RepositoryEntryDetailsController ctrl = new RepositoryEntryDetailsController(ureq, addToHistory(ureq, wControl), re, true);
+		detailsController = pushController(ureq, translate("ExamMainController.stack.infopage"), ctrl);
 	}
 
 	private void pushCatalog(UserRequest ureq) {
 		RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
-		CatalogSettingsController catalogController = new CatalogSettingsController(ureq, getWindowControl(), toolbarStack, re);
+
+		WindowControl wControl = getSubWindowControl("Catalog");
+		// Pushes itself onto the stack :/
+		catalogController = new CatalogSettingsController(ureq, addToHistory(ureq, wControl), toolbarStack, re);
 		catalogController.initToolbar();
 	}
 
@@ -215,10 +224,6 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 	protected void event(UserRequest ureq, Component source, Event event) {
 		 if(source == toolbarStack) {
 			if(event instanceof PopEvent) {
-				PopEvent popEvent = (PopEvent) event;
-				if(popEvent.getController() instanceof ExamEditorController) {
-					inEditor = false;
-				}
 				// reload exam
 				exam = ExamDBManager.getInstance().findExamByID(exam.getKey());
 				updateExam(ureq, exam);
@@ -344,6 +349,32 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		}
 	}
 
+	private WindowControl getSubWindowControl(String name) {
+		OLATResourceable ores = OresHelper.createOLATResourceableInstance(name, 0l);
+		ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
+		return BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
+	}
+
+	private <T extends Controller> T pushController(UserRequest ureq, String name, T controller) {
+		toolbarStack.popUpToRootController(ureq);
+		cleanUpControllers();
+
+		listenTo(controller);
+		toolbarStack.pushController(name, controller);
+		currentController = controller;
+
+		return controller;
+	}
+
+	private void cleanUpControllers() {
+		removeAsListenerAndDispose(editorController);
+		removeAsListenerAndDispose(catalogController);
+		removeAsListenerAndDispose(detailsController);
+		editorController = null;
+		catalogController = null;
+		detailsController = null;
+	}
+
 	private void changeExamType(UserRequest ureq, boolean oral) {
 		if(ProtocolManager.getInstance().findAllProtocolsByExam(exam).size() > 0) {
 			showError("ExamMainController.error.studentsSubscribed");
@@ -364,9 +395,9 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 		removeAsListenerAndDispose(changeToOralDialog);
 		removeAsListenerAndDispose(changeToWrittenDialog);
 		removeAsListenerAndDispose(archiveDialog);
-		removeAsListenerAndDispose(detailsController);
-		if(inEditor) {
-			toolbarStack.popContent(); // disposes the editor controller and thus releases the lock
+
+		if(currentController != null && !currentController.isDisposed()) {
+			currentController.dispose();
 		}
 	}
 }
