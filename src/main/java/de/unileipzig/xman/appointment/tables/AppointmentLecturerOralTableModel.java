@@ -43,8 +43,6 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		setLocale(locale);
 		this.translator = Util.createPackageTranslator(Exam.class, getLocale());
 		this.exam = exam;
-		
-		update();
 	}
 	
 	public void update() {
@@ -155,7 +153,12 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 	public boolean existsProtocol(Appointment appointment) {
 		return findProtocol(appointment) != null;
 	}
-	
+
+	public boolean hasEarmarkedProtocol() {
+		return examProtocols.stream()
+			.anyMatch(p -> p.getEarmarked());
+	}
+
 	/**
 	 * simulates get function of Map
 	 * (we cannot use Map because same "physical" objects are contained in different java objects an comparators are not properly overloaded)

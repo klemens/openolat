@@ -154,8 +154,17 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 		listenTo(appointmentTable);
 		
 		mainVC.put("appointmentTable", appointmentTable.getInitialComponent());
+
+		// Load the table entries
+		updateAppointmentTable();
 	}
-	
+
+	private void updateAppointmentTable() {
+		appointmentTableModel.update();
+		appointmentTable.modelChanged();
+		mainVC.contextPut("showEarmarkedNote", appointmentTableModel.hasEarmarkedProtocol());
+	}
+
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		// check that exam was not closed in the meantime
@@ -316,8 +325,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					// update view
-					appointmentTableModel.update();
-					appointmentTable.modelChanged();
+					updateAppointmentTable();
 				
 				/**
 				 * change status of selected users to registered
@@ -377,8 +385,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					// update view
-					appointmentTableModel.update();
-					appointmentTable.modelChanged();
+					updateAppointmentTable();
 				
 				/**
 				 *  remove selected users from exam
@@ -432,8 +439,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					}
 					
 					// update view
-					appointmentTableModel.update();
-					appointmentTable.modelChanged();
+					updateAppointmentTable();
 				}
 			}
 		
@@ -466,8 +472,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
 						
 						// update view
-						appointmentTableModel.update();
-						appointmentTable.modelChanged();
+						updateAppointmentTable();
 					}
 				} else {
 					showError("ExamLecturerOralController.error.studentHasNoESF");
@@ -518,8 +523,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				editMarkFormAppointmentHolder = null;
 
 				// update view
-				appointmentTableModel.update();
-				appointmentTable.modelChanged();
+				updateAppointmentTable();
 			}
 		
 		/**
@@ -540,8 +544,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				editCommentFormAppointmentHolder = null;
 
 				// update view
-				appointmentTableModel.update();
-				appointmentTable.modelChanged();
+				updateAppointmentTable();
 			}
 		
 		/**
@@ -590,8 +593,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 
 		if(source == refreshTableButton) {
 			// update view
-			appointmentTableModel.update();
-			appointmentTable.modelChanged();
+			updateAppointmentTable();
 		} else if(source == downloadCalendarButton) {
 			File tmpFile = new File(WebappHelper.getTmpDir(), "xman-calendar-export-" + CodeHelper.getUniqueID());
 

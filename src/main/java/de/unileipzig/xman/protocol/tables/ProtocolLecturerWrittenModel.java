@@ -38,8 +38,6 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		setLocale(locale);
 		this.translator = Util.createPackageTranslator(Exam.class, locale);
 		this.exam = exam;
-		
-		update();
 	}
 	
 	public void update() {
@@ -121,4 +119,8 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.mail", ACTION_MULTI_MAIL);
 	}
 
+	public boolean hasEarmarkedProtocol() {
+		return getObjects().stream()
+			.anyMatch(p -> p.getEarmarked());
+	}
 }

@@ -2,6 +2,9 @@ $r.render("examDetails")
 
 #if ($showProtocolTable)
 	<fieldset><legend>$r.translate("examLecturerWrittenView_html.protocolTable") ($appDate, $appLocation, $appDuration)</legend>
+	#if ($showEarmarkedNote)
+	<div class="o_note" style="margin-top:0;">$r.translate("examLecturerView_html.note.earmarked")</div>
+	#end
 	<p style="margin-top: 0;">$r.render("ExamLecturerWrittenController.userAddButton") <span style="float:right;">$r.render("ExamLecturerWrittenController.refreshTable")</span></p>
 	$r.render("protocolTable")
 	</fieldset>

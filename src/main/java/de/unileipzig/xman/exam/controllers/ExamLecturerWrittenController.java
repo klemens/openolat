@@ -146,8 +146,17 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 		listenTo(protocolTable);
 		
 		mainVC.put("protocolTable", protocolTable.getInitialComponent());
+
+		// Load the table entries
+		updateProtocolTable();
+}
+
+	private void updateProtocolTable() {
+		protocolTableModel.update();
+		protocolTable.modelChanged();
+		mainVC.contextPut("showEarmarkedNote", protocolTableModel.hasEarmarkedProtocol());
 	}
-	
+
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		// check that exam was not closed in the meantime
@@ -280,8 +289,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					}
 					
 					// update view
-					protocolTableModel.update();
-					protocolTable.modelChanged();
+					updateProtocolTable();
 				
 				/**
 				 * change status of selected users to registered
@@ -339,8 +347,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					}
 					
 					// update view
-					protocolTableModel.update();
-					protocolTable.modelChanged();
+					updateProtocolTable();
 				
 				/**
 				 *  remove selected users from exam
@@ -391,8 +398,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					}
 					
 					// update view
-					protocolTableModel.update();
-					protocolTable.modelChanged();
+					updateProtocolTable();
 				}
 			}
 		
@@ -421,8 +427,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 							AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
 							
 							// update view
-							protocolTableModel.update();
-							protocolTable.modelChanged();
+							updateProtocolTable();
 						}
 					} else {
 						showError("ExamLecturerWrittenController.error.alreadyRegistered");
@@ -474,8 +479,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				editMarkFormProtocolHolder = null;
 
 				// update view
-				protocolTableModel.update();
-				protocolTable.modelChanged();
+				updateProtocolTable();
 			}
 		
 		/**
@@ -494,8 +498,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				editCommentFormProtocolHolder = null;
 
 				// update view
-				protocolTableModel.update();
-				protocolTable.modelChanged();
+				updateProtocolTable();
 			}
 
 		/**
@@ -541,8 +544,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 
 		if(source == refreshTableButton) {
 			// update view
-			protocolTableModel.update();
-			protocolTable.modelChanged();
+			updateProtocolTable();
 		} else if(source == userAddButton) {
 			// Guaranteed to work because we checked exactly that in constructor
 			userSearchControllerAppointmentHolder = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).get(0);
