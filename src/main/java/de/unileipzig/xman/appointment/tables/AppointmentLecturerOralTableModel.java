@@ -127,12 +127,12 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		columnCount = 9;
 		
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.register", ACTION_MULTI_REGISTER);
-		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.earmark", ACTION_MULTI_EARMARK);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.unregister", ACTION_MULTI_UNREGISTER);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.add", ACTION_MULTI_ADD);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.mail", ACTION_MULTI_MAIL);
+		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.earmark", ACTION_MULTI_EARMARK);
 	}
 	
 	/**
