@@ -291,6 +291,10 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						.filter(p -> !p.getEarmarked())
 						.collect(Collectors.toList());
 
+					if(protocols.size() == 0) {
+						showInfo("ExamLecturerOralController.info.selectOneRegisteredProtocol");
+					}
+
 					for(Protocol protocol : protocols) {
 						Protocol proto = ProtocolManager.getInstance().findProtocolByID(protocol.getKey());
 						proto.setEarmarked(true);
@@ -339,6 +343,10 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						.map(appointmentTableModel::getProtocol)
 						.filter(p -> p.getEarmarked())
 						.collect(Collectors.toList());
+
+					if(protocols.size() == 0) {
+						showInfo("ExamLecturerOralController.info.selectOneEarmarkedProtocol");
+					}
 
 					for(Protocol protocol : protocols) {
 						Protocol proto = ProtocolManager.getInstance().findProtocolByID(protocol.getKey());

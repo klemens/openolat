@@ -255,6 +255,10 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection()).stream()
 						.filter(p -> !p.getEarmarked())
 						.collect(Collectors.toList());
+
+					if(protos.size() == 0) {
+						showInfo("ExamLecturerWrittenController.info.selectOneRegisteredProtocol");
+					}
 					
 					for(Protocol proto : protos) {
 						proto = ProtocolManager.getInstance().findProtocolByID(proto.getKey());
@@ -301,6 +305,10 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection()).stream()
 						.filter(p -> p.getEarmarked())
 						.collect(Collectors.toList());
+
+					if(protos.size() == 0) {
+						showInfo("ExamLecturerWrittenController.info.selectOneEarmarkedProtocol");
+					}
 					
 					for(Protocol proto : protos) {
 						proto = ProtocolManager.getInstance().findProtocolByID(proto.getKey());
