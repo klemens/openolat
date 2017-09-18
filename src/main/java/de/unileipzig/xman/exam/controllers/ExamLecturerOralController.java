@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import org.apache.activemq.util.IOHelper;
 import org.olat.admin.user.UserSearchController;
@@ -284,44 +285,46 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				 * change status of selected students to earmarked
 				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_EARMARK)) {
-					List<Appointment> apps = appointmentTableModel.getObjects(tableEvent.getSelection());
-					
-					for(Appointment app : apps) {
-						if(appointmentTableModel.existsProtocol(app)) {
-							Protocol proto = ProtocolManager.getInstance().findProtocolByID(appointmentTableModel.getProtocol(app).getKey());
-							proto.setEarmarked(true);
-							ProtocolManager.getInstance().updateProtocol(proto);
-							
-							Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
-							BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+					List<Protocol> protocols = appointmentTableModel.getObjects(tableEvent.getSelection()).stream()
+						.filter(appointmentTableModel::existsProtocol)
+						.map(appointmentTableModel::getProtocol)
+						.filter(p -> !p.getEarmarked())
+						.collect(Collectors.toList());
 
-							// Email MoveToEarmarked
-							MailManager.getInstance().sendEmail(
-								userTranslator.translate("Mail.MoveToEarmarked.Subject", new String[] { exam.getName() }),
-								userTranslator.translate("Mail.MoveToEarmarked.Body",
-									new String[] {
-										exam.getName(),
-										getName(proto.getIdentity()),
-										DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
-										proto.getAppointment().getPlace(),
-										new Integer(proto.getAppointment().getDuration()).toString(),
-										userTranslator.translate("oral"),
-										bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
-									}),
-								proto.getIdentity()
-							);
+					for(Protocol protocol : protocols) {
+						Protocol proto = ProtocolManager.getInstance().findProtocolByID(protocol.getKey());
+						proto.setEarmarked(true);
+						ProtocolManager.getInstance().updateProtocol(proto);
 
-							// load esf
-							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
-							
-							// add a comment to the esf
-							String commentText = translate("ExamLecturerOralController.earmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
-							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
-							
-							// needed, because loading the same esf multiple times causes hibernate to fail (stale exception) the transaction
-							// TODO: there might be a better way to avoid the exception
-							DBFactory.getInstance().intermediateCommit();
-						}
+						Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
+						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+
+						// Email MoveToEarmarked
+						MailManager.getInstance().sendEmail(
+							userTranslator.translate("Mail.MoveToEarmarked.Subject", new String[] { exam.getName() }),
+							userTranslator.translate("Mail.MoveToEarmarked.Body",
+								new String[] {
+									exam.getName(),
+									getName(proto.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
+									proto.getAppointment().getPlace(),
+									new Integer(proto.getAppointment().getDuration()).toString(),
+									userTranslator.translate("oral"),
+									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
+								}),
+							proto.getIdentity()
+						);
+
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+
+						// add a comment to the esf
+						String commentText = translate("ExamLecturerOralController.earmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+
+						// needed, because loading the same esf multiple times causes hibernate to fail (stale exception) the transaction
+						// TODO: there might be a better way to avoid the exception
+						DBFactory.getInstance().intermediateCommit();
 					}
 					
 					// update view
@@ -331,57 +334,59 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				 * change status of selected users to registered
 				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_REGISTER)) {
-					List<Appointment> apps = appointmentTableModel.getObjects(tableEvent.getSelection());
-					
-					for(Appointment app : apps) {
-						if(appointmentTableModel.existsProtocol(app)) {
-							Protocol proto = ProtocolManager.getInstance().findProtocolByID(appointmentTableModel.getProtocol(app).getKey());
-							proto.setEarmarked(false);
-							ProtocolManager.getInstance().updateProtocol(proto);
-							
-							Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
-							BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+					List<Protocol> protocols = appointmentTableModel.getObjects(tableEvent.getSelection()).stream()
+						.filter(appointmentTableModel::existsProtocol)
+						.map(appointmentTableModel::getProtocol)
+						.filter(p -> p.getEarmarked())
+						.collect(Collectors.toList());
 
-							// calculate semester
-							String semester;
-							Calendar cal = Calendar.getInstance();
-							cal.setTime(app.getDate());
-							if (cal.get(Calendar.MONTH) >= 3 && cal.get(Calendar.MONTH) <= 8)
-								semester = "SS " + cal.get(Calendar.YEAR);
-							else
-								semester = "WS " + cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.YEAR) + 1);
-							
-							// Email Register
-							MailManager.getInstance().sendEmail(
-								userTranslator.translate("Mail.Register.Subject", new String[] { exam.getName() }),
-								userTranslator.translate("Mail.Register.Body",
-									new String[] {
-										exam.getName(),
-										getName(proto.getIdentity()),
-										DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
-										proto.getAppointment().getPlace(),
-										new Integer(proto.getAppointment().getDuration()).toString(),
-										userTranslator.translate("oral"),
-										bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
-										userTranslator.translate(proto.getEarmarked() ? "ExamLecturerOralController.status.earmarked" : "ExamLecturerOralController.status.registered"),
-										semester,
-										proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
-										proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
-										proto.getStudyPath()
-									}),
-								proto.getIdentity()
-							);
+					for(Protocol protocol : protocols) {
+						Protocol proto = ProtocolManager.getInstance().findProtocolByID(protocol.getKey());
+						proto.setEarmarked(false);
+						ProtocolManager.getInstance().updateProtocol(proto);
 
-							// load esf
-							ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
-							
-							// add a comment to the esf
-							String commentText = translate("ExamLecturerOralController.registeredFromEarmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
-							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
-							
-							// TODO: see first occurrence
-							DBFactory.getInstance().intermediateCommit();
-						}
+						Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
+						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+
+						// calculate semester
+						String semester;
+						Calendar cal = Calendar.getInstance();
+						cal.setTime(proto.getAppointment().getDate());
+						if (cal.get(Calendar.MONTH) >= 3 && cal.get(Calendar.MONTH) <= 8)
+							semester = "SS " + cal.get(Calendar.YEAR);
+						else
+							semester = "WS " + cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.YEAR) + 1);
+
+						// Email Register
+						MailManager.getInstance().sendEmail(
+							userTranslator.translate("Mail.Register.Subject", new String[] { exam.getName() }),
+							userTranslator.translate("Mail.Register.Body",
+								new String[] {
+									exam.getName(),
+									getName(proto.getIdentity()),
+									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
+									proto.getAppointment().getPlace(),
+									new Integer(proto.getAppointment().getDuration()).toString(),
+									userTranslator.translate("oral"),
+									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
+									userTranslator.translate(proto.getEarmarked() ? "ExamLecturerOralController.status.earmarked" : "ExamLecturerOralController.status.registered"),
+									semester,
+									proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
+									proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
+									proto.getStudyPath()
+								}),
+							proto.getIdentity()
+						);
+
+						// load esf
+						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
+
+						// add a comment to the esf
+						String commentText = translate("ExamLecturerOralController.registeredFromEarmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+
+						// TODO: see first occurrence
+						DBFactory.getInstance().intermediateCommit();
 					}
 					
 					// update view

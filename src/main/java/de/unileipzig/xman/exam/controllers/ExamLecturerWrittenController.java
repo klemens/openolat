@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.stream.Collectors;
 
 import org.olat.admin.user.UserSearchController;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
@@ -251,7 +252,9 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				 * change status of selected students to earmarked
 				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_EARMARK)) {
-					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection());
+					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection()).stream()
+						.filter(p -> !p.getEarmarked())
+						.collect(Collectors.toList());
 					
 					for(Protocol proto : protos) {
 						proto = ProtocolManager.getInstance().findProtocolByID(proto.getKey());
@@ -295,7 +298,9 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				 * change status of selected users to registered
 				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_REGISTER)) {
-					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection());
+					List<Protocol> protos = protocolTableModel.getObjects(tableEvent.getSelection()).stream()
+						.filter(p -> p.getEarmarked())
+						.collect(Collectors.toList());
 					
 					for(Protocol proto : protos) {
 						proto = ProtocolManager.getInstance().findProtocolByID(proto.getKey());
