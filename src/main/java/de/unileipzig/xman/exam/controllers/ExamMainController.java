@@ -252,17 +252,29 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				return;
 			}
 
+			boolean hasAppointments = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0;
+
 			String newType = event.getCommand();
 			if(newType.equals("oral")) {
 				if(exam.getIsOral()) {
 					return;
 				}
-				changeToOralDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.oral"), changeToOralDialog);
+
+				if(hasAppointments) {
+					changeToOralDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.oral"), changeToOralDialog);
+				} else {
+					changeExamType(ureq, true);
+				}
 			} else if(newType.equals("written")) {
 				if(!exam.getIsOral()) {
 					return;
 				}
-				changeToWrittenDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.written"), changeToWrittenDialog);
+
+				if(hasAppointments) {
+					changeToWrittenDialog = activateOkCancelDialog(ureq, translate("ExamMainController.dialog.examType.title"), translate("ExamMainController.dialog.examType.written"), changeToWrittenDialog);
+				} else {
+					changeExamType(ureq, false);
+				}
 			}
 		} else if(source == archiveLink) {
 			if(ExamDBManager.getInstance().isClosed(exam)) {
