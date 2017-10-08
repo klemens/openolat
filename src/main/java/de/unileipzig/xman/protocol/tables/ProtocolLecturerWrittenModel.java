@@ -111,12 +111,16 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		
 		columnCount = 6;
 		
-		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.register", ACTION_MULTI_REGISTER);
+		if(exam.getEarmarkedEnabled()) {
+			tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.register", ACTION_MULTI_REGISTER);
+		}
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.unregister", ACTION_MULTI_UNREGISTER);
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.mail", ACTION_MULTI_MAIL);
-		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.earmark", ACTION_MULTI_EARMARK);
+		if(exam.getEarmarkedEnabled()) {
+			tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.earmark", ACTION_MULTI_EARMARK);
+		}
 	}
 
 	public boolean hasEarmarkedProtocol() {
