@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.activemq.util.IOHelper;
@@ -64,6 +65,7 @@ import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.exam.forms.EditMarkForm;
 import de.unileipzig.xman.protocol.Protocol;
 import de.unileipzig.xman.protocol.ProtocolManager;
+import uk.ac.ed.ph.jqtiplus.internal.util.Pair;
 
 public class ExamLecturerOralController extends BasicController implements ExamController {
 	
@@ -442,6 +444,59 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					
 					// update view
 					updateAppointmentTable();
+				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_SWAP)) {
+					List<Appointment> selectedAppointments = appointmentTableModel.getObjects(tableEvent.getSelection());
+
+					if(selectedAppointments.size() != 2) {
+						showInfo("ExamLecturerOralController.error.selectTwoForEarmarkedSwap");
+						return;
+					}
+
+					// refresh stale appointments and load protocols
+					List<Pair<Appointment, Optional<Protocol>>> protocols = selectedAppointments.stream()
+						.map(app -> AppointmentManager.getInstance().findAppointmentByID(app.getKey()))
+						.map(app -> new Pair<>(app, ProtocolManager.getInstance().findAllProtocolsByAppointment(app).stream().findAny()))
+						.collect(Collectors.toList());
+
+					// check that at least one appointment is occupied and none has a registered (instead of earmarked) protocol
+					long occupied = protocols.stream()
+						.map(Pair::getSecond)
+						.filter(Optional::isPresent)
+						.count();
+					long registered = protocols.stream()
+						.map(Pair::getSecond)
+						.filter(Optional::isPresent)
+						.filter(p -> !p.get().getEarmarked())
+						.count();
+					if(occupied < 1 || registered > 0) {
+						showError("ExamLecturerOralController.error.selectTwoForEarmarkedSwap");
+						// update view, status could have changed
+						updateAppointmentTable();
+						return;
+					}
+
+					// extract two-item-list into local variables; the order does not matter,
+					// because all following operations are symmetrical
+					Appointment appointmentA = protocols.get(0).getFirst();
+					Appointment appointmentB = protocols.get(1).getFirst();
+					Optional<Protocol> protocolA = protocols.get(0).getSecond();
+					Optional<Protocol> protocolB = protocols.get(1).getSecond();
+
+					// swap the appointments assigned to the protocols, if the latter exist (at least one does)
+					protocolA.ifPresent(p -> p.setAppointment(appointmentB));
+					protocolB.ifPresent(p -> p.setAppointment(appointmentA));
+
+					// update the occupied status based on the other protocols existence; this is a noop
+					// if both protocols are present, otherwise the occupied flags are swapped as well
+					appointmentA.setOccupied(protocolB.isPresent());
+					appointmentB.setOccupied(protocolA.isPresent());
+
+					// send emails and add comments to the esf
+					protocolA.ifPresent(p -> notifyUpdatedAppointment(ureq, p, appointmentA, appointmentB));
+					protocolB.ifPresent(p -> notifyUpdatedAppointment(ureq, p, appointmentB, appointmentA));
+
+					// update view
+					updateAppointmentTable();
 				}
 			}
 		
@@ -655,4 +710,29 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 		return filteredList;
 	}
 
+	protected void notifyUpdatedAppointment(UserRequest ureq, Protocol protocol, Appointment oldAppointment, Appointment newAppointment) {
+		BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+		Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(protocol.getIdentity().getUser().getPreferences().getLanguage()));
+		DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale());
+
+		// {0}: exam name, {1} exam link, {2}: new date, {3}: new place, {4}: new duration, {5}: old date, {6}: old place, {7}: old duration
+		String[] params = new String[] {
+			exam.getName(),
+			bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
+			dateFormat.format(newAppointment.getDate()),
+			newAppointment.getPlace(),
+			String.valueOf(newAppointment.getDuration()),
+			dateFormat.format(oldAppointment.getDate()),
+			oldAppointment.getPlace(),
+			String.valueOf(oldAppointment.getDuration()),
+		};
+
+		String subject = translate("ExamLecturerOralController.changeEarmarkedAppointment.subject", params);
+		String body = translate("ExamLecturerOralController.changeEarmarkedAppointment.body", params);
+		MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), protocol.getIdentity());
+
+		String comment = translate("ExamLecturerOralController.changeEarmarkedAppointment.comment", params);
+		ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(protocol.getIdentity());
+		CommentManager.getInstance().createCommentInEsf(esf, comment, ureq.getIdentity());
+	}
 }

@@ -24,6 +24,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 	
 	public static String ACTION_USER = "user";
 	public static String ACTION_MULTI_REGISTER = "multi.register";
+	public static String ACTION_MULTI_SWAP = "multi.swap";
 	public static String ACTION_MULTI_EARMARK = "multi.earmark";
 	public static String ACTION_MULTI_UNREGISTER = "multi.unregister";
 	public static String ACTION_MULTI_EDIT_RESULT = "multi.edit.result";
@@ -132,8 +133,9 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		tableController.addColumnDescriptor(status);
 		
 		columnCount = 9;
-		
+
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.register", ACTION_MULTI_REGISTER);
+		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.swap", ACTION_MULTI_SWAP);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.unregister", ACTION_MULTI_UNREGISTER);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
