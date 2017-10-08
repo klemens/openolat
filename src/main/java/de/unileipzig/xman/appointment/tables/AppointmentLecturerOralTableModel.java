@@ -11,6 +11,7 @@ import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.UserConstants;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 
 import de.unileipzig.xman.appointment.Appointment;
@@ -25,7 +26,6 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 	public static String ACTION_MULTI_REGISTER = "multi.register";
 	public static String ACTION_MULTI_EARMARK = "multi.earmark";
 	public static String ACTION_MULTI_UNREGISTER = "multi.unregister";
-	public static String ACTION_MULTI_ADD = "multi.add";
 	public static String ACTION_MULTI_EDIT_RESULT = "multi.edit.result";
 	public static String ACTION_MULTI_EDIT_COMMENT = "multi.edit.comment";
 	public static String ACTION_MULTI_MAIL = "multi.mail";
@@ -60,15 +60,20 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 	public Object getValueAt(int row, int col) {
 		Appointment app = getObject(row);
 		Protocol protocol = findProtocol(app);
-		
-		if(protocol == null && col >= 3 && col <= 7)
-			return "";
-		
+
+		if(protocol == null) {
+			if(col == 3) {
+				return translator.translate("AppointmentLecturerOralTableModel.action.add");
+			} else if(col >= 4 && col <= 7) {
+				return "";
+			}
+		}
+
 		switch(col) {
 			case 0: return app.getDate();
 			case 1: return app.getPlace();
 			case 2: return new Integer(app.getDuration()) + " min";
-			case 3: return protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null);
+			case 3: return StringHelper.escapeHtml(protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null));
 			case 4: return protocol.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
 			case 5: return protocol.getStudyPath();
 			case 6: return protocol.getGrade();
@@ -90,7 +95,9 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.date", 0, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.location", 1, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.duration", 2, null, getLocale()));
-		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.name", 3, ACTION_USER, getLocale()));
+		DefaultColumnDescriptor user = new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.name", 3, ACTION_USER, getLocale());
+		user.setEscapeHtml(EscapeMode.none); // Escaped manually in getValueAt
+		tableController.addColumnDescriptor(user);
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.matrikel", 4, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.studypath", 5, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.result", 6, null, getLocale()));
@@ -128,7 +135,6 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.register", ACTION_MULTI_REGISTER);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.unregister", ACTION_MULTI_UNREGISTER);
-		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.add", ACTION_MULTI_ADD);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.mail", ACTION_MULTI_MAIL);

@@ -80,7 +80,6 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	private Link downloadCalendarButton;
 
 	private UserSearchController userSearchController;
-	private Appointment userSearchControllerAppointmentHolder;
 
 	private EditMarkForm editMarkForm;
 	private List<Appointment> editMarkFormAppointmentHolder;
@@ -179,45 +178,35 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				TableEvent tableEvent = (TableEvent) event;
 				
 				/**
-				 * open vcard of selected user
+				 * Add new user to the exam or open the vcard of already existing ones
 				 */
 				if(tableEvent.getActionId().equals(AppointmentLecturerOralTableModel.ACTION_USER)) {
-					Protocol p = appointmentTableModel.getProtocol(appointmentTableModel.getObject(tableEvent.getRowId()));
+					Appointment appointment = appointmentTableModel.getObject(tableEvent.getRowId());
 
-					UserInfoMainController uimc = new UserInfoMainController(ureq, getWindowControl(), p.getIdentity(), false, false);
-					stack.pushController(UserManager.getInstance().getUserDisplayName(p.getIdentity()), uimc);
+					if(appointmentTableModel.existsProtocol(appointment)) {
+						// There is already a user registered -> open their vcard
+						Protocol p = appointmentTableModel.getProtocol(appointment);
+
+						UserInfoMainController uimc = new UserInfoMainController(ureq, getWindowControl(), p.getIdentity(), false, false);
+						stack.pushController(UserManager.getInstance().getUserDisplayName(p.getIdentity()), uimc);
+					} else {
+						// No user registered, open user search dialog to select one to register
+						removeAsListenerAndDispose(userSearchController);
+						userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);
+						userSearchController.setUserObject(appointment.getKey());
+						listenTo(userSearchController);
+
+						cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());
+						cmc.activate();
+					}
 				}
 			} else if(event instanceof TableMultiSelectEvent) {
 				TableMultiSelectEvent tableEvent = (TableMultiSelectEvent) event;
 				
 				/**
-				 * add student manually to exam
-				 */
-				if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_ADD)) {
-					if(tableEvent.getSelection().cardinality() != 1) {
-						showError("ExamLecturerOralController.error.selectOne");
-						return;
-					}
-					
-					// Guaranteed to work because we checked that exactly one is selected
-					userSearchControllerAppointmentHolder = appointmentTableModel.getObjects(tableEvent.getSelection()).get(0);
-					
-					if(appointmentTableModel.existsProtocol(userSearchControllerAppointmentHolder)) {
-						showInfo("ExamLecturerOralController.error.appNotAvailable");
-						return;
-					}
-					
-					removeAsListenerAndDispose(userSearchController);
-					userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);
-					listenTo(userSearchController);
-					
-					cmc = new CloseableModalController(this.getWindowControl(), translate("close"), userSearchController.getInitialComponent());
-					cmc.activate();
-				
-				/**
 				 * create form to edit result (grade)
 				 */
-				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_EDIT_RESULT)) {
+				if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_EDIT_RESULT)) {
 					editMarkFormAppointmentHolder = filterAppointmentsByType(appointmentTableModel.getObjects(tableEvent.getSelection()), true);
 					
 					if(editMarkFormAppointmentHolder.isEmpty()) {
@@ -467,22 +456,24 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				SingleIdentityChosenEvent searchEvent = (SingleIdentityChosenEvent) event;				
 				ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(searchEvent.getChosenIdentity());
 				
-				assert(userSearchControllerAppointmentHolder != null);
+				Appointment appointment = AppointmentManager.getInstance().findAppointmentByID((Long) userSearchController.getUserObject());
 				
-				if(appointmentTableModel.existsProtocol(userSearchControllerAppointmentHolder)) {
+				if(appointment.getOccupied()) {
 					showError("ExamLecturerOralController.error.appNotAvailable");
+					// update view
+					updateAppointmentTable();
 					return;
 				}
 				
 				if (esf != null) {
-					if(ProtocolManager.getInstance().registerStudent(userSearchControllerAppointmentHolder, esf, getTranslator(), false, "")) {
+					if(ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), false, "")) {
 						// create comment in esf
 						String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
 						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 						
 						//save updated esf and appointment
 						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
-						AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
+						AppointmentManager.getInstance().updateAppointment(appointment);
 						
 						// update view
 						updateAppointmentTable();
@@ -490,8 +481,6 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				} else {
 					showError("ExamLecturerOralController.error.studentHasNoESF");
 				}
-				
-				userSearchControllerAppointmentHolder = null;
 			}
 		
 		/**
