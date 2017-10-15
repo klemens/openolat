@@ -525,18 +525,18 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 				}
 				
 				if (esf != null) {
-					if(ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), false, "")) {
-						// create comment in esf
-						String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
-						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
-						
-						//save updated esf and appointment
-						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
-						AppointmentManager.getInstance().updateAppointment(appointment);
-						
-						// update view
-						updateAppointmentTable();
-					}
+					ProtocolManager.getInstance().registerStudent(appointment, esf, "");
+
+					// create comment in esf
+					String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
+					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+
+					//save updated esf and appointment
+					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+					AppointmentManager.getInstance().updateAppointment(appointment);
+
+					// update view
+					updateAppointmentTable();
 				} else {
 					showError("ExamLecturerOralController.error.studentHasNoESF");
 				}

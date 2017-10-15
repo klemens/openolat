@@ -430,18 +430,18 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 				
 				if (esf != null) {
 					if(!ProtocolManager.getInstance().isIdentitySubscribedToExam(searchEvent.getChosenIdentity(), exam)) {
-						if(ProtocolManager.getInstance().registerStudent(userSearchControllerAppointmentHolder, esf, getTranslator(), false, "")) {
-							// create comment in esf
-							String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
-							CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
-							
-							// safe changed esf and appointment
-							ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
-							AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
-							
-							// update view
-							updateProtocolTable();
-						}
+						ProtocolManager.getInstance().registerStudent(userSearchControllerAppointmentHolder, esf, "");
+
+						// create comment in esf
+						String commentText = translate("ExamLecturerOralController.registeredStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName()});
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+
+						// safe changed esf and appointment
+						ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
+						AppointmentManager.getInstance().updateAppointment(userSearchControllerAppointmentHolder);
+
+						// update view
+						updateProtocolTable();
 					} else {
 						showError("ExamLecturerWrittenController.error.alreadyRegistered");
 					}

@@ -202,7 +202,7 @@ public class ExamStudentController extends BasicController implements ExamContro
 					if(exam.getEarmarkedEnabled()) {
 						ProtocolManager.getInstance().earmarkStudent(appointment, esf, comment);
 					} else {
-						ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), false, comment);
+						ProtocolManager.getInstance().registerStudent(appointment, esf, comment);
 
 						// create comment
 						String commentText = translate("ExamStudentController.studentRegisteredHimself", new String[] { "'" + exam.getName() + "'" });

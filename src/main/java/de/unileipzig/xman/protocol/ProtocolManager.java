@@ -238,93 +238,15 @@ public class ProtocolManager {
 			ProtocolManager.getInstance().updateProtocol(((Protocol) searchList.get(0)));
 		}
 	}
-	
-	/**
-	 * Register student for given appointment and update its esf
-	 * 
-	 * <br/><b>Warning:</b>
-	 * The esf is not updated (hibernate) automatically, so you have
-	 * to do this yourself.
-	 * 
-	 * @param appointment The appointment to register the student for
-	 * @param esf The electronic student file of the student
-	 * @param translator Translator used to translate email and comment in esf
-	 * @param earmark The student is only earmarked when set to true
-	 * @param initialComment The comment for the protocol, can be empty
-	 * @return true if registered successfully
-	 */
-	public boolean registerStudent(Appointment appointment, ElectronicStudentFile esf, Translator translator, boolean earmark, String initialComment) {
-		// check if app is available
-		if (!appointment.getOccupied()) {
-			Protocol proto = ProtocolManager.getInstance().createProtocol();
-			proto.setIdentity(esf.getIdentity());
-			proto.setEarmarked(earmark);
-			proto.setExam(appointment.getExam());
-			proto.setComments(initialComment);
-			// we save the studypath in the protocol, because it may change at any time
-			proto.setStudyPath(esf.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null));
-			
-			if (appointment.getExam().getIsOral()) {
-				appointment.setOccupied(true);
-			}
-			
-			proto.setAppointment(appointment);
-			ProtocolManager.getInstance().saveProtocol(proto);
 
-			// add the protocol to the students esf
-			esf.addProtocol(proto);
-
-			//TODO CalendarManager.getInstance().createKalendarEventForExam(exam, id, res);
-			
-			// calculate semester
-			String semester;
-			Calendar cal = Calendar.getInstance();
-			cal.setTime(appointment.getDate());
-			if (cal.get(Calendar.MONTH) >= 3 && cal.get(Calendar.MONTH) <= 8)
-				semester = "SS " + cal.get(Calendar.YEAR);
-			else
-				semester = "WS " + cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.YEAR) + 1);
-			
-			BusinessControlFactory bcf = BusinessControlFactory.getInstance();
-			// Email Register
-			// // Email Bodies and Subjects, vars: {0} exam name {1} last
-			// name, first name {2} app.date {3} app.place {4} app.duration
-			// {5} exam.type {6} exam.url {7} proto.earmarked {8} semester
-			// {9} studserv email {11} email {11} studyPath
-			MailManager.getInstance().sendEmail(
-				translator.translate("Mail.Register.Subject", new String[] { ExamDBManager.getInstance().getExamName(proto.getExam()) }),
-				translator.translate("Mail.Register.Body",
-					new String[] {
-						ExamDBManager.getInstance().getExamName(proto.getExam()),
-						proto.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + proto.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),
-						DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, translator.getLocale()).format(proto.getAppointment().getDate()),
-						proto.getAppointment().getPlace(),
-						new Integer(proto.getAppointment().getDuration()).toString(),
-						proto.getExam().getIsOral() ? translator.translate("oral") : translator.translate("written"),
-						bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(proto.getExam())), true),
-						translator.translate(proto.getEarmarked() ? "ExamLaunchController.status.earmarked" : "ExamLaunchController.status.registered"),
-						semester,
-						proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
-						proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
-						proto.getStudyPath()
-					}),
-				proto.getIdentity()
-			);
-			
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	public void earmarkStudent(Appointment appointment, ElectronicStudentFile esf, String comment) {
-		if (appointment.getOccupied()) {
+	private Protocol createNewProtocol(Appointment appointment, ElectronicStudentFile esf, boolean earmark, String comment) {
+		if(appointment.getOccupied()) {
 			throw new InvalidArgumentException("appointment is already occupied");
 		}
 
 		Protocol proto = ProtocolManager.getInstance().createProtocol();
 		proto.setIdentity(esf.getIdentity());
-		proto.setEarmarked(true);
+		proto.setEarmarked(earmark);
 		proto.setExam(appointment.getExam());
 		proto.setComments(comment);
 		// we save the studypath in the protocol, because it may change at any time
@@ -334,9 +256,51 @@ public class ProtocolManager {
 		ProtocolManager.getInstance().saveProtocol(proto);
 		esf.addProtocol(proto);
 
-		if (appointment.getExam().getIsOral()) {
+		if(appointment.getExam().getIsOral()) {
 			appointment.setOccupied(true);
 		}
+
+		return proto;
+	}
+
+	/**
+	 * Register student for given appointment and send confirmation mail
+	 *
+	 * @param appointment The appointment to register the student for
+	 * @param esf The electronic student file of the student
+	 * @param comment The comment for the protocol, can be an empty string
+	 */
+	public void registerStudent(Appointment appointment, ElectronicStudentFile esf, String comment) {
+		Protocol proto = createNewProtocol(appointment, esf, false, comment);
+
+		BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+		Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(esf.getIdentity().getUser().getPreferences().getLanguage()));
+		DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale());
+
+		// {0}: exam name, {1} exam link, {2}: date, {3}: place, {4}: duration, {5}: exam type (adjective)
+		String[] params = new String[] {
+			proto.getExam().getName(),
+			bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(proto.getExam())), true),
+			dateFormat.format(appointment.getDate()),
+			appointment.getPlace(),
+			String.valueOf(appointment.getDuration()),
+			userTranslator.translate(proto.getExam().getIsOral() ? "oral2" : "written2"),
+		};
+
+		String subject = userTranslator.translate("Mail.register.subject", params);
+		String body = userTranslator.translate("Mail.register.body", params);
+		MailManager.getInstance().sendEmail(subject, body, esf.getIdentity());
+	}
+
+	/**
+	 * Earmark student for given appointment, send confirmation mail, and add esf comment
+	 *
+	 * @param appointment The appointment to earmark the student for
+	 * @param esf The electronic student file of the student
+	 * @param comment The comment for the protocol, can be an empty string
+	 */
+	public void earmarkStudent(Appointment appointment, ElectronicStudentFile esf, String comment) {
+		Protocol proto = createNewProtocol(appointment, esf, true, comment);
 
 		BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 		Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(esf.getIdentity().getUser().getPreferences().getLanguage()));
