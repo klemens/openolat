@@ -140,7 +140,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerWrittenController.appointmentTable");
 		protocolTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
-		protocolTableModel.createColumns(protocolTable);
+		protocolTableModel.createColumns(ureq, protocolTable);
 		protocolTable.setTableDataModel(protocolTableModel);
 		protocolTable.setSortColumn(protocolTableModel.getColumnCount(), false); // sort by last, zerobased,  +1 for multiselect
 		

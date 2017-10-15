@@ -149,7 +149,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 		tableGuiConfiguration.setPreferencesOffered(true, "ExamLecturerOralController.appointmentTable");
 		appointmentTable = new TableController(tableGuiConfiguration, ureq, getWindowControl(), getTranslator());
 		
-		appointmentTableModel.createColumns(appointmentTable);
+		appointmentTableModel.createColumns(ureq, appointmentTable);
 		appointmentTable.setTableDataModel(appointmentTableModel);
 		appointmentTable.setSortColumn(appointmentTableModel.getColumnCount(), false); // sort by last, zerobased,  +1 for multiselect
 		

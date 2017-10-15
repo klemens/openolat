@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
@@ -92,7 +94,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		return null;
 	}
 	
-	public void createColumns(TableController tableController) {
+	public void createColumns(UserRequest ureq, TableController tableController) {
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.date", 0, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.location", 1, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("AppointmentLecturerOralTableModel.header.duration", 2, null, getLocale()));
@@ -142,8 +144,13 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
 		tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.mail", ACTION_MULTI_MAIL);
+
 		if(exam.getEarmarkedEnabled()) {
-			tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.earmark", ACTION_MULTI_EARMARK);
+			// Only privileged users can earmark already registered students
+			Roles roles = ureq.getUserSession().getRoles();
+			if(roles.isInstitutionalResourceManager() || roles.isOLATAdmin()) {
+				tableController.addMultiSelectAction("AppointmentLecturerOralTableModel.multi.earmark", ACTION_MULTI_EARMARK);
+			}
 		}
 	}
 	

@@ -4,11 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.EscapeMode;
 import org.olat.core.gui.components.table.DefaultColumnDescriptor;
 import org.olat.core.gui.components.table.DefaultTableDataModel;
 import org.olat.core.gui.components.table.TableController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Roles;
 import org.olat.core.id.UserConstants;
 import org.olat.core.util.Util;
 
@@ -69,7 +71,7 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		return null;
 	}
 	
-	public void createColumns(TableController tableController) {
+	public void createColumns(UserRequest ureq, TableController tableController) {
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.name", 0, ACTION_USER, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.matrikel", 1, null, getLocale()));
 		tableController.addColumnDescriptor(new DefaultColumnDescriptor("ProtocolLecturerWrittenModel.header.studypath", 2, null, getLocale()));
@@ -118,8 +120,13 @@ public class ProtocolLecturerWrittenModel extends DefaultTableDataModel<Protocol
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.edit.result", ACTION_MULTI_EDIT_RESULT);
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.edit.comment", ACTION_MULTI_EDIT_COMMENT);
 		tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.mail", ACTION_MULTI_MAIL);
+
 		if(exam.getEarmarkedEnabled()) {
-			tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.earmark", ACTION_MULTI_EARMARK);
+			// Only privileged users can earmark already registered students
+			Roles roles = ureq.getUserSession().getRoles();
+			if(roles.isInstitutionalResourceManager() || roles.isOLATAdmin()) {
+				tableController.addMultiSelectAction("ProtocolLecturerWrittenModel.multi.earmark", ACTION_MULTI_EARMARK);
+			}
 		}
 	}
 
