@@ -444,6 +444,10 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 					
 					// update view
 					updateAppointmentTable();
+
+				/**
+				 * swap protocols of the two selected appointments (move if only one is occupied)
+				 */
 				} else if(tableEvent.getAction().equals(AppointmentLecturerOralTableModel.ACTION_MULTI_SWAP)) {
 					List<Appointment> selectedAppointments = appointmentTableModel.getObjects(tableEvent.getSelection());
 
@@ -727,11 +731,11 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 			String.valueOf(oldAppointment.getDuration()),
 		};
 
-		String subject = translate("ExamLecturerOralController.changeEarmarkedAppointment.subject", params);
-		String body = translate("ExamLecturerOralController.changeEarmarkedAppointment.body", params);
+		String subject = userTranslator.translate("ExamLecturerOralController.changeEarmarkedAppointment.subject", params);
+		String body = userTranslator.translate("ExamLecturerOralController.changeEarmarkedAppointment.body", params);
 		MailManager.getInstance().sendEmail(subject, body, ureq.getIdentity(), protocol.getIdentity());
 
-		String comment = translate("ExamLecturerOralController.changeEarmarkedAppointment.comment", params);
+		String comment = userTranslator.translate("ExamLecturerOralController.changeEarmarkedAppointment.comment", params);
 		ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(protocol.getIdentity());
 		CommentManager.getInstance().createCommentInEsf(esf, comment, ureq.getIdentity());
 	}
