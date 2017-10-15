@@ -558,25 +558,20 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
 						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 						
-						// Email GetMark
+						String[] params = new String[] {
+							exam.getName(),
+							bcf.getURLFromBusinessPathString("[ElectronicStudentFileSite:0]"),
+							proto.getGrade(),
+						};
 						MailManager.getInstance().sendEmail(
-							userTranslator.translate("Mail.GetMark.Subject", new String[] { exam.getName() }),
-							userTranslator.translate("Mail.GetMark.Body",
-								new String[] {
-									exam.getName(),
-									getName(proto.getIdentity()),
-									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
-									proto.getAppointment().getPlace(),
-									new Integer(proto.getAppointment().getDuration()).toString(),
-									userTranslator.translate("oral"),
-									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true)
-								}),
+							userTranslator.translate("Mail.mark.subject", params),
+							userTranslator.translate("Mail.mark.body", params),
 							proto.getIdentity()
 						);
 
 						// add a comment in esf
 						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
-						String commentText = translate("ExamLecturerOralController.gotResult", new String[] { exam.getName(), proto.getGrade()});
+						String commentText = userTranslator.translate("Mail.mark.comment", params);
 						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 					}
 				}
