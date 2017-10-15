@@ -344,36 +344,24 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						proto.setEarmarked(false);
 						ProtocolManager.getInstance().updateProtocol(proto);
 
-						Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
 						BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+						Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(proto.getIdentity().getUser().getPreferences().getLanguage()));
+						DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale());
 
-						// calculate semester
-						String semester;
-						Calendar cal = Calendar.getInstance();
-						cal.setTime(proto.getAppointment().getDate());
-						if (cal.get(Calendar.MONTH) >= 3 && cal.get(Calendar.MONTH) <= 8)
-							semester = "SS " + cal.get(Calendar.YEAR);
-						else
-							semester = "WS " + cal.get(Calendar.YEAR) + "/" + (cal.get(Calendar.YEAR) + 1);
+						// {0}: exam name, {1} exam link, {2}: date, {3}: place, {4}: duration, {5}: exam type (adjective)
+						String[] params = new String[] {
+							exam.getName(),
+							bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(proto.getExam())), true),
+							dateFormat.format(proto.getAppointment().getDate()),
+							proto.getAppointment().getPlace(),
+							String.valueOf(proto.getAppointment().getDuration()),
+							userTranslator.translate(proto.getExam().getIsOral() ? "oral2" : "written2"),
+						};
 
 						// Email Register
 						MailManager.getInstance().sendEmail(
-							userTranslator.translate("Mail.Register.Subject", new String[] { exam.getName() }),
-							userTranslator.translate("Mail.Register.Body",
-								new String[] {
-									exam.getName(),
-									getName(proto.getIdentity()),
-									DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale()).format(proto.getAppointment().getDate()),
-									proto.getAppointment().getPlace(),
-									new Integer(proto.getAppointment().getDuration()).toString(),
-									userTranslator.translate("oral"),
-									bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(exam)), true),
-									userTranslator.translate(proto.getEarmarked() ? "ExamLecturerOralController.status.earmarked" : "ExamLecturerOralController.status.registered"),
-									semester,
-									proto.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null),
-									proto.getIdentity().getUser().getProperty(UserConstants.EMAIL, null),
-									proto.getStudyPath()
-								}),
+							userTranslator.translate("Mail.confirmEarmark.subject", params),
+							userTranslator.translate("Mail.confirmEarmark.body", params),
 							proto.getIdentity()
 						);
 
@@ -381,7 +369,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 						ElectronicStudentFile esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(proto.getIdentity());
 
 						// add a comment to the esf
-						String commentText = translate("ExamLecturerOralController.registeredFromEarmarkedStudentManually", new String[] { getName(ureq.getIdentity()), exam.getName() });
+						String commentText = userTranslator.translate("Mail.confirmEarmark.comment", params);
 						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
 
 						// TODO: see first occurrence
