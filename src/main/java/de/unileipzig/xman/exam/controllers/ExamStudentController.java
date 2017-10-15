@@ -198,11 +198,17 @@ public class ExamStudentController extends BasicController implements ExamContro
                 esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
                 
 				// register student to the chosen appointment
-				if(ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), exam.getEarmarkedEnabled(), comment)) {
-					// create comment
-					String commentText = translate("ExamStudentController.studentRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
-					CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
-					
+                if(!appointment.getOccupied()) {
+					if(exam.getEarmarkedEnabled()) {
+						ProtocolManager.getInstance().earmarkStudent(appointment, esf, comment);
+					} else {
+						ProtocolManager.getInstance().registerStudent(appointment, esf, getTranslator(), false, comment);
+
+						// create comment
+						String commentText = translate("ExamStudentController.studentRegisteredHimself", new String[] { "'" + exam.getName() + "'" });
+						CommentManager.getInstance().createCommentInEsf(esf, commentText, ureq.getIdentity());
+					}
+
 					// save changed esf and appointment
 					ElectronicStudentFileManager.getInstance().updateElectronicStundentFile(esf);
 					AppointmentManager.getInstance().updateAppointment(appointment);

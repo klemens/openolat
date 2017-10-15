@@ -2,8 +2,8 @@ package de.unileipzig.xman.protocol;
 
 import java.text.DateFormat;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Vector;
 
 import org.olat.core.commons.persistence.DBFactory;
@@ -13,13 +13,13 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.Util;
+import org.opensaml.artifact.InvalidArgumentException;
 
 import de.unileipzig.xman.admin.mail.MailManager;
 import de.unileipzig.xman.appointment.Appointment;
-import de.unileipzig.xman.appointment.AppointmentManager;
-import de.unileipzig.xman.calendar.CalendarManager;
+import de.unileipzig.xman.comment.CommentManager;
 import de.unileipzig.xman.esf.ElectronicStudentFile;
-import de.unileipzig.xman.esf.ElectronicStudentFileManager;
 import de.unileipzig.xman.exam.Exam;
 import de.unileipzig.xman.exam.ExamDBManager;
 
@@ -317,4 +317,46 @@ public class ProtocolManager {
 		}
 	}
 
+	public void earmarkStudent(Appointment appointment, ElectronicStudentFile esf, String comment) {
+		if (appointment.getOccupied()) {
+			throw new InvalidArgumentException("appointment is already occupied");
+		}
+
+		Protocol proto = ProtocolManager.getInstance().createProtocol();
+		proto.setIdentity(esf.getIdentity());
+		proto.setEarmarked(true);
+		proto.setExam(appointment.getExam());
+		proto.setComments(comment);
+		// we save the studypath in the protocol, because it may change at any time
+		proto.setStudyPath(esf.getIdentity().getUser().getProperty(UserConstants.STUDYSUBJECT, null));
+		proto.setAppointment(appointment);
+
+		ProtocolManager.getInstance().saveProtocol(proto);
+		esf.addProtocol(proto);
+
+		if (appointment.getExam().getIsOral()) {
+			appointment.setOccupied(true);
+		}
+
+		BusinessControlFactory bcf = BusinessControlFactory.getInstance();
+		Translator userTranslator = Util.createPackageTranslator(Exam.class, new Locale(esf.getIdentity().getUser().getPreferences().getLanguage()));
+		DateFormat dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, userTranslator.getLocale());
+
+		// {0}: exam name, {1} exam link, {2}: date, {3}: place, {4}: duration, {5}: exam type (adjective)
+		String[] params = new String[] {
+			proto.getExam().getName(),
+			bcf.getAsURIString(bcf.createCEListFromString(ExamDBManager.getInstance().findRepositoryEntryOfExam(proto.getExam())), true),
+			dateFormat.format(appointment.getDate()),
+			appointment.getPlace(),
+			String.valueOf(appointment.getDuration()),
+			userTranslator.translate(proto.getExam().getIsOral() ? "oral2" : "written2"),
+		};
+
+		String subject = userTranslator.translate("Mail.earmark.subject", params);
+		String body = userTranslator.translate("Mail.earmark.body", params);
+		MailManager.getInstance().sendEmail(subject, body, esf.getIdentity());
+
+		String esfComment = userTranslator.translate("Mail.earmark.comment", params);
+		CommentManager.getInstance().createCommentInEsf(esf, esfComment, esf.getIdentity());
+	}
 }
