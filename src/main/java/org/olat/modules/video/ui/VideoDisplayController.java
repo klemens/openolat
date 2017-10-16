@@ -29,6 +29,7 @@ import org.olat.core.commons.services.commentAndRating.CommentAndRatingSecurityC
 import org.olat.core.commons.services.commentAndRating.ReadOnlyCommentsSecurityCallback;
 import org.olat.core.commons.services.commentAndRating.ui.UserCommentsAndRatingsController;
 import org.olat.core.commons.services.image.Size;
+import org.olat.core.dispatcher.impl.StaticMediaDispatcher;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.htmlheader.jscss.JSAndCSSComponent;
@@ -36,8 +37,7 @@ import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.gui.render.Renderer;
-import org.olat.core.gui.render.StringOutput;
+import org.olat.core.helpers.Settings;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
@@ -76,11 +76,10 @@ public class VideoDisplayController extends BasicController {
 	// User preferred resolution, stored in GUI prefs
 	private Integer userPreferredResolution = null;
 	
-	private final boolean readOnly;
 	private RepositoryEntry entry;
 	private String descriptionText;
 	private String mediaRepoBaseUrl;
-
+	private VideoMeta videoMetadata;
 
 	public VideoDisplayController(UserRequest ureq, WindowControl wControl, RepositoryEntry entry, boolean autoWidth) {
 		this(ureq, wControl, entry, false, false, false, true, null, false, autoWidth, null, false);
@@ -95,7 +94,6 @@ public class VideoDisplayController extends BasicController {
 			boolean customDescription, boolean autoWidth, String descriptionText, boolean readOnly) {
 		super(ureq, wControl);
 		this.entry = entry;
-		this.readOnly = readOnly;
 		this.descriptionText = (customDescription ? this.descriptionText = descriptionText : null);
 		
 		mainVC = createVelocityContainer("video_run");
@@ -106,18 +104,11 @@ public class VideoDisplayController extends BasicController {
 		if(mediaContainer != null) {
 			mediaRepoBaseUrl = registerMapper(ureq, new VFSContainerMapper(mediaContainer.getParentContainer()));
 		}
-
-		// load mediaelementjs player and sourcechooser plugin
-		StringOutput sb = new StringOutput(50);
-		Renderer.renderStaticURI(sb, "movie/mediaelementjs/mediaelementplayer.min.css");
-		String[] cssPath = new String[] {sb.toString()};
-		String[] jsCodePath= new String[] { "movie/mediaelementjs/mediaelement-and-player.min.js", "movie/mediaelementjs/features/oo-mep-feature-sourcechooser.js" };
-		JSAndCSSComponent mediaelementjs = new JSAndCSSComponent("mediaelementjs", jsCodePath ,cssPath);
-		mainVC.put("mediaelementjs", mediaelementjs);
+		initMediaElementJs();
 				
 		VFSLeaf video = videoManager.getMasterVideoFile(entry.getOlatResource());
 		if(video != null) {
-			VideoMeta videoMetadata = videoManager.getVideoMetadata(entry.getOlatResource());
+			videoMetadata = videoManager.getVideoMetadata(entry.getOlatResource());
 			if(autoWidth){
 				mainVC.contextPut("height", 480);
 				mainVC.contextPut("width", "100%");
@@ -153,11 +144,55 @@ public class VideoDisplayController extends BasicController {
 			loadVideo(ureq, video);
 		}
 	}
-
+	
+	public VideoMeta getVideoMetadata() {
+		return videoMetadata;
+	}
+	
+	public void setTimeUpdateListener(boolean enable) {
+		mainVC.contextPut("listenTimeUpdate", enable);
+	}
+	
+	private void initMediaElementJs() {
+		// load mediaelementjs player, speed and sourcechooser pluginss
+		String[] cssPath;
+		String[] jsCodePath;
+		if(Settings.isDebuging()) {
+			cssPath = new String[] {
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/features/source-chooser/source-chooser.css"),
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/features/speed/speed.css"),
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/mediaelementplayer.css")
+				};
+			jsCodePath = new String[] {
+					"movie/mediaelementjs/mediaelement-and-player.js",
+					"movie/mediaelementjs/features/source-chooser/source-chooser.js",
+					"movie/mediaelementjs/features/speed/speed.js"
+				};
+		} else {
+			cssPath = new String[] {
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/features/source-chooser/source-chooser.css"),
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/features/speed/speed.css"),
+					StaticMediaDispatcher.getStaticURI("movie/mediaelementjs/mediaelementplayer.min.css")
+				};
+			jsCodePath = new String[] {
+					"movie/mediaelementjs/mediaelement-and-player.min.js",
+					"movie/mediaelementjs/features/source-chooser/source-chooser.min.js",
+					"movie/mediaelementjs/features/speed/speed.min.js"
+				};
+		}
+		
+		JSAndCSSComponent mediaelementjs = new JSAndCSSComponent("mediaelementjs", jsCodePath ,cssPath);
+		mainVC.put("mediaelementjs", mediaelementjs);
+	}
+	
+	public String getVideoElementId() {
+		return mainVC.getDispatchID();
+	}
 
 	/**
 	 * Reload the video, e.g. when new captions or transcoded versions are available
 	 * @param ureq
+	 * @param currentTime The start time in seconds (optional)
 	 */
 	protected void reloadVideo(UserRequest ureq) {
 		//load video as VFSLeaf
@@ -261,6 +296,13 @@ public class VideoDisplayController extends BasicController {
 			
 			// Load video chapter if available
 			mainVC.contextPut("hasChapters", videoManager.hasChapters(entry.getOlatResource()));		
+			
+			// Add duration without preloading video
+			String duration = entry.getExpenditureOfWork();
+			if (!StringHelper.containsNonWhitespace(duration)) {
+				duration = "00:00";
+			}
+			mainVC.contextPut("duration", duration);					
 		}
 	}
 
@@ -277,7 +319,7 @@ public class VideoDisplayController extends BasicController {
 				String currentTime = ureq.getHttpReq().getParameter("currentTime");
 				String duration = ureq.getHttpReq().getParameter("duration");
 				String src = ureq.getHttpReq().getParameter("src");
-				logDebug(cmd + " " + currentTime + " " + duration + " " + src, null);				
+				//logDebug(cmd + " " + currentTime + " " + duration + " " + src, null);
 				switch(cmd) {
 					case "play":
 						fireEvent(ureq, new VideoEvent(VideoEvent.PLAY, currentTime, duration));
@@ -290,6 +332,9 @@ public class VideoDisplayController extends BasicController {
 						break;
 					case "ended":
 						fireEvent(ureq, new VideoEvent(VideoEvent.ENDED, currentTime, duration));
+						break;
+					case "timeupdate":
+						fireEvent(ureq, new VideoEvent(VideoEvent.TIMEUPDATE, currentTime, duration));
 						break;
 				}
 				updateGUIPreferences(ureq, src);
@@ -324,8 +369,6 @@ public class VideoDisplayController extends BasicController {
 					}
 				}
 			}
-			
 		}
 	}
-
 }

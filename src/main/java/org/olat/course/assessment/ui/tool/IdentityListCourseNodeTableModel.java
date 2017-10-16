@@ -134,14 +134,22 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 				}
 				case status: return "";
 				case passed: return row.getPassed();
+				case numOfAssessmentDocs: {
+					if(row.getNumOfAssessmentDocs() <= 0) {
+						return null;
+					}
+					return row.getNumOfAssessmentDocs();
+				}
 				case assessmentStatus: return row.getAssessmentStatus();
 				case certificate: return certificateMap.get(row.getIdentityKey());
 				case recertification: {
 					CertificateLight certificate = certificateMap.get(row.getIdentityKey());
 					return certificate == null ? null : certificate.getNextRecertificationDate();
 				}
-				case initialLaunchDate: return row.getCreationDate();
-				case lastScoreUpdate: return row.getLastModified();
+				case initialLaunchDate: return row.getInitialCourseLaunchDate();
+				case lastModified: return row.getLastModified();
+				case lastUserModified: return row.getLastUserModified();
+				case lastCoachModified: return row.getLastCoachModified();		
 			}
 		}
 		int propPos = col - AssessmentToolConstants.USER_PROPS_OFFSET;
@@ -166,7 +174,10 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 		certificate("table.header.certificate"),
 		recertification("table.header.recertification"),
 		initialLaunchDate("table.header.initialLaunchDate"),
-		lastScoreUpdate("table.header.lastScoreDate");
+		lastModified("table.header.lastScoreDate"),
+		lastUserModified("table.header.lastUserModificationDate"),
+		lastCoachModified("table.header.lastCoachModificationDate"),
+		numOfAssessmentDocs("table.header.num.assessmentDocs");
 		
 		private final String i18nKey;
 		

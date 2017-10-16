@@ -33,17 +33,16 @@ import org.olat.course.ICourse;
 import org.olat.course.nodes.AbstractFeedCourseNode;
 import org.olat.course.nodes.feed.blog.BlogNodeEditController;
 import org.olat.course.run.userview.UserCourseEnvironment;
-import org.olat.modules.webFeed.models.Feed;
-import org.olat.modules.webFeed.models.Item;
+import org.olat.modules.webFeed.Item;
 import org.olat.modules.webFeed.ui.FeedMainController;
 import org.olat.modules.webFeed.ui.FeedUIFactory;
 
 /**
  * UI factory for blogs.
- * 
+ *
  * <P>
  * Initial Date: Jun 8, 2009 <br>
- * 
+ *
  * @author gwassmann
  */
 public class BlogUIFactory extends FeedUIFactory {
@@ -94,8 +93,8 @@ public class BlogUIFactory extends FeedUIFactory {
 	}
 
 	@Override
-	public FormBasicController createItemFormController(UserRequest ureq, WindowControl wControl, Item item, Feed feed) {
-		return new BlogPostFormController(ureq, wControl, item, feed, getTranslator());
+	public FormBasicController createItemFormController(UserRequest ureq, WindowControl wControl, Item item) {
+		return new BlogPostFormController(ureq, wControl, item, getTranslator());
 	}
 
 	@Override
@@ -103,4 +102,5 @@ public class BlogUIFactory extends FeedUIFactory {
 			UserRequest ureq, WindowControl control) {
 		return new BlogNodeEditController(courseNode, course, uce, ureq, control);
 	}
+
 }

@@ -25,6 +25,7 @@
 
 package org.olat.course.nodes.iq;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -60,6 +61,7 @@ import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.prefs.Preferences;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.CourseFactory;
@@ -79,6 +81,7 @@ import org.olat.course.nodes.IQTESTCourseNode;
 import org.olat.course.nodes.ObjectivesHelper;
 import org.olat.course.nodes.PersistentAssessableCourseNode;
 import org.olat.course.nodes.SelfAssessableCourseNode;
+import org.olat.course.nodes.ms.DocumentsMapper;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.ims.qti.QTIChangeLogMessage;
@@ -89,6 +92,7 @@ import org.olat.ims.qti.process.ImsRepositoryResolver;
 import org.olat.instantMessaging.InstantMessagingService;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.iq.IQDisplayController;
 import org.olat.modules.iq.IQManager;
@@ -364,6 +368,7 @@ public class IQRunController extends BasicController implements GenericEventList
 					myContent.put("disc", iFrameCtr.getInitialComponent());
 					iFrameCtr.setCurrentURI(sDisclaimer);
 					myContent.contextPut("hasDisc", Boolean.TRUE);
+					myContent.contextPut("in-disclaimer", isPanelOpen(ureq, "disclaimer", true));
 				}
 			}
 		}
@@ -479,7 +484,16 @@ public class IQRunController extends BasicController implements GenericEventList
 				Document doc = iqManager.getResultsReportingFromFile(ureq.getIdentity(), type, assessmentID);
 				//StringBuilder resultsHTML = LocalizedXSLTransformer.getInstance(ureq.getLocale()).renderResults(doc);
 				String summaryConfig = (String)modConfig.get(IQEditController.CONFIG_KEY_SUMMARY);
-				int summaryType = AssessmentInstance.getSummaryType(summaryConfig);
+				int summaryType = AssessmentInstance.SUMMARY_NONE;
+				try {
+					summaryType = AssessmentInstance.getSummaryType(summaryConfig);
+				} catch (Exception e) {
+					// cannot change AssessmentInstance: fallback if the the configuration is inherited from a QTI 2.1 configuration
+					if(StringHelper.containsNonWhitespace(summaryConfig)) {
+						summaryType = AssessmentInstance.SUMMARY_DETAILED;
+					}
+					logError("", e);
+				}
 				String resultsHTML = iqManager.transformResultsReporting(doc, ureq.getLocale(), summaryType);
 				myContent.contextPut("displayreporting", resultsHTML);
 				myContent.contextPut("resreporting", resultsHTML);
@@ -487,6 +501,10 @@ public class IQRunController extends BasicController implements GenericEventList
 			} 
 		} else if (source == hideResultsButton) {
 			myContent.contextPut("showResults", Boolean.FALSE);
+		} else if("show".equals(event.getCommand())) {
+			saveOpenPanel(ureq, ureq.getParameter("panel"), true);
+		} else if("hide".equals(event.getCommand())) {
+			saveOpenPanel(ureq, ureq.getParameter("panel"), false);
 		}
 	}
 
@@ -510,7 +528,7 @@ public class IQRunController extends BasicController implements GenericEventList
 			
 			ScoreEvaluation sceval = new ScoreEvaluation(ac.getScore(), ac.isPassed(), assessmentStatus, userVisibility, fullyAssed, ai.getAssessID());
 			AssessableCourseNode acn = (AssessableCourseNode)courseNode; // assessment nodes are assessable		
-			acn.updateUserScoreEvaluation(sceval, userCourseEnv, getIdentity(), true);
+			acn.updateUserScoreEvaluation(sceval, userCourseEnv, getIdentity(), true, Role.user);
 				
 			// Mark publisher for notifications
 			Long courseId = userCourseEnv.getCourseEnvironment().getCourseResourceableId();
@@ -526,10 +544,10 @@ public class IQRunController extends BasicController implements GenericEventList
 			// although this is not an assessable node we still use the assessment
 			// manager since this one uses caching
 			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-			am.incrementNodeAttempts(courseNode, getIdentity(), userCourseEnv);
+			am.incrementNodeAttempts(courseNode, getIdentity(), userCourseEnv, Role.user);
 		} else if(type.equals(AssessmentInstance.QMD_ENTRY_TYPE_SELF)){
 			AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
-			am.incrementNodeAttempts(courseNode, getIdentity(), userCourseEnv);
+			am.incrementNodeAttempts(courseNode, getIdentity(), userCourseEnv, Role.user);
 		}
 	}
 
@@ -617,6 +635,7 @@ public class IQRunController extends BasicController implements GenericEventList
 	    		myContent.contextPut("hasPassedValue", Boolean.FALSE);
 	    		myContent.contextPut("passed", Boolean.FALSE);
 	    		myContent.contextPut("comment", null);
+	    		myContent.contextPut("docs", null);
 	    		myContent.contextPut("attempts", 0);
     		} else {
 	    		//block if test passed (and config set to check it)
@@ -635,8 +654,19 @@ public class IQRunController extends BasicController implements GenericEventList
 	    		myContent.contextPut("hasPassedValue", (assessmentEntry.getPassed() == null ? Boolean.FALSE : Boolean.TRUE));
 	    		myContent.contextPut("passed", assessmentEntry.getPassed());
 	    		if(resultsVisible) {
-	    			StringBuilder comment = Formatter.stripTabsAndReturns(assessmentEntry.getComment());
-	    			myContent.contextPut("comment", StringHelper.xssScan(comment));
+	    			if(acn.hasCommentConfigured()) {
+	    				StringBuilder comment = Formatter.stripTabsAndReturns(assessmentEntry.getComment());
+	    				myContent.contextPut("comment", StringHelper.xssScan(comment));
+						myContent.contextPut("in-comment", isPanelOpen(ureq, "comment", true));
+	    			}
+
+	    			if(acn.hasIndividualAsssessmentDocuments()) {
+	    				List<File> docs = acn.getIndividualAssessmentDocuments(userCourseEnv);
+						String mapperUri = registerCacheableMapper(ureq, null, new DocumentsMapper(docs));
+						myContent.contextPut("docsMapperUri", mapperUri);
+						myContent.contextPut("docs", docs);
+						myContent.contextPut("in-assessmentDocuments", isPanelOpen(ureq, "assessmentDocuments", true));
+	    			}
 	    		}
 	    		myContent.contextPut("attempts", assessmentEntry.getAttempts() == null ? 0 : assessmentEntry.getAttempts());
     		}
@@ -687,24 +717,25 @@ public class IQRunController extends BasicController implements GenericEventList
     //migration: check if old tests have no summary configured
 	  String configuredSummary = (String) modConfig.get(IQEditController.CONFIG_KEY_SUMMARY);
 	  boolean noSummary = configuredSummary==null || (configuredSummary!=null && configuredSummary.equals(AssessmentInstance.QMD_ENTRY_SUMMARY_NONE));
-		if(!noSummary) {
+	  if(!noSummary) {
 			Boolean showResultsObj = modConfig.getBooleanEntry(IQEditController.CONFIG_KEY_RESULT_ON_HOME_PAGE);		
 			boolean showResultsOnHomePage = (showResultsObj!=null && showResultsObj.booleanValue());
-			myContent.contextPut("showResultsOnHomePage",new Boolean(showResultsOnHomePage));			
+			myContent.contextPut("showResultsOnHomePage",new Boolean(showResultsOnHomePage));
+			myContent.contextPut("in-results", isPanelOpen(ureq, "results", true));
 			boolean dateRelatedVisibility = AssessmentHelper.isResultVisible(modConfig);		
 			if(showResultsOnHomePage && dateRelatedVisibility) {
 				myContent.contextPut("showResultsVisible",Boolean.TRUE);
-			  showResultsButton = LinkFactory.createButton("command.showResults", myContent, this);
-			  hideResultsButton = LinkFactory.createButton("command.hideResults", myContent, this);
+				showResultsButton = LinkFactory.createButton("command.showResults", myContent, this);
+				hideResultsButton = LinkFactory.createButton("command.hideResults", myContent, this);
 			} else if(showResultsOnHomePage) {
 				Date startDate = (Date)modConfig.get(IQEditController.CONFIG_KEY_RESULTS_START_DATE);
-			  Date endDate = (Date)modConfig.get(IQEditController.CONFIG_KEY_RESULTS_END_DATE);
-			  String visibilityStartDate = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(startDate);
-			  String visibilityEndDate = "-";
-			  if(endDate!=null) {
-			    visibilityEndDate = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(endDate);
-			  }
-			  String visibilityPeriod = getTranslator().translate("showResults.visibility", new String[] { visibilityStartDate, visibilityEndDate});
+				Date endDate = (Date)modConfig.get(IQEditController.CONFIG_KEY_RESULTS_END_DATE);
+			  	String visibilityStartDate = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(startDate);
+			  	String visibilityEndDate = "-";
+			  	if(endDate!=null) {
+				  	visibilityEndDate = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, ureq.getLocale()).format(endDate);
+			  	}
+			  	String visibilityPeriod = getTranslator().translate("showResults.visibility", new String[] { visibilityStartDate, visibilityEndDate});
 				myContent.contextPut("visibilityPeriod",visibilityPeriod);
 				myContent.contextPut("showResultsVisible",Boolean.FALSE);
 			}
@@ -717,6 +748,24 @@ public class IQRunController extends BasicController implements GenericEventList
 		// although this is not an assessable node we still use the assessment
 		// manager since this one uses caching
 		myContent.contextPut("attempts", am.getNodeAttempts(courseNode, identity));
+	}
+	
+	private boolean isPanelOpen(UserRequest ureq, String panelId, boolean def) {
+		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
+		Boolean showConfig  = (Boolean) guiPrefs.get(IQRunController.class, getOpenPanelId(panelId));
+		return showConfig == null ? def : showConfig.booleanValue();
+	}
+	
+	private void saveOpenPanel(UserRequest ureq, String panelId, boolean newValue) {
+		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
+		if (guiPrefs != null) {
+			guiPrefs.putAndSave(IQRunController.class, getOpenPanelId(panelId), new Boolean(newValue));
+		}
+		myContent.contextPut("in-" + panelId, new Boolean(newValue));
+	}
+	
+	private String getOpenPanelId(String panelId) {
+		return panelId + "::" + userCourseEnv.getCourseEnvironment().getCourseResourceableId() + "::" + courseNode.getIdent();
 	}
 	
 	/**

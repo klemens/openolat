@@ -33,8 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 
 /**
  * The Class ChapterEditController.
@@ -44,10 +43,9 @@ import org.olat.core.logging.Tracing;
  */
 public class ChapterEditController extends FormBasicController {
 
-	private static final OLog log = Tracing.createLoggerFor(ChapterEditController.class);
-
 	private String time;
 	private String chapter;
+	private long durationInSeconds;
 	private boolean chapterExists;
 	private VideoChapterTableRow videoChapterTableRow;
 	private SimpleDateFormat displayDateFormat = new SimpleDateFormat("HH:mm:ss");
@@ -56,10 +54,9 @@ public class ChapterEditController extends FormBasicController {
 	private TextElement beginEl;
 	
 	private List<VideoChapterTableRow> chapters;
-	private String duration;
 	
 	public ChapterEditController(UserRequest ureq, WindowControl wControl, VideoChapterTableRow videoChapterTableRow,
-			boolean chapterExists, List<VideoChapterTableRow> chapters, String duration) {
+			boolean chapterExists, List<VideoChapterTableRow> chapters, long durationInSeconds) {
 		super(ureq, wControl);
 		displayDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
 		try {
@@ -72,18 +69,21 @@ public class ChapterEditController extends FormBasicController {
 		}
 		this.videoChapterTableRow = videoChapterTableRow;
 		this.chapters = chapters;
-		this.duration = duration;
+		this.durationInSeconds = durationInSeconds;
 		this.chapter = videoChapterTableRow.getChapterName();
 		this.chapterExists = chapterExists;
 		
 		initForm(ureq);
 	}
 	
-	@Override
-	protected void doDispose() {
-		// only formInnerEvent()
+	/**
+	 * Gets the video chapter table row.
+	 *
+	 * @return the video chapter table row
+	 */
+	public VideoChapterTableRow getVideoChapterTableRow() {
+		return videoChapterTableRow;
 	}
-
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
@@ -100,23 +100,83 @@ public class ChapterEditController extends FormBasicController {
 		
 		FormLayoutContainer buttonGroupLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		formLayout.add(buttonGroupLayout);
-		uifactory.addFormSubmitButton("submit", "video.chapter." + (chapterExists ? "edit" : "add"), buttonGroupLayout);
 		uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
+		uifactory.addFormSubmitButton("submit", "video.chapter." + (chapterExists ? "edit" : "add"), buttonGroupLayout);
+	}
+	
+	@Override
+	protected void doDispose() {
+		//
+	}
+	
+	@Override
+	protected void formOK(UserRequest ureq) {
+		try {
+			String chapterTitle = chapterTitleEl.getValue();
+			videoChapterTableRow.setChapterName(chapterTitle);
+			
+			// parse and format because the parse accept such input 00:07:56sfgg and return a correct date
+			String beginTime = beginEl.getValue();
+			videoChapterTableRow.setBegin(displayDateFormat.parse(beginTime));
+			String intervals = displayDateFormat.format(videoChapterTableRow.getBegin());
+			videoChapterTableRow.setIntervals(intervals);
+		} catch (ParseException e) {
+			logWarn("The content of the TextElement cannot be parsed as a Date", e);
+		}
+		
+		fireEvent(ureq, Event.DONE_EVENT);			
 	}
 
+	@Override
+	protected void formCancelled(UserRequest ureq) {
+		fireEvent(ureq, Event.CANCELLED_EVENT);
+	}
+	
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+		
+		beginEl.clearError();
+		if(StringHelper.containsNonWhitespace(beginEl.getValue())) {
+			try {
+				Date date = displayDateFormat.parse(beginEl.getValue());
+				if (outOfRange(date)){
+					beginEl.setErrorKey("chapter.error.out.of.range", null);
+					allOk &= false;			
+				} else if (timeAlreadyExists(date)) {
+					beginEl.setErrorKey("chapter.error.already.exists", null);	
+					allOk &= false;		
+				}
+			} catch (ParseException e) {
+				beginEl.setErrorKey("chapter.error.format", null);
+				allOk &= false;
+			}
+		} else {
+			beginEl.setErrorKey("chapter.error.format", null);
+		}
+
+		chapterTitleEl.clearError();
+		if(!StringHelper.containsNonWhitespace(chapterTitleEl.getValue())) {
+			chapterTitleEl.setErrorKey("form.legende.mandatory", null);
+			allOk &= false;
+		} else if (chapterNameAlreadyExists(chapterTitleEl.getValue())){
+			chapterTitleEl.setErrorKey("chapter.error.name.already.exists", null);
+			allOk &= false;
+		}
+		
+		return allOk & super.validateFormLogic(ureq);
+	}
+	
 	/**
 	 * Checks if the modification of the video time is not greater than the length of the video.
 	 *
 	 * @return true, if successful
 	 */
-	private boolean outOfRange() {
-		if (duration != null) {
-			long durationLong = (long) Float.parseFloat(duration) * 1000;
-			Date durationDate = new Date(durationLong);			
-			return videoChapterTableRow.getBegin().after(durationDate);
-		} else {
-			return false;			
+	private boolean outOfRange(Date time) {
+		if (durationInSeconds > 0) {	
+			return time.getTime() > (durationInSeconds * 1000l);
 		}
+		return false;
 	}
 	
 	/**
@@ -124,9 +184,9 @@ public class ChapterEditController extends FormBasicController {
 	 *
 	 * @return true, if successful
 	 */
-	private boolean timeAlreadyExists() {
+	private boolean timeAlreadyExists(Date time) {
 		if (chapters.size() > 0 && videoChapterTableRow != null) {
-			String newTimeFormat = displayDateFormat.format(videoChapterTableRow.getBegin());
+			String newTimeFormat = displayDateFormat.format(time);
 			for (VideoChapterTableRow chapterRow : chapters) {
 				String beginFormat = displayDateFormat.format(chapterRow.getBegin());
 				if (beginFormat.equals(newTimeFormat) && !chapterRow.equals(videoChapterTableRow)) {
@@ -142,9 +202,9 @@ public class ChapterEditController extends FormBasicController {
 	 *
 	 * @return true, if successful
 	 */
-	private boolean chapterNameAlreadyExists(){
+	private boolean chapterNameAlreadyExists(String name) {
+		String currentTitle = name.trim().toLowerCase();
 		for (VideoChapterTableRow chapterRow : chapters) {
-			String currentTitle = chapterTitleEl.getValue().trim().toLowerCase();
 			if (currentTitle.equals(chapterRow.getChapterName().trim().toLowerCase())
 					&& !chapterRow.equals(videoChapterTableRow)) {
 				return true;
@@ -152,60 +212,4 @@ public class ChapterEditController extends FormBasicController {
 		}
 		return false;
 	}
-	
-	@Override
-	protected void formOK(UserRequest ureq) {
-		if (setTextElementValuesAndCheckFormat()) {
-			beginEl.setErrorKey("chapter.error.format", null);	
-		} else if (chapterNameAlreadyExists()){
-			chapterTitleEl.setErrorKey("chapter.error.name.already.exists", null);
-		} else if (outOfRange()){
-			beginEl.setErrorKey("chapter.error.out.of.range", null);			
-		} else if (timeAlreadyExists()) {
-			beginEl.setErrorKey("chapter.error.already.exists", null);			
-		} else {
-			this.fireEvent(ureq, Event.DONE_EVENT);			
-		}
-	}
-
-	@Override
-	protected void formCancelled(UserRequest ureq) {
-		fireEvent(ureq, Event.CANCELLED_EVENT);
-	}
-
-	/**
-	 * Gets the video chapter table row.
-	 *
-	 * @return the video chapter table row
-	 */
-	public VideoChapterTableRow getVideoChapterTableRow() {
-		setTextElementValuesAndCheckFormat();
-		return videoChapterTableRow;
-	}
-	
-	/**
-	 * Sets the text element values and check format.
-	 * only alter table if format is correct 
-	 * @return true, if successful
-	 */
-	private boolean setTextElementValuesAndCheckFormat (){
-		boolean incorrectTimeFormat = false;
-		String time = beginEl.getValue();
-		String chapterTitle = chapterTitleEl.getValue();
-		try {
-			videoChapterTableRow.setBegin(displayDateFormat.parse(time));
-			videoChapterTableRow.setChapterName(chapterTitle);		
-			videoChapterTableRow.setIntervals(time);
-		} catch (ParseException e) {
-			log.error("The content of the TextElement cannot be parsed as a Date", e);
-			incorrectTimeFormat = true;
-		}
-		return incorrectTimeFormat;
-	}
-	
-	
-	
-	
-	
-
 }

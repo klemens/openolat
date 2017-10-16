@@ -33,6 +33,7 @@ import java.math.RoundingMode;
 import java.nio.channels.FileChannel;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -85,7 +86,7 @@ import org.olat.repository.RepositoryEntryImportExport;
 import org.olat.repository.RepositoryEntryImportExport.RepositoryEntryImport;
 import org.olat.repository.RepositoryManager;
 import org.olat.resource.OLATResource;
-import org.quartz.JobDetail;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,17 +105,18 @@ public class VideoManagerImpl implements VideoManager {
 	protected static final String DIRNAME_REPOENTRY = "repoentry";
 	public static final String FILETYPE_MP4 = "mp4";
 	private static final String FILETYPE_JPG = "jpg";
-	private static final String FILETYPE_SRT = "srt";
 	private static final String FILENAME_POSTER_JPG = "poster.jpg";
 	private static final String FILENAME_VIDEO_MP4 = "video.mp4";
 	private static final String FILENAME_CHAPTERS_VTT = "chapters.vtt";
 	private static final String FILENAME_VIDEO_METADATA_XML = "video_metadata.xml";
 	private static final String DIRNAME_MASTER = "master";
 	public static final String TRACK = "track_";
-	public static final String DOT = "." ;
+
 	
 	private static final SimpleDateFormat displayDateFormat = new SimpleDateFormat("HH:mm:ss");
 	private static final SimpleDateFormat vttDateFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+	
+	private final JobKey videoJobKey = new JobKey("videoTranscodingJobDetail", Scheduler.DEFAULT_GROUP);
 
 	@Autowired
 	private MovieService movieService;
@@ -368,17 +370,6 @@ public class VideoManagerImpl implements VideoManager {
 		}
 	}
 
-//	/**
-//	 * Write the metdatadata-xml in the videoresource folder
-//	 * @param metaData
-//	 * @param videoResource
-//	 */
-//	private void writeVideoMetadataFile(VideoMetadata metaData, OLATResource videoResource){
-//		VFSContainer baseContainer= FileResourceManager.getInstance().getFileResourceRootImpl(videoResource);
-//		VFSLeaf metaDataFile = VFSManager.resolveOrCreateLeafFromPath(baseContainer, FILENAME_VIDEO_METADATA_XML);
-//		XStreamHelper.writeObject(XStreamHelper.createXStreamInstance(), metaDataFile, metaData);
-//	}
-
 	@Override
 	public boolean isMetadataFileValid(OLATResource videoResource) {
 		VFSContainer baseContainer = FileResourceManager.getInstance().getFileResourceRootImpl(videoResource);
@@ -387,7 +378,6 @@ public class VideoManagerImpl implements VideoManager {
 			VideoMetadata meta = (VideoMetadata) XStreamHelper.readObject(XStreamHelper.createXStreamInstance(), metaDataFile);
 			return meta != null;
 		} catch (Exception e) {
-			log.error("Error while parsing XStream file for videoResource::" + videoResource, e);
 			return false;
 		}
 	}
@@ -438,8 +428,7 @@ public class VideoManagerImpl implements VideoManager {
 		// 3) Start transcoding immediately, force job execution
 		if (videoModule.isTranscodingLocal()) {
 			try {
-				JobDetail detail = scheduler.getJobDetail("videoTranscodingJobDetail", Scheduler.DEFAULT_GROUP);
-				scheduler.triggerJob(detail.getName(), detail.getGroup());
+				scheduler.triggerJob(videoJobKey);
 			} catch (SchedulerException e) {
 				log.error("Error while starting video transcoding job", e);
 			}			
@@ -577,8 +566,8 @@ public class VideoManagerImpl implements VideoManager {
 	@Override
 	public boolean hasMasterContainer (OLATResource videoResource) {
 		VFSContainer baseContainer =  FileResourceManager.getInstance().getFileResourceRootImpl(videoResource);
-		VFSContainer masterContainer = (VFSContainer) baseContainer.resolve(DIRNAME_MASTER);
-		return masterContainer != null & masterContainer.exists();		
+		VFSItem masterContainer = baseContainer.resolve(DIRNAME_MASTER);
+		return masterContainer instanceof VFSContainer && masterContainer.exists();		
 	}
 	
 	@Override
@@ -859,8 +848,8 @@ public class VideoManagerImpl implements VideoManager {
 	 * @param List<VideoChapterTableRow> chapters the chapters
 	 * @param OLATResource videoResource the video resource
 	 */
-	public void loadChapters(List<VideoChapterTableRow> chapters, OLATResource videoResource) {
-		chapters.clear();
+	public List<VideoChapterTableRow> loadChapters(OLATResource videoResource) {
+		List<VideoChapterTableRow> chapters = new ArrayList<>();
 		displayDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
 		vttDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
 		
@@ -896,6 +885,7 @@ public class VideoManagerImpl implements VideoManager {
 				log.error("Unable to load WEBVTT File for resource::" + videoResource,e);
 			}
 		}
+		return chapters;
 	}
 	
 	@Override

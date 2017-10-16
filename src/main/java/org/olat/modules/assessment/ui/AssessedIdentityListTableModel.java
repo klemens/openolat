@@ -136,8 +136,10 @@ public class AssessedIdentityListTableModel extends DefaultFlexiTableDataModel<A
 					}
 					return certificateMap.get(row.getIdentityKey());
 				}
-				case initialLaunchDate: return row.getCreationDate();
-				case lastScoreUpdate: return row.getLastModified();
+				case initialLaunchDate: return row.getInitialCourseLaunchDate();
+				case lastModified: return row.getLastModified();
+				case lastUserModified: return row.getLastUserModified();
+				case lastCoachModified: return row.getLastCoachModified();
 			}
 		}
 		int propPos = col - AssessmentToolConstants.USER_PROPS_OFFSET;
@@ -160,7 +162,9 @@ public class AssessedIdentityListTableModel extends DefaultFlexiTableDataModel<A
 		assessmentStatus("table.header.assessmentStatus"),
 		certificate("table.header.certificate"),
 		initialLaunchDate("table.header.initialLaunchDate"),
-		lastScoreUpdate("table.header.lastScoreDate");
+		lastModified("table.header.lastScoreDate"),
+		lastUserModified("table.header.lastUserModificationDate"),
+		lastCoachModified("table.header.lastCoachModificationDate");
 		
 		private final String i18nKey;
 		

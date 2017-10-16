@@ -31,9 +31,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.commons.services.sms.SimpleMessageModule;
 import org.olat.core.dispatcher.DispatcherModule;
@@ -56,6 +54,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.i18n.I18nManager;
+import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.MailBundle;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailManager;
@@ -72,8 +71,6 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class PwChangeController extends BasicController {
 
-	private static String SEPARATOR = "____________________________________________________________________\n";
-
 	private Panel passwordPanel;
 	private Link pwchangeHomelink;
 	private final VelocityContainer myContent;
@@ -87,6 +84,10 @@ public class PwChangeController extends BasicController {
 	private String pwKey;
 	private TemporaryKey tempKey;
 	
+	@Autowired
+	private I18nModule i18nModule;
+	@Autowired
+	private I18nManager i18nManager;
 	@Autowired
 	private UserModule userModule;
 	@Autowired
@@ -245,14 +246,12 @@ public class PwChangeController extends BasicController {
 	}
 	
 	private TemporaryKey sendEmail(UserRequest ureq, Identity identity) {
-		// check if user has an OLAT provider token, otherwhise a pwd change makes no sense
-		Authentication auth = securityManager.findAuthentication(identity, BaseSecurityModule.getDefaultAuthProviderIdentifier());
-		if (auth == null || !userModule.isPwdChangeAllowed(identity)) { 
+		if (!userModule.isPwdChangeAllowed(identity)) { 
 			getWindowControl().setWarning(translate("password.cantchange"));
 			return null;
 		}
 		Preferences prefs = identity.getUser().getPreferences();
-		Locale locale = I18nManager.getInstance().getLocaleOrDefault(prefs.getLanguage());
+		Locale locale = i18nManager.getLocaleOrDefault(prefs.getLanguage());
 		ureq.getUserSession().setLocale(locale);
 		myContent.contextPut("locale", locale);
 		
@@ -271,10 +270,19 @@ public class PwChangeController extends BasicController {
 		}
 		myContent.contextPut("pwKey", tk.getRegistrationKey());
 		StringBuilder body = new StringBuilder();
-		body.append(userTrans.translate("pwchange.intro", new String[] { identity.getName() }))
-		    .append(userTrans.translate("pwchange.body", new String[] { serverpath, tk.getRegistrationKey(), I18nManager.getInstance().getLocaleKey(ureq.getLocale()) }))
-		    .append(SEPARATOR)
-		    .append(userTrans.translate("reg.wherefrom", new String[] { serverpath, today, ip }));
+		body.append("<style>")
+			.append(".o_footer {background: #FAFAFA; border: 1px solid #eee; border-radius: 5px; padding: 1em; margin: 1em;}")
+			.append(".o_body {background: #FAFAFA; padding: 1em; margin: 1em;}")
+			.append("</style>")
+			.append("<div class='o_body'>")
+			.append(userTrans.translate("pwchange.headline"))
+			.append(userTrans.translate("pwchange.intro", new String[] { identity.getName() }))
+		    .append(userTrans.translate("pwchange.body", new String[] { serverpath, tk.getRegistrationKey(), i18nModule.getLocaleKey(ureq.getLocale()) }))
+		    .append(userTrans.translate("pwchange.body.alt", new String[] { serverpath, tk.getRegistrationKey(), i18nModule.getLocaleKey(ureq.getLocale()) }))
+		    .append("</div>")
+		    .append("<div class='o_footer'>")
+		    .append(userTrans.translate("reg.wherefrom", new String[] { serverpath, today, ip }))
+		    .append("</div>");
 
 		MailBundle bundle = new MailBundle();
 		bundle.setToId(identity);

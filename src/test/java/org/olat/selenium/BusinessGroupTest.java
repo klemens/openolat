@@ -51,10 +51,10 @@ import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.course.EnrollmentConfigurationPage;
 import org.olat.selenium.page.course.EnrollmentPage;
 import org.olat.selenium.page.course.MembersPage;
-import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.group.MembersWizardPage;
+import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
 import org.olat.test.ArquillianDeployments;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
@@ -150,9 +150,9 @@ public class BusinessGroupTest {
 			.addMember();
 		
 		members.searchMember(participant, false)
-			.next()
-			.next()
-			.next()
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
 			.finish();
 		
 		LoginPage participantLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
@@ -431,16 +431,16 @@ public class BusinessGroupTest {
 		group.openAdminMembers()
 			.addMember()
 			.searchMember(participant, false)
-			.next()
-			.next()
-			.next()
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
 			.finish();
 		
 		group.addMember()
 			.searchMember(rei, false)
-			.next()
-			.next()
-			.next()
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
 			.finish();
 		
 		//participant login
@@ -513,11 +513,17 @@ public class BusinessGroupTest {
 			.openAdminMembers()
 			.addMember()
 			.searchMember(kanu, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		//add Ryomou
 		group.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Kanu open the group
 		LoginPage kanuLoginPage = LoginPage.getLoginPage(kanuBrowser, deploymentUrl);
@@ -738,7 +744,7 @@ public class BusinessGroupTest {
 		//publish the course
 		courseEditor
 			.publish()
-			.quickPublish(Access.users);
+			.quickPublish(UserAccess.registred);
 		courseEditor.clickToolbarBack();
 		
 		GroupPage authorGroup = navBar
@@ -856,7 +862,7 @@ public class BusinessGroupTest {
 		//publish the course
 		courseEditor
 			.publish()
-			.quickPublish(Access.users);
+			.quickPublish(UserAccess.registred);
 		courseEditor.clickToolbarBack();
 		
 
@@ -967,7 +973,7 @@ public class BusinessGroupTest {
 		//publish the course
 		courseEditor
 			.publish()
-			.quickPublish(Access.users);
+			.quickPublish(UserAccess.registred);
 		
 		GroupPage authorGroup = navBar
 			.openGroups(browser)
@@ -1099,7 +1105,7 @@ public class BusinessGroupTest {
 		//publish the course
 		courseEditor
 			.publish()
-			.quickPublish(Access.users);
+			.quickPublish(UserAccess.registred);
 		
 		GroupPage authorGroup = navBar
 			.openGroups(browser)

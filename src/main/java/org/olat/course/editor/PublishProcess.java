@@ -36,7 +36,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.poi.util.IOUtils;
+import org.apache.commons.io.IOUtils;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
@@ -63,6 +63,8 @@ import org.olat.course.ICourse;
 import org.olat.course.Structure;
 import org.olat.course.editor.PublishStepCatalog.CategoryLabel;
 import org.olat.course.nodes.CourseNode;
+import org.olat.course.nodes.CourseNodeConfiguration;
+import org.olat.course.nodes.CourseNodeFactory;
 import org.olat.course.properties.CoursePropertyManager;
 import org.olat.course.run.RunMainController;
 import org.olat.course.tree.CourseEditorTreeModel;
@@ -75,6 +77,8 @@ import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.manager.CatalogManager;
+import org.olat.resource.accesscontrol.ACService;
+import org.olat.resource.accesscontrol.OfferAccess;
 import org.olat.resource.references.Reference;
 import org.olat.resource.references.ReferenceManager;
 import org.olat.user.UserManager;
@@ -275,14 +279,12 @@ public class PublishProcess {
 			// there are nodes generating cylces -> error! this is not a publishable
 			// set!
 			StringBuilder sb = new StringBuilder();
-			for (Iterator<String> iter = nodesInCycle.iterator(); iter.hasNext();) {
-				String id = iter.next();
+			for (String id: nodesInCycle) {
 				String title = editorTreeModel.getCourseEditorNodeById(id).getTitle();
-				sb.append("<b>").append(title).append("</b>");
-				sb.append("(id:").append(id).append(")<br />");
+				sb.append("<b>").append(title).append("</b> ").append("(id:").append(id).append(")<br>");
 			}
-			StatusDescription sd = new StatusDescription(ValidationStatus.ERROR, "pbl.error.cycles", "pbl.error.cycles", new String[] { sb
-					.toString() }, PACKAGE);
+			StatusDescription sd = new StatusDescription(ValidationStatus.ERROR, "pbl.error.cycles", "pbl.error.cycles",
+					new String[] { sb.toString() }, PACKAGE);
 			status = new StatusDescription[] { sd };
 		} else {
 			/*
@@ -596,43 +598,41 @@ public class PublishProcess {
 			prop.setStringValue(choiceValue);
 			cpm.updateProperty(prop);
 		}
+
+		CatalogManager cm = CoreSpringFactory.getImpl(CatalogManager.class);
+		List<CatalogEntry> refParentCategories = cm.getCatalogCategoriesFor(repositoryEntry);
 		
-		if("yes".equals(choiceValue) && labels != null) {
-			CatalogManager cm = CoreSpringFactory.getImpl(CatalogManager.class);
-			List<CatalogEntry> refParentCategories = cm.getCatalogCategoriesFor(repositoryEntry);
-			
-			a_a:
-			for(CategoryLabel label:labels) {
-				CatalogEntry category = label.getCategory();
-				CatalogEntry parentCategory = label.getParentCategory();
-				if(label.isDeleted()) {
-					//test
-					if(category.getKey() != null) {
-						List<CatalogEntry> children = cm.getChildrenOf(category);
-						for(CatalogEntry child:children) {
-							if(child.getRepositoryEntry() != null && child.getRepositoryEntry().equalsByPersistableKey(repositoryEntry)) {
-								cm.deleteCatalogEntry(child);
-							}
+		a_a:
+		for(CategoryLabel label:labels) {
+			CatalogEntry category = label.getCategory();
+			CatalogEntry parentCategory = label.getParentCategory();
+			if(label.isDeleted()) {
+				//test
+				if(category.getKey() != null) {
+					List<CatalogEntry> children = cm.getChildrenOf(category);
+					for(CatalogEntry child:children) {
+						if(child.getRepositoryEntry() != null && child.getRepositoryEntry().equalsByPersistableKey(repositoryEntry)) {
+							cm.deleteCatalogEntry(child);
 						}
 					}
-				} else if(category.getKey() == null) {
-					//it's a new entry -> check if not already in catalog at this position
-					for(Iterator<CatalogEntry> refIt=refParentCategories.iterator(); refIt.hasNext(); ) {
-						CatalogEntry refParentCategory = refIt.next();
-						if(refParentCategory.equalsByPersistableKey(parentCategory)) {
-							refIt.remove();
-							break a_a;
-						}
+				}
+			} else if(category.getKey() == null) {
+				//it's a new entry -> check if not already in catalog at this position
+				for(Iterator<CatalogEntry> refIt=refParentCategories.iterator(); refIt.hasNext(); ) {
+					CatalogEntry refParentCategory = refIt.next();
+					if(refParentCategory.equalsByPersistableKey(parentCategory)) {
+						refIt.remove();
+						break a_a;
 					}
-					
-					category.setOwnerGroup(BaseSecurityManager.getInstance().createAndPersistSecurityGroup());
-					cm.addCatalogEntry(parentCategory, category);
-				} else {
-					for(Iterator<CatalogEntry> refIt=refParentCategories.iterator(); refIt.hasNext(); ) {
-						CatalogEntry refParentCategory = refIt.next();
-						if(refParentCategory.equalsByPersistableKey(category)) {
-							refIt.remove();
-						}
+				}
+				
+				category.setOwnerGroup(BaseSecurityManager.getInstance().createAndPersistSecurityGroup());
+				cm.addCatalogEntry(parentCategory, category);
+			} else {
+				for(Iterator<CatalogEntry> refIt=refParentCategories.iterator(); refIt.hasNext(); ) {
+					CatalogEntry refParentCategory = refIt.next();
+					if(refParentCategory.equalsByPersistableKey(category)) {
+						refIt.remove();
 					}
 				}
 			}
@@ -650,45 +650,38 @@ public class PublishProcess {
 	
 
 	String assemblePublishConfirmation() {
-		List<String> nodeIdsToPublish = this.originalNodeIdsToPublish;
-		
+		List<String> nodeIdsToPublish = originalNodeIdsToPublish;
 		StringBuilder msg = new StringBuilder();
 
 		OLATResourceable courseRunOres = OresHelper.createOLATResourceableInstance(RunMainController.ORES_TYPE_COURSE_RUN, repositoryEntry.getOlatResource().getResourceableId());
 		int cnt = CoordinatorManager.getInstance().getCoordinator().getEventBus().getListeningIdentityCntFor(courseRunOres) -1; // -1: Remove myself from list
-		if (cnt < 0 ) {
-			cnt = 0;// do not show any negative value
-		}
 		if (cnt > 0) {		
 			msg.append(translate("pbl.confirm.users", String.valueOf(cnt)));			
 		} else {
 			msg.append(translator.translate("pbl.confirm"));
 		}
-		msg.append("<ul>");
 		
-		if(nodeIdsToPublish == null){
-			return msg.toString();
-		}
-		
-		CourseEditorTreeModel cetm = course.getEditorTreeModel();
-		for (int i = 0; i < nodeIdsToPublish.size(); i++) {
-			msg.append("<li>");
-			String nodeId = nodeIdsToPublish.get(i);
-			CourseEditorTreeNode cetn = (CourseEditorTreeNode) cetm.getNodeById(nodeId);
-			CourseNode cn = cetm.getCourseNode(nodeId);
-			msg.append(cn.getShortTitle());
-			if (cetn.isDeleted() && !cetn.isNewnode()) {
-				//use locale of this initialized translator.
-				String onDeleteMessage = cn.informOnDelete(translator.getLocale(), course);
-				if (onDeleteMessage != null) {
-					msg.append("<br /><font color=\"red\">");
-					msg.append(onDeleteMessage);
-					msg.append("</font>");
+		if(nodeIdsToPublish != null && nodeIdsToPublish.size() > 0) {
+			msg.append("<ul class='list-unstyled'>");
+
+			CourseEditorTreeModel cetm = course.getEditorTreeModel();
+			for (int i = 0; i < nodeIdsToPublish.size(); i++) {
+				msg.append("<li>");
+				String nodeId = nodeIdsToPublish.get(i);
+				CourseEditorTreeNode cetn = (CourseEditorTreeNode) cetm.getNodeById(nodeId);
+				CourseNode cn = cetm.getCourseNode(nodeId);
+				if (cetn.isDeleted() && !cetn.isNewnode()) {
+					msg.append("<i class='o_icon o_icon_delete_item'> </i> ");
+				} else {
+					CourseNodeConfiguration nodeConfig = CourseNodeFactory.getInstance().getCourseNodeConfigurationEvenForDisabledBB(cn.getType());
+					if(nodeConfig != null) {
+						msg.append("<i class='o_icon ").append(nodeConfig.getIconCSSClass()).append("'> </i> ");
+					}
 				}
+				msg.append(cn.getShortTitle()).append("</li>");
 			}
-			msg.append("</li>");
+			msg.append("</ul>");
 		}
-		msg.append("</ul>");
 		
 		return msg.toString();
 	}
@@ -704,6 +697,24 @@ public class PublishProcess {
 
 	public void changeGeneralAccess(Identity author, int access, boolean membersOnly){
 		RepositoryManager.getInstance().setAccess(repositoryEntry, access, membersOnly);
+		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, author, Change.modifiedAtPublish, "publish");
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);
+	}
+	
+	public void changeAccessAndProperties(Identity author, CourseAccessAndProperties accessAndProps) {
+		RepositoryManager manager = RepositoryManager.getInstance();
+		
+		manager.setAccessAndProperties(accessAndProps.getRepositoryEntry(), accessAndProps.getAccess(),
+				accessAndProps.isMembersOnly(), accessAndProps.isCanCopy(), accessAndProps.isCanReference(),
+				accessAndProps.isCanDownload());
+		manager.setLeaveSetting(accessAndProps.getRepositoryEntry(), accessAndProps.getSetting());
+		
+		List<OfferAccess> offerAccess = accessAndProps.getOfferAccess();
+		ACService acService = CoreSpringFactory.getImpl(ACService.class);
+		for (OfferAccess newLink : offerAccess) {
+			acService.saveOfferAccess(newLink);
+		}
+		
 		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, author, Change.modifiedAtPublish, "publish");
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);
 	}

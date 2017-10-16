@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.richText.TextMode;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -100,6 +101,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		formLayout.add("metadata", metadata);
 
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), metadata);
+		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
 		
 		String description = itemBuilder.getQuestion();
@@ -157,6 +159,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createDefaultFormLayout_2_10("buttons", getTranslator());
+		buttonsContainer.setElementCssClass("o_sel_choices_save");
 		buttonsContainer.setRootForm(mainForm);
 		formLayout.add(buttonsContainer);
 		formLayout.add("buttons", buttonsContainer);
@@ -168,6 +171,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		String choiceId = "answer" + count++;
 		RichTextElement choiceEl = uifactory.addRichTextElementForQTI21(choiceId, "form.imd.answer", choiceContent, 8, -1, itemContainer,
 				answersCont, ureq.getUserSession(), getWindowControl());
+		choiceEl.getEditorConfiguration().setSimplestTextModeAllowed(TextMode.oneLine);
 		choiceEl.setUserObject(choice);
 		answersCont.add("choiceId", choiceEl);
 		
@@ -237,8 +241,10 @@ public class MultipleChoiceEditorController extends FormBasicController {
 			//correct response
 			String[] correctAnswers = ureq.getHttpReq().getParameterValues("correct");
 			List<Identifier> correctAnswerList = new ArrayList<>();
-			for(String correctAnswer:correctAnswers) {
-				correctAnswerList.add(Identifier.parseString(correctAnswer));
+			if(correctAnswers != null) {
+				for(String correctAnswer:correctAnswers) {
+					correctAnswerList.add(Identifier.parseString(correctAnswer));
+				}
 			}
 			itemBuilder.setCorrectAnswers(correctAnswerList);
 			
@@ -292,13 +298,13 @@ public class MultipleChoiceEditorController extends FormBasicController {
 	
 	private void updateCorrectAnswers(UserRequest ureq) {
 		String[] correctAnswers = ureq.getHttpReq().getParameterValues("correct");
+		List<Identifier> correctAnswerList = new ArrayList<>();
 		if(correctAnswers != null) {
-			List<Identifier> correctAnswerList = new ArrayList<>();
 			for(String correctAnswer:correctAnswers) {
 				correctAnswerList.add(Identifier.parseString(correctAnswer));
 			}
-			itemBuilder.setCorrectAnswers(correctAnswerList);
-		}	
+		}
+		itemBuilder.setCorrectAnswers(correctAnswerList);	
 	}
 	
 	private void doAddSimpleChoice(UserRequest ureq) {

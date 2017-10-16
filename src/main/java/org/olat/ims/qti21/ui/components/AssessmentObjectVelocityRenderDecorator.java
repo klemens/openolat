@@ -55,6 +55,7 @@ import uk.ac.ed.ph.jqtiplus.node.item.interaction.GapMatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicAssociateInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicGapMatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicOrderInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.InlineChoiceInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.Interaction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
@@ -236,6 +237,14 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 			ChoiceInteraction choiceInteraction = (ChoiceInteraction)interaction;
 			boolean sc = choiceInteraction.getMaxChoices() == 1;
 			ResponseDeclaration responseDeclaration = assessmentItem.getResponseDeclaration(choiceInteraction.getResponseIdentifier());
+			if(responseDeclaration != null && responseDeclaration.hasCardinality(Cardinality.MULTIPLE)) {
+				return false;
+			}
+			return sc;
+		} else if(interaction instanceof HottextInteraction) {
+			HottextInteraction hottextInteraction = (HottextInteraction)interaction;
+			boolean sc = hottextInteraction.getMaxChoices() == 1;
+			ResponseDeclaration responseDeclaration = assessmentItem.getResponseDeclaration(hottextInteraction.getResponseIdentifier());
 			if(responseDeclaration != null && responseDeclaration.hasCardinality(Cardinality.MULTIPLE)) {
 				return false;
 			}
@@ -510,6 +519,14 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 			max = Long.toString(java.lang.Math.round(interaction.getUpperBound()));
 		}
 		return new SliderOptions(discrete, reverse, min, max, step);
+	}
+	
+	public boolean hasCssClass(Interaction interaction, String cssClass) {
+		if(StringHelper.containsNonWhitespace(cssClass)) {
+			List<String> cssClasses = interaction.getClassAttr();
+			return cssClasses != null && cssClasses.contains(cssClass);
+		}
+		return false;
 	}
 	
 	public boolean isVisible(Choice choice, ItemSessionState iSessionState) {

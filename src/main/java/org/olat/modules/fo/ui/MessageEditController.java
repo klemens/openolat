@@ -179,6 +179,7 @@ public class MessageEditController extends FormBasicController {
 		bodyEl.setNotEmptyCheck("error.field.not.empty");
 		bodyEl.setMaxLength(MAX_BODY_LENGTH);
 		bodyEl.setNotLongerThanCheck(MAX_BODY_LENGTH, "input.toolong");
+		bodyEl.getEditorConfiguration().enableCharCount();
 		
 		setEditPermissions(message);
 		// list existing attachments. init attachment layout now, to place it in
@@ -206,6 +207,7 @@ public class MessageEditController extends FormBasicController {
 			passwordEl = uifactory.addPasswordElement("password", "password", 128, "", formLayout);
 			passwordEl.setElementCssClass("o_sel_forum_message_alias_pass");
 			passwordEl.setPlaceholderKey("password.placeholder", null);
+			passwordEl.setAutocomplete("new-password");
 
 			if(guestOnly) {
 				usePseudonymEl.setVisible(false);

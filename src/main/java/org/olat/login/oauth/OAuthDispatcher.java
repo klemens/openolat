@@ -143,19 +143,32 @@ public class OAuthDispatcher implements Dispatcher {
 			OAuthUser infos = provider.getUser(service, accessToken);
 			if(infos == null || !StringHelper.containsNonWhitespace(infos.getId())) {
 				error(ureq, translate(ureq, "error.no.id"));
-				log.error("OAuth Login failed, no infos extracted from access token ");
+				log.error("OAuth Login failed, no infos extracted from access token: " + accessToken);
 				return;
 			}
 
 			OAuthRegistration registration = new OAuthRegistration(provider.getProviderName(), infos);
 			login(infos, registration);
+
+			if(provider instanceof OAuthUserCreator) {
+				Identity newIdentity;
+				OAuthUserCreator userCreator = (OAuthUserCreator)provider;
+				if(registration.getIdentity() == null) {
+					newIdentity = userCreator.createUser(infos);
+				} else {
+					newIdentity = userCreator.updateUser(infos, registration.getIdentity());			
+				}
+				if(newIdentity != null) {
+					registration.setIdentity(newIdentity);
+				}
+			}
 			
 			if(registration.getIdentity() == null) {
 				if(CoreSpringFactory.getImpl(OAuthLoginModule.class).isAllowUserCreation()) {
 					register(request, response, registration);
 				} else {
 					error(ureq, translate(ureq, "error.account.creation"));
-					log.error("OAuth Login ok but the user has not an account on OpenOLAT");
+					log.error("OAuth Login ok but the user has not an account on OpenOLAT: " + infos);
 				}
 			} else {
 				if(ureq.getUserSession() != null) {
@@ -185,7 +198,7 @@ public class OAuthDispatcher implements Dispatcher {
 				}
 			}
 		} catch (Exception e) {
-			log.error("", e);
+			log.error("Unexpected error", e);
 			error(ureq, translate(ureq, "error.generic"));
 		}
 	}

@@ -42,6 +42,10 @@
 	.o_print_break_before {
 		page-break-before: always;
 	}
+	.o_print_break_after {
+		clear:both;
+		page-break-after:always;
+	}
 	
 	/* Hide buttons in forms and print text area with full content */
 	.btn {
@@ -51,7 +55,9 @@
 		/* textarea: can not blow up for now, browsers ignore the height */
 		textarea,
 		.form-control.textarea_disabled {
-			background: #fff;
+			-webkit-print-color-adjust: exact;
+			color-adjust: exact;
+			background: #fff !important;
 			height: auto !important;
 			color: #000 !important;
 			resize: none;
@@ -72,11 +78,25 @@
 	/* Hide backgrounds */	
 	body.o_dmz {
 		background: white !important;
+		-webkit-print-color-adjust: exact;
+		color-adjust: exact;
+	}
+	
+	/* When printing dialogs, hide everything below */
+	.modal-dialog {
+		margin: 0 !important;
+		width: 100% !important;
+		height: 100% !important;	
+		background: #fff !important;
+		-webkit-print-color-adjust: exact;
+		color-adjust: exact;
 	}
 	
 	/* Print background colors in progress bar */
 	.progress {
+		page-break-inside : avoid;
 		-webkit-print-color-adjust: exact;
+		color-adjust: exact;
 	  	background-color: rgba(0,0,0,.1) !important;
 	  	border: 1px solid rgba(0,0,0,.5);
 	}
@@ -87,10 +107,48 @@
 		border: 10px solid #000;
 	}
 	
+	/* Print backgrounds on sliders */
+	.ui-slider.ui-slider-horizontal.ui-widget-content {
+		-webkit-print-color-adjust: exact;
+		color-adjust: exact;
+		background: $o-slider-background !important;
+		.ui-slider-handle {
+			-webkit-print-color-adjust: exact;
+			color-adjust: exact;
+			background-color: $o-slider-handler-background-color !important;
+		}
+	}
+	
+	
+	/* Print background colors in radial progress bar */
+	.radial-progress {
+		page-break-inside : avoid;
+		-webkit-print-color-adjust: exact;
+		color-adjust: exact;
+		background-color: #eee !important;
+		.circle .mask .fill {
+			-webkit-print-color-adjust: exact;
+			color-adjust: exact;
+			background-color: #000 !important;
+		}
+		.inset {
+			-webkit-print-color-adjust: exact;
+			color-adjust: exact;
+			background-color: #fff !important;
+		}
+	}
+	
 	body {
 		margin: 0; 
 	}
+	
+	table, figure, figure {
+	  page-break-inside: avoid;
+	}
 
+	h1, h2, h3, h4, h5, h6 {
+	  page-break-after: avoid;
+	}
 }
 
 

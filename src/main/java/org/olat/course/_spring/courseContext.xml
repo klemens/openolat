@@ -16,6 +16,7 @@
 	<import resource="classpath:/org/olat/course/db/_spring/coursedbContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/basiclti/_spring/basicLtiContext.xml"/>
+	<import resource="classpath:/org/olat/course/nodes/card2brain/_spring/card2brainContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/info/_spring/infoMessageContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/gotomeeting/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/openmeetings/_spring/buildingblockContext.xml"/>
@@ -82,7 +83,7 @@
 				<property name="className" value="org.olat.course.assessment.AssessableCourseNodeAdminController"/>
 			</bean>
 		</property>
-		<property name="navigationKey" value="certificates" />
+		<property name="navigationKey" value="course" />
 		<property name="i18nActionKey" value="admin.menu.title"/>
 		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
 		<property name="translationPackage" value="org.olat.course.assessment"/>

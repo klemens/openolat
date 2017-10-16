@@ -48,7 +48,11 @@ import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.openxml.HTMLToOpenXMLHandler;
+import org.olat.core.util.openxml.OpenXMLConstants;
 import org.olat.core.util.openxml.OpenXMLDocument;
+import org.olat.core.util.openxml.OpenXMLDocument.Border;
+import org.olat.core.util.openxml.OpenXMLDocument.Indent;
+import org.olat.core.util.openxml.OpenXMLDocument.Spacing;
 import org.olat.core.util.openxml.OpenXMLDocument.Style;
 import org.olat.core.util.openxml.OpenXMLDocument.Unit;
 import org.olat.core.util.openxml.OpenXMLDocumentWriter;
@@ -61,7 +65,6 @@ import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.manager.CorrectResponsesUtil;
 import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.model.xml.AssessmentHtmlBuilder;
-import org.olat.ims.qti21.model.xml.AssessmentTestBuilder;
 import org.olat.ims.qti21.model.xml.QtiNodesExtractor;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.NumericalEntry;
@@ -293,10 +296,10 @@ public class QTI21WordExport implements MediaResource {
 				// pass rule
 				if(outcomeRule instanceof OutcomeCondition) {
 					OutcomeCondition outcomeCondition = (OutcomeCondition)outcomeRule;
-					boolean findIf = AssessmentTestBuilder.findSetOutcomeValue(outcomeCondition.getOutcomeIf(), QTI21Constants.PASS_IDENTIFIER);
-					boolean findElse = AssessmentTestBuilder.findSetOutcomeValue(outcomeCondition.getOutcomeElse(), QTI21Constants.PASS_IDENTIFIER);
+					boolean findIf = QtiNodesExtractor.findSetOutcomeValue(outcomeCondition.getOutcomeIf(), QTI21Constants.PASS_IDENTIFIER);
+					boolean findElse = QtiNodesExtractor.findSetOutcomeValue(outcomeCondition.getOutcomeElse(), QTI21Constants.PASS_IDENTIFIER);
 					if(findIf && findElse) {
-						Double cutValue = AssessmentTestBuilder.extractCutValue(outcomeCondition.getOutcomeIf());
+						Double cutValue = QtiNodesExtractor.extractCutValue(outcomeCondition.getOutcomeIf());
 						String cutValueLabel = translator.translate("cut.value");
 						document.appendText(cutValueLabel + ": " + AssessmentHelper.getRoundedScore(cutValue), true);
 					}
@@ -467,6 +470,11 @@ public class QTI21WordExport implements MediaResource {
 				case "simplematchset":
 				case "simpleassociablechoice":
 					//do nothing
+					break;
+				case "div":
+				case "p":
+					trimTextBuffer();
+					super.startElement(uri, localName, qName, attributes);
 					break;
 				default: {
 					if(renderElement) {
@@ -664,14 +672,321 @@ public class QTI21WordExport implements MediaResource {
 		}
 		
 		private void startMatch(MatchInteraction matchInteraction) {
+			List<String> cssClasses = matchInteraction.getClassAttr();
+			if(cssClasses != null && cssClasses.contains(QTI21Constants.CSS_MATCH_DRAG_AND_DROP)) {
+				if(hasClass(matchInteraction, QTI21Constants.CSS_MATCH_SOURCE_TOP)
+						|| hasClass(matchInteraction, QTI21Constants.CSS_MATCH_SOURCE_BOTTOM)) {
+					startMatchDragAndDropHorizontal(matchInteraction);
+				} else {
+					startMatchDragAndDropVertical(matchInteraction);
+				}
+			} else {
+				startMatchMatrix(matchInteraction);
+			}
+		}
+		
+
+		private void startMatchDragAndDropHorizontal(MatchInteraction matchInteraction) {
+			SimpleMatchSet sourcesMatchSet = matchInteraction.getSimpleMatchSets().get(0);
+			SimpleMatchSet targetsMatchSet = matchInteraction.getSimpleMatchSets().get(1);
+			List<SimpleAssociableChoice> sourcesAssociableChoices = sourcesMatchSet.getSimpleAssociableChoices();
+			List<SimpleAssociableChoice> targetsAssociableChoices = targetsMatchSet.getSimpleAssociableChoices();
+			if(hasClass(matchInteraction, QTI21Constants.CSS_MATCH_SOURCE_BOTTOM)) {
+				appendMatchTargetsHorizontal(targetsAssociableChoices, sourcesAssociableChoices, matchInteraction);
+				appendParagraph(new Spacing(20,20));
+				appendMatchSourcesHorizontal(sourcesAssociableChoices);
+			} else {
+				appendMatchSourcesHorizontal(sourcesAssociableChoices);
+				appendParagraph(new Spacing(20,20));
+				appendMatchTargetsHorizontal(targetsAssociableChoices, sourcesAssociableChoices, matchInteraction);
+			}
+		}
+		
+		private void appendMatchSourcesHorizontal(List<SimpleAssociableChoice> choices) {
+			String backgroundColor = "FFFFFF";
+			Border sourceBorder = new Border(0, 6, "E9EAF2");
+			
+			startTable(OpenXMLConstants.TABLE_FULL_WIDTH_DXA);
+			currentTable.addRowEl();
+			createCellHeader(translator.translate("form.imd.layout.match.sources"), OpenXMLConstants.TABLE_FULL_WIDTH_DXA, 10);
+			currentTable.closeRow();
+	
+			for(SimpleAssociableChoice choice:choices) {
+				currentTable.addRowEl();
+				Element cell = factory.createTableCell(backgroundColor, sourceBorder, OpenXMLConstants.TABLE_FULL_WIDTH_PCT - 10, Unit.pct);
+				Node contentCell = currentTable.addCellEl(cell, 1);
+				
+				String html = htmlBuilder.flowStaticString(choice.getFlowStatics());
+				List<Node> nodes = appendHtmlText(html, factory.createParagraphEl(), 7.5);
+				if(nodes.size() == 0) {
+					contentCell.appendChild(factory.createParagraphEl());
+				} else {
+					for(Node node:nodes) {
+						contentCell.appendChild(node);
+					}
+					contentCell.appendChild(factory.createParagraphEl());
+				}
+				currentTable.closeRow();
+			}
+			endTable();
+		}
+
+		private void appendMatchTargetsHorizontal(List<SimpleAssociableChoice> targetChoices, List<SimpleAssociableChoice> sourceChoices,
+				MatchInteraction matchInteraction) {
+			
+			String backgroundColor = "E9EAF2";
+			String dropBackgroundColor = "FFFFFF";
+			Border targetBorder = new Border(0, 6, "E9EAF2");
+			Border dropBorder = new Border(0, 6, "EEEEEE");
+			int columnWidthPct = OpenXMLConstants.TABLE_FULL_WIDTH_PCT;
+
+			startTable(OpenXMLConstants.TABLE_FULL_WIDTH_DXA);
+			currentTable.addRowEl();
+			createCellHeader(translator.translate("form.imd.layout.match.targets.short"), OpenXMLConstants.TABLE_FULL_WIDTH_DXA, 10);
+			currentTable.closeRow();
+			
+			for(SimpleAssociableChoice choice:targetChoices) {
+				currentTable.addRowEl();
+				Node contentCell = currentTable.addCellEl(factory.createTableCell(backgroundColor, targetBorder, columnWidthPct - 10, Unit.pct), 1);
+				
+				String html = htmlBuilder.flowStaticString(choice.getFlowStatics());
+				List<Node> nodes = appendHtmlText(html, factory.createParagraphEl(), 7.5);
+				for(Node node:nodes) {
+					contentCell.appendChild(node);
+				}
+
+				// add the drop panels
+				Element wrapEl = factory.createParagraphEl();
+				HTMLToOpenXMLHandler dropTable = new HTMLToOpenXMLHandler(factory, wrapEl, false);
+				dropTable.setMaxWidthCm(7);
+				dropTable.startTable(columnWidthPct - 50);
+				if(withResponses) {
+					for(SimpleAssociableChoice sourceChoice:sourceChoices) {
+						boolean correct = isCorrectMatchResponse(sourceChoice.getIdentifier(), choice.getIdentifier(), matchInteraction);
+						if(correct) {
+							dropTable.startCurrentTableRow();
+							Node answerCell = dropTable.addCell(factory.createTableCell(dropBackgroundColor, targetBorder, columnWidthPct - 10, Unit.pct));
+							String answerHtml = htmlBuilder.flowStaticString(sourceChoice.getFlowStatics());
+							List<Node> answerNodes = appendHtmlText(answerHtml, factory.createParagraphEl(), 7.5);
+							if(answerNodes.size() == 0) {
+								answerCell.appendChild(factory.createParagraphEl());
+							} else {
+								for(Node answerNode:answerNodes) {
+									answerCell.appendChild(answerNode);
+								}
+							}
+							dropTable.closeCurrentTableRow();
+						}
+					}
+				} else {
+					dropTable.startCurrentTableRow();
+					Node dropCell = dropTable.addCell(factory.createTableCell(dropBackgroundColor, dropBorder, columnWidthPct - 10, Unit.pct));
+					dropCell.appendChild(factory.createParagraphEl());
+					dropCell.appendChild(factory.createParagraphEl());
+					dropCell.appendChild(factory.createParagraphEl());
+					dropTable.closeCurrentTableRow();
+				}
+				dropTable.endTable();
+
+				List<Node> dropNodes = dropTable.getContent();
+				for(Node dropNode:dropNodes) {
+					contentCell.appendChild(dropNode);
+				}
+				contentCell.appendChild(factory.createParagraphEl());
+				currentTable.closeRow();
+			}
+			endTable();
+		}
+		
+		/**
+		 * The sources are in one column, the targets are in the second.
+		 * @param matchInteraction
+		 */
+		private void startMatchDragAndDropVertical(MatchInteraction matchInteraction) {
+			SimpleMatchSet sourcesMatchSet = matchInteraction.getSimpleMatchSets().get(0);
+			SimpleMatchSet targetsMatchSet = matchInteraction.getSimpleMatchSets().get(1);
+			List<SimpleAssociableChoice> sourcesAssociableChoices = sourcesMatchSet.getSimpleAssociableChoices();
+			List<SimpleAssociableChoice> targetsAssociableChoices = targetsMatchSet.getSimpleAssociableChoices();
+
+			// calculate the width of the table () and of its columns
+			int tableWidthDxa = OpenXMLConstants.TABLE_FULL_WIDTH_DXA;
+			int tableWidthPct = OpenXMLConstants.TABLE_FULL_WIDTH_PCT;
+			int numOfColumns = 2;
+			int columnWidthDxa = tableWidthDxa / numOfColumns;
+			int columnWidthPct = tableWidthPct / numOfColumns;
+			
+			Integer[] columnsWidth = new Integer[numOfColumns];
+			for(int i=numOfColumns; i-->0; ) {
+				columnsWidth[i] = columnWidthDxa;
+			}
+			startTable(columnsWidth);
+
+			if(hasClass(matchInteraction, QTI21Constants.CSS_MATCH_SOURCE_RIGHT)) {
+				currentTable.addRowEl();
+				createCellHeader(translator.translate("form.imd.layout.match.targets.short"), columnWidthPct, 50);
+				createCellHeader(translator.translate("form.imd.layout.match.sources"), columnWidthPct, 50);
+				currentTable.closeRow();
+				
+				currentTable.addRowEl();
+				Element targetsCell = currentTable.addCellEl(factory.createTableCell(null, columnWidthPct, Unit.pct), 1);
+				appendMatchTargetsVertical(targetsAssociableChoices, sourcesAssociableChoices, matchInteraction, columnWidthPct, targetsCell);
+				Element sourcesCell = currentTable.addCellEl(factory.createTableCell(null, columnWidthPct, Unit.pct), 1);
+				appendMatchSourcesVertical(sourcesAssociableChoices, columnWidthPct, sourcesCell);
+				currentTable.closeRow();
+			} else {
+				currentTable.addRowEl();
+				createCellHeader(translator.translate("form.imd.layout.match.sources"), columnWidthPct, 50);
+				createCellHeader(translator.translate("form.imd.layout.match.targets.short"), columnWidthPct, 50);
+				currentTable.closeRow();
+				
+				currentTable.addRowEl();
+				Element sourcesCell = currentTable.addCellEl(factory.createTableCell(null, columnWidthPct, Unit.pct), 1);
+				appendMatchSourcesVertical(sourcesAssociableChoices, columnWidthPct, sourcesCell);
+				Element targetsCell = currentTable.addCellEl(factory.createTableCell(null, columnWidthPct, Unit.pct), 1);
+				appendMatchTargetsVertical(targetsAssociableChoices, sourcesAssociableChoices, matchInteraction, columnWidthPct, targetsCell);
+				currentTable.closeRow();
+			}
+
+			endTable();
+		}
+		
+		private void createCellHeader(String header, int columnWidthPct, int indent) {
+			Element sourcesHeaderCell = currentTable.addCellEl(factory.createTableCell(null, columnWidthPct, Unit.pct), 1);
+			
+			Element paragraphEl = factory.createParagraphEl(new Indent(indent), null, null, null);
+			Element runEl = factory.createRunEl();
+			runEl.appendChild(factory.createRunPrefsEl(Style.bold));
+			runEl.appendChild(factory.createTextEl(header));
+
+			paragraphEl.appendChild(runEl);
+			sourcesHeaderCell.appendChild(paragraphEl);
+		}
+		
+		private boolean hasClass(Interaction interaction, String cssClass) {
+			List<String> cssClassses = interaction.getClassAttr();
+			return cssClassses != null && cssClassses.contains(cssClass);
+		}
+		
+		private void appendMatchSourcesVertical(List<SimpleAssociableChoice> choices, int columnWidthPct, Element sourcesCell) {
+			Element wrapEl = factory.createParagraphEl();
+			
+			String backgroundColor = "FFFFFF";
+			Border sourceBorder = new Border(0, 6, "E9EAF2");
+			
+			HTMLToOpenXMLHandler innerTable = new HTMLToOpenXMLHandler(factory, wrapEl, false);
+			innerTable.setMaxWidthCm(7.5);
+			innerTable.startTable(columnWidthPct);
+			for(SimpleAssociableChoice choice:choices) {
+				innerTable.startCurrentTableRow();
+				Node contentCell = innerTable.addCell(factory.createTableCell(backgroundColor, sourceBorder, columnWidthPct - 10, Unit.pct));
+				
+				String html = htmlBuilder.flowStaticString(choice.getFlowStatics());
+				List<Node> nodes = appendHtmlText(html, factory.createParagraphEl(), 7.5);
+				if(nodes.size() == 0) {
+					contentCell.appendChild(factory.createParagraphEl());
+				} else {
+					for(Node node:nodes) {
+						contentCell.appendChild(node);
+					}
+					contentCell.appendChild(factory.createParagraphEl());
+				}
+				innerTable.closeCurrentTableRow();
+			}
+			innerTable.endTable();
+
+			List<Node> innerNodes = innerTable.getContent();
+			for(int i=1; i< innerNodes.size(); i++) {
+				sourcesCell.appendChild(innerNodes.get(i));
+			}
+			sourcesCell.appendChild(factory.createParagraphEl());
+		}
+		
+		private void appendMatchTargetsVertical(List<SimpleAssociableChoice> targetChoices, List<SimpleAssociableChoice> sourceChoices,
+				MatchInteraction matchInteraction, int columnWidthPct, Element sourcesCell) {
+
+			String backgroundColor = "E9EAF2";
+			String dropBackgroundColor = "FFFFFF";
+			Border targetBorder = new Border(0, 6, "E9EAF2");
+			Border dropBorder = new Border(0, 6, "EEEEEE");
+			Element wrapEl = factory.createParagraphEl();
+
+			HTMLToOpenXMLHandler innerTable = new HTMLToOpenXMLHandler(factory, wrapEl, false);
+			innerTable.setMaxWidthCm(7.5);
+			innerTable.startTable(columnWidthPct);
+			for(SimpleAssociableChoice choice:targetChoices) {
+				innerTable.startCurrentTableRow();
+				Node contentCell = innerTable.addCell(factory.createTableCell(backgroundColor, targetBorder, columnWidthPct - 10, Unit.pct));
+				
+				String html = htmlBuilder.flowStaticString(choice.getFlowStatics());
+				List<Node> nodes = appendHtmlText(html, factory.createParagraphEl(), 7.5);
+				for(Node node:nodes) {
+					contentCell.appendChild(node);
+				}
+
+				// add the drop panels
+				HTMLToOpenXMLHandler dropTable = new HTMLToOpenXMLHandler(factory, wrapEl, false);
+				dropTable.setMaxWidthCm(7);
+				dropTable.startTable(columnWidthPct - 50);
+				if(withResponses) {
+					for(SimpleAssociableChoice sourceChoice:sourceChoices) {
+						boolean correct = isCorrectMatchResponse(sourceChoice.getIdentifier(), choice.getIdentifier(), matchInteraction);
+						if(correct) {
+							dropTable.startCurrentTableRow();
+							Node answerCell = dropTable.addCell(factory.createTableCell(dropBackgroundColor, targetBorder, columnWidthPct - 10, Unit.pct));
+							String answerHtml = htmlBuilder.flowStaticString(sourceChoice.getFlowStatics());
+							List<Node> answerNodes = appendHtmlText(answerHtml, factory.createParagraphEl(), 7.5);
+							if(answerNodes.size() == 0) {
+								answerCell.appendChild(factory.createParagraphEl());
+							} else {
+								for(Node answerNode:answerNodes) {
+									answerCell.appendChild(answerNode);
+								}
+							}
+							dropTable.closeCurrentTableRow();
+						}
+					}
+				} else {
+					dropTable.startCurrentTableRow();
+					Node dropCell = dropTable.addCell(factory.createTableCell(dropBackgroundColor, dropBorder, columnWidthPct - 10, Unit.pct));
+					appendDropPlaceholder(dropCell);
+					dropTable.closeCurrentTableRow();
+				}
+				dropTable.endTable();
+
+				List<Node> dropNodes = dropTable.getContent();
+				for(int i=1; i<dropNodes.size(); i++) {
+					contentCell.appendChild(dropNodes.get(i));
+				}
+				contentCell.appendChild(factory.createParagraphEl());
+				innerTable.closeCurrentTableRow();
+			}
+			innerTable.endTable();
+
+			List<Node> innerNodes = innerTable.getContent();
+			for(int i=1; i<innerNodes.size(); i++) {
+				sourcesCell.appendChild(innerNodes.get(i));
+			}
+			sourcesCell.appendChild(factory.createParagraphEl());
+		}
+		
+		private void appendDropPlaceholder(Node cell) {
+			Element paragraphEl = factory.createParagraphEl();
+			Node runEl = paragraphEl.appendChild(factory.createRunEl());
+			runEl.appendChild(factory.createBreakEl());
+			runEl.appendChild(factory.createBreakEl());
+			runEl.appendChild(factory.createBreakEl());
+			cell.appendChild(paragraphEl);
+		}
+		
+		private void startMatchMatrix(MatchInteraction matchInteraction) {
 			SimpleMatchSet questionMatchSetVertical = matchInteraction.getSimpleMatchSets().get(0);
 			SimpleMatchSet questionMatchSetHorizontal = matchInteraction.getSimpleMatchSets().get(1);
 			List<SimpleAssociableChoice> horizontalAssociableChoices = questionMatchSetHorizontal.getSimpleAssociableChoices();
 			List<SimpleAssociableChoice> verticalAssociableChoices = questionMatchSetVertical.getSimpleAssociableChoices();
 			
 			// calculate the width of the table () and of its columns
-			int tableWidthDxa = 11294;
-			int tableWidthPct = 4858;
+			int tableWidthDxa = OpenXMLConstants.TABLE_FULL_WIDTH_DXA;
+			int tableWidthPct = OpenXMLConstants.TABLE_FULL_WIDTH_PCT;
 			int numOfColumns = horizontalAssociableChoices.size() + 1;
 			int columnWidthDxa = tableWidthDxa / numOfColumns;
 			int columnWidthPct = tableWidthPct / numOfColumns;
@@ -721,13 +1036,19 @@ public class QTI21WordExport implements MediaResource {
 			}
 		}
 		
+
 		public List<Node> appendHtmlText(String html, Element wrapEl) {
+			return appendHtmlText(html, wrapEl, OpenXMLConstants.PAGE_FULL_WIDTH_CM);
+		}
+		
+		public List<Node> appendHtmlText(String html, Element wrapEl, double widthCm) {
 			if(!StringHelper.containsNonWhitespace(html)) {
 				return Collections.emptyList();
 			}
 			try {
 				SAXParser parser = new SAXParser();
 				HTMLToOpenXMLHandler handler = new HTMLToOpenXMLHandler(factory, wrapEl, false);
+				handler.setMaxWidthCm(widthCm);
 				parser.setContentHandler(handler);
 				parser.parse(new InputSource(new StringReader(html)));
 				return handler.getContent();

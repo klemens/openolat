@@ -63,10 +63,12 @@ import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.ims.lti.LTIContext;
+import org.olat.ims.lti.LTIDisplayOptions;
 import org.olat.ims.lti.LTIManager;
 import org.olat.ims.lti.ui.PostDataMapper;
 import org.olat.ims.lti.ui.TalkBackMapper;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.Role;
 import org.olat.properties.Property;
 import org.olat.resource.OLATResource;
 
@@ -82,14 +84,16 @@ public class LTIRunController extends BasicController {
 	
 	private Link startButton;
 	private final StackedPanel mainPanel;
-	private VelocityContainer run, startPage, acceptPage;
+	private VelocityContainer run;
+	private VelocityContainer startPage;
 	private BasicLTICourseNode courseNode;
 	private ModuleConfiguration config;
 	private final CourseEnvironment courseEnv;
 	private UserCourseEnvironment userCourseEnv;
 	private SortedProperties userData = new SortedProperties(); 
 	private SortedProperties customUserData = new SortedProperties(); 
-	private Link acceptLink, back;
+	private Link acceptLink;
+	private Link back;
 
 	private boolean fullScreen;
 	private ChiefController thebaseChief;
@@ -148,15 +152,7 @@ public class LTIRunController extends BasicController {
 
 		mainPanel = new SimpleStackedPanel("ltiContainer");
 		putInitialPanel(mainPanel);
-		
-		// only run directly when user as already accepted to data exchange or no data has to be exchanged
-		createExchangeDataProperties();
-		String dataExchangeHash = createHashFromExchangeDataProperties();
-		if (dataExchangeHash == null || checkHasDataExchangeAccepted(dataExchangeHash)) {
-			doRun(ureq);						
-		} else {
-			doAskDataExchange();
-		}
+		doRun(ureq);
 	}
 
 	/**
@@ -170,27 +166,27 @@ public class LTIRunController extends BasicController {
 	 *         not yet accepted or for other values
 	 */
 	private boolean checkHasDataExchangeAccepted(String hash) {
-		// 
+		boolean dataAccepted = false;
 		CoursePropertyManager propMgr = this.userCourseEnv.getCourseEnvironment().getCoursePropertyManager();
 		Property prop = propMgr.findCourseNodeProperty(this.courseNode, getIdentity(), null, PROP_NAME_DATA_EXCHANGE_ACCEPTED);
 		if (prop != null) {
 			// compare if value in property is the same as calculated today. If not, user as to accept again
 			String storedHash = prop.getStringValue();
 			if (storedHash != null && hash != null && storedHash.equals(hash)) {
-				return true;
+				dataAccepted = true;
 			} else {
 				// remove property, not valid anymore
 				propMgr.deleteProperty(prop);
 			}
 		}
-		return false;
+		return dataAccepted;
 	}
 
 	/**
 	 * Helper to initialize the ask-for-data-exchange screen
 	 */
 	private void doAskDataExchange() {
-		acceptPage = createVelocityContainer("accept");
+		VelocityContainer acceptPage = createVelocityContainer("accept");
 		acceptPage.contextPut("userData", userData);
 		acceptPage.contextPut("customUserData", customUserData);
 		acceptLink = LinkFactory.createButton("accept", acceptPage, this);
@@ -350,10 +346,25 @@ public class LTIRunController extends BasicController {
 			boolean resultsVisible = eval.getUserVisible() == null || eval.getUserVisible().booleanValue();
 			startPage.contextPut("resultsVisible", resultsVisible);
 			mainPanel.setContent(startPage);
-		} else if(display == LTIDisplayOptions.window) {
-			mainPanel.setContent(startPage);
+		}
+		
+		// only run when user as already accepted to data exchange or no data 
+		// has to be exchanged or when it is configured to not show the accept
+		// dialog,
+		createExchangeDataProperties();
+		String dataExchangeHash = createHashFromExchangeDataProperties();
+		Boolean skipAcceptLaunchPage = config.getBooleanEntry(BasicLTICourseNode.CONFIG_SKIP_ACCEPT_LAUNCH_PAGE);
+		if (dataExchangeHash == null || checkHasDataExchangeAccepted(dataExchangeHash) || (skipAcceptLaunchPage != null && skipAcceptLaunchPage.booleanValue()) ) {
+			Boolean skipLaunchPage = config.getBooleanEntry(BasicLTICourseNode.CONFIG_SKIP_LAUNCH_PAGE);
+			if(skipLaunchPage != null && skipLaunchPage.booleanValue()) {
+				// start the content immediately
+				openBasicLTIContent(ureq);
+			} else {
+				// or show the start button
+				mainPanel.setContent(startPage);
+			}					
 		} else {
-			openBasicLTIContent(ureq);
+			doAskDataExchange();
 		}
 	}
 	
@@ -384,7 +395,7 @@ public class LTIRunController extends BasicController {
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if(source == startButton) {
-			courseNode.incrementUserAttempts(userCourseEnv);
+			courseNode.incrementUserAttempts(userCourseEnv, Role.user);
 			openBasicLTIContent(ureq);
 		} else if (source == acceptLink) {
 			storeDataExchangeAcceptance();

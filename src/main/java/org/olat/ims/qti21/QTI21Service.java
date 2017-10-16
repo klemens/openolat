@@ -36,6 +36,7 @@ import org.olat.ims.qti21.model.ResponseLegality;
 import org.olat.ims.qti21.model.audit.CandidateEvent;
 import org.olat.ims.qti21.model.audit.CandidateItemEventType;
 import org.olat.ims.qti21.model.audit.CandidateTestEventType;
+import org.olat.ims.qti21.model.jpa.AssessmentTestSessionStatistics;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
@@ -219,6 +220,13 @@ public interface QTI21Service {
 	public AssessmentSessionAuditLogger getAssessmentSessionAuditLogger(AssessmentTestSession session, boolean authorMode);
 	
 	/**
+	 * 
+	 * @param session The test session
+	 * @return The file or null if it doesn't exists
+	 */
+	public File getAssessmentSessionAuditLogFile(AssessmentTestSession session);
+	
+	/**
 	 * This will return the last session if it's not finished, terminated or exploded.
 	 * 
 	 * @param identity The identity which play the session
@@ -236,7 +244,7 @@ public interface QTI21Service {
 	
 	public AssessmentTestSession updateAssessmentTestSession(AssessmentTestSession session);
 
-	public boolean isRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry);
+	public boolean isRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry, List<? extends IdentityRef> identities);
 	
 	public List<AssessmentTestSession> getRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry);
 	
@@ -267,6 +275,16 @@ public interface QTI21Service {
 	 * @return
 	 */
 	public List<AssessmentTestSession> getAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent, IdentityRef identity);
+	
+	/**
+	 * Retrieve the sessions of a user with the number of corrected assessment items (only the test and its resource are fetched).
+	 * 
+	 * @param courseEntry The course
+	 * @param subIdent The course node identifier
+	 * @param identity The user to assess
+	 * @return A list of assessment test sessions wrapped with number of corrected items
+	 */
+	public List<AssessmentTestSessionStatistics> getAssessmentTestSessionsStatistics(RepositoryEntryRef courseEntry, String subIdent, IdentityRef identity);
 	
 	/**
 	 * Retrieve the last finished test session.
