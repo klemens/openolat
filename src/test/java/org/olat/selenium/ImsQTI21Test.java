@@ -37,6 +37,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.ims.qti21.QTI21AssessmentResultsOptions;
+import org.olat.ims.qti21.model.xml.interactions.SimpleChoiceAssessmentItemBuilder.ScoreEvaluation;
 import org.olat.selenium.page.LoginPage;
 import org.olat.selenium.page.NavigationPage;
 import org.olat.selenium.page.User;
@@ -44,7 +45,12 @@ import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.qti.QTI21ConfigurationCEPage;
 import org.olat.selenium.page.qti.QTI21EditorPage;
+import org.olat.selenium.page.qti.QTI21KprimEditorPage;
+import org.olat.selenium.page.qti.QTI21LobEditorPage;
+import org.olat.selenium.page.qti.QTI21MatchEditorPage;
+import org.olat.selenium.page.qti.QTI21MultipleChoiceEditorPage;
 import org.olat.selenium.page.qti.QTI21Page;
+import org.olat.selenium.page.qti.QTI21SingleChoiceEditorPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.test.ArquillianDeployments;
@@ -681,7 +687,6 @@ public class ImsQTI21Test {
 			.closeAssessmentResults()
 			.assertOnCourseAttempts(1)
 			.assertOnCourseAssessmentTestScore(1)
-			.showAssessmentResults()
 			.assertOnAssessmentResults();
 	}
 	
@@ -785,7 +790,8 @@ public class ImsQTI21Test {
 			.clickToolbarBack()
 			.assertOnAssessmentItem()
 			.answerGapText("verbannen", "_RESPONSE_1")
-			.saveAnswer().nextAnswer()
+			.saveAnswer()
+			.nextAnswer()
 			.answerGapText(",", "_RESPONSE_1")
 			.answerGapText("", "_RESPONSE_2")
 			.answerGapText("", "_RESPONSE_3")
@@ -926,5 +932,1650 @@ public class ImsQTI21Test {
 		qtiPage
 			.assertOnCourseAssessmentTestScore(4)
 			.assertOnCourseAttempts(1);
+	}
+	
+	/**
+	 * Test different settings in the single choice editor. An author
+	 * make a test with 2 single choices, one with score all answer correct,
+	 * the second with score per answer and feedbacks.<br>
+	 * A second user make the test and check the score at the end of
+	 * the test.
+	 * 
+	 * @param authorLoginPage
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorSingleChoices(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver ryomouBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Choices QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a single choice: all answers score
+		QTI21SingleChoiceEditorPage scEditor = qtiEditor
+			.addSingleChoice();
+		scEditor
+			.setAnswer(0, "Wrong")
+			.addChoice(1)
+			.setCorrect(1)
+			.setAnswer(1, "Correct")
+			.addChoice(2)
+			.setAnswer(2, "Faux")
+			.addChoice(3)
+			.setAnswer(3, "Falsch")
+			.save();
+		// change max score
+		scEditor
+			.selectScores()
+			.setMaxScore("3")
+			.save();
+		// set some feedbacks
+		scEditor
+			.selectFeedbacks()
+			.setHint("Hint", "This is only an hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		//score per answers
+		scEditor = qtiEditor
+			.addSingleChoice()
+			.setAnswer(0, "AlmostRight")
+			.addChoice(1)
+			.setAnswer(1, "NotRight")
+			.addChoice(2)
+			.setCorrect(2)
+			.setAnswer(2, "RightAnswer")
+			.addChoice(3)
+			.setAnswer(3, "TheWrongOne")
+			.save();
+		scEditor
+			.selectScores()
+			.setMaxScore("2")
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setScore("Almost", "1")
+			.setScore("NotRight", "0")
+			.setScore("RightAnswer", "2")
+			.setScore("TheWrongOne", "0")
+			.save();
+		scEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage userLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		NavigationPage userNavBar = new NavigationPage(ryomouBrowser);
+		userNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page ryomouQtiPage = QTI21Page
+				.getQTI12Page(ryomouBrowser);
+		ryomouQtiPage
+			.assertOnAssessmentItem()
+			.answerSingleChoice("Falsch")
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerSingleChoice("Correct")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerSingleChoice("Almost")
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(4);// 3 points from the first question, 1 from the second
+	}
+	
+	/**
+	 * An author make a test with 2 multiple choices, the first
+	 * with the score set if all answers are correct, the second
+	 * with scoring per answers.<br>
+	 * A first user make the test, but doesn't answer all questions
+	 * correctly, log out and a second user make the perfect test.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorMultipleChoices(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		UserVO eric = new UserRestClient(deploymentUrl).createRandomUser("Eric");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Choices QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a single choice: all answers score
+		QTI21MultipleChoiceEditorPage mcEditor = qtiEditor
+			.addMultipleChoice();
+		mcEditor
+			.setAnswer(0, "Correct")
+			.setCorrect(0)
+			.addChoice(1)
+			.setCorrect(1)
+			.setAnswer(1, "OkToo")
+			.addChoice(2)
+			.setAnswer(2, "Faux")
+			.addChoice(3)
+			.setAnswer(3, "Falsch")
+			.save();
+		// change max score
+		mcEditor
+			.selectScores()
+			.setMaxScore("3")
+			.save();
+		// set some feedbacks
+		mcEditor
+			.selectFeedbacks()
+			.setHint("Hint", "This is only an hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		//score per answers
+		mcEditor = qtiEditor
+			.addMultipleChoice()
+			.setCorrect(0)
+			.setAnswer(0, "AlmostRight")
+			.addChoice(1)
+			.setAnswer(1, "NotRight")
+			.addChoice(2)
+			.setCorrect(2)
+			.setAnswer(2, "RightAnswer")
+			.addChoice(3)
+			.setAnswer(3, "TheWrongOne")
+			.save();
+		mcEditor
+			.selectScores()
+			.setMaxScore("3")
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setScore("AlmostRight", "1")
+			.setScore("NotRight", "0")
+			.setScore("RightAnswer", "2")
+			.setScore("TheWrongOne", "0")
+			.save();
+		mcEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage userLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		NavigationPage userNavBar = new NavigationPage(participantBrowser);
+		userNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page ryomouQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		ryomouQtiPage
+			.assertOnAssessmentItem()
+			.answerMultipleChoice("Falsch")
+			.answerMultipleChoice("OkToo")
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerMultipleChoice("Falsch")
+			.answerMultipleChoice("Correct")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMultipleChoice("AlmostRight")
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(4);// 3 points from the first question, 1 from the second
+		
+
+		//a second user search the content package
+		LoginPage ericLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		ericLoginPage
+			.loginAs(eric.getLogin(), eric.getPassword())
+			.resume();
+		NavigationPage ericNavBar = new NavigationPage(participantBrowser);
+		ericNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.assertOnAssessmentItem()
+			.answerMultipleChoice("Correct", "OkToo")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMultipleChoice("AlmostRight", "RightAnswer")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(6);// 3 points from the first question, 3 from the second
+	}
+
+	/**
+	 * An author make a test with 2 kprims.<br>
+	 * A first user make the test, but doesn't answer all questions
+	 * correctly, log out and a second user make the perfect test.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorKprim(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		UserVO melissa = new UserRestClient(deploymentUrl).createRandomUser("Melissa");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Kprim QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a kprim
+		QTI21KprimEditorPage kprimEditor = qtiEditor
+			.addKprim();
+		kprimEditor
+			.setAnswer(0, "Correct")
+			.setCorrect(0, true)
+			.setAnswer(1, "OkToo")
+			.setCorrect(1, true)
+			.setAnswer(2, "Faux")
+			.setCorrect(2, false)
+			.setAnswer(3, "Falsch")
+			.setCorrect(3, false)
+			.save();
+		// change max score
+		kprimEditor
+			.selectScores()
+			.setMaxScore("4")
+			.save();
+		// set some feedbacks
+		kprimEditor
+			.selectFeedbacks()
+			.setHint("Hint", "This is only an hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		// second kprim
+		kprimEditor = qtiEditor
+			.addKprim()
+			.setAnswer(0, "OnlyRight")
+			.setCorrect(0, true)
+			.setAnswer(1, "NotRight")
+			.setCorrect(1, false)
+			.setAnswer(2, "NotAnswer")
+			.setCorrect(2, false)
+			.setAnswer(3, "TheWrongOne")
+			.setCorrect(3, false)
+			.save();
+		kprimEditor
+			.selectScores()
+			.setMaxScore("2")
+			.save();
+		kprimEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.answerCorrectKPrim("Correct", "OkToo", "Faux")
+			.answerIncorrectKPrim("Falsch")
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerCorrectKPrim("Correct", "OkToo")
+			.answerIncorrectKPrim("Falsch", "Faux")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerIncorrectKPrim("OnlyRight", "NotRight", "NotAnswer", "TheWrongOne")
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(5);// 4 points from the first question, 1 from the second
+		
+
+		//a second user search the content package
+		LoginPage melLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		melLoginPage
+			.loginAs(melissa.getLogin(), melissa.getPassword())
+			.resume();
+		NavigationPage melNavBar = new NavigationPage(participantBrowser);
+		melNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.assertOnAssessmentItem()
+			.answerCorrectKPrim("Correct", "OkToo")
+			.answerIncorrectKPrim("Faux", "Falsch")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerCorrectKPrim("OnlyRight")
+			.answerIncorrectKPrim("NotRight", "NotAnswer", "TheWrongOne")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(6);// 3 points from the first question, 3 from the second
+	}
+	
+	/**
+	 * An author make a test with 2 matches. A match with "multiple selection"
+	 * and score "all answers", a second with "single selection" and score
+	 * "per answers".<br>
+	 * A first user make the test, but doesn't answer all questions
+	 * correctly, log out and a second user make the perfect test.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorMatch(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		UserVO melissa = new UserRestClient(deploymentUrl).createRandomUser("Melissa");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Match QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a match, multiple selection
+		QTI21MatchEditorPage matchEditor = qtiEditor
+			.addMatch();
+		matchEditor
+			.setSource(0, "Eclipse")
+			.setSource(1, "vim")
+			.setTarget(0, "IDE")
+			.setTarget(1, "TextProcessor")
+			.addColumn()
+			.setTarget(2, "TextEditor")
+			.setMatch(0, 0, true)
+			.setMatch(1, 2, true)
+			.save();
+		// change max score
+		matchEditor
+			.selectScores()
+			.setMaxScore("4")
+			.save();
+		// set some feedbacks
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "This is only an hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		// second match
+		matchEditor = qtiEditor
+			.addMatch()
+			.setSingleChoices()
+			.setSource(0, "Java")
+			.setSource(1, "C")
+			.addRow()
+			.setSource(2, "PHP")
+			.setTarget(0, "CodeIgniter")
+			.setTarget(1, "VisualStudio")
+			.addColumn()
+			.setTarget(2, "Eclipse")
+			.setMatch(0, 2, true)
+			.setMatch(1, 1, true)
+			.setMatch(2, 0, true)
+			.save();
+		// select score "per answer" and set the scores
+		matchEditor
+			.selectScores()
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setMaxScore("6")
+			.setScore(0, 0, "0.0")
+			.setScore(0, 1, "0.0")
+			.setScore(0, 2, "2.0")
+			.setScore(1, 0, "0.0")
+			.setScore(1, 1, "3.0")
+			.setScore(1, 2, "0.0")
+			.setScore(2, 0, "1.0")
+			.setScore(2, 1, "0.0")
+			.setScore(2, 2, "0.0")
+			.save();
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.answerMatch("Eclipse", "IDE", true)
+			.answerMatch("vim", "IDE", true)
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerMatch("vim", "IDE", false)
+			.answerMatch("vim", "TextEditor", true)
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatch("Java", "Eclipse", true)
+			.answerMatch("C", "CodeIgniter", true)
+			.answerMatch("PHP", "VisualStudio", true)
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(6);// 4 points from the first question, 2 from the second
+		
+		//a second user search the content package
+		LoginPage melLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		melLoginPage
+			.loginAs(melissa.getLogin(), melissa.getPassword())
+			.resume();
+		NavigationPage melNavBar = new NavigationPage(participantBrowser);
+		melNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.assertOnAssessmentItem()
+			.answerMatch("Eclipse", "IDE", true)
+			.answerMatch("vim", "TextEditor", true)
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatch("Java", "Eclipse", true)
+			.answerMatch("C", "CodeIgniter", true)
+			.answerMatch("PHP", "VisualStudio", true)
+			.saveAnswer()
+			.answerMatch("C", "CodeIgniter", false)
+			.answerMatch("PHP", "VisualStudio", false)
+			.answerMatch("C", "VisualStudio", true)
+			.answerMatch("PHP", "CodeIgniter", true)
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(10);// 4 points from the first question, 6 from the second
+	}
+	
+	/**
+	 * An author make a test with 2 matches. A match with "multiple selection"
+	 * and score "all answers", a second with "single selection" and score
+	 * "per answers". They are distractors, the assessed user must let them blank.<br>
+	 * A first user make the test, but doesn't answer all questions
+	 * correctly, log out and a second user make the perfect test.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorMatch_distractors(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		UserVO melissa = new UserRestClient(deploymentUrl).createRandomUser("Melissa");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Match QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a match, multiple selection
+		QTI21MatchEditorPage matchEditor = qtiEditor
+			.addMatch();
+		matchEditor
+			.setSource(0, "Eclipse")
+			.setSource(1, "nano")
+			.setTarget(0, "IDE")
+			.setTarget(1, "WordProcessor")
+			.addColumn()
+			.setTarget(2, "CAD")
+			.save();
+		// change max score
+		matchEditor
+			.selectScores()
+			.setMaxScore("4")
+			.save();
+		// set some feedbacks
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "This is only an hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		// second match
+		matchEditor = qtiEditor
+			.addMatch()
+			.setSingleChoices()
+			.setSource(0, "Java")
+			.setSource(1, "C")
+			.addRow()
+			.setSource(2, "PHP")
+			.setTarget(0, "Lynx")
+			.setTarget(1, "Netscape")
+			.addColumn()
+			.setTarget(2, "Pixel")
+			.save();
+		// select score "per answer" and set the scores
+		matchEditor
+			.selectScores()
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setMaxScore("6")
+			.setScore(0, 0, "0.0")
+			.setScore(0, 1, "0.0")
+			.setScore(0, 2, "1.0")
+			.setScore(1, 0, "0.0")
+			.setScore(1, 1, "1.0")
+			.setScore(1, 2, "0.0")
+			.setScore(2, 0, "2.0")
+			.setScore(2, 1, "0.0")
+			.setScore(2, 2, "-0.5")
+			.save();
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.answerMatch("Eclipse", "WordProcessor", true)
+			.answerMatch("nano", "CAD", true)
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerMatch("nano", "CAD", false)
+			.answerMatch("Eclipse", "WordProcessor", false)
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatch("Java", "Pixel", true)
+			.answerMatch("C", "Lynx", true)
+			.answerMatch("PHP", "Pixel", true)
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore("4.5");// 4 points from the first question, 0.5 from the second
+		
+		//a second user search the content package
+		LoginPage melLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		melLoginPage
+			.loginAs(melissa.getLogin(), melissa.getPassword())
+			.resume();
+		NavigationPage melNavBar = new NavigationPage(participantBrowser);
+		melNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.assertOnAssessmentItem()
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatch("Java", "Pixel", true)
+			.answerMatch("C", "Pixel", true)
+			.answerMatch("PHP", "Lynx", true)
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.answerMatch("Java", "Pixel", false)
+			.answerMatch("C", "Pixel", false)
+			.answerMatch("PHP", "Lynx", false)
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(10);// 4 points from the first question, 6 from the second
+	}
+	
+	/**
+	 * An author make a test with 2 match of the drag and drop variety
+	 * with feedbacks.<br>
+	 * A first user make the test, check the feedbacks but make an error
+	 * and score the maximum. A second user answers all the questions
+	 * correctly.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorMatchDragAndDrop(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO asuka = new UserRestClient(deploymentUrl).createRandomUser("Asuka");
+		UserVO chara = new UserRestClient(deploymentUrl).createRandomUser("Chara");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Match DnD QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a match, multiple selection
+		QTI21MatchEditorPage matchEditor = qtiEditor
+			.addMatchDragAndDrop();
+		matchEditor
+			.setSource(0, "Einstein")
+			.setSource(1, "Planck")
+			.addRow()
+			.setSource(2, "Euler")
+			.setTarget(0, "Physicist")
+			.setTarget(1, "Mathematician")
+			.setMatch(0, 0, true)
+			.setMatch(1, 0, true)
+			.setMatch(2, 1, true)
+			.save();
+		// change max score
+		matchEditor
+			.selectScores()
+			.setMaxScore("4")
+			.save();
+		// set some feedbacks
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "Euler come from Switzerland")
+			.setCorrectSolution("Correct solution", "The correct solution is simple")
+			.setCorrectFeedback("Correct feedback", "You are right")
+			.setIncorrectFeedback("Incorrect", "Your answer is not exactly correct")
+			.save();
+		
+		// second match
+		matchEditor = qtiEditor
+			.addMatchDragAndDrop()
+			.setSingleChoices()
+			.setSource(0, "Euler")
+			.setSource(1, "Broglie")
+			.addRow()
+			.setSource(2, "Konrad")
+			.setTarget(0, "Mathematics")
+			.setTarget(1, "Medicine")
+			.addColumn()
+			.setTarget(2, "Physics")
+			.setMatch(0, 0, true)
+			.setMatch(1, 2, true)
+			.setMatch(2, 1, true)
+			.save();
+		// select score "per answer" and set the scores
+		matchEditor
+			.selectScores()
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setMaxScore("8")
+			.setScore(0, 0, "2.0")
+			.setScore(0, 1, "0.0")
+			.setScore(0, 2, "0.0")
+			.setScore(1, 0, "0.0")
+			.setScore(1, 1, "0.0")
+			.setScore(1, 2, "3.0")
+			.setScore(2, 0, "0.0")
+			.setScore(2, 1, "2.0")
+			.setScore(2, 2, "0.0")
+			.save();
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		//close editor
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage asukaLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		asukaLoginPage
+			.loginAs(asuka.getLogin(), asuka.getPassword())
+			.resume();
+		NavigationPage asukaNavBar = new NavigationPage(participantBrowser);
+		asukaNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page asukaQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		asukaQtiPage
+			.assertOnAssessmentItem()
+			.answerMatchDropSourceToTarget("Einstein", "Physicist")
+			.answerMatchDropSourceToTarget("Planck", "Mathematician")
+			.answerMatchDropSourceToTarget("Euler", "Mathematician")
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerMatchDropTargetToTarget("Planck", "Physicist")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatchDropSourceToTarget("Broglie", "Physics") // 2 points
+			.answerMatchDropSourceToTarget("Euler", "Medicine")  // 2 points
+			.answerMatchDropSourceToTarget("Konrad", "Medicine") // 3 points
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(9);
+		
+		//a second user search the content package
+		LoginPage charaLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		charaLoginPage
+			.loginAs(chara.getLogin(), chara.getPassword())
+			.resume();
+		NavigationPage charaNavBar = new NavigationPage(participantBrowser);
+		charaNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.answerMatchDropSourceToTarget("Einstein", "Physicist")
+			.answerMatchDropSourceToTarget("Planck", "Physicist")
+			.answerMatchDropSourceToTarget("Euler", "Mathematician")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatchDropSourceToTarget("Broglie", "Physics")   // 2 points
+			.answerMatchDropSourceToTarget("Euler", "Mathematics") // 2 points
+			.answerMatchDropSourceToTarget("Konrad", "Medicine")   // 3 points
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(11);// 4 points from the first question, 7 from the second	
+	}
+	
+	/**
+	 * An author make a test with 2 match of the drag and drop variety
+	 * with feedbacks but as distractor. The assessed user need to let them
+	 * blank to have the max. score.<br>
+	 * A first user make the test, check the feedbacks but make an error
+	 * and score the maximum. A second user answers all the questions
+	 * correctly.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorMatchDragAndDrop_distractors(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO asuka = new UserRestClient(deploymentUrl).createRandomUser("Asuka");
+		UserVO chara = new UserRestClient(deploymentUrl).createRandomUser("Chara");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Match DnD QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add a match, multiple selection
+		QTI21MatchEditorPage matchEditor = qtiEditor
+			.addMatchDragAndDrop();
+		matchEditor
+			.setSource(0, "Einstein")
+			.setSource(1, "Planck")
+			.addRow()
+			.setSource(2, "Euler")
+			.setTarget(0, "Chemistry")
+			.setTarget(1, "Philosophy")
+			.save();
+		// change max score
+		matchEditor
+			.selectScores()
+			.setMaxScore("4")
+			.save();
+		// set some feedbacks
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "Euler come from Switzerland")
+			.setCorrectSolution("Correct solution", "The correct solution is simple")
+			.setCorrectFeedback("Correct feedback", "You are right")
+			.setIncorrectFeedback("Incorrect", "Your answer is not exactly correct")
+			.save();
+		
+		// second match
+		matchEditor = qtiEditor
+			.addMatchDragAndDrop()
+			.setSingleChoices()
+			.setSource(0, "Euler")
+			.setSource(1, "Broglie")
+			.addRow()
+			.setSource(2, "Konrad")
+			.setTarget(0, "Chemistry")
+			.setTarget(1, "Biology")
+			.addColumn()
+			.setTarget(2, "Astrology")
+			.save();
+		// select score "per answer" and set the scores
+		matchEditor
+			.selectScores()
+			.selectAssessmentMode(ScoreEvaluation.perAnswer)
+			.setMaxScore("8")
+			.setScore(0, 0, "1.0")
+			.setScore(0, 1, "0.0")
+			.setScore(0, 2, "0.0")
+			.setScore(1, 0, "0.0")
+			.setScore(1, 1, "0.0")
+			.setScore(1, 2, "-0.5")
+			.setScore(2, 0, "0.0")
+			.setScore(2, 1, "2.0")
+			.setScore(2, 2, "0.0")
+			.save();
+		matchEditor
+			.selectFeedbacks()
+			.setHint("Hint", "The hint")
+			.setCorrectSolution("Correct solution", "This is the correct solution")
+			.setCorrectFeedback("Correct feedback", "This is correct")
+			.setIncorrectFeedback("Incorrect", "Your answer is not correct")
+			.save();
+		
+		//close editor
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage asukaLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		asukaLoginPage
+			.loginAs(asuka.getLogin(), asuka.getPassword())
+			.resume();
+		NavigationPage asukaNavBar = new NavigationPage(participantBrowser);
+		asukaNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page asukaQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		asukaQtiPage
+			.assertOnAssessmentItem()
+			.answerMatchDropSourceToTarget("Einstein", "Chemistry")
+			.answerMatchDropSourceToTarget("Planck", "Philosophy")
+			.saveAnswer()
+			.assertFeedback("Incorrect")
+			.assertCorrectSolution("Correct solution")
+			.hint()
+			.assertFeedback("Hint")
+			.answerMatchDetarget("Planck")
+			.answerMatchDetarget("Einstein")
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatchDropSourceToTarget("Broglie", "Astrology") // -0.5 points
+			.answerMatchDropSourceToTarget("Euler", "Chemistry")  // 1 points
+			.answerMatchDropSourceToTarget("Konrad", "Chemistry") // 0 points
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore("4.5");
+		
+		//a second user search the content package
+		LoginPage charaLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		charaLoginPage
+			.loginAs(chara.getLogin(), chara.getPassword())
+			.resume();
+		NavigationPage charaNavBar = new NavigationPage(participantBrowser);
+		charaNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page
+			.getQTI12Page(participantBrowser)
+			.saveAnswer()
+			.assertFeedback("Correct feedback")
+			.nextAnswer()
+			.answerMatchDropSourceToTarget("Broglie", "Chemistry")   // 2 points
+			.answerMatchDropSourceToTarget("Euler", "Astrology") // 2 points
+			.answerMatchDropSourceToTarget("Konrad", "Astrology")   // 3 points
+			.saveAnswer()
+			.assertCorrectSolution("Correct solution")
+			.assertFeedback("Incorrect")
+			.answerMatchDetarget("Broglie")
+			.answerMatchDetarget("Euler")
+			.answerMatchDetarget("Konrad")
+			.saveAnswer()
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(12);// 4 points from the first question, 8 from the second	
+	}
+	
+	/**
+	 * An author make a test with 1 upload and feedbacks.<br>
+	 * A user make the test, test hint and upload the file.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorUpload(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		//make a test
+		String qtiTestTitle = "Upload QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add an upload interaction
+		QTI21LobEditorPage uploadEditor = qtiEditor
+			.addUpload();
+		uploadEditor
+			.setQuestion("Upload a file")
+			.save()
+			.selectScores()
+			.setMaxScore("2.0")
+			.save();
+		uploadEditor
+			.selectFeedbacks()
+			.setHint("Hint", "Need a little help.")
+			.setCorrectSolution("Correct solution", "Only for Word")
+			.setAnsweredFeedback("Full", "You upload something")
+			.setEmpytFeedback("Empty", "You do not upload anything")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.saveAnswer()
+			.assertFeedback("Empty")
+			.hint()
+			.assertFeedback("Hint");
+		
+		URL imageUrl = JunitTestHelper.class.getResource("file_resources/IMG_1482.JPG");
+		File imageFile = new File(imageUrl.toURI());
+		reiQtiPage
+			.answerUpload(imageFile)
+			.saveAnswer()
+			.assertFeedback("Full")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentResultUpload("IMG_1482");
+	}
+	
+	/**
+	 * An author make a test with an essai and its special feedback.<br>
+	 * A user make the test and check the feedback.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorEssay(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+
+		//make a test
+		String qtiTestTitle = "Essai QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add an essay interaction
+		QTI21LobEditorPage essayEditor = qtiEditor
+			.addEssay();
+		essayEditor
+			.setQuestion("Write a small story")
+			.save()
+			.selectScores()
+			.setMaxScore("3.0")
+			.save();
+		essayEditor
+			.selectFeedbacks()
+			.setHint("Hint", "Did you search inspiration?")
+			.setCorrectSolution("Correct solution", "It is very personal.")
+			.setAnsweredFeedback("Full", "Well done")
+			.setEmpytFeedback("Empty", "Please, a little effort.")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.saveAnswer()
+			.assertFeedback("Empty")
+			.hint()
+			.assertFeedback("Hint");
+
+		reiQtiPage
+			.answerEssay("What can I write?")
+			.saveAnswer()
+			.assertFeedback("Full")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnAssessmentResultEssay("What");
+	}
+	
+	
+	/**
+	 * An author make a test with a drawing and its special feedback.<br>
+	 * A user make the test and check the feedback.
+	 * 
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorDrawing(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO rei = new UserRestClient(deploymentUrl).createRandomUser("Rei");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+
+		//make a test
+		String qtiTestTitle = "Drawing QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//start a blank test
+		qtiEditor
+			.selectNode("Single choice")
+			.deleteNode();
+		
+		//add an essay interaction
+		QTI21LobEditorPage essayEditor = qtiEditor
+			.addDrawing();
+		
+		URL backgroundImageUrl = JunitTestHelper.class.getResource("file_resources/house.jpg");
+		File backgroundImageFile = new File(backgroundImageUrl.toURI());
+		essayEditor
+			.setQuestion("Draw an house")
+			.updloadDrawingBackground(backgroundImageFile)
+			.save()
+			.selectScores()
+			.setMaxScore("3.0")
+			.save();
+		essayEditor
+			.selectFeedbacks()
+			.setHint("Hint", "Did you search inspiration?")
+			.setCorrectSolution("Correct solution", "It is very personal.")
+			.setAnsweredFeedback("Full", "Well done")
+			.setEmpytFeedback("Empty", "Please, a little effort.")
+			.save();
+		
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage reiLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		reiLoginPage
+			.loginAs(rei.getLogin(), rei.getPassword())
+			.resume();
+		NavigationPage reiNavBar = new NavigationPage(participantBrowser);
+		reiNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page reiQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		reiQtiPage
+			.assertOnAssessmentItem()
+			.saveAnswer()
+			.assertFeedback("Empty")
+			.hint()
+			.assertFeedback("Hint");
+
+		reiQtiPage
+			.answerDrawing()
+			.saveAnswer()
+			.assertFeedback("Full")
+			.endTest()
+			.assertOnAssessmentResults()
+			.assertOnDrawing();
+	}
+	
+	/**
+	 * An author make a test with 2 questions and in the expert
+	 * settings of the section, it hides the title. It set the
+	 * access configuration.<br>
+	 * A user search the test, make it, check that the sections
+	 * are not visible, pass the test and check the assessment
+	 * results.
+	 * @param authorLoginPage
+	 * @param participantBrowser
+	 * @throws IOException
+	 * @throws URISyntaxException
+	 */
+	@Test
+	@RunAsClient
+	public void qti21EditorHiddenSection(@InitialPage LoginPage authorLoginPage,
+			@Drone @User WebDriver participantBrowser)
+	throws IOException, URISyntaxException {
+		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
+		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
+		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
+		
+		String qtiTestTitle = "Choices QTI 2.1 " + UUID.randomUUID();
+		navBar
+			.openAuthoringEnvironment()
+			.createQTI21Test(qtiTestTitle)
+			.clickToolbarBack();
+		
+		QTI21Page qtiPage = QTI21Page
+				.getQTI12Page(browser);
+		QTI21EditorPage qtiEditor = qtiPage
+				.edit();
+		//customize the section
+		qtiEditor
+			.selectSection()
+			.selectExpertOptions()
+			.sectionTitle(false)
+			.save();
+		
+		//edit the default single choice
+		qtiEditor
+			.selectItem("Single Choice");
+		QTI21SingleChoiceEditorPage scEditor = new QTI21SingleChoiceEditorPage(browser);
+		scEditor
+			.setAnswer(0, "Wrong")
+			.addChoice(1)
+			.setCorrect(1)
+			.setAnswer(1, "Correct")
+			.addChoice(2)
+			.setAnswer(2, "Faux")
+			.save();
+		//add a multiple choice
+		QTI21MultipleChoiceEditorPage mcEditor = qtiEditor
+			.addMultipleChoice();
+		mcEditor
+			.setAnswer(0, "Correct")
+			.setCorrect(0)
+			.addChoice(1)
+			.setCorrect(1)
+			.setAnswer(1, "OkToo")
+			.addChoice(2)
+			.setAnswer(2, "Faux")
+			.addChoice(3)
+			.setAnswer(3, "Falsch")
+			.save();
+		qtiPage
+			.clickToolbarBack();
+		// access to all
+		qtiPage
+			.accessConfiguration()
+			.setUserAccess(UserAccess.guest)
+			.clickToolbarBack();
+		// show results
+		qtiPage
+			.options()
+			.showResults(Boolean.TRUE, QTI21AssessmentResultsOptions.allOptions())
+			.save();
+		
+		//a user search the content package
+		LoginPage userLoginPage = LoginPage.getLoginPage(participantBrowser, deploymentUrl);
+		userLoginPage
+			.loginAs(ryomou.getLogin(), ryomou.getPassword())
+			.resume();
+		NavigationPage userNavBar = new NavigationPage(participantBrowser);
+		userNavBar
+			.openMyCourses()
+			.openSearch()
+			.extendedSearch(qtiTestTitle)
+			.select(qtiTestTitle)
+			.start();
+		
+		// make the test
+		QTI21Page ryomouQtiPage = QTI21Page
+				.getQTI12Page(participantBrowser);
+		ryomouQtiPage
+			.assertOnAssessmentItem()
+			.assertHiddenSection()
+			.answerSingleChoice("Correct")
+			.saveAnswer()
+			.answerMultipleChoice("OkToo")
+			.answerMultipleChoice("Correct")
+			.saveAnswer()
+			.endTest()
+		//check the results
+			.assertOnAssessmentResults()
+			.assertOnAssessmentTestScore(2)
+			.assertOnAssessmentTestMaxScore(2);
 	}
 }

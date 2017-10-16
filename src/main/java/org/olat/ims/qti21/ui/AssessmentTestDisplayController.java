@@ -34,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -56,6 +57,7 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Persistable;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.OLATRuntimeException;
@@ -175,6 +177,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	private AssessmentTestSession candidateSession;
 	private ResolvedAssessmentTest resolvedAssessmentTest;
 	private AssessmentTestMarks marks;
+	private final Map<TestPlanNode, Integer> numbering = new HashMap<>();
 	
 	private RepositoryEntry testEntry;
 	private RepositoryEntry entry;
@@ -224,11 +227,11 @@ public class AssessmentTestDisplayController extends BasicController implements 
 		
 		UserSession usess = ureq.getUserSession();
 		if(usess.getRoles().isGuestOnly() || anonym) {
-			this.anonym = anonym;
+			this.anonym = true;
 			assessedIdentity = null;
 			anonymousIdentifier = getAnonymousIdentifier(usess);
 		} else {
-			this.anonym = anonym;
+			this.anonym = false;
 			assessedIdentity = getIdentity();
 			anonymousIdentifier = null;
 		}
@@ -243,7 +246,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 		fUnzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
 		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(fUnzippedDirRoot, false, false);
 		if(resolvedAssessmentTest == null || resolvedAssessmentTest.getRootNodeLookup().extractIfSuccessful() == null) {
-        	mainVC = createVelocityContainer("error");
+			mainVC = createVelocityContainer("error");
 		} else {
 			currentRequestTimestamp = ureq.getRequestTimestamp();
 			
@@ -257,11 +260,14 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	
 			/* Handle immediate end of test session */
 	        if (testSessionController.getTestSessionState() != null && testSessionController.getTestSessionState().isEnded()) {
-	        	immediateEndTestSession(ureq);
-	         	mainVC = createVelocityContainer("end");
+	        		immediateEndTestSession(ureq);
+	        		mainVC = createVelocityContainer("end");
 	        } else {
-	        	mainVC = createVelocityContainer("run");
-	        	initQtiWorks(ureq);
+	        		mainVC = createVelocityContainer("run");
+	        		initQtiWorks(ureq);
+	        		if(!deliveryOptions.isShowTitles()) {
+	        			initNumbering();
+	        		}
 	        }
 	        
 	        OLATResourceable sessionOres = OresHelper
@@ -270,6 +276,18 @@ public class AssessmentTestDisplayController extends BasicController implements 
 		}
         
         mainPanel = putInitialPanel(mainVC);
+	}
+	
+	private void initNumbering() {
+		AtomicInteger number = new AtomicInteger(0);
+		List<TestPlanNode> nodes = testSessionController.getTestSessionState().getTestPlan().getTestPlanNodeList();
+		for(TestPlanNode node:nodes) {
+			if(node.getTestNodeType() == TestNodeType.ASSESSMENT_ITEM_REF) {
+				numbering.put(node, number.incrementAndGet());
+			} else if(node.getTestNodeType() == TestNodeType.TEST_PART) {
+				number.set(0);
+			}
+		}
 	}
 	
 	private void immediateEndTestSession(UserRequest ureq) {
@@ -309,7 +327,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 		AssessmentEntry assessmentEntry = assessmentService.getOrCreateAssessmentEntry(assessedIdentity, anonymousIdentifier, entry, subIdent, testEntry);
 		if(outcomesListener == null) {
 			boolean manualCorrections = AssessmentTestHelper.needManualCorrection(resolvedAssessmentTest);
-			outcomesListener = new AssessmentEntryOutcomesListener(assessmentEntry, manualCorrections, assessmentService, authorMode);
+			outcomesListener = new AssessmentEntryOutcomesListener(entry, testEntry, assessmentEntry, manualCorrections, assessmentService, authorMode);
 		}
 
 		AssessmentTestSession lastSession = qtiService.getResumableAssessmentTestSession(assessedIdentity, anonymousIdentifier, entry, subIdent, testEntry, authorMode);
@@ -366,8 +384,8 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	
 	private void initQtiWorks(UserRequest ureq) {
 		qtiWorksCtrl = new QtiWorksController(ureq, getWindowControl());
-    	listenTo(qtiWorksCtrl);
-    	mainVC.put("qtirun", qtiWorksCtrl.getInitialComponent());
+		listenTo(qtiWorksCtrl);
+		mainVC.put("qtirun", qtiWorksCtrl.getInitialComponent());
 	}
 	
 	@Override
@@ -377,10 +395,20 @@ public class AssessmentTestDisplayController extends BasicController implements 
         		.createOLATResourceableInstance(AssessmentTestSession.class, candidateSession.getKey());
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, sessionOres);
 	}
-
+	
+	/**
+	 * @return true if the termination time is set.
+	 */
 	@Override
 	public boolean isTerminated() {
 		return candidateSession.getTerminationTime() != null;
+	}
+	
+	/**
+	 * @return true if the termination time or the finished time is set.
+	 */
+	public boolean isEnded() {
+		return candidateSession.getTerminationTime() != null || candidateSession.getFinishTime() != null;
 	}
 
 	@Override
@@ -399,7 +427,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	}
 	
 	public boolean isResultsVisible() {
-		return qtiWorksCtrl.isResultsVisible();
+		return qtiWorksCtrl != null && qtiWorksCtrl.isResultsVisible();
 	}
 
 	@Override
@@ -650,33 +678,71 @@ public class AssessmentTestDisplayController extends BasicController implements 
 			case mark:
 				toogleMark(qe.getSubCommand());
 				break;
+			case rubric:
+				toogleRubric(qe.getSubCommand());
+				break;
 		}
 	}
 	
 	private void toogleMark(String itemRef) {
-		if(marks == null) {
-			if(anonym) {
-				marks = new InMemoryAssessmentTestMarks(itemRef);
-			} else {
-				marks = qtiService.createMarks(assessedIdentity, entry, subIdent, testEntry, itemRef);
-			}
+		marks = getMarkerObject();
+		
+		String currentMarks = marks.getMarks();
+		if(currentMarks == null) {
+			marks.setMarks(itemRef);
+		} else if(currentMarks.indexOf(itemRef) >= 0) {
+			marks.setMarks(currentMarks.replace(itemRef, ""));
 		} else {
-			String currentMarks = marks.getMarks();
-			if(currentMarks == null) {
-				marks.setMarks(itemRef);
-			} else if(currentMarks.indexOf(itemRef) >= 0) {
-				marks.setMarks(currentMarks.replace(itemRef, ""));
-			} else {
-				marks.setMarks(currentMarks + " " + itemRef);
-			}
+			marks.setMarks(currentMarks + " " + itemRef);
+		}
+		if(marks instanceof Persistable) {
 			marks = qtiService.updateMarks(marks);
 		}
+	}
+	
+	private void toogleRubric(String sectionRef) {
+		marks = getMarkerObject();
+		
+		String hiddenRubrics = marks.getHiddenRubrics();
+		if(hiddenRubrics == null) {
+			marks.setHiddenRubrics(sectionRef);
+		} else if(hiddenRubrics.indexOf(sectionRef) >= 0) {
+			marks.setHiddenRubrics(hiddenRubrics.replace(sectionRef, ""));
+		} else {
+			marks.setHiddenRubrics(hiddenRubrics + " " + sectionRef);
+		}
+		if(marks instanceof Persistable) {
+			marks = qtiService.updateMarks(marks);
+		}
+	}
+	
+	private final AssessmentTestMarks getMarkerObject() {
+		if(marks == null) {
+			if(anonym) {
+				marks = new InMemoryAssessmentTestMarks();
+			} else {
+				marks = qtiService.createMarks(assessedIdentity, entry, subIdent, testEntry, "");
+			}
+		}
+		return marks;
 	}
 	
 	@Override
 	public boolean isMarked(String itemKey) {
 		if(marks == null || marks.getMarks() == null) return false;
 		return marks.getMarks().indexOf(itemKey) >= 0;
+	}
+	
+	@Override
+	public boolean isRubricHidden(Identifier sectionKey) {
+		if(marks == null || marks.getHiddenRubrics() == null || sectionKey == null) return false;
+		return marks.getHiddenRubrics().indexOf(sectionKey.toString()) >= 0;
+	}
+
+	@Override
+	public int getNumber(TestPlanNode node) {
+		Integer number =  numbering.get(node);
+		return number == null ? -1 : number.intValue(); 
 	}
 
 	private void processSelectItem(UserRequest ureq, String key) {
@@ -837,7 +903,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 
 	    /* If we ended the testPart and there are now no more available testParts, then finish the session now */
 	    if (nextItemNode==null && testSessionController.findNextEnterableTestPart()==null) {
-	    	candidateSession = qtiService.finishTestSession(candidateSession, testSessionState, assessmentResult,
+	    		candidateSession = qtiService.finishTestSession(candidateSession, testSessionState, assessmentResult,
 	    			requestTimestamp, getDigitalSignatureOptions(), getIdentity());
 	    }
 
@@ -862,6 +928,16 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	private void handleTemporaryResponse(UserRequest ureq, Map<Identifier, ResponseInput> stringResponseMap) {
 		NotificationRecorder notificationRecorder = new NotificationRecorder(NotificationLevel.INFO);
 		TestSessionState testSessionState = testSessionController.getTestSessionState();
+		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
+		if(currentItemKey == null) {
+			return;//
+		}
+		
+		String cmd = ureq.getParameter("tmpResponse");
+		if(!qtiWorksCtrl.validateResponseIdentifierCommand(cmd, currentItemKey)) {
+			return;//this is not the right node in the plan
+		}
+		
 		final Date timestamp = ureq.getRequestTimestamp();
 		
 		final Map<Identifier, ResponseData> responseDataMap = new HashMap<>();
@@ -875,9 +951,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
             }
 		}
 		
-		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
 		ParentPartItemRefs parentParts = getParentSection(currentItemKey);
-
 		String assessmentItemIdentifier = currentItemKey.getIdentifier().toString();
 		AssessmentItemSession itemSession = qtiService
 				.getOrCreateAssessmentItemSession(candidateSession, parentParts, assessmentItemIdentifier);
@@ -957,6 +1031,12 @@ public class AssessmentTestDisplayController extends BasicController implements 
 
 		NotificationRecorder notificationRecorder = new NotificationRecorder(NotificationLevel.INFO);
 		TestSessionState testSessionState = testSessionController.getTestSessionState();
+
+		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
+		if(currentItemKey == null && getLastEvent() != null && getLastEvent().getTestEventType() == CandidateTestEventType.REVIEW_ITEM) {
+			//someone try to send the form in review with tab / return
+			return;
+		}
 		
 		final Map<Identifier,File> fileSubmissionMap = new HashMap<>();
 		final Map<Identifier, ResponseData> responseDataMap = new HashMap<>();
@@ -983,7 +1063,6 @@ public class AssessmentTestDisplayController extends BasicController implements 
             }
 		}
 		
-		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
 		ParentPartItemRefs parentParts = getParentSection(currentItemKey);
 
 		String assessmentItemIdentifier = currentItemKey.getIdentifier().toString();
@@ -1447,25 +1526,27 @@ public class AssessmentTestDisplayController extends BasicController implements 
 	}
 	
 	private TestSessionController resumeSession(UserRequest ureq) {
-		Date currentRequestTimestamp = ureq.getRequestTimestamp();
+		Date requestTimestamp = ureq.getRequestTimestamp();
 		
         final NotificationRecorder notificationRecorder = new NotificationRecorder(NotificationLevel.INFO);
         TestSessionController controller =  createTestSessionController(notificationRecorder);
-        controller.unsuspendTestSession(currentRequestTimestamp);
-       
-        TestSessionState testSessionState = controller.getTestSessionState();
-		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
-		if(currentItemKey != null) {
-			TestPlanNode currentItemNode = testSessionState.getTestPlan().getNode(currentItemKey);
-			ItemProcessingContext itemProcessingContext = controller.getItemProcessingContext(currentItemNode);
-			ItemSessionState itemSessionState = itemProcessingContext.getItemSessionState();
-			if(itemProcessingContext instanceof ItemSessionController
-					&& itemSessionState.isSuspended()) {
-				ItemSessionController itemSessionController = (ItemSessionController)itemProcessingContext;
-				itemSessionController.unsuspendItemSession(currentRequestTimestamp);
-			}
-		}
-		
+        if(!controller.getTestSessionState().isEnded() && !controller.getTestSessionState().isExited()) {
+        		controller.unsuspendTestSession(requestTimestamp);
+            
+            TestSessionState testSessionState = controller.getTestSessionState();
+	    		TestPlanNodeKey currentItemKey = testSessionState.getCurrentItemKey();
+	    		if(currentItemKey != null) {
+	    			TestPlanNode currentItemNode = testSessionState.getTestPlan().getNode(currentItemKey);
+	    			ItemProcessingContext itemProcessingContext = controller.getItemProcessingContext(currentItemNode);
+	    			ItemSessionState itemSessionState = itemProcessingContext.getItemSessionState();
+	    			if(itemProcessingContext instanceof ItemSessionController
+	    					&& itemSessionState.isSuspended()) {
+	    				ItemSessionController itemSessionController = (ItemSessionController)itemProcessingContext;
+	    				itemSessionController.unsuspendItemSession(requestTimestamp);
+	    			}
+	    		}
+        }
+        
         return controller;
 	}
 	
@@ -1670,12 +1751,14 @@ public class AssessmentTestDisplayController extends BasicController implements 
 			qtiEl.setRenderNavigation(!showMenuTree);
 			qtiEl.setPersonalNotes(deliveryOptions.isPersonalNotes());
 			qtiEl.setShowTitles(deliveryOptions.isShowTitles());
+			qtiEl.setHideFeedbacks(deliveryOptions.isHideFeedbacks());
 			
 			qtiTreeEl.setResourceLocator(inputResourceLocator);
 			qtiTreeEl.setTestSessionController(testSessionController);
 			qtiTreeEl.setAssessmentObjectUri(qtiService.createAssessmentTestUri(fUnzippedDirRoot));
 			qtiTreeEl.setCandidateSessionContext(AssessmentTestDisplayController.this);
 			qtiTreeEl.setMapperUri(mapperUri);
+			qtiTreeEl.setShowTitles(deliveryOptions.isShowTitles());
 			
 			if(formLayout instanceof FormLayoutContainer) {
 				FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
@@ -1800,6 +1883,10 @@ public class AssessmentTestDisplayController extends BasicController implements 
 			Interaction interaction = qtiEl.getInteractionOfResponseUniqueIdentifier(uniqueId);
 			return interaction == null ? null : interaction.getResponseIdentifier();
 		}
+		
+		protected boolean validateResponseIdentifierCommand(String cmd, TestPlanNodeKey nodeKey) {
+			return qtiEl.validateCommand(cmd, nodeKey);
+		}
 
 		@Override
 		protected void formOK(UserRequest ureq) {
@@ -1863,7 +1950,7 @@ public class AssessmentTestDisplayController extends BasicController implements 
 		
 		@Override
 		protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent fe) {
-			if(!"mark".equals(fe.getCommand())) {
+			if(!"mark".equals(fe.getCommand()) && !"rubric".equals(fe.getCommand())) {
 				super.propagateDirtinessToContainer(fiSrc, fe);
 			}
 		}
@@ -1964,7 +2051,8 @@ public class AssessmentTestDisplayController extends BasicController implements 
 					&& deliveryOptions.getAssessmentResultsOptions() != null
 					&& !deliveryOptions.getAssessmentResultsOptions().none()) {
 				removeAsListenerAndDispose(resultCtrl);
-				resultCtrl = new AssessmentResultController(ureq, getWindowControl(), assessedIdentity, anonym,
+				// show results in anonym mode to hide the user info table - user knows who he is (same as on test start page)
+				resultCtrl = new AssessmentResultController(ureq, getWindowControl(), assessedIdentity, true,
 						AssessmentTestDisplayController.this.getCandidateSession(),
 						fUnzippedDirRoot, mapperUri, null, deliveryOptions.getAssessmentResultsOptions(), false, true);
 				listenTo(resultCtrl);
@@ -2005,11 +2093,6 @@ public class AssessmentTestDisplayController extends BasicController implements 
 						.getOutcomeValue(QTI21Constants.SCORE_IDENTIFIER);
 					if(assessmentTestScoreValue instanceof FloatValue) {
 						score = ((FloatValue)assessmentTestScoreValue).doubleValue();
-					}
-					Value assessmentTestMaxScoreValue = testSessionController.getTestSessionState()
-							.getOutcomeValue(QTI21Constants.MAXSCORE_IDENTIFIER);
-					if(assessmentTestMaxScoreValue instanceof FloatValue) {
-						maxScore = ((FloatValue)assessmentTestMaxScoreValue).doubleValue();
 					}
 					
 					qtiWorksStatus.setScore(score);

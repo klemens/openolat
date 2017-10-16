@@ -56,6 +56,7 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -144,6 +145,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private BaseSecurityModule securityModule;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private UserBulkChangeManager ubcMan;
 
 	/**
 	 * Constructor to trigger the user search workflow using a generic search form
@@ -442,9 +445,14 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		Map<String, String> userPropertiesSearch = new HashMap<String, String>();
 		for (UserPropertyHandler userPropertyHandler : searchform.getPropertyHandlers()) {
 			if (userPropertyHandler == null) continue;
+			
 			FormItem ui = searchform.getItem(userPropertyHandler.getName());
 			String uiValue = userPropertyHandler.getStringValue(ui);
-			if (StringHelper.containsNonWhitespace(uiValue)) {
+			if(userPropertyHandler.getName().startsWith("genericCheckboxProperty") && ui instanceof MultipleSelectionElement) {
+				if(!"false".equals(uiValue)) {//ignore false for the search
+					userPropertiesSearch.put(userPropertyHandler.getName(), uiValue);
+				}	
+			} else if (StringHelper.containsNonWhitespace(uiValue)) {
 				// when searching for deleted users, add wildcard to match with backup prefix
 				if (userPropertyHandler instanceof EmailProperty && searchform.getStatus().equals(Identity.STATUS_DELETED)) {
 					uiValue = "*" + uiValue;
@@ -565,7 +573,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 						return;
 					}
 					selectedIdentities = tdm.getIdentities(tmse.getSelection());
-					final UserBulkChangeManager ubcMan = UserBulkChangeManager.getInstance();
 					// valid selection: load in wizard
 					Step start = new UserBulkChangeStep00(ureq, selectedIdentities);
 					
@@ -937,7 +944,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 			FormItem fi = userPropertyHandler.addFormItem(
 					getLocale(), null, getClass().getCanonicalName(), false, formLayout
 			);
-			// OO-155: Do not validate items, this is a search form!
+			// Do not validate items, this is a search form!
 			if (fi instanceof TextElement) {
 				TextElement textElement = (TextElement) fi;
 				textElement.setItemValidatorProvider(null);

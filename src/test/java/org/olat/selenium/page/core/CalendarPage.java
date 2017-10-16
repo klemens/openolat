@@ -25,7 +25,6 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.junit.Assert;
 import org.olat.core.util.StringHelper;
 import org.olat.selenium.page.graphene.OOGraphene;
@@ -58,12 +57,7 @@ public class CalendarPage {
 			.appendValue(ChronoField.DAY_OF_MONTH, 2)
 			.toFormatter();
 	
-	@Drone
-	private WebDriver browser;
-	
-	public CalendarPage() {
-		//
-	}
+	private final WebDriver browser;
 	
 	public CalendarPage(WebDriver browser) {
 		this.browser = browser;
@@ -118,9 +112,13 @@ public class CalendarPage {
 	}
 	
 	public CalendarPage setAllDay(boolean allDay) {
-		By locationBy = By.cssSelector("fieldset.o_sel_cal_entry_form div.o_sel_cal_all_day input[type='checkbox']");
+		By locationBy = By.xpath("//fieldset[contains(@class,'o_sel_cal_entry_form')]//div[contains(@class,'o_sel_cal_all_day')]//input[@type='checkbox']");
+		By labelLocationBy = By.xpath("//fieldset[contains(@class,'o_sel_cal_entry_form')]//div[contains(@class,'o_sel_cal_all_day')]//label[input[@type='checkbox']]");
+		
 		WebElement allDayEl = browser.findElement(locationBy);
-		OOGraphene.check(allDayEl, new Boolean(allDay));
+		WebElement allDayLabelEl = browser.findElement(labelLocationBy);
+		OOGraphene.scrollTo(labelLocationBy, browser);
+		OOGraphene.check(allDayLabelEl, allDayEl, new Boolean(allDay));
 		
 		if(!allDay) {
 			By hourBy = By.xpath("//fieldset[contains(@class,'o_sel_cal_entry_form')]//div[contains(@class,'o_sel_cal_begin')]//input[contains(@id,'o_dch_')]");
@@ -166,18 +164,15 @@ public class CalendarPage {
 		OOGraphene.waitElement(dayBy, 5, browser);
 		browser.findElement(dayBy).click();
 		
-		OOGraphene.waitingALittleBit();
+		OOGraphene.waitElementUntilNotVisible(datePickerBy, 5, browser);
+		//OOGraphene.waitingALittleBit();
 		return this;
 	}
 	
 	public CalendarPage save() {
 		By saveBy = By.cssSelector("fieldset.o_sel_cal_entry_form button.btn.btn-primary span");
 		OOGraphene.waitElement(saveBy, 5, browser);
-		
-		WebElement saveEl = browser.findElement(saveBy);
-		OOGraphene.moveTo(saveEl, browser)
-			.click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.clickAndWait(saveBy, browser);//TODO sel
 		return this;
 	}
 	
@@ -200,8 +195,7 @@ public class CalendarPage {
 	public CalendarPage delete() {
 		By deleteBy = By.cssSelector("fieldset.o_sel_cal_entry_form a.btn.o_sel_cal_delete");
 		OOGraphene.waitElement(deleteBy, 5, browser);
-		browser.findElement(deleteBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.clickAndWait(deleteBy, browser);
 		return this;
 	}
 	
@@ -290,8 +284,4 @@ public class CalendarPage {
 		OOGraphene.waitModalDialog(browser);
 		return this;
 	}
-	
-
-	
-
 }

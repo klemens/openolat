@@ -66,6 +66,8 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	protected ListParagraph currentListParagraph;
 	protected boolean pNeedNewParagraph = true;
 	
+	protected double maxWidthCm = OpenXMLConstants.PAGE_FULL_WIDTH_CM;
+	
 	public HTMLToOpenXMLHandler(OpenXMLDocument document) {
 		this.factory = document;
 	}
@@ -85,6 +87,10 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	public HTMLToOpenXMLHandler(OpenXMLDocument document, Spacing spacing) {
 		this(document);
 		this.startSpacing = spacing;
+	}
+	
+	public void setMaxWidthCm(double width) {
+		this.maxWidthCm = width;
 	}
 	
 	public void setInitialParagraph(Element paragraph) {
@@ -159,6 +165,17 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			content.add(element);
 		}
 		return null;
+	}
+	
+	protected void trimTextBuffer() {
+		if(textBuffer == null) return;
+		
+		String text = textBuffer.toString().trim();
+		if(text.length() == 0) {
+			textBuffer = null;
+		} else {
+			textBuffer = new StringBuilder(text);
+		}
 	}
 	
 	protected void flushText() {
@@ -327,7 +344,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	}
 	
 	protected void setImage(String path) {
-		Element imgEl = factory.createImageEl(path);
+		Element imgEl = factory.createImageEl(path, maxWidthCm);
 		if(imgEl != null) {
 			PredefinedStyle style = getCurrentPredefinedStyle();
 			Element runEl = factory.createRunEl(Collections.singletonList(imgEl), style);
@@ -337,7 +354,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	}
 	
 	protected void setImage(File file) {
-		Element imgEl = factory.createImageEl(file);
+		Element imgEl = factory.createImageEl(file, maxWidthCm);
 		if(imgEl != null) {
 			PredefinedStyle style = getCurrentPredefinedStyle();
 			Element runEl = factory.createRunEl(Collections.singletonList(imgEl), style);
@@ -355,21 +372,29 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		closeParagraph();
 	}
 	
-	protected void startTable() {
+	public void startTable() {
 		closeParagraph();
 		currentTable = new Table();
 	}
 	
-	protected void startTable(Integer... width) {
+	public void startTable(Integer... width) {
 		closeParagraph();
 		currentTable = new Table(width);
 	}
 	
-	protected void startCurrentTableRow() {
+	public void startCurrentTableRow() {
 		currentTable.addRowEl();
 	}
 	
-	protected void closeCurrentTableRow() {
+	public Node addCell(int colSpan, int rowSpan) {
+		return currentTable.addCellEl(colSpan, rowSpan);
+	}
+	
+	public Node addCell(Element cellEl) {
+		return currentTable.addCellEl(cellEl, 1);
+	}
+	
+	public void closeCurrentTableRow() {
 		if(currentTable != null) {
 			currentTable.closeRow();
 		}
@@ -378,7 +403,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		currentParagraph = null;
 	}
 	
-	protected void endTable() {
+	public void endTable() {
 		if(currentTable != null) {
 			content.add(currentTable.getTableEl());
 		}
@@ -389,7 +414,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	@Override
 	public void startElement(String uri, String localName, String qName, Attributes attributes) {
 		String tag = localName.toLowerCase();
-		if("p".equalsIgnoreCase(tag)) {
+		if("p".equals(tag)) {
 			getCurrentParagraph(pNeedNewParagraph);
 		} else if("span".equalsIgnoreCase(tag)) {
 			flushText();
@@ -405,18 +430,18 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			styleStack.add(new StyleStatus(tag, styles));
 		} else if("br".equals(tag)) {
 			closeParagraph();
-		} else if("em".equalsIgnoreCase(tag)) {
+		} else if("em".equals(tag)) {
 			flushText();
 			Style[] styles = setTextPreferences(Style.italic);
 			styleStack.add(new StyleStatus(tag, styles));
-		} else if("strong".equalsIgnoreCase(tag)) {
+		} else if("strong".equals(tag)) {
 			flushText();
 			Style[] styles = setTextPreferences(Style.bold);
 			styleStack.add(new StyleStatus(tag, styles));
 		} else if("img".equals(tag)) {
 			String path = attributes.getValue("src");
 			setImage(path);
-		} else if("table".equalsIgnoreCase(tag)) {
+		} else if("table".equals(tag)) {
 			startTable();
 		} else if("tr".equals(tag)) {
 			startCurrentTableRow();
@@ -442,9 +467,11 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 					appendParagraph(new Spacing(120, 0));
 					pNeedNewParagraph = false;
 				} else {
+					getCurrentParagraph(pNeedNewParagraph);
 					styleStack.add(new StyleStatus(tag, new Style[0]));
 				}
 			} else {
+				getCurrentParagraph(pNeedNewParagraph);
 				styleStack.add(new StyleStatus(tag, new Style[0]));
 			}
 		}
@@ -492,6 +519,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			popStyle(tag);
 		} else if("div".equals(tag)) {
 			popStyle(tag);
+			closeParagraph();
 		}
 	}
 	

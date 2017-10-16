@@ -94,6 +94,7 @@ import org.olat.ims.qti21.model.ResponseLegality;
 import org.olat.ims.qti21.model.audit.CandidateEvent;
 import org.olat.ims.qti21.model.audit.CandidateItemEventType;
 import org.olat.ims.qti21.model.audit.CandidateTestEventType;
+import org.olat.ims.qti21.model.jpa.AssessmentTestSessionStatistics;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.manager.AssessmentEntryDAO;
 import org.olat.repository.RepositoryEntry;
@@ -207,6 +208,7 @@ public class QTI21ServiceImpl implements QTI21Service, UserDataDeletable, Initia
         if (qtiModule.isMathAssessExtensionEnabled()) {
             log.info("Enabling the MathAssess extensions");
             extensionPackages.add(new MathAssessExtensionPackage(xsltStylesheetCache));
+            extensionPackages.add(new OpenOLATExtensionPackage(xsltStylesheetCache));
         }
         jqtiExtensionManager = new JqtiExtensionManager(extensionPackages);
         xsltStylesheetManager = new XsltStylesheetManager(new ClassPathResourceLocator(), xsltStylesheetCache);
@@ -446,6 +448,12 @@ public class QTI21ServiceImpl implements QTI21Service, UserDataDeletable, Initia
 	}
 
 	@Override
+	public File getAssessmentSessionAuditLogFile(AssessmentTestSession session) {
+		File userStorage = testSessionDao.getSessionStorage(session);
+		return new File(userStorage, "audit.log");
+	}
+
+	@Override
 	public AssessmentSessionAuditLogger getAssessmentSessionAuditLogger(AssessmentTestSession session, boolean authorMode) {
 		if(authorMode) {
 			return new AssessmentSessionAuditOLog();
@@ -454,8 +462,7 @@ public class QTI21ServiceImpl implements QTI21Service, UserDataDeletable, Initia
 			return new AssessmentSessionAuditOLog();
 		}
 		try {
-			File userStorage = testSessionDao.getSessionStorage(session);
-			File auditLog = new File(userStorage, "audit.log");
+			File auditLog = getAssessmentSessionAuditLogFile(session);
 			FileOutputStream outputStream = new FileOutputStream(auditLog, true);
 			return new AssessmentSessionAuditFileLog(outputStream);
 		} catch (IOException e) {
@@ -513,6 +520,11 @@ public class QTI21ServiceImpl implements QTI21Service, UserDataDeletable, Initia
 	public List<AssessmentTestSession> getAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent, IdentityRef identity) {
 		return testSessionDao.getUserTestSessions(courseEntry, subIdent, identity);
 	}
+
+	@Override
+	public List<AssessmentTestSessionStatistics> getAssessmentTestSessionsStatistics(RepositoryEntryRef courseEntry, String subIdent, IdentityRef identity) {
+		return testSessionDao.getUserTestSessionsStatistics(courseEntry, subIdent, identity);
+	}
 	
 	@Override
 	public AssessmentTestSession getLastAssessmentTestSessions(RepositoryEntryRef courseEntry, String subIdent,
@@ -526,8 +538,8 @@ public class QTI21ServiceImpl implements QTI21Service, UserDataDeletable, Initia
 	}
 
 	@Override
-	public boolean isRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry) {
-		return testSessionDao.hasRunningTestSessions(entry, subIdent, testEntry);
+	public boolean isRunningAssessmentTestSession(RepositoryEntry entry, String subIdent, RepositoryEntry testEntry, List<? extends IdentityRef> identities) {
+		return testSessionDao.hasRunningTestSessions(entry, subIdent, testEntry, identities);
 	}
 
 	@Override

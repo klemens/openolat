@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -209,6 +210,12 @@ public class BinderDAO {
 	
 	private void syncMovingAssignments(SectionImpl templateSection, SectionImpl currentSection, Map<Section,Section> templateToSectionsMap) {
 		List<Assignment> templateAssignments = new ArrayList<>(templateSection.getAssignments());
+		for(Iterator<Assignment> currentAssignmentIt=currentSection.getAssignments().iterator(); currentAssignmentIt.hasNext(); ) {
+			if(currentAssignmentIt.next() == null) {
+				currentAssignmentIt.remove();
+			}
+		}
+
 		List<Assignment> currentAssignments = new ArrayList<>(currentSection.getAssignments());
 		for(int i=0; i<currentAssignments.size(); i++) {
 			Assignment currentAssignment = currentAssignments.get(i);
@@ -570,8 +577,10 @@ public class BinderDAO {
 		List<Page> pages = new ArrayList<>(section.getPages());
 		//delete pages
 		for(Page page:pages) {
-			pageDao.deletePage(page);
-			section.getPages().remove(page);
+			if(page != null) {
+				pageDao.deletePage(page);
+				section.getPages().remove(page);
+			}
 		}
 		
 		List<Assignment> assignments = new ArrayList<>(((SectionImpl)section).getAssignments());

@@ -90,6 +90,7 @@ import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.QTI21Module;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.XmlUtilities;
+import org.olat.ims.qti21.model.xml.AssessmentItemFactory;
 import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 
@@ -153,6 +154,7 @@ import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicOrderInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.HotspotInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.InlineChoiceInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.Interaction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MediaInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.OrderInteraction;
@@ -196,6 +198,10 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 	
 	protected void renderExploded(StringOutput sb, Translator translator) {
 		sb.append("<div class='o_error'>").append(translator.translate("exploded.msg")).append("</div>");
+    }
+	
+	protected void renderMissingItem(StringOutput sb, Translator translator) {
+		sb.append("<div class='o_error'>").append(translator.translate("error.assessment.item.missing")).append("</div>");
     }
 
     protected void renderTerminated(StringOutput sb, Translator translator) {
@@ -247,6 +253,8 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 	
 	protected void renderTestItemModalFeedback(AssessmentRenderer renderer, StringOutput sb, AssessmentObjectComponent component,
 			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
+		if(component.isHideFeedbacks()) return;
+		
 		List<ModalFeedback> modalFeedbacks = new ArrayList<>();
 		AssessmentItem assessmentItem = resolvedAssessmentItem.getRootNodeLookup().extractIfSuccessful();
 		for(ModalFeedback modalFeedback:assessmentItem.getModalFeedbacks()) {
@@ -319,7 +327,7 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 	 * @param ubu
 	 * @param translator
 	 */
-	protected void renderTestItemModalFeedback_feedbackModal(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
+	private void renderTestItemModalFeedback_feedbackModal(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
 			AssessmentObjectComponent component,
 			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
 		sb.append("<div class='modalFeedback o_info clearfix");
@@ -327,7 +335,9 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		Value feedbackBasic = itemSessionState.getOutcomeValue(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
 		if(feedbackBasic != null && feedbackBasic.hasBaseType(BaseType.IDENTIFIER) && feedbackBasic instanceof IdentifierValue) {
 			IdentifierValue identifierValue = (IdentifierValue)feedbackBasic;
-			if(QTI21Constants.CORRECT_IDENTIFIER_VALUE.equals(identifierValue)) {
+			if(AssessmentItemFactory.matchAdditionalFeedback(resolvedAssessmentItem.getRootNodeLookup().extractAssumingSuccessful(), modalFeedback)) {
+				sb.append(" o_additional_modal_feedback");
+			} else if(QTI21Constants.CORRECT_IDENTIFIER_VALUE.equals(identifierValue)) {
 				sb.append(" o_correct_modal_feedback");
 			} else if(QTI21Constants.INCORRECT_IDENTIFIER_VALUE.equals(identifierValue)) {
 				sb.append(" o_incorrect_modal_feedback");
@@ -367,7 +377,7 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 	 * @param ubu
 	 * @param translator
 	 */
-	protected void renderTestItemModalFeedback_standard(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
+	private void renderTestItemModalFeedback_standard(AssessmentRenderer renderer, StringOutput sb, ModalFeedback modalFeedback,
 			AssessmentObjectComponent component,
 			ResolvedAssessmentItem resolvedAssessmentItem, ItemSessionState itemSessionState, URLBuilder ubu, Translator translator) {
 		sb.append("<div class='modalFeedback o_info clearfix'>");
@@ -892,6 +902,10 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 	
 	private void renderEndAttemptInteraction(AssessmentRenderer renderer, StringOutput sb, EndAttemptInteraction interaction,
 			ItemSessionState itemSessionState, AssessmentObjectComponent component, URLBuilder ubu, Translator translator) {
+		if(QTI21Constants.HINT_REQUEST_IDENTIFIER.equals(interaction.getResponseIdentifier())
+				&& component.isHideFeedbacks()) {
+			return;//don't show our hint's, they trigger feedbacks
+		}
 
 		boolean ended =  component.isItemSessionEnded(itemSessionState, renderer.isSolutionMode());
 		AssessmentObjectFormItem item = component.getQtiItem();
@@ -1010,6 +1024,10 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 				interactionName = interaction.getQtiClassName();
 				if(matchInteraction.getResponseIdentifier().toString().startsWith("KPRIM_")) {
 					interactionName += "_kprim";
+				} else if(hasClass(matchInteraction, QTI21Constants.CSS_MATCH_DRAG_AND_DROP)) {
+					interactionName += "_dnd";
+				} else if(hasClass(matchInteraction, QTI21Constants.CSS_MATCH_KPRIM)) {
+					interactionName += "_kprim";
 				}
 				break;
 			}
@@ -1024,6 +1042,13 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 
 		String templateName = interactionName.substring(0, 1).toLowerCase().concat(interactionName.substring(1));
 		return velocity_root + "/" + templateName + ".html";
+	}
+	
+	private final boolean hasClass(Interaction interaction, String cssClass) {
+		if(interaction == null || cssClass == null) return false;
+		
+		List<String> cssClasses = interaction.getClassAttr();
+		return cssClasses != null && cssClasses.size() > 0 && cssClasses.contains(cssClass);
 	}
 	
 	/*
@@ -1110,10 +1135,11 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 				sb.append(" checked");
 			}
 			sb.append(" />");
-			FormJSHelper.appendFlexiFormDirtyOn(sb, component.getQtiItem().getRootForm(), "change click", guid);
+			sb.append("<label for='").append(guid).append("'>");
 			hottext.getInlineStatics().forEach((inline)
 					-> renderInline(renderer, sb, component, resolvedAssessmentItem, itemSessionState, inline, ubu, translator));
-			sb.append("</span>");
+			FormJSHelper.appendFlexiFormDirtyOn(sb, component.getQtiItem().getRootForm(), "change click", guid);
+			sb.append("</label></span>");
 		}
 	}
 	
@@ -1209,7 +1235,7 @@ public abstract class AssessmentObjectComponentRenderer extends DefaultComponent
 		if(ended) {
 			sb.append(" disabled");
 		}
-		if(StringHelper.containsNonWhitespace(interaction.getPlaceholderText())) {
+		if(!ended && StringHelper.containsNonWhitespace(interaction.getPlaceholderText())) {
 			sb.append(" placeholder=\"").append(StringHelper.escapeHtml(interaction.getPlaceholderText())).append("\"");
 		}
 		if(isBadResponse(itemSessionState, interaction.getResponseIdentifier())

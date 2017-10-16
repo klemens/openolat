@@ -128,6 +128,11 @@ public class AssessmentTestComponent extends AssessmentObjectComponent  {
 		responseIdentifiersMap.put(id, interaction);
 		return id;
 	}
+	
+	public boolean validateCommand(String cmd, TestPlanNodeKey tpnk) {
+		String id = "oo" + (tpnk.toString().replace(":", "_")) + "_";
+		return cmd.contains(id);
+	}
 
 	@Override
 	public Interaction getInteractionOfResponseUniqueIdentifier(String responseUniqueId) {
@@ -151,6 +156,10 @@ public class AssessmentTestComponent extends AssessmentObjectComponent  {
 	 * @return
 	 */
 	public boolean willShowFeedbacks(TestPlanNode itemNode) {
+		if(isHideFeedbacks()) {
+			return false;
+		}
+		
 		try {
 			URI itemSystemId = itemNode.getItemSystemId();
 			ResolvedAssessmentItem resolvedAssessmentItem = getResolvedAssessmentTest()

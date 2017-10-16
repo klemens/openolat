@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -35,6 +36,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.model.jpa.AssessmentTestSessionImpl;
+import org.olat.ims.qti21.model.jpa.AssessmentTestSessionStatistics;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
@@ -361,6 +363,41 @@ public class AssessmentTestSessionDAO {
 		return query.getResultList();
 	}
 	
+	public List<AssessmentTestSessionStatistics> getUserTestSessionsStatistics(RepositoryEntryRef courseEntry, String courseSubIdent, IdentityRef identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select session,")
+		  .append(" (select count(itemSession.key) from qtiassessmentitemsession itemSession")
+		  .append("   where itemSession.assessmentTestSession.key=session.key and itemSession.manualScore is not null")
+		  .append(" ) as correctItems")
+		  .append(" from qtiassessmenttestsession session")
+		  .append(" left join fetch session.testEntry testEntry")
+		  .append(" left join fetch testEntry.olatResource testResource")
+		  .append("  where session.repositoryEntry.key=:repositoryEntryKey and session.identity.key=:identityKey and ");
+		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
+			sb.append("session.subIdent=:subIdent");
+		} else {
+			sb.append("session.subIdent is null");
+		}
+		sb.append(" order by session.creationDate desc");
+		
+		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Object[].class)
+				.setParameter("repositoryEntryKey", courseEntry.getKey())
+				.setParameter("identityKey", identity.getKey());
+		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
+			query.setParameter("subIdent", courseSubIdent);
+		}
+		List<Object[]> raws = query.getResultList();
+		List<AssessmentTestSessionStatistics> stats = new ArrayList<>(raws.size());
+		for(Object[] raw:raws) {
+			AssessmentTestSession testSession = (AssessmentTestSession)raw[0];
+			int numOfCorrectedItems = (raw[1] == null ? 0 : ((Number)raw[1]).intValue());
+			stats.add(new AssessmentTestSessionStatistics(testSession, numOfCorrectedItems));
+		}
+		
+		return stats;
+	}
+	
 	public AssessmentTestSession getLastUserTestSession(RepositoryEntryRef courseEntry, String courseSubIdent, RepositoryEntry testEntry, IdentityRef identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session from qtiassessmenttestsession session")
@@ -415,7 +452,7 @@ public class AssessmentTestSessionDAO {
 		return query.getResultList();
 	}
 	
-	public boolean hasRunningTestSessions(RepositoryEntryRef entry, String courseSubIdent, RepositoryEntry testEntry) {
+	public boolean hasRunningTestSessions(RepositoryEntryRef entry, String courseSubIdent, RepositoryEntry testEntry, List<? extends IdentityRef> identities) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session.key from qtiassessmenttestsession session")
 		  .append(" left join session.testEntry testEntry")
@@ -427,6 +464,9 @@ public class AssessmentTestSessionDAO {
 		} else {
 			sb.append(" and session.subIdent is null");
 		}
+		if(identities != null && identities.size() > 0) {
+			sb.append(" and session.identity in (:identityKeys)");
+		}
 		
 		TypedQuery<Long> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Long.class)
@@ -437,6 +477,10 @@ public class AssessmentTestSessionDAO {
 		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
 			query.setParameter("subIdent", courseSubIdent);
 		}
+		if(identities != null && identities.size() > 0) {
+			query.setParameter("identityKeys", identities);
+		}
+		
 		List<Long> found = query.getResultList();
 		return found == null || found.isEmpty() || found.get(0) == null ? false : found.get(0) >= 0;
 	}

@@ -19,20 +19,31 @@
  */
 package org.olat.course.assessment.manager;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.modules.bc.FolderConfig;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.StringResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.core.util.FileUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
+import org.olat.core.util.io.SystemFileFilter;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
@@ -41,6 +52,7 @@ import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentLoggingAction;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.model.AssessmentNodeData;
+import org.olat.course.assessment.model.AssessmentNodesLastModified;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.certificate.CertificateTemplate;
 import org.olat.course.certificate.CertificatesManager;
@@ -49,12 +61,14 @@ import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.run.environment.CourseEnvironment;
+import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreAccounting;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -66,6 +80,10 @@ import org.olat.util.logging.activity.LoggingResourceable;
  *
  */
 public class CourseAssessmentManagerImpl implements AssessmentManager {
+	
+	private static final OLog log = Tracing.createLoggerFor(CourseAssessmentManagerImpl.class);
+	
+	public static final String ASSESSMENT_DOCS_DIR = "assessmentdocs";
 	
 	private static final Float FLOAT_ZERO = new Float(0);
 	private static final Integer INTEGER_ZERO = new Integer(0);
@@ -123,12 +141,20 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		}
 		Float score = null;
 		Boolean passed = null;
+		Date lastUserModified = null;
+		Date lastCoachModified = null;
 		if(scoreEvaluation != null) {
 			score = scoreEvaluation.getScore();
 			passed = scoreEvaluation.getPassed();
 		}
+		if(scoreEvaluation instanceof AssessmentEvaluation) {
+			AssessmentEvaluation eval = (AssessmentEvaluation)scoreEvaluation;
+			lastCoachModified = eval.getLastCoachModified();
+			lastUserModified = eval.getLastUserModified();
+		}
 		return assessmentService
-				.createAssessmentEntry(assessedIdentity, null, cgm.getCourseEntry(), courseNode.getIdent(), referenceEntry, score, passed);
+				.createAssessmentEntry(assessedIdentity, null, cgm.getCourseEntry(), courseNode.getIdent(), referenceEntry,
+						score, passed, lastUserModified, lastCoachModified);
 	}
 
 	@Override
@@ -137,10 +163,15 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 	}
 
 	@Override
-	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts) {
+	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts, Role by) {
 		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
 		
 		AssessmentEntry nodeAssessment = getOrCreate(assessedIdentity, courseNode);
+		if(by == Role.coach) {
+			nodeAssessment.setLastCoachModified(new Date());
+		} else if(by == Role.user) {
+			nodeAssessment.setLastUserModified(new Date());
+		}
 		nodeAssessment.setAttempts(attempts);
 		assessmentService.updateAssessmentEntry(nodeAssessment);
 
@@ -183,6 +214,70 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 	}
 
 	@Override
+	public void addIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity, File document, String filename) {
+		if(document == null) return;
+		if(!StringHelper.containsNonWhitespace(filename)) {
+			filename = document.getName();
+		}
+		
+		try {
+			File directory = getAssessmentDocumentsDirectory(courseNode, assessedIdentity);
+			File targetFile = new File(directory, filename);
+			if(targetFile.exists()) {
+				String newName = FileUtils.rename(targetFile);
+				targetFile = new File(directory, newName);
+			}
+			Files.copy(document.toPath(), targetFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+			
+			//update counter
+			AssessmentEntry nodeAssessment = getOrCreate(assessedIdentity, courseNode);
+			File[] docs = directory.listFiles(new SystemFileFilter(true, false));
+			int numOfDocs = docs == null ? 0 : docs.length;
+			nodeAssessment.setNumberOfAssessmentDocuments(numOfDocs);
+			assessmentService.updateAssessmentEntry(nodeAssessment);
+		} catch (IOException e) {
+			log.error("", e);
+		}
+	}
+
+	@Override
+	public void removeIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity, File document) {
+		if(document != null && document.exists()) {
+			document.delete();
+			
+			//update counter
+			File directory = getAssessmentDocumentsDirectory(courseNode, assessedIdentity);
+			AssessmentEntry nodeAssessment = getOrCreate(assessedIdentity, courseNode);
+			File[] docs = directory.listFiles(new SystemFileFilter(true, false));
+			int numOfDocs = docs == null ? 0 : docs.length;
+			nodeAssessment.setNumberOfAssessmentDocuments(numOfDocs);
+			assessmentService.updateAssessmentEntry(nodeAssessment);
+		}
+	}
+	
+	@Override
+	public void deleteIndividualAssessmentDocuments(CourseNode courseNode) {
+		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
+		String courseRelPath = course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
+		Path path = Paths.get(FolderConfig.getCanonicalRoot(), courseRelPath, ASSESSMENT_DOCS_DIR, courseNode.getIdent());
+		File file = path.toFile();
+		if(file.exists()) {
+			FileUtils.deleteDirsAndFiles(file, true, true);
+		}
+	}
+
+	private File getAssessmentDocumentsDirectory(CourseNode cNode, Identity assessedIdentity) {
+		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
+		String courseRelPath = course.getCourseEnvironment().getCourseBaseContainer().getRelPath();
+		Path path = Paths.get(FolderConfig.getCanonicalRoot(), courseRelPath, ASSESSMENT_DOCS_DIR, cNode.getIdent(), "person_" + assessedIdentity.getKey());
+		File file = path.toFile();
+		if(!file.exists()) {
+			file.mkdirs();
+		}
+		return file;
+	}
+
+	@Override
 	public void saveNodeCoachComment(CourseNode courseNode, Identity assessedIdentity, String comment) {
 		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
 		
@@ -202,13 +297,21 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 	}
 
 	@Override
-	public void incrementNodeAttempts(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnv) {
+	public void incrementNodeAttempts(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnv, Role by) {
 		ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
 		
 		AssessmentEntry nodeAssessment = getOrCreate(assessedIdentity, courseNode);
 		int attempts = nodeAssessment.getAttempts() == null ? 1 :nodeAssessment.getAttempts().intValue() + 1;
 		nodeAssessment.setAttempts(attempts);
+		if(by == Role.coach) {
+			nodeAssessment.setLastCoachModified(new Date());
+		} else if(by == Role.user) {
+			nodeAssessment.setLastUserModified(new Date());
+		}
 		assessmentService.updateAssessmentEntry(nodeAssessment);
+		DBFactory.getInstance().commit();
+		userCourseEnv.getScoreAccounting().evaluateAll(true);
+		DBFactory.getInstance().commit();
 		if(courseNode instanceof AssessableCourseNode) {
 			// Update users efficiency statement
 			efficiencyStatementManager.updateUserEfficiencyStatement(userCourseEnv);
@@ -244,9 +347,26 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 	}
 	
 	@Override
+	public void updateLastModifications(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnv, Role by) {
+		AssessmentEntry nodeAssessment = getOrCreate(assessedIdentity, courseNode);
+		if(by == Role.coach) {
+			nodeAssessment.setLastCoachModified(new Date());
+		} else if(by == Role.user) {
+			nodeAssessment.setLastUserModified(new Date());
+		}
+		assessmentService.updateAssessmentEntry(nodeAssessment);
+		DBFactory.getInstance().commit();
+		userCourseEnv.getScoreAccounting().evaluateAll(true);
+		if(courseNode instanceof AssessableCourseNode) {
+			// Update users efficiency statement
+			efficiencyStatementManager.updateUserEfficiencyStatement(userCourseEnv);
+		}
+	}
+
+	@Override
 	public void saveScoreEvaluation(AssessableCourseNode courseNode, Identity identity, Identity assessedIdentity,
 			ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnv,
-			boolean incrementUserAttempts) {
+			boolean incrementUserAttempts, Role by) {
 		final ICourse course = CourseFactory.loadCourse(cgm.getCourseEntry());
 		final CourseEnvironment courseEnv = userCourseEnv.getCourseEnvironment();
 		
@@ -259,6 +379,11 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		AssessmentEntry assessmentEntry = getOrCreate(assessedIdentity, subIdent, referenceEntry);
 		if(referenceEntry != null && !referenceEntry.equals(assessmentEntry.getReferenceEntry())) {
 			assessmentEntry.setReferenceEntry(referenceEntry);
+		}
+		if(by == Role.coach) {
+			assessmentEntry.setLastCoachModified(new Date());
+		} else if(by == Role.user) {
+			assessmentEntry.setLastUserModified(new Date());
 		}
 		if(score == null) {
 			assessmentEntry.setScore(null);
@@ -334,9 +459,10 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		// write only when enabled for this course
 		if (courseEnv.getCourseConfig().isEfficencyStatementEnabled()) {
 			List<AssessmentNodeData> data = new ArrayList<AssessmentNodeData>(50);
+			AssessmentNodesLastModified lastModifications = new AssessmentNodesLastModified();
 			AssessmentHelper.getAssessmentNodeDataList(0, courseEnv.getRunStructure().getRootNode(),
-					scoreAccounting, userCourseEnv, true, true, true, data);
-			efficiencyStatementManager.updateUserEfficiencyStatement(assessedIdentity, courseEnv, data, cgm.getCourseEntry());
+					scoreAccounting, userCourseEnv, true, true, true, data, lastModifications);
+			efficiencyStatementManager.updateUserEfficiencyStatement(assessedIdentity, courseEnv, data, lastModifications, cgm.getCourseEntry());
 		}
 
 		if(course.getCourseConfig().isAutomaticCertificationEnabled()) {
@@ -373,6 +499,19 @@ public class CourseAssessmentManagerImpl implements AssessmentManager {
 		AssessmentEntry entry = assessmentService
 				.loadAssessmentEntry(identity, cgm.getCourseEntry(), courseNode.getIdent());	
 		return entry == null ? null : entry.getComment();
+	}
+
+	@Override
+	public List<File> getIndividualAssessmentDocuments(CourseNode courseNode, Identity identity) {
+		File directory = getAssessmentDocumentsDirectory(courseNode, identity);
+		File[] documents = directory.listFiles(new SystemFileFilter(true, false));
+		List<File> documentList = new ArrayList<>();
+		if(documents != null && documents.length > 0) {
+			for(File document:documents) {
+				documentList.add(document);
+			}
+		}
+		return documentList;
 	}
 
 	@Override

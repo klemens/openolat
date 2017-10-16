@@ -108,6 +108,8 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author Florian Gnägi
  */
 public class FileUploadController extends FormBasicController {
+	
+	private static final String[] resizeKeys = new String[]{"resize"};
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
 
 	private VFSContainer currentContainer;
@@ -148,8 +150,6 @@ public class FileUploadController extends FormBasicController {
 
 	@Autowired
 	private ImageService imageHelper;
-	@Autowired
-	private FilesInfoMBean fileInfoMBean;
 	@Autowired
 	private VFSLockManager vfsLockManager;
 	@Autowired
@@ -266,11 +266,11 @@ public class FileUploadController extends FormBasicController {
 			}
 			formLayout.add(resizeCont);
 
-			String[] keys = new String[]{"resize"};
 			String[] values = new String[]{translate("resize_image")};
-			resizeEl = uifactory.addCheckboxesHorizontal("resize_image", resizeCont, keys, values);
+			resizeEl = uifactory.addCheckboxesHorizontal("resize_image", resizeCont, resizeKeys, values);
 			resizeEl.setLabel(null, null);
-			resizeEl.select("resize", true);
+			resizeEl.select(resizeKeys[0], true);
+			resizeEl.setVisible(false);
 		}
 		
 		// Check remaining quota
@@ -311,19 +311,35 @@ public class FileUploadController extends FormBasicController {
 				fileEl.reset();
 				fileEl.setDeleteEnabled(false);
 				fileEl.clearError();
-			} else if(metaDataCtr != null) {
-				String filename = fileEl.getUploadFileName();
-				if(filename == null) {
-					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
-				} else if(!FileUtils.validateFilename(filename)) {
-					String suffix = FileUtils.getFileSuffix(filename);
-					if(suffix != null && suffix.length() > 0) {
-						filename = filename.substring(0, filename.length() - suffix.length() - 1);
-					}
-					filename = FileUtils.normalizeFilename(filename) + "." + suffix;
-					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+				if(resizeImg && resizeEl != null) {
+					resizeEl.setVisible(false);
 				}
-				metaDataCtr.setFilename(filename);
+			} else  {
+				String filename = fileEl.getUploadFileName();
+				if(metaDataCtr != null) {
+					if(filename == null) {
+						metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);	
+					} else if(!FileUtils.validateFilename(filename)) {
+						String suffix = FileUtils.getFileSuffix(filename);
+						if(suffix != null && suffix.length() > 0) {
+							filename = filename.substring(0, filename.length() - suffix.length() - 1);
+						}
+						filename = FileUtils.normalizeFilename(filename) + "." + suffix;
+						metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+					}
+					metaDataCtr.setFilename(filename);
+				}
+				
+				if(resizeImg) {
+					boolean isImg = false;
+					if(filename != null) {
+						isImg = imageExtPattern.matcher(filename.toLowerCase()).find();
+					}
+					if(resizeEl != null) {
+						resizeEl.setVisible(isImg);
+						resizeEl.select(resizeKeys[0], true);
+					}
+				}
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
@@ -698,7 +714,6 @@ public class FileUploadController extends FormBasicController {
 		if (success) {
 			String filePath = (uploadRelPath == null ? "" : uploadRelPath + "/") + newFile.getName();
 			finishSuccessfullUpload(filePath, newFile, ureq);
-			fileInfoMBean.logUpload(newFile.getSize());
 			fireEvent(ureq, Event.DONE_EVENT);										
 		} else {
 			showError("failed");
@@ -713,7 +728,6 @@ public class FileUploadController extends FormBasicController {
 		VFSItem item = currentContainer.resolve(filePath);
 		if(item != null) {
 			finishSuccessfullUpload(filePath, item, ureq);
-			fileInfoMBean.logUpload(newFile.getSize());
 		} else {
 			logWarn("Upload with error:" + filePath, null);
 		}

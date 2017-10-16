@@ -357,6 +357,8 @@ $o-portfolio-lead-space-sm							: $padding-large-vertical !default;
 $o-portfolio-lead-background-color					: lighten($gray-base, 95%) !default;
 $o-portfolio-lead-border-color						: darken($o-portfolio-lead-background-color,10%) !default;
 $o-portfolio-lead-border-radius						: $border-radius-small !default;
+$o-portfolio-lead-ended-background-color				: lighten($brand-danger, 30%) !default;
+$o-portfolio-lead-ended-border-color					: darken($o-portfolio-lead-ended-background-color	,10%) !default;
 $o-portfolio-page-summary-font-size					: $font-size-large !default;
 
 /* QTI2 eAssessment */
@@ -390,6 +392,8 @@ $o-qti-run-infos-bg									: $o-qti-menu-bg !default;
 $o-qti-run-infos-border-color						: $o-qti-menu-border-color !default;
 $o-qti-run-infos-border-radius						: $o-qti-menu-border-radius !default;
 $o-qti-run-infos-progress-bg						: #eee !default;
+$o-qti-run-infos-question-progress-color			: $brand-primary !default;
+$o-qti-run-infos-score-progress-color				: $brand-primary !default;
 $o-qti-badResponse-color							: $brand-danger !default;
 $o-qti-highlight-color								: $brand-danger !default;
 $o-qti-bar-green									: $brand-success !default;
@@ -400,10 +404,50 @@ $o-qti-error										: $brand-danger !default;
 $o-qti-box-bg										: #eee !default;
 $o-qti-box-color									: #666 !default;
 $o-qti-choice-tablelayout-bg						: #e7e7e7 !default;
+$o-qti-userselection-color							: $text-color !default;
+$o-qti-userselection-bg								: $state-info-bg !default;
+$o-qti-userselection-border-color					: $state-info-border !default;
 $o-qti-gap-border-color								: #999 !default;
 $o-qti-gap-drag-border-color						: $brand-primary !default;
 $o-qti-gap-selected-border-color					: $brand-primary !default;
+$o-qti-hottext-color								: $text-color !default;
+$o-qti-hottext-bg									: $o-qti-menu-bg !default;
+$o-qti-hottext-border-color							: $o-qti-menu-border-color !default;
+$o-qti-hottext-border-radius						: 2px !default;
+$o-qti-hottext-checked-color						: $o-qti-userselection-color !default;
+$o-qti-hottext-checked-bg							: $o-qti-userselection-bg !default;
+$o-qti-hottext-checked-border-color					: $o-qti-userselection-border-color !default;
+$o-qti-match-border-color							: #999 !default;
+$o-qti-match-choosed-border-color					: #777 !default;
+$o-qti-match-drag-border-color						: $brand-warning !default;
+$o-qti-match-sources-bg								: $o-qti-run-infos-bg !default;
+$o-qti-match-sources-border-color					: $o-qti-run-infos-border-color !default;
+$o-qti-match-source-bg								: $state-warning-bg !default;
+$o-qti-match-source-border-style					: dashed !default;
+$o-qti-match-selected-border-color					: $brand-warning !default;
+$o-qti-match-selected-bg							: lighten($brand-warning, 25%) !default;
+$o-qti-match-drop-accept-border-color				: darken($brand-info, 25%) !default;
+$o-qti-match-target-border-color					: $brand-info !default;
+$o-qti-match-target-bg								: $state-info-bg !default;
+$o-qti-match-border-radius							: $panel-border-radius !default;
+$o-qti-order-source-border-style						: dashed !default;
+$o-qti-order-sources-border-color					: $o-qti-run-infos-border-color !default;
+$o-qti-order-border-radius							: $panel-border-radius !default;
+$o-qti-order-source-bg								: $state-warning-bg !default;
+$o-qti-order-sources-bg								: $o-qti-run-infos-bg !default;
+$o-qti-order-drop-accept-border-color				: darken($brand-info, 25%) !default;
+$o-qti-order-target-bg								: $state-info-bg !default;
+$o-qti-textEntryInteraction-color					: $text-color !default;
+$o-qti-textEntryInteraction-bg						: #fff !default;
+$o-qti-textEntryInteraction-border-color			: $o-qti-gap-border-color !default;
+$o-qti-textEntryInteraction-filled-color			: $o-qti-userselection-color !default;
+$o-qti-textEntryInteraction-filled-bg				: $o-qti-userselection-bg !default;
+$o-qti-textEntryInteraction-filled-border-color		: $o-qti-userselection-border-color !default;
 
+/* Lecture module */
+$o-lm-current-bg									: $o-toolbar-bg-color !default;
+$o-lm-current-border-color							: transparent !default; 
+$o-lm-current-border-radius							: $border-radius-base !default;
 
 /* Chat and other floating window */
 $o-dialog-window-bg				: #fefefe !default;
@@ -445,9 +489,15 @@ $o-forum-quote-font-size		: $font-size-small !default;
 $o-forum-attachment-font-size	: $font-size-small !default;
 
 /* Evaluation forms */
-$o-evaluation-slider-margin-bottom			: 8px;
-$o-evaluation-step-labels-margin-bottom		: 8px;
-$o-evaluation-slider-hover-background-color	: $table-bg-hover;
+$o-evaluation-block-margin-top				: 2em !default;
+$o-evaluation-block-margin-bottom			: 2em !default;
+$o-evaluation-side-labels-font-weight		: normal !default;
+$o-evaluation-step-labels-margin-bottom		: 1em !default;
+$o-evaluation-step-labels-font-weight		: bold !default;
+$o-evaluation-step-background-color 		: $table-bg-accent !default;
+$o-evaluation-slider-margin-bottom			: 1em !default;
+$o-evaluation-slider-hover-background-color	: $table-bg-hover !default;
+
 
 /* Portlets site */
 $o-portlet-border				: $panel-default-border !default;
@@ -558,6 +608,32 @@ $o-step-done-marker-color	: $brand-success !default;
 $o-step-meta-color			: $text-muted !default;
 $o-step-meta-size			: $font-size-small !default;
 
+
+/* Radial progress component */
+/* more 3-style 
+$o-radial-progress-circle-bg			: $progress-bg !default;
+$o-radial-progress-shadow				: 6px 6px 10px rgba(0,0,0,0.1) !default;
+*/
+$o-radial-progress-circle-size			: 120px !default;
+$o-radial-progress-circle-size-sm		: 80px !default;
+$o-radial-progress-circle-size-lg		: 180px !default;
+$o-radial-progress-circle-bg			: #eee !default;
+$o-radial-progress-circle-color			: $progress-bar-bg !default;
+$o-radial-progress-inset-color			: #fff !default;
+$o-radial-progress-transition-length	: 1s !default;
+$o-radial-progress-shadow				: none !default;
+$o-radial-progress-number-color			: $progress-bar-bg !default;
+$o-radial-progress-addon-color			: $text-muted !default;
+$o-radial-progress-margin 				: 10px !default;
+$o-radial-progress-circle-success-color		: $progress-bar-success-bg !default;
+$o-radial-progress-percentage-success-color	: $progress-bar-success-bg !default;
+$o-radial-progress-circle-warning-color		: $progress-bar-warning-bg !default;
+$o-radial-progress-percentage-warning-color	: $progress-bar-warning-bg !default;
+$o-radial-progress-circle-danger-color		: $progress-bar-danger-bg !default;
+$o-radial-progress-percentage-danger-color	: $progress-bar-danger-bg !default;
+$o-radial-progress-circle-info-color		: $progress-bar-info-bg !default;
+$o-radial-progress-percentage-info-color	: $progress-bar-info-bg !default;
+
 /* Drawing */
 $o-drawing-border-color		: $brand-primary;
 $o-drawing-border-width		: 4px !default;
@@ -575,7 +651,8 @@ $o-cit-quote-font-size			: $font-size-large !default;
 $o-cit-quote-color				: $o-forum-quote-color !default;
 
 /* Sliders */
-$o-slider-border					: #999;
+$o-slider-border					: #aaa !default;
+$o-slider-background				: #f9f9f9 !default;
 $o-slider-handler-border-color		: $brand-primary !default;
 $o-slider-handler-background-color	: $brand-primary !default;
 
@@ -584,3 +661,5 @@ $o-portrait-radius				: 50% !default;
 $o-portrait-border				: none !default;
 $o-bookmark-color				: #bc2d0c !default;
 $o-imagebg-text-background		: rgba(255, 255, 255, 0.8) !default;
+$o-progress-marker-color		: rgb(255, 0, 0) !default; /* danger color */
+$o-cal-desc-background-color	: $o-toolbar-bg-color !default;

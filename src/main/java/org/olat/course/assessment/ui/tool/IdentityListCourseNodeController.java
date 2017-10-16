@@ -21,6 +21,7 @@ package org.olat.course.assessment.ui.tool;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,7 @@ import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentModule;
 import org.olat.course.assessment.AssessmentToolManager;
 import org.olat.course.assessment.bulk.PassedCellRenderer;
+import org.olat.course.assessment.manager.UserCourseInformationsManager;
 import org.olat.course.assessment.model.SearchAssessedIdentityParams;
 import org.olat.course.assessment.ui.tool.IdentityListCourseNodeTableModel.IdentityCourseElementCols;
 import org.olat.course.certificate.CertificateLight;
@@ -89,6 +91,7 @@ import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentToolOptions;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.assessment.ui.AssessedIdentityController;
 import org.olat.modules.assessment.ui.AssessedIdentityElementRow;
@@ -142,6 +145,8 @@ public class IdentityListCourseNodeController extends FormBasicController implem
 	private RepositoryService repositoryService;
 	@Autowired
 	private CertificatesManager certificatesManager;
+	@Autowired
+	private UserCourseInformationsManager userInfosMgr;
 	@Autowired
 	private AssessmentToolManager assessmentToolManager;
 	
@@ -241,11 +246,19 @@ public class IdentityListCourseNodeController extends FormBasicController implem
 			if(assessableNode.hasPassedConfigured()) {
 				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.passed, new PassedCellRenderer()));
 			}
+			if(assessableNode.hasIndividualAsssessmentDocuments()) {
+				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.numOfAssessmentDocs));
+			}
 		}
 
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.assessmentStatus, new AssessmentStatusCellRenderer(getLocale())));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.initialLaunchDate, select));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.lastScoreUpdate, select));
+		if(courseNode.getParent() == null) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.initialLaunchDate, select));
+		}
+		
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, IdentityCourseElementCols.lastModified, select));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.lastUserModified, select));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, IdentityCourseElementCols.lastCoachModified, select));
 		
 		if(course.getCourseConfig().isCertificateEnabled()) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(IdentityCourseElementCols.certificate, new DownloadCertificateCellRenderer()));
@@ -340,11 +353,13 @@ public class IdentityListCourseNodeController extends FormBasicController implem
 		assessmentEntries.stream()
 			.filter(entry -> entry.getIdentity() != null)
 			.forEach((entry) -> entryMap.put(entry.getIdentity().getKey(), entry));
+		Map<Long,Date> initialLaunchDates = userInfosMgr.getInitialLaunchDates(courseEntry.getOlatResource());
 
 		List<AssessedIdentityElementRow> rows = new ArrayList<>(assessedIdentities.size());
 		for(Identity assessedIdentity:assessedIdentities) {
 			AssessmentEntry entry = entryMap.get(assessedIdentity.getKey());
-			rows.add(new AssessedIdentityElementRow(assessedIdentity, entry, userPropertyHandlers, getLocale()));
+			Date initialLaunchDate = initialLaunchDates.get(assessedIdentity.getKey());
+			rows.add(new AssessedIdentityElementRow(assessedIdentity, entry, initialLaunchDate, userPropertyHandlers, getLocale()));
 		}
 		
 		if(toolContainer.getCertificateMap() == null) {
@@ -637,7 +652,7 @@ public class IdentityListCourseNodeController extends FormBasicController implem
 			ScoreEvaluation scoreEval = assessableCourseNode.getUserScoreEvaluation(assessedUserCourseEnv);
 			ScoreEvaluation doneEval = new ScoreEvaluation(scoreEval.getScore(), scoreEval.getPassed(),
 					scoreEval.getAssessmentStatus(), visibility, scoreEval.getFullyAssessed(), scoreEval.getAssessmentID());
-			assessableCourseNode.updateUserScoreEvaluation(doneEval, assessedUserCourseEnv, getIdentity(), false);
+			assessableCourseNode.updateUserScoreEvaluation(doneEval, assessedUserCourseEnv, getIdentity(), false, Role.coach);
 		}
 		updateModel(ureq, null, null, null);
 	}
@@ -670,7 +685,7 @@ public class IdentityListCourseNodeController extends FormBasicController implem
 				ScoreEvaluation scoreEval = assessableCourseNode.getUserScoreEvaluation(assessedUserCourseEnv);
 				ScoreEvaluation doneEval = new ScoreEvaluation(scoreEval.getScore(), scoreEval.getPassed(),
 						AssessmentEntryStatus.done, null, scoreEval.getFullyAssessed(), scoreEval.getAssessmentID());
-				assessableCourseNode.updateUserScoreEvaluation(doneEval, assessedUserCourseEnv, getIdentity(), false);
+				assessableCourseNode.updateUserScoreEvaluation(doneEval, assessedUserCourseEnv, getIdentity(), false, Role.coach);
 			}
 			
 			updateModel(ureq, null, null, null);

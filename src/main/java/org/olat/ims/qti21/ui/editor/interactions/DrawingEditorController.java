@@ -103,6 +103,7 @@ public class DrawingEditorController extends FormBasicController {
 		setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_fragetypen_drawing");
 		
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), formLayout);
+		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
@@ -111,6 +112,7 @@ public class DrawingEditorController extends FormBasicController {
 		String description = itemBuilder.getQuestion();
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", description, 12, -1, itemContainer,
 				formLayout, ureq.getUserSession(), getWindowControl());
+		textEl.setElementCssClass("o_sel_assessment_item_question");
 		
 		initialBackgroundImage = getCurrentBackground();
 		backgroundEl = uifactory.addFileElement(getWindowControl(), "form.imd.background", "form.imd.background", formLayout);
@@ -127,6 +129,7 @@ public class DrawingEditorController extends FormBasicController {
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setElementCssClass("o_sel_lob_save");
 		formLayout.add(buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
 	}

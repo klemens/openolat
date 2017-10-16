@@ -1,4 +1,5 @@
 /**
+
 * OLAT - Online Learning and Training<br>
 * http://www.olat.org
 * <p>
@@ -86,6 +87,7 @@ import org.olat.ims.qti.export.QTIExportFIBItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportFormatter;
 import org.olat.ims.qti.export.QTIExportFormatterCSVType1;
 import org.olat.ims.qti.export.QTIExportItemFormatConfig;
+import org.olat.ims.qti.export.QTIExportItemFormatDelegate;
 import org.olat.ims.qti.export.QTIExportKPRIMItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportMCQItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportManager;
@@ -118,6 +120,7 @@ import org.olat.ims.qti21.ui.statistics.QTI21StatisticsToolController;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentToolOptions;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryImportExport;
@@ -209,7 +212,7 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 		return new NodeRunConstructionResult(ctrl);
 	}
 	
-	private boolean isGuestAllowedForQTI21(RepositoryEntry testEntry) {
+	public boolean isGuestAllowedForQTI21(RepositoryEntry testEntry) {
 		OLATResource ores = testEntry.getOlatResource();
 		if(ImsQTI21Resource.TYPE_NAME.equals(ores.getResourceableTypeName())) {
 			QTI21DeliveryOptions options = CoreSpringFactory.getImpl(QTI21Service.class).getDeliveryOptions(testEntry);
@@ -250,17 +253,13 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 		if(ImsQTI21Resource.TYPE_NAME.equals(qtiTestEntry.getOlatResource().getResourceableTypeName())) {
 			tools.add(new QTI21StatisticsToolController(ureq, wControl, stackPanel, courseEnv, options, this));
 			if(!coachCourseEnv.isCourseReadOnly()) {
-				RepositoryEntry courseEntry = courseEnv.getCourseGroupManager().getCourseEntry();
 				QTI21Service qtiService = CoreSpringFactory.getImpl(QTI21Service.class);
-				boolean isRunningSessions = qtiService
-						.isRunningAssessmentTestSession(courseEntry, getIdent(), qtiTestEntry);
-				if(isRunningSessions) {
-					tools.add(new QTI21RetrieveTestsToolController(ureq, wControl, courseEnv, options, this));
-				}
+				tools.add(new QTI21RetrieveTestsToolController(ureq, wControl, courseEnv, options, this));
 				if(options.isAdmin()) {
 					tools.add(new QTI21ResetToolController(ureq, wControl, courseEnv, options, this));
 				}
-				if(qtiService.needManualCorrection(qtiTestEntry)) {
+				if(qtiService.needManualCorrection(qtiTestEntry)
+						|| IQEditController.CORRECTION_MANUAL.equals(getModuleConfiguration().getStringValue(IQEditController.CONFIG_CORRECTION_MODE))) {
 					tools.add(new QTI21CorrectionToolController(ureq, wControl, courseEnv, options, this));
 				}
 				if(getModuleConfiguration().getBooleanSafe(IQEditController.CONFIG_DIGITAL_SIGNATURE, false)) {
@@ -271,13 +270,8 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 
 		} else {
 			tools.add(new QTI12StatisticsToolController(ureq, wControl, stackPanel, courseEnv, options, this));
-			if(!coachCourseEnv.isCourseReadOnly() && options.getGroup() == null && options.getIdentities() != null && options.getIdentities().size() > 0) {
-				for(Identity assessedIdentity:options.getIdentities()) {
-					if(isQTI12TestRunning(assessedIdentity, courseEnv)) {
-						tools.add(new QTI12PullTestsToolController(ureq, wControl, courseEnv, options, this));
-						break;
-					}
-				}
+			if(!coachCourseEnv.isCourseReadOnly()) {
+				tools.add(new QTI12PullTestsToolController(ureq, wControl, courseEnv, options, this));
 			}
 			tools.add(new QTI12ExportResultsReportController(ureq, wControl, courseEnv, options, this));
 		}
@@ -474,6 +468,11 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 		return true;
 	}
 
+	@Override
+	public boolean hasIndividualAsssessmentDocuments() {
+		return true;// like user comment
+	}
+
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasPassedConfigured()
 	 */
@@ -526,11 +525,11 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 	 */
 	@Override
 	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
-			Identity coachingIdentity, boolean incrementAttempts) {
+			Identity coachingIdentity, boolean incrementAttempts, Role by) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
 		try {
-			am.saveScoreEvaluation(this, coachingIdentity, mySelf, scoreEvaluation, userCourseEnvironment, incrementAttempts);
+			am.saveScoreEvaluation(this, coachingIdentity, mySelf, scoreEvaluation, userCourseEnvironment, incrementAttempts, by);
 		} catch(DBRuntimeException ex) {
 			throw new KnownIssueException("DBRuntimeException - Row was updated or deleted...", 3570, ex);
 		}
@@ -547,6 +546,24 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 			Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
 			am.saveNodeComment(this, coachingIdentity, mySelf, userComment);
+		}
+	}
+	
+	@Override
+	public void addIndividualAssessmentDocument(File document, String filename, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		if(document != null) {
+			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+			Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+			am.addIndividualAssessmentDocument(this, coachingIdentity, assessedIdentity, document, filename);
+		}
+	}
+
+	@Override
+	public void removeIndividualAssessmentDocument(File document, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		if(document != null) {
+			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+			Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+			am.removeIndividualAssessmentDocument(this, coachingIdentity, assessedIdentity, document);
 		}
 	}
 
@@ -567,9 +584,13 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		String userCommentValue = am.getNodeComment(this, mySelf);
-		return userCommentValue;
+		return am.getNodeComment(this, userCourseEnvironment.getIdentityEnvironment().getIdentity());
+	}
+	
+	@Override
+	public List<File> getIndividualAssessmentDocuments(UserCourseEnvironment userCourseEnvironment) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		return am.getIndividualAssessmentDocuments(this, userCourseEnvironment.getIdentityEnvironment().getIdentity());
 	}
 
 	/**
@@ -627,6 +648,8 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 	 */
 	@Override
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
+		
 		CoursePropertyManager pm = course.getCourseEnvironment().getCoursePropertyManager();
 		// 1) Delete all properties: score, passed, log, comment, coach_comment,
 		// attempts
@@ -667,7 +690,6 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 			} else if(ImsQTI21Resource.TYPE_NAME.equals(re.getOlatResource().getResourceableTypeName())) {
 				// 2a) create export resource
 				QTI21Service qtiService = CoreSpringFactory.getImpl(QTI21Service.class);
-
 				List<Identity> identities = ScoreAccountingHelper.loadUsers(courseEnv, options);
 				new QTI21ResultsExportMediaResource(courseEnv, identities, this, qtiService, ureq, locale).exportTestResults(exportStream);
 				// excel results
@@ -684,12 +706,12 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 				String shortTitle = getShortTitle();
 				QTIExportManager qem = QTIExportManager.getInstance();
 				QTIExportFormatter qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\r\n", false);
-				if (options != null && options.getQtiExportItemFormatConfig() != null) {
+				if (options != null && options.getExportFormat() != null) {
 					Map<Class<?>, QTIExportItemFormatConfig> itemConfigs = new HashMap<>();
 					Class<?>[] itemTypes = new Class<?>[] {QTIExportSCQItemFormatConfig.class, QTIExportMCQItemFormatConfig.class,
 						QTIExportKPRIMItemFormatConfig.class, QTIExportFIBItemFormatConfig.class, QTIExportEssayItemFormatConfig.class};
 					for (Class<?> itemClass : itemTypes) {
-						itemConfigs.put(itemClass, options.getQtiExportItemFormatConfig());						
+						itemConfigs.put(itemClass, new QTIExportItemFormatDelegate(options.getExportFormat()));						
 					}
 					qef.setMapWithExportItemConfigs(itemConfigs);
 				}
@@ -733,6 +755,8 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 			if(handlerQTI21.acceptImport(file, "repo.zip").isValid()) {
 				re = handlerQTI21.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
 						rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+
+				getModuleConfiguration().set(IQEditController.CONFIG_KEY_TYPE_QTI, IQEditController.CONFIG_VALUE_QTI21);
 			} else {
 				RepositoryHandler handlerQTI = RepositoryHandlerFactory.getInstance().getRepositoryHandler(TestFileResource.TYPE_NAME);
 				re = handlerQTI.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
@@ -770,11 +794,11 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 	 *      org.olat.core.id.Identity)
 	 */
 	@Override
-	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity, Role by) {
 		if (userAttempts != null) {
 			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 			Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-			am.saveNodeAttempts(this, coachingIdentity, mySelf, userAttempts);
+			am.saveNodeAttempts(this, coachingIdentity, mySelf, userAttempts, by);
 		}
 	}
 
@@ -782,10 +806,17 @@ public class IQTESTCourseNode extends AbstractAccessableCourseNode implements Pe
 	 * @see org.olat.course.nodes.AssessableCourseNode#incrementUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
+	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment, Role by) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment);
+		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment, by);
+	}
+	
+	@Override
+	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role by) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+		am.updateLastModifications(this, assessedIdentity, userCourseEnvironment, by);
 	}
 
 	/**
