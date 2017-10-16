@@ -397,7 +397,7 @@ public class ExamEditorController extends BasicController {
 				exam.setIsMultiSubscription(editRegForm.getMultiSubscription());
 
 				this.createTabbedPane(ureq);
-				tabbedPane.setSelectedPane(1);
+				tabbedPane.setSelectedPane(ureq, 1);
 			}
 		} else if (source == createAppForm) {
 
@@ -481,7 +481,7 @@ public class ExamEditorController extends BasicController {
 
 				int authorIndex = tabbedPane.getSelectedPane();
 				createTabbedPane(ureq);
-				tabbedPane.setSelectedPane(authorIndex);
+				tabbedPane.setSelectedPane(ureq, authorIndex);
 			}
 		} else if(source == userSearchController) {
 			if(event instanceof SingleIdentityChosenEvent) {
@@ -495,7 +495,7 @@ public class ExamEditorController extends BasicController {
 
 				int authorIndex = tabbedPane.getSelectedPane();
 				createTabbedPane(ureq);
-				tabbedPane.setSelectedPane(authorIndex);
+				tabbedPane.setSelectedPane(ureq, authorIndex);
 			}
 		}
 	}
