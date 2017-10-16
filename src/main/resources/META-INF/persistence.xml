@@ -38,14 +38,6 @@
 		<mapping-file>org/olat/course/assessment/model/UserEfficiencyStatementImpl.hbm.xml</mapping-file>
 		<mapping-file>org/olat/modules/openmeetings/model/OpenMeetingsReference.hbm.xml</mapping-file>
 		<mapping-file>org/olat/properties/Property.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/daily/DailyStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/dayofweek/DayOfWeekStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/hourofday/HourOfDayStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/studylevel/StudyLevelStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/studybranch3/StudyBranch3Stat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/weekly/WeeklyStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/homeorg/HomeOrgStat.hbm.xml</mapping-file>
-		<mapping-file>org/olat/course/statistic/orgtype/OrgTypeStat.hbm.xml</mapping-file>
 		<mapping-file>org/olat/portfolio/model/artefacts/AbstractArtefact.hbm.xml</mapping-file>
 		<mapping-file>org/olat/modules/fo/portfolio/ForumArtefact.hbm.xml</mapping-file>
 		<mapping-file>org/olat/modules/wiki/portfolio/WikiArtefact.hbm.xml</mapping-file>
@@ -62,7 +54,7 @@
 		<mapping-file>org/olat/core/util/mail/model/DBMailRecipient.hbm.xml</mapping-file>
 		<mapping-file>org/olat/core/logging/activity/LoggingObject.hbm.xml</mapping-file>
 		<mapping-file>org/olat/course/db/impl/CourseDBEntryImpl.hbm.xml</mapping-file>
-		
+
 		<!-- Start upgraders mapping -->
 		<mapping-file>org/olat/upgrade/model/BGAreaUpgrade.hbm.xml</mapping-file>
 		<mapping-file>org/olat/upgrade/model/BGContextImpl.hbm.xml</mapping-file>
@@ -77,9 +69,10 @@
 		<class>org.olat.upgrade.model.EPMapUpgradeToGroupRelation</class>
 		<class>org.olat.upgrade.model.InvitationUpgrade</class>
 		<!-- End upgraders mapping -->
-		
+
+
 		<class>de.unileipzig.xman.protocol.archived.ArchivedProtocol</class>
-		
+
 		<class>org.olat.basesecurity.IdentityShort</class>
 		<class>org.olat.basesecurity.model.GroupImpl</class>
 		<class>org.olat.basesecurity.model.GrantImpl</class>
@@ -108,11 +101,21 @@
 		<class>org.olat.course.nodes.cl.model.DBCheck</class>
 		<class>org.olat.course.nodes.gta.model.TaskImpl</class>
 		<class>org.olat.course.nodes.gta.model.TaskLightImpl</class>
+		<class>org.olat.course.nodes.gta.model.TaskDueDateImpl</class>
 		<class>org.olat.course.nodes.gta.model.TaskListImpl</class>
+		<class>org.olat.course.nodes.gta.model.TaskRevisionDateImpl</class>
 		<class>org.olat.course.certificate.model.CertificateImpl</class>
 		<class>org.olat.course.certificate.model.CertificateStandalone</class>
 		<class>org.olat.course.certificate.model.CertificateLightImpl</class>
 		<class>org.olat.course.certificate.model.CertificateTemplateImpl</class>
+		<class>org.olat.course.statistic.daily.DailyStat</class>
+		<class>org.olat.course.statistic.dayofweek.DayOfWeekStat</class>
+		<class>org.olat.course.statistic.homeorg.HomeOrgStat</class>
+		<class>org.olat.course.statistic.hourofday.HourOfDayStat</class>
+		<class>org.olat.course.statistic.orgtype.OrgTypeStat</class>
+		<class>org.olat.course.statistic.studybranch3.StudyBranch3Stat</class>
+		<class>org.olat.course.statistic.studylevel.StudyLevelStat</class>
+		<class>org.olat.course.statistic.weekly.WeeklyStat</class>
 		<class>org.olat.group.model.ContactView</class>
 		<class>org.olat.group.model.ContactViewExtended</class>
 		<class>org.olat.group.model.BusinessGroupShortImpl</class>
@@ -139,6 +142,7 @@
 		<class>org.olat.resource.accesscontrol.model.FreeAccessMethod</class>
 		<class>org.olat.resource.accesscontrol.model.TokenAccessMethod</class>
 		<class>org.olat.resource.accesscontrol.model.ResourceReservationImpl</class>
+		<class>org.olat.resource.accesscontrol.provider.auto.model.AdvanceOrderImpl</class>
 		<class>org.olat.resource.accesscontrol.provider.paypal.model.PaypalAccessMethod</class>
 		<class>org.olat.instantMessaging.model.InstantMessageImpl</class>
 		<class>org.olat.instantMessaging.model.ImPreferencesImpl</class>
@@ -165,6 +169,15 @@
 		<class>org.olat.modules.gotomeeting.model.GoToMeetingImpl</class>
 		<class>org.olat.modules.gotomeeting.model.GoToOrganizerImpl</class>
 		<class>org.olat.modules.gotomeeting.model.GoToRegistrantImpl</class>
+		<class>org.olat.modules.lecture.model.ReasonImpl</class>
+		<class>org.olat.modules.lecture.model.LectureBlockImpl</class>
+		<class>org.olat.modules.lecture.model.LectureBlockAuditLogImpl</class>
+		<class>org.olat.modules.lecture.model.LectureBlockToGroupImpl</class>
+		<class>org.olat.modules.lecture.model.LectureBlockRollCallImpl</class>
+		<class>org.olat.modules.lecture.model.LectureParticipantSummaryImpl</class>
+		<class>org.olat.modules.lecture.model.LectureParticipantCalendarSummary</class>
+		<class>org.olat.modules.lecture.model.LectureBlockReminderImpl</class>
+		<class>org.olat.modules.lecture.model.RepositoryEntryLectureConfigurationImpl</class>
 		<class>org.olat.modules.portfolio.model.BinderImpl</class>
 		<class>org.olat.modules.portfolio.model.SectionImpl</class>
 		<class>org.olat.modules.portfolio.model.PageImpl</class>
@@ -197,9 +210,12 @@
 		<class>org.olat.modules.reminder.model.SentReminderImpl</class>
 		<class>org.olat.modules.video.model.VideoTranscodingImpl</class>
 		<class>org.olat.modules.video.model.VideoMetaImpl</class>
+		<class>org.olat.modules.webFeed.model.FeedImpl</class>
+		<class>org.olat.modules.webFeed.model.ItemImpl</class>
 		<class>org.olat.ims.lti.model.LTIOutcomeImpl</class>
 		<class>org.olat.portfolio.model.InvitationImpl</class>
 		<class>org.olat.portfolio.model.structel.EPStructureElementToGroupRelation</class>
+		<class>org.olat.shibboleth.manager.ShibbolethAutoAccessMethod</class>
 		<class>org.olat.user.UserImpl</class>
 		<properties>
 			<property name="hibernate.generate_statistics" value="true"/>

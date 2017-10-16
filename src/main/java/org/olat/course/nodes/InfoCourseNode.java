@@ -23,8 +23,8 @@ package org.olat.course.nodes;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.commons.info.manager.InfoMessageFrontendManager;
-import org.olat.commons.info.model.InfoMessage;
+import org.olat.commons.info.InfoMessage;
+import org.olat.commons.info.InfoMessageFrontendManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
@@ -248,6 +248,7 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 	 * is called when deleting this node, clean up info-messages and subscriptions!
 	 */
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
 		// delete infoMessages and subscriptions (OLAT-6171)
 		String resSubpath = getIdent();
 		InfoMessageFrontendManager infoService = CoreSpringFactory.getImpl(InfoMessageFrontendManager.class);

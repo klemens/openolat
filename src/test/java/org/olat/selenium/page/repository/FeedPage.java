@@ -76,10 +76,10 @@ public class FeedPage {
 	 * @param url
 	 * @return
 	 */
-	public FeedPage newExternalPodcast(String url) {
+	public FeedPage newExternalPodcast(String title, String url) {
 		//click the button to create an external feed
 		By lastButton = By.xpath("//div[contains(@class,'o_podcast_no_episodes')]//a[contains(@href,'feed.make.external')]");
-		return newExternalFeed(lastButton, url);
+		return newExternalFeed(lastButton, title, url);
 	}
 	
 	/**
@@ -87,17 +87,24 @@ public class FeedPage {
 	 * @param url
 	 * @return
 	 */
-	public FeedPage newExternalBlog(String url) {
+	public FeedPage newExternalBlog(String title, String url) {
 		//click the button to create an external feed
 		By lastButton = By.xpath("//div[contains(@class,'o_blog_no_posts')]//a[contains(@href,'feed.make.external')]");
-		return newExternalFeed(lastButton, url);
+		return newExternalFeed(lastButton, title, url);
 	}
 	
-	private FeedPage newExternalFeed(By configureExternalButton, String url) {
+	private FeedPage newExternalFeed(By configureExternalButton, String title, String url) {
 		browser.findElement(configureExternalButton).click();
 		OOGraphene.waitBusy(browser);
 		By popupBy = By.cssSelector("div.modal-dialog");
 		OOGraphene.waitElement(popupBy, 5, browser);
+		
+		if(title != null) {
+			By titleBy = By.cssSelector("div.o_sel_feed_title input[type='text']");
+			WebElement titleEl = browser.findElement(titleBy);
+			titleEl.clear();
+			titleEl.sendKeys(title);
+		}
 		
 		//fill the URL input field
 		By urlField = By.cssSelector("div.modal-dialog div.o_sel_feed_url input[type='text']");
@@ -126,17 +133,17 @@ public class FeedPage {
 		By newItemButton = By.className("o_sel_feed_item_new");
 		browser.findElement(newItemButton).click();
 		OOGraphene.waitBusy(browser);
-		By postForm = By.className("o_sel_blog_form");
+		By postForm = By.className("o_sel_feed_form");
 		OOGraphene.waitElement(postForm, 1, browser);
 		return this;
 	}
 	
 	public FeedPage fillPostForm(String title, String summary, String content) {
 		//wait that the popup is available
-		By postFormBy = By.cssSelector("fieldset.o_sel_blog_form");
+		By postFormBy = By.cssSelector("fieldset.o_sel_feed_form");
 		OOGraphene.waitElement(postFormBy, 2, browser);
 
-		By titleBy = By.cssSelector("div.o_sel_blog_title input[type='text']");
+		By titleBy = By.cssSelector("div.o_sel_feed_title input[type='text']");
 		browser.findElement(titleBy).sendKeys(title);
 		
 		OOGraphene.tinymce(summary, browser);
@@ -147,7 +154,7 @@ public class FeedPage {
 	}
 	
 	public FeedPage publishPost() {
-		By publishButton = By.cssSelector(".o_sel_blog_form button.btn-primary");
+		By publishButton = By.cssSelector(".o_sel_feed_form button.btn-primary");
 		browser.findElement(publishButton).click();
 		OOGraphene.waitBusy(browser);
 		return this;
@@ -161,8 +168,7 @@ public class FeedPage {
 	 */
 	public MediaPage addAsMedia() {
 		By addAsMediaBy = By.cssSelector(".o_post .o_portfolio_collector");
-		WebElement addAsmediaButton = browser.findElement(addAsMediaBy);
-		addAsmediaButton.click();
+		browser.findElement(addAsMediaBy).click();
 		OOGraphene.waitBusy(browser);
 		return new MediaPage(browser);
 	}

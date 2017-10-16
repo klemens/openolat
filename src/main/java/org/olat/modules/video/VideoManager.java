@@ -45,6 +45,9 @@ import org.olat.resource.OLATResource;
  */
 public interface VideoManager {
 	
+	public static final String FILETYPE_SRT = "srt";
+	public static final String DOT = "." ;
+	
 	/**
 	 * Checks for video file.
 	 *
@@ -335,7 +338,7 @@ public interface VideoManager {
 	 * @param chapters the chapters
 	 * @param olatResource the video resource
 	 */
-	public abstract void loadChapters(List<VideoChapterTableRow> chapters, OLATResource olatResource);
+	public abstract List<VideoChapterTableRow> loadChapters(OLATResource olatResource);
 
 	/**
 	 * Save chapters.

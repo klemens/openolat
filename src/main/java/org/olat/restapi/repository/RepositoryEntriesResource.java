@@ -1,4 +1,5 @@
 /**
+
 * OLAT - Online Learning and Training<br>
 * http://www.olat.org
 * <p>
@@ -328,7 +329,6 @@ public class RepositoryEntriesResource {
 
 		RepositoryService repositoryService = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryHandlerFactory handlerFactory = CoreSpringFactory.getImpl(RepositoryHandlerFactory.class);
-		
 		try {
 			RepositoryHandler handler = null;
 			for(String type:handlerFactory.getSupportedTypes()) {
@@ -339,6 +339,7 @@ public class RepositoryEntriesResource {
 					break;
 				}
 			}
+			
 			RepositoryEntry addedEntry = null;
 			if(handler != null) {
 				Locale locale = I18nModule.getDefaultLocale();

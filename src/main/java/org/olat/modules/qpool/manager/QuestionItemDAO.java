@@ -222,14 +222,42 @@ public class QuestionItemDAO {
 		return query.getResultList();
 	}
 	
-	public void delete(List<QuestionItemShort> items) {
+	public void delete(List<? extends QuestionItemShort> items) {
 		EntityManager em = dbInstance.getCurrentEntityManager();
 		for(QuestionItemShort item:items) {
-			QuestionItem refItem = em.getReference(QuestionItemImpl.class, item.getKey());
-			em.remove(refItem);
+			QuestionItem refItem = loadLazyReferenceId(item.getKey());
+			if(refItem != null) {
+				em.remove(refItem);
+			}
 		}
 	}
 	
+	/**
+	 * The method only load the question item and doesn't fetch
+	 * anything.
+	 * 
+	 * @param key The primary key of the item
+	 * @return The question item or null if not found
+	 */
+	private QuestionItem loadLazyReferenceId(Long key) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select item from questionitem item")
+		  .append(" where item.key=:key");
+		List<QuestionItem> items = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), QuestionItem.class)
+				.setParameter("key", key)
+				.getResultList();
+		return items == null || items.isEmpty() ? null : items.get(0);
+	}
+	
+	/**
+	 * The method loads the question item and fetch
+	 * the taxonomy level, license, item type and
+	 * educational context.
+	 * 
+	 * @param key The primary key of the item
+	 * @return The question item or null if not found
+	 */
 	public QuestionItemImpl loadById(Long key) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select item from questionitem item")
@@ -395,8 +423,8 @@ public class QuestionItemDAO {
 				.getResultList();
 	}
 	
-	public int removeFromShares(List<QuestionItemShort> items) {
-		List<Long> keys = new ArrayList<Long>();
+	public int removeFromShares(List<? extends QuestionItemShort> items) {
+		List<Long> keys = new ArrayList<>();
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}
@@ -409,7 +437,7 @@ public class QuestionItemDAO {
 	}
 	
 	public int removeFromShare(List<QuestionItemShort> items, OLATResource resource) {
-		List<Long> keys = new ArrayList<Long>();
+		List<Long> keys = new ArrayList<>();
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}

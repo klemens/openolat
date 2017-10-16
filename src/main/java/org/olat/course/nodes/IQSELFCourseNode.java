@@ -62,9 +62,9 @@ import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.QTIResultSet;
 import org.olat.ims.qti.export.QTIExportEssayItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportFIBItemFormatConfig;
-import org.olat.ims.qti.export.QTIExportFormatter;
 import org.olat.ims.qti.export.QTIExportFormatterCSVType1;
 import org.olat.ims.qti.export.QTIExportItemFormatConfig;
+import org.olat.ims.qti.export.QTIExportItemFormatDelegate;
 import org.olat.ims.qti.export.QTIExportKPRIMItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportMCQItemFormatConfig;
 import org.olat.ims.qti.export.QTIExportManager;
@@ -77,6 +77,7 @@ import org.olat.ims.qti21.manager.AssessmentTestSessionDAO;
 import org.olat.ims.qti21.manager.archive.QTI21ArchiveFormat;
 import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.iq.IQManager;
 import org.olat.modules.iq.IQSecurityCallback;
 import org.olat.repository.RepositoryEntry;
@@ -243,6 +244,7 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	 */
 	@Override
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
 		// 1) Delete all qtiresults for this node. No properties used on this node
 		String repositorySoftKey = (String) getModuleConfiguration().get(IQEditController.CONFIG_KEY_REPOSITORY_SOFTKEY);
 		RepositoryEntry re = RepositoryManager.getInstance().lookupRepositoryEntryBySoftkey(repositorySoftKey, false);
@@ -268,14 +270,14 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 				return true;	
 			} else {
 				QTIExportManager qem = QTIExportManager.getInstance();
-				QTIExportFormatter qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\r\n", false);
-				((QTIExportFormatterCSVType1)qef).setAnonymous(true);
-				if (options != null && options.getQtiExportItemFormatConfig() != null) {
+				QTIExportFormatterCSVType1 qef = new QTIExportFormatterCSVType1(locale, "\t", "\"", "\r\n", false);
+				qef.setAnonymous(true);
+				if (options != null && options.getExportFormat() != null) {
 					Map<Class<?>, QTIExportItemFormatConfig> itemConfigs = new HashMap<>();
 					Class<?>[] itemTypes = new Class<?>[] {QTIExportSCQItemFormatConfig.class, QTIExportMCQItemFormatConfig.class,
 						QTIExportKPRIMItemFormatConfig.class, QTIExportFIBItemFormatConfig.class, QTIExportEssayItemFormatConfig.class};
 					for (Class<?> itemClass : itemTypes) {
-						itemConfigs.put(itemClass, options.getQtiExportItemFormatConfig());						
+						itemConfigs.put(itemClass, new QTIExportItemFormatDelegate(options.getExportFormat()));						
 					}
 					qef.setMapWithExportItemConfigs(itemConfigs);
 				}
@@ -309,9 +311,19 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	public void importNode(File importDirectory, ICourse course, Identity owner, Locale locale, boolean withReferences) {
 		RepositoryEntryImportExport rie = new RepositoryEntryImportExport(importDirectory, getIdent());
 		if(withReferences && rie.anyExportedPropertiesAvailable()) {
-			RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(TestFileResource.TYPE_NAME);
-			RepositoryEntry re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
-				rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+			File file = rie.importGetExportedFile();
+			RepositoryHandler handlerQTI21 = RepositoryHandlerFactory.getInstance().getRepositoryHandler(ImsQTI21Resource.TYPE_NAME);
+
+			RepositoryEntry re;
+			if(handlerQTI21.acceptImport(file, "repo.zip").isValid()) {
+				re = handlerQTI21.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+						rie.getDescription(), false, locale, rie.importGetExportedFile(), null);
+				getModuleConfiguration().set(IQEditController.CONFIG_KEY_TYPE_QTI, IQEditController.CONFIG_VALUE_QTI21);
+			} else {
+				RepositoryHandler handler = RepositoryHandlerFactory.getInstance().getRepositoryHandler(TestFileResource.TYPE_NAME);
+				re = handler.importResource(owner, rie.getInitialAuthor(), rie.getDisplayName(),
+					rie.getDescription(), false, locale, file, null);
+			}
 			IQEditController.setIQReference(re, getModuleConfiguration());
 		} else {
 			IQEditController.removeIQReference(getModuleConfiguration());
@@ -392,10 +404,10 @@ public class IQSELFCourseNode extends AbstractAccessableCourseNode implements Se
 	 * @see org.olat.course.nodes.AssessableCourseNode#incrementUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
 	@Override
-	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
+	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment, Role by) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment);
+		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment, by);
 	}
 
 }

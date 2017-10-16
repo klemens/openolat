@@ -21,7 +21,6 @@ package org.olat.selenium.page.course;
 
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
@@ -36,13 +35,8 @@ import org.openqa.selenium.support.ui.Select;
  *
  */
 public class InfoMessageCEPage {
-	
-	@Drone
-	private WebDriver browser;
-	
-	public InfoMessageCEPage() {
-		//
-	}
+
+	private final WebDriver browser;
 	
 	public InfoMessageCEPage(WebDriver browser) {
 		this.browser = browser;
@@ -56,7 +50,6 @@ public class InfoMessageCEPage {
 	public InfoMessageCEPage createMessage() {
 		By createBy = By.className("o_sel_course_info_create_msg");
 		browser.findElement(createBy).click();
-		OOGraphene.waitBusy(browser);
 		OOGraphene.waitModalDialog(browser);
 		return this;
 	}
@@ -84,9 +77,8 @@ public class InfoMessageCEPage {
 	 * @return This page
 	 */
 	public InfoMessageCEPage next() {
-		By nextBy = By.className("o_wizard_button_next");
-		browser.findElement(nextBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.nextStep(browser);
+		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_info_contact"), browser);
 		return this;
 	}
 	
@@ -96,9 +88,7 @@ public class InfoMessageCEPage {
 	 * @return This page
 	 */
 	public InfoMessageCEPage finish() {
-		By finishBy = By.className("o_wizard_button_finish");
-		browser.findElement(finishBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.finishStep(browser);
 		return this;
 	}
 	
@@ -141,7 +131,7 @@ public class InfoMessageCEPage {
 		List<WebElement> editEls = browser.findElements(editBy);
 		Assert.assertFalse(editEls.isEmpty());
 		editEls.get(0).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalDialog(browser);
 		return this;
 	}
 	
@@ -206,14 +196,23 @@ public class InfoMessageCEPage {
 		return this;
 	}
 	
+	public InfoMessageCEPage scrollToMessage(String title) {
+		By titleBy = By.xpath("//div[contains(@class,'o_msg')]//div//h3[contains(text(),'" + title + "')]");
+		OOGraphene.scrollTo(titleBy, browser);
+		return this;
+	}
+	
 	/**
 	 * Click the old messages button. Raise an error if the button is not there.
 	 * 
 	 * @return This page
 	 */
 	public InfoMessageCEPage oldMessages() {
-		By oldMessagesBy = By.className("o_sel_course_info_old_msgs");
+		By oldMessagesBy = By.cssSelector("a.o_sel_course_info_old_msgs");
+		OOGraphene.waitElement(oldMessagesBy, browser);
+		OOGraphene.waitingTooLong();// I don't know why
 		browser.findElement(oldMessagesBy).click();
+		OOGraphene.scrollTop(browser);
 		OOGraphene.waitBusy(browser);
 		return this;
 	}

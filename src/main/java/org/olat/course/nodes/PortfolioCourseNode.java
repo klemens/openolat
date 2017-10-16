@@ -63,6 +63,7 @@ import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.portfolio.handler.BinderTemplateResource;
 import org.olat.modules.portfolio.ui.PortfolioAssessmentDetailsController;
 import org.olat.portfolio.EPTemplateMapResource;
@@ -349,6 +350,12 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 		Boolean comment = (Boolean) config.get(MSCourseNode.CONFIG_KEY_HAS_COMMENT_FIELD);
 		return (comment == null) ? false : comment.booleanValue();
 	}
+	
+	@Override
+	public boolean hasIndividualAsssessmentDocuments() {
+		return getModuleConfiguration()
+				.getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_INDIVIDUAL_ASSESSMENT_DOCS, false);
+	}
 
 	@Override
 	public boolean hasAttemptsConfigured() {
@@ -400,8 +407,13 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		String userCommentValue = am.getNodeComment(this, userCourseEnvironment.getIdentityEnvironment().getIdentity());
-		return userCommentValue;
+		return am.getNodeComment(this, userCourseEnvironment.getIdentityEnvironment().getIdentity());
+	}
+	
+	@Override
+	public List<File> getIndividualAssessmentDocuments(UserCourseEnvironment userCourseEnvironment) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		return am.getIndividualAssessmentDocuments(this, userCourseEnvironment.getIdentityEnvironment().getIdentity());
 	}
 
 	@Override
@@ -451,35 +463,60 @@ public class PortfolioCourseNode extends AbstractAccessableCourseNode implements
 
 	@Override
 	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
-			Identity coachingIdentity, boolean incrementAttempts) {
+			Identity coachingIdentity, boolean incrementAttempts, Role by) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation), userCourseEnvironment, incrementAttempts);
+		am.saveScoreEvaluation(this, coachingIdentity, mySelf, new ScoreEvaluation(scoreEvaluation), userCourseEnvironment, incrementAttempts, by);
 	}
 
 	@Override
 	public void updateUserUserComment(String userComment, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
-		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
 		if (userComment != null) {
+			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+			Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
 			am.saveNodeComment(this, coachingIdentity, mySelf, userComment);
 		}
 	}
-
+	
 	@Override
-	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
-		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
-		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment);
+	public void addIndividualAssessmentDocument(File document, String filename, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		if(document != null) {
+			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+			Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+			am.addIndividualAssessmentDocument(this, coachingIdentity, assessedIdentity, document, filename);
+		}
 	}
 
 	@Override
-	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+	public void removeIndividualAssessmentDocument(File document, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		if(document != null) {
+			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+			Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+			am.removeIndividualAssessmentDocument(this, coachingIdentity, assessedIdentity, document);
+		}
+	}
+
+	@Override
+	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment, Role by) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+		am.incrementNodeAttempts(this, mySelf, userCourseEnvironment, by);
+	}
+
+	@Override
+	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity, Role by) {
 		if (userAttempts != null) {
 			AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 			Identity mySelf = userCourseEnvironment.getIdentityEnvironment().getIdentity();
-			am.saveNodeAttempts(this, coachingIdentity, mySelf, userAttempts);
+			am.saveNodeAttempts(this, coachingIdentity, mySelf, userAttempts, by);
 		}
+	}
+
+	@Override
+	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role by) {
+		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
+		Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+		am.updateLastModifications(this, assessedIdentity, userCourseEnvironment, by);
 	}
 
 	@Override

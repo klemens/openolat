@@ -88,7 +88,8 @@ public class EntryPage {
 		
 		By inputBy = By.cssSelector("fieldset.o_sel_pf_collect_image_form .o_fileinput input[type='file']");
 		OOGraphene.uploadFile(inputBy, image, browser);
-		OOGraphene.waitingALittleLonger();//wait event
+		By previewBy = By.cssSelector("div.o_filepreview>div.o_image>img");
+		OOGraphene.waitElement(previewBy, 5, browser);
 		
 		By titleBy = By.cssSelector("fieldset.o_sel_pf_collect_image_form .o_sel_pf_collect_title input[type='text']");
 		browser.findElement(titleBy).sendKeys(title);
@@ -102,7 +103,7 @@ public class EntryPage {
 	
 	public EntryPage assertOnImage(File image) {
 		String filename = image.getName();
-		By titleBy = By.xpath("//div[contains(@class,'o_image')]//img[contains(@src,'" + filename + "')]");
+		By titleBy = By.xpath("//figure[contains(@class,'o_image')]//img[contains(@src,'" + filename + "')]");
 		OOGraphene.waitElement(titleBy, 5, browser);
 		return this;
 	}
@@ -152,7 +153,7 @@ public class EntryPage {
 	}
 	
 	public EntryPage assertOnCitation(String citation) {
-		By citationBy = By.xpath("//blockquote[contains(@class,'o_quote')]/p[contains(text(),'" + citation + "')]");
+		By citationBy = By.xpath("//blockquote[contains(@class,'o_quote')]//p[contains(text(),'" + citation + "')]");
 		OOGraphene.waitElement(citationBy, 5, browser);
 		return this;
 	}
@@ -177,7 +178,6 @@ public class EntryPage {
 		By moveToTrashBy = By.cssSelector("a.o_sel_pf_move_page_to_trash");
 		OOGraphene.waitElement(moveToTrashBy, 5, browser);
 		browser.findElement(moveToTrashBy).click();
-		OOGraphene.waitBusy(browser);
 		OOGraphene.waitModalDialog(browser);
 		
 		BinderPage binder = new BinderPage(browser);
@@ -189,7 +189,6 @@ public class EntryPage {
 		By moveToTrashBy = By.cssSelector("a.o_sel_pf_delete_page");
 		OOGraphene.waitElement(moveToTrashBy, 5, browser);
 		browser.findElement(moveToTrashBy).click();
-		OOGraphene.waitBusy(browser);
 		OOGraphene.waitModalDialog(browser);
 		
 		new BinderPage(browser).confirm();
@@ -222,7 +221,7 @@ public class EntryPage {
 	private void confirm() {
 		By confirmButtonBy = By.xpath("//div[contains(@class,'modal-dialo')]//div[contains(@class,'modal-footer')]/a[contains(@onclick,'link_0')]");
 		OOGraphene.waitElement(confirmButtonBy, 5, browser);
-		OOGraphene.waitScrollTop(browser);
+		OOGraphene.waitBusyAndScrollTop(browser);
 		browser.findElement(confirmButtonBy).click();
 		OOGraphene.waitBusy(browser);
 	}

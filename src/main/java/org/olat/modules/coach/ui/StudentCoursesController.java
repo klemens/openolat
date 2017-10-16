@@ -70,9 +70,14 @@ import org.olat.modules.assessment.ui.ScoreCellRenderer;
 import org.olat.modules.co.ContactFormController;
 import org.olat.modules.coach.CoachingService;
 import org.olat.modules.coach.model.EfficiencyStatementEntry;
+import org.olat.modules.coach.model.IdentityRepositoryEntryKey;
 import org.olat.modules.coach.model.IdentityResourceKey;
 import org.olat.modules.coach.model.StudentStatEntry;
 import org.olat.modules.coach.ui.EfficiencyStatementEntryTableDataModel.Columns;
+import org.olat.modules.coach.ui.UserDetailsController.Segment;
+import org.olat.modules.lecture.LectureModule;
+import org.olat.modules.lecture.LectureService;
+import org.olat.modules.lecture.model.LectureBlockStatistics;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
@@ -99,7 +104,7 @@ public class StudentCoursesController extends FormBasicController implements Act
 	
 	private CloseableModalController cmc;
 	private ContactFormController contactCtrl;
-	private EfficiencyStatementDetailsController statementCtrl;
+	private UserDetailsController statementCtrl;
 	
 	private boolean hasChanged = false;
 	
@@ -114,6 +119,10 @@ public class StudentCoursesController extends FormBasicController implements Act
 	
 	@Autowired
 	private UserManager userManager;
+	@Autowired
+	private LectureModule lectureModule;
+	@Autowired
+	private LectureService lectureService;
 	@Autowired
 	private CoachingService coachingService;
 	@Autowired
@@ -199,7 +208,19 @@ public class StudentCoursesController extends FormBasicController implements Act
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.certificate, new DownloadCertificateCellRenderer()));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.recertification, new DateFlexiCellRenderer(getLocale())));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.progress, new ProgressRenderer(true, getTranslator())));
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.lastModification));
+		if(lectureModule.isEnabled()) {
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.plannedLectures));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.attendedLectures));
+			if(lectureModule.isAuthorizedAbsenceEnabled()) {
+				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.unauthorizedAbsenceLectures));
+				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.authorizedAbsenceLectures));
+			} else {
+				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.absentLectures));
+			}
+		}
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Columns.lastModification));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.lastUserModified));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Columns.lastCoachModified));
 		
 		model = new EfficiencyStatementEntryTableDataModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, 20, false, getTranslator(), formLayout);
@@ -246,7 +267,16 @@ public class StudentCoursesController extends FormBasicController implements Act
 			certificateMap.put(key, certificate);
 		}
 
-		model.setObjects(statements, certificateMap);
+		ConcurrentMap<IdentityRepositoryEntryKey, LectureBlockStatistics> lecturesMap = new ConcurrentHashMap<>();
+		if(lectureModule.isEnabled()) {
+			List<LectureBlockStatistics> lectureStats = lectureService.getParticipantLecturesStatistics(student);
+			for(LectureBlockStatistics lectureStat:lectureStats) {
+				IdentityRepositoryEntryKey key = new IdentityRepositoryEntryKey(student.getKey(), lectureStat.getRepoKey());
+				lecturesMap.put(key, lectureStat);
+			}
+		}
+
+		model.setObjects(statements, certificateMap, lecturesMap);
 		tableEl.reset();
 		tableEl.reloadData();
 		return statements;
@@ -378,9 +408,9 @@ public class StudentCoursesController extends FormBasicController implements Act
 	}
 	
 	private void selectDetails(UserRequest ureq, EfficiencyStatementEntry entry) {
-		boolean selectAssessmentTool = false;
+		Segment selectedTool = null;
 		if(statementCtrl != null) {
-			selectAssessmentTool = statementCtrl.isAssessmentToolSelected();
+			selectedTool = statementCtrl.getSelectedSegment();
 		}
 		
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(RepositoryEntry.class, entry.getCourse().getKey());
@@ -391,8 +421,8 @@ public class StudentCoursesController extends FormBasicController implements Act
 				displayName, String.valueOf(entryIndex), String.valueOf(model.getRowCount())
 		});
 		
-		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, stackPanel,
-				entry, student, details, entryIndex, model.getRowCount(), selectAssessmentTool);
+		statementCtrl = new UserDetailsController(ureq, bwControl, stackPanel,
+				entry, student, details, entryIndex, model.getRowCount(), selectedTool);
 		listenTo(statementCtrl);
 		stackPanel.popUpToController(this);
 		stackPanel.pushController(displayName, statementCtrl);

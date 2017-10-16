@@ -14,7 +14,7 @@
 				author : 'frentix GmbH',
 				authorurl : 'http://www.frentix.com',
 				infourl : 'http://www.frentix.com',
-				version : '1.1.5'
+				version : '1.2.7'
 			};
 		},
 
@@ -71,16 +71,19 @@
 			}
 
 			function showDialog(e, gapType) {
-				var newEntry = false;
-				var newSelectedText = null;
-				var responseIdentifier;
+				var ffxhrevent = ed.getParam("ffxhrevent");
 				if(typeof lastSelectedGap != 'undefined') {
-					responseIdentifier = jQuery(lastSelectedGap).attr('data-qti-response-identifier')
+					var textEntryEl = jQuery(lastSelectedGap).closest("span[data-qti='textentryinteraction']");
+					var responseIdentifier = textEntryEl.attr('data-qti-response-identifier');
+					var solution = jQuery(textEntryEl).children().html();
+					var emptySolution = (solution == "" || solution == "&nbsp;" ? "true" : "false");
+					o_ffXHREvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2, false, false, false,
+							'cmd', 'gapentry', 'responseIdentifier', responseIdentifier, 'selectedText', solution, 'emptySolution', emptySolution, 'newEntry', false);
 				} else {
 					var counter = 1;
-					newSelectedText = ed.selection.getContent({format: 'text'})
+					var newSelectedText = ed.selection.getContent({format: 'text'})
 					
-					tinymce.each(ed.dom.select("img[data-qti]"), function(node) {
+					tinymce.each(ed.dom.select("span[data-qti]"), function(node) {
 						var identifier = jQuery(node).attr('data-qti-response-identifier');
 						if(identifier.lastIndexOf("RESPONSE_", 0) == 0) {
 							var id = parseInt(identifier.substring(9, identifier.length));
@@ -91,15 +94,17 @@
 				    });
 					
 					var responseIdentifier = "RESPONSE_" + (counter + 1);
-					var placeholder = createPlaceholder(responseIdentifier, 'textentryinteraction', gapType);
+					if(typeof newSelectedText === "undefined" || newSelectedText.length == 0) {
+						newSelectedText = "gap";
+					}
+					
+					var placeholder = createTextEntryPlaceholder(responseIdentifier, newSelectedText, 'textentryinteraction', gapType);
 					var holderHtml = new tinymce.html.Serializer().serialize(placeholder);
 					ed.insertContent(holderHtml);
-					newEntry = true;
+
+					o_ffXHREvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2, false, false, false,
+							'cmd', 'gapentry', 'responseIdentifier', responseIdentifier, 'newEntry', true, 'selectedText', newSelectedText, 'gapType', gapType);
 				}
-				
-				var ffxhrevent = ed.getParam("ffxhrevent");
-				o_ffXHREvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2, false, false, false,
-						'cmd', 'gapentry', 'responseIdentifier', responseIdentifier, 'newEntry', newEntry, 'selectedText', newSelectedText, 'gapType', gapType);
 				ed.setDirty(true);
 			}
 			
@@ -142,14 +147,14 @@
 			ed.addButton('olatqtifibtext', {
 				title : translator().translate('new.fib'),
 				icon : 'gaptext',
-				stateSelector: ['img[data-qti-gap-type=string]', 'span[data-qti-gap-type=string]'],
+				stateSelector: ['span[data-qti-gap-type=string]'],
 				onclick: showTextDialog
 			});
 			
 			ed.addButton('olatqtifibnumerical', {
 				title : translator().translate('new.fib') + ' Numerical',
 				icon : 'gapnumerical',
-				stateSelector: ['img[data-qti-gap-type=float]', 'span[data-qti-gap-type=float]'],
+				stateSelector: ['span[data-qti-gap-type=float]'],
 				onclick: showNumericalDialog
 			});
 
@@ -169,14 +174,14 @@
 			ed.addMenuItem('olatqtifibtext', {
 				text : translator().translate('new.fib'),
 				icon : 'gapnumerical',
-				stateSelector: ['img[data-qti-gap-type=string]', 'span[data-qti-gap-type=string]'],
+				stateSelector: ['span[data-qti-gap-type=string]'],
 				onclick: showNumericalDialog
 			});
 			
 			ed.addMenuItem('olatqtifibnumerical', {
 				text : translator().translate('new.fib.numerical') + ' Numerical',
 				icon : 'gaptext',
-				stateSelector: ['img[data-qti-gap-type=float]', 'span[data-qti-gap-type=float]'],
+				stateSelector: ['span[data-qti-gap-type=float]'],
 				onclick: showTextDialog
 			});
 			
@@ -195,40 +200,111 @@
 					lastSelectedHottext = undefined;
 				}
 				
-				if (ed.dom.is(e.element, 'img[data-qti]')) {
+				if (ed.dom.is(e.element, 'span[data-qti=textentryinteraction]')) {
+					lastSelectedGap = e.element;
+				} else if (jQuery(e.element).parent("span[data-qti='textentryinteraction']").size() > 0) {
 					lastSelectedGap = e.element;
 				}
 				
 				if (jQuery(e.element).parent('span.hottext').size() > 0) {
 					lastSelectedHottext = e.element;
 				}
-
-				jQuery("span.hottext[data-copy='needlistener'] a", e.element).each(function(index, el) {
-					var hottext = jQuery(el).parent("span.hottext").attr('data-copy','blues');
-					var ev = jQuery._data(el, 'events');
-					if(ev && ev.click) {
-						//double check 
-					} else {
-						correctHottextEvent(el);
+				
+				jQuery(e.element).parent("span[data-qti-gap-type=float]").each(function(index, el) {
+					if(jQuery(e.element).prop("tagName").toLowerCase() == "span") {
+						var solution = jQuery(e.element).text();
+						if(!jQuery.isNumeric(solution)) {
+							jQuery(el).addClass('error');
+						} else {
+							jQuery(el).removeClass('error');
+						}
 					}
+				});
+				
+				jQuery("span.hottext[data-copy='needlistener']", e.element).each(function(index, el) {
+					if(jQuery("a.o_check", el).size() == 0) {
+						var checked = jQuery(el).attr('data-qti-checked');
+						jQuery(el).prepend("<a class='o_check " + ("true" == checked ? "checked" : "") + "' contenteditable='false'><i contenteditable='false'> </i></a>");
+					}
+					
+					//remove the placeholder for Firefox
+					if(jQuery("span[contenteditable='true']", el).text() == "x-y-x" && jQuery(el).attr('data-qti-empty') == "true") {
+						jQuery("span[contenteditable='true']", el).text("");
+						jQuery(el).attr('data-qti-empty', 'false');
+					}
+
+					jQuery("a.o_check", jQuery(el)).each(function(aIndex, aEl) {
+						var ev = jQuery._data(aEl, 'events');
+						if(ev && ev.click) {
+							/* double check */ 
+						} else {
+							correctHottextEvent(aEl);
+							//confirm by sending the setting to the server
+							if(jQuery(aEl).hasClass('checked')) {
+								var ffxhrevent = ed.getParam("ffxhrevent");
+								var identifier = jQuery(el).data('qti-identifier');
+								o_ffXHRNFEvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2,
+									'cmd', 'hottext', 'identifier', identifier, 'correct', 'true');
+							}
+						}
+					});
+				});
+				
+				jQuery("span.textentryinteraction[data-copy='needlistener']", e.element).each(function(index, el) {
+					if(jQuery("a.o_ops", el).size() == 0) {
+						jQuery(el).append("<a class='o_ops' contenteditable='false'><i contenteditable='false'> </i></a>");
+					}
+					
+					//remove the placeholder for Firefox
+					if(jQuery("span[contenteditable='true']", el).text() == "x-y-x" && jQuery(el).attr('data-qti-empty') == "true") {
+						jQuery("span[contenteditable='true']", el).text("");
+						jQuery(el).attr('data-qti-empty', 'false');
+					}s
+					
+					jQuery("a.o_ops", jQuery(el)).each(function(aIndex, aEl) {
+						var ev = jQuery._data(aEl, 'events');
+						if(ev && ev.click) {
+							//double check 
+						} else {
+							textEntryEvent(el);
+						}
+					});
 				});
 			});
 			
-			function createPlaceholder(responseIdentifier, interaction, gapType) {
-				var placeholder = new tinymce.html.Node('img', 1);
+			function createTextEntryPlaceholder(responseIdentifier, content, interaction, gapType) {
+				var placeholder = new tinymce.html.Node('span', 1);
 				placeholder.attr({
-					width: "32",
-					height: "16",
-					src : tinymce.Env.transparentSrc,
-					id : guid(),
 					"data-qti": interaction,
 					"data-qti-response-identifier": responseIdentifier,
+					"data-qti-solution" : content,
 					"data-qti-gap-type": gapType,
 					"data-mce-placeholder": "",
-					"data-mce-resize" : "false",
 					"data-textentryinteraction": "empty",
-					"class": "mce-shim " + interaction
+					"class": interaction,
+					"contenteditable": "false"
 				});
+				
+				var readonly = ed.getParam("readonly");
+	            var editable = readonly == "1" ? "false" : "true";
+				var contentholder = new tinymce.html.Node('span', 1);
+	            contentholder.attr({ "contenteditable": editable });
+	            var textNode = new tinymce.html.Node('#text', 3);
+	            textNode.raw = true;
+	            textNode.value = content;
+	            contentholder.append(textNode);
+	            placeholder.append(contentholder);
+
+	            var aHolder = new tinymce.html.Node('a', 1);
+	            aHolder.attr({ "contenteditable": "false", "class": "o_ops" });
+	            var aTextHolder = new tinymce.html.Node('i', 1);
+	            aTextHolder.attr({ "contenteditable": "false" });
+	            var aTextNode = new tinymce.html.Node('#text', 3);
+	            aTextNode.raw = true;
+	            aTextNode.value = '&nbsp;';
+	            aTextHolder.append(aTextNode);
+	            aHolder.append(aTextHolder);
+	            placeholder.append(aHolder);
 				return placeholder;
 			}
 			
@@ -237,6 +313,7 @@
 				placeholder.attr({
 					"data-qti": interaction,
 					"data-qti-identifier": identifier,
+					"data-qti-checked": (correct ? "true": "false"),
 					"class": interaction,
 					"contenteditable": "false"
 				});
@@ -247,7 +324,7 @@
 	            var checkHolder = new tinymce.html.Node('a', 1);
 	            checkHolder.attr({
 					"contenteditable": "false",
-					"class": (correct ? "checked": "")
+					"class": "o_check " + (correct ? "checked": "")
 	            });
 	            var aTextHolder = new tinymce.html.Node('i', 1);
 	            aTextHolder.attr({ "contenteditable": "false" });
@@ -260,10 +337,25 @@
 
 	            var contentholder = new tinymce.html.Node('span', 1);
 	            contentholder.attr({ "contenteditable": editable });
-	            var textNode = new tinymce.html.Node('#text', 3);
-	            textNode.raw = true;
-	            textNode.value = content;
-	            contentholder.append(textNode);
+	            if(typeof content === "string") {
+	            	var textNode = new tinymce.html.Node('#text', 3);
+	            	textNode.raw = true;
+	            	textNode.value = content;
+	            	contentholder.append(textNode);
+	            } else {
+	            	var node, collection = [];
+	                for (node = content.firstChild; node; node = node.walk()) {
+	                	if(node.parent == content) {
+	                		collection.push(node);
+	                	}
+						if(node == content.lastChild) {
+							break;
+						}
+	                }
+	                for(var i=0; i<collection.length; i++) {
+		            	contentholder.append(collection[i]);
+	                }
+	            }
 	            placeholder.append(contentholder);
 				return placeholder;
 			}
@@ -277,9 +369,23 @@
 							'cmd', 'hottext', 'identifier', identifier, 'correct', jLinkEl.hasClass('checked') ? "false" : "true");
 					if(jLinkEl.hasClass('checked')) {
 						jLinkEl.removeClass('checked');
+						jLinkEl.parent("span.hottext").attr('data-qti-checked', "false");
 					} else {
 						jLinkEl.addClass('checked');
+						jLinkEl.parent("span.hottext").attr('data-qti-checked', "true");
 					}
+					ed.setDirty(true);
+				});
+			}
+			
+			function textEntryEvent(textEntryEl) {
+				jQuery("a.o_ops", textEntryEl).click(function() {
+					var ffxhrevent = ed.getParam("ffxhrevent");
+					var responseIdentifier = jQuery(textEntryEl).attr('data-qti-response-identifier');
+					var solution = jQuery(textEntryEl).children().html();
+					var emptySolution = (solution == "" || solution == "&nbsp;" ? "true" : "false");
+					o_ffXHREvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2, false, false, false,
+							'cmd', 'gapentry', 'responseIdentifier', responseIdentifier, 'selectedText', solution, 'emptySolution', emptySolution);
 					ed.setDirty(true);
 				});
 			}
@@ -299,30 +405,38 @@
 				}
 				return content;
 			}
+			
+			ed.addCommand('qtiUpdateTextEntry', function (ui, value) {
+				var responseIdentifier = value['responseIdentifier'];
+				var solution = value['data-qti-solution'];
+				jQuery("span[data-qti-response-identifier='" + responseIdentifier+ "']>span", ed.getBody()).each(function(index, el) {
+					jQuery(el).text(solution);
+				});
+				
+				jQuery("span[data-qti-response-identifier='" + responseIdentifier+ "']", ed.getBody()).each(function(index, el) {
+					textEntryEvent(jQuery(el));
+				});
+			});
 
 			// Load Content CSS upon initialization
 			ed.on('init', function() {
 				if (ed.settings.content_css !== false) {
 					ed.dom.loadCSS(url + "/css/content.css");
 				}
-				jQuery("img.textentryinteraction", ed.getBody()).each(function(index, el) {
-					var imgEl = el;
-					jQuery(imgEl).click(function() {
-						var ffxhrevent = ed.getParam("ffxhrevent");
-						var responseIdentifier = jQuery(imgEl).attr('data-qti-response-identifier');
-						o_ffXHREvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2, false, false, false,
-								'cmd', 'gapentry', 'responseIdentifier', responseIdentifier);
-						ed.setDirty(true);
-					});
+				jQuery(".textentryinteraction", ed.getBody()).each(function(index, el) {
+					textEntryEvent(el);
 				});
 				
-				jQuery("span.hottext a", ed.getBody()).each(function(index, el) {
+				jQuery("span.hottext a.o_check", ed.getBody()).each(function(index, el) {
 					correctHottextEvent(el);
 				});
 			});
 			
-			
-			
+			/**
+			 * Replace on load the special XML tags of QTI to some placeholders
+			 * useable by TinyMCE.
+			 * 
+			 */
 			ed.on('preInit', function() {
 				ed.parser.addNodeFilter('textentryinteraction,hottext', function(nodes) {
 					var i = nodes.length, node, placeHolder, videoScript;
@@ -331,17 +445,20 @@
 						if (node.name == 'textentryinteraction') {
 							var responseIdentifier = node.attr('responseidentifier');
 							var gapType = node.attr('openolattype');
+							var solution = node.attr('data-qti-solution');
+							if(typeof solution === "undefined") {
+								solution = "&nbsp;";
+							}
 							if(typeof gapType === "undefined") {
 								gapType = "string";
 							}
-							var placeHolder = createPlaceholder(responseIdentifier, 'textentryinteraction', gapType);
+							var placeHolder = createTextEntryPlaceholder(responseIdentifier, solution, 'textentryinteraction', gapType);
 							node.replace(placeHolder);
 						} else if (node.name == 'hottext') {
-			
 							var identifier = node.attr('identifier');
 							var correctHottexts = ed.getParam("correctHottexts");
 							var correct = jQuery.inArray(identifier, correctHottexts) >= 0;
-							var content = getTextContent(node);
+							var content = node;
 							var placeHolder = createHottextPlaceholder(identifier, content, correct, 'hottext', 'hottext');
 							node.replace(placeHolder);
 						}
@@ -350,13 +467,17 @@
 			});
 			
 			/** 
-             * This onSetContent handler is used to convert the comments to placeholder images (e.g. when loading).
+             * This event is catch to convert the content of the editor in something useable for
+             * OpenOLAT, e.g. replace all placeholders with real HTML/XML QTI code.
              */
 			ed.on('PreProcess', function(e) {
-				tinymce.each(ed.dom.select("img[data-qti=textentryinteraction]"), function(node) {
+				tinymce.each(ed.dom.select("span[data-qti=textentryinteraction]"), function(node) {
 					var identifier = jQuery(node).attr('data-qti-response-identifier');
-					var textNode = ed.dom.create("textentryinteraction", {
-						responseIdentifier: identifier
+					var solution = jQuery(node).children().html();
+					var textNode = ed.dom.create("textEntryInteraction", {
+						responseIdentifier: identifier,
+						"data-qti-solution": solution,
+						"data-qti-solution-empty": (solution == "" || solution == "&nbsp;" ? "true" : "false")
 					});
 					
 					var alone = node.previousSibling == null && (node.nextSibling == null || jQuery(node.nextSibling).attr("type") == "_moz");
@@ -368,14 +489,25 @@
 				
 				tinymce.each(ed.dom.select("span[data-qti=hottext]"), function(node) {
 					var identifier = jQuery(node).data('qti-identifier');
-					var textNode = ed.dom.create("hottext", { identifier: identifier });
-					var hottext = jQuery('span[contenteditable="true"]', node).html();
-					textNode.textContent = hottext;
-					ed.dom.replace(textNode, node, false);
+					var hottextNode = ed.dom.create("hottext", { identifier: identifier });
+					var hottextContent = jQuery('span[contenteditable="true"]', node);
+					jQuery(hottextNode).append(hottextContent.contents());
+					ed.dom.replace(hottextNode, node, false);
 			    });
 			});
 			
 			ed.on('PastePreProcess', function (e) {
+				var selectedNode = ed.selection.getNode();
+				if(selectedNode != null &&
+						(jQuery(selectedNode).parent("span.hottext").size() > 0 || jQuery(selectedNode).parent("span.textentryinteraction").size() > 0)) {
+					
+					// paste in an hottext or a textEntryInteraction -> only text
+					var wrappedContent = '<div id="' + guid() + '">' + e.content + '</div>';
+					var htmlContent = jQuery(wrappedContent);
+					e.content = jQuery(htmlContent).text();
+					return;
+				}
+				
 				var replace = false;
 				var wrappedContent = '<div id="' + guid() + '">' + e.content + '</div>';
 				var htmlContent = jQuery(wrappedContent);
@@ -384,6 +516,36 @@
 					var hotId = 'ht' + guid();
 					jQuery(el).attr('data-qti-identifier', hotId);
 					jQuery(el).attr('data-copy', 'needlistener');
+					jQuery(el).attr('data-copy-empty', 'false');
+					
+					var empty = jQuery("span[contenteditable='true']", el).text();
+					if(empty == null || empty.length == 0) {
+						jQuery("span[contenteditable='true']", el).text("x-y-x");
+						jQuery(el).attr('data-copy-empty', 'true');
+					}
+					replace = true;
+				});
+				
+				jQuery(htmlContent).find("span[data-qti='textentryinteraction']").each(function(index, el) {
+					var entryId = 'te' + guid();
+					jQuery(el).attr('data-qti-response-identifier', entryId);
+					jQuery(el).attr('data-copy', 'needlistener');
+					jQuery(el).attr('data-copy-empty', 'false');
+					
+					var gapType = jQuery(el).attr("data-qti-gap-type");
+					var solution = jQuery(el).attr("data-qti-solution");
+					var ffxhrevent = ed.getParam("ffxhrevent");
+					o_ffXHRNFEvent(ffxhrevent.formNam, ffxhrevent.dispIdField, ffxhrevent.dispId, ffxhrevent.eventIdField, 2,
+							'cmd', 'copy-gapentry', 'responseIdentifier', entryId, 'newEntry', true, 'selectedText', solution, 'gapType', gapType);
+					//add it because tiny delete it
+					jQuery("a.o_ops", el).append(jQuery("<i class='visible'>&nbsp;</i>"));
+					
+					var empty = jQuery("span[contenteditable='true']", el).text();
+					if(empty == null || empty.length == 0) {
+						jQuery("span[contenteditable='true']", el).text("x-y-x");
+						jQuery(el).attr('data-copy-empty', 'true');
+					}
+					
 					replace = true;
 				});
 				

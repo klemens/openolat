@@ -19,6 +19,7 @@
  */
 package org.olat.selenium.page.qti;
 
+import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.selenium.page.core.MenuTreePageFragment;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
@@ -53,7 +54,6 @@ public class QTI21EditorPage {
 		
 		By importBy = By.xpath("//ul[contains(@class,'o_sel_qti_elements')]//a[contains(@onclick,'import.table')]");
 		browser.findElement(importBy).click();
-		OOGraphene.waitBusy(browser);
 		OOGraphene.waitModalDialog(browser);
 		return new QTI21CSVImportWizard(browser);
 	}
@@ -65,8 +65,24 @@ public class QTI21EditorPage {
 		return this;
 	}
 	
+	public QTI21SectionEditorPage selectSection() {
+		By firstSectionBy = By.xpath("//div[contains(@class,'o_assessment_test_editor_menu')]//a[i[contains(@class,'o_mi_qtisection')]]");
+		browser.findElement(firstSectionBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(By.className("o_sel_assessment_section_options"), browser);
+		return new QTI21SectionEditorPage(browser);
+	}
+	
 	public QTI21EditorPage selectNode(String title) {
 		menuTree.selectWithTitle(title);
+		return this;
+	}
+	
+	public QTI21EditorPage selectItem(String title) {
+		By itemBy = By.xpath("//li/div/span[contains(@class,'o_tree_level_label_leaf')]/a[span[contains(text(),'" + title + "')]]");
+		OOGraphene.waitElement(itemBy, browser);
+		browser.findElement(itemBy).click();
+		OOGraphene.waitBusyAndScrollTop(browser);
 		return this;
 	}
 	
@@ -75,10 +91,59 @@ public class QTI21EditorPage {
 		
 		By importBy = By.xpath("//ul[contains(@class,'o_sel_qti_change_node')]//a[contains(@onclick,'tools.delete')]");
 		browser.findElement(importBy).click();
-		OOGraphene.waitBusy(browser);
 		OOGraphene.waitModalDialog(browser);
 		
 		confirm();
+		return this;
+	}
+	
+	public QTI21SingleChoiceEditorPage addSingleChoice() {
+		addQuestion(QTI21QuestionType.sc);
+		return new QTI21SingleChoiceEditorPage(browser);
+	}
+	
+	public QTI21MultipleChoiceEditorPage addMultipleChoice() {
+		addQuestion(QTI21QuestionType.mc);
+		return new QTI21MultipleChoiceEditorPage(browser);
+	}
+	
+	public QTI21KprimEditorPage addKprim() {
+		addQuestion(QTI21QuestionType.kprim);
+		return new QTI21KprimEditorPage(browser);
+	}
+	
+	public QTI21MatchEditorPage addMatch() {
+		addQuestion(QTI21QuestionType.match);
+		return new QTI21MatchEditorPage(browser);
+	}
+	
+	public QTI21MatchEditorPage addMatchDragAndDrop() {
+		addQuestion(QTI21QuestionType.matchdraganddrop);
+		return new QTI21MatchEditorPage(browser);
+	}
+	
+	public QTI21LobEditorPage addUpload() {
+		addQuestion(QTI21QuestionType.upload);
+		return new QTI21LobEditorPage(browser);
+	}
+	
+	public QTI21LobEditorPage addEssay() {
+		addQuestion(QTI21QuestionType.essay);
+		return new QTI21LobEditorPage(browser);
+	}
+	
+	public QTI21LobEditorPage addDrawing() {
+		addQuestion(QTI21QuestionType.drawing);
+		return new QTI21LobEditorPage(browser);
+	}
+	
+	private QTI21EditorPage addQuestion(QTI21QuestionType type) {
+		openElementsMenu();
+		
+		By addBy = By.xpath("//ul[contains(@class,'o_sel_qti_elements')]//a[contains(@onclick,'new.')][i[contains(@class,'" + type.getCssClass() + "')]]");
+		browser.findElement(addBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(By.className("o_sel_assessment_item_title"), browser);
 		return this;
 	}
 	

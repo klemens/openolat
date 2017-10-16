@@ -25,19 +25,17 @@ import java.util.List;
 import org.olat.commons.servlets.RSSServlet;
 import org.olat.core.id.Identity;
 import org.olat.core.util.filter.FilterFactory;
-import org.olat.modules.webFeed.models.Enclosure;
-import org.olat.modules.webFeed.models.Feed;
-import org.olat.modules.webFeed.models.Item;
+import org.olat.modules.webFeed.manager.FeedManager;
 
-import com.sun.syndication.feed.synd.SyndContent;
-import com.sun.syndication.feed.synd.SyndContentImpl;
-import com.sun.syndication.feed.synd.SyndEnclosure;
-import com.sun.syndication.feed.synd.SyndEnclosureImpl;
-import com.sun.syndication.feed.synd.SyndEntry;
-import com.sun.syndication.feed.synd.SyndEntryImpl;
-import com.sun.syndication.feed.synd.SyndFeedImpl;
-import com.sun.syndication.feed.synd.SyndImage;
-import com.sun.syndication.feed.synd.SyndImageImpl;
+import com.rometools.rome.feed.synd.SyndContent;
+import com.rometools.rome.feed.synd.SyndContentImpl;
+import com.rometools.rome.feed.synd.SyndEnclosure;
+import com.rometools.rome.feed.synd.SyndEnclosureImpl;
+import com.rometools.rome.feed.synd.SyndEntry;
+import com.rometools.rome.feed.synd.SyndEntryImpl;
+import com.rometools.rome.feed.synd.SyndFeedImpl;
+import com.rometools.rome.feed.synd.SyndImage;
+import com.rometools.rome.feed.synd.SyndImageImpl;
 
 /**
  * Creates a podcast feed (syndication feed) from a podcast resource.
@@ -68,10 +66,11 @@ public class RSSFeed extends SyndFeedImpl {
 		// According to the rss specification, the feed channel description is not
 		// (explicitly) allowed to contain html tags.
 		String strippedDescription = FilterFactory.getHtmlTagsFilter().filter(feed.getDescription());
-		strippedDescription = strippedDescription.replaceAll("&nbsp;", " "); // TODO: remove when filter
-		// does it
+		strippedDescription = strippedDescription == null? "": strippedDescription;
+		// TODO: remove when filter does it
+		strippedDescription = strippedDescription.replaceAll("&nbsp;", " ");
 		setDescription(strippedDescription);
-		setLink(helper.getJumpInLink(null));
+		setLink(helper.getJumpInLink(feed, null));
 
 		setPublishedDate(feed.getLastModified());
 		// The image
@@ -80,12 +79,13 @@ public class RSSFeed extends SyndFeedImpl {
 			image.setDescription(feed.getDescription());
 			image.setTitle(feed.getTitle());
 			image.setLink(getLink());
-			image.setUrl(helper.getImageUrl());
+			image.setUrl(helper.getImageUrl(feed));
 			setImage(image);
 		}
 
-		List<SyndEntry> episodes = new ArrayList<SyndEntry>();
-		for (Item item : feed.getPublishedItems()) {
+		List<SyndEntry> episodes = new ArrayList<>();
+		List<Item> publishedItems = FeedManager.getInstance().loadPublishedItems(feed);
+		for (Item item : publishedItems) {
 			SyndEntry entry = new SyndEntryImpl();
 			entry.setTitle(item.getTitle());
 
@@ -98,7 +98,7 @@ public class RSSFeed extends SyndFeedImpl {
 			// enclosure, then the enclosure url is used.
 			// Use jump-in link far all entries. This will be overriden if the item
 			// has an enclosure.
-			entry.setLink(helper.getJumpInLink(item));
+			entry.setLink(helper.getJumpInLink(item.getFeed(), item));
 			entry.setPublishedDate(item.getPublishDate());
 			entry.setUpdatedDate(item.getLastModified());
 
@@ -111,7 +111,7 @@ public class RSSFeed extends SyndFeedImpl {
 				enclosure.setLength(media.getLength());
 				// Also set the item link to point to the enclosure
 				entry.setLink(helper.getMediaUrl(item));
-				List<SyndEnclosure> enclosures = new ArrayList<SyndEnclosure>();
+				List<SyndEnclosure> enclosures = new ArrayList<>();
 				enclosures.add(enclosure);
 				entry.setEnclosures(enclosures);
 			}

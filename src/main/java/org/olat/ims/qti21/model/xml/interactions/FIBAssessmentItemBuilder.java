@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.DoubleAdder;
 
 import javax.xml.transform.stream.StreamResult;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -167,20 +168,21 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 		}
 	}
 	
-	private void extractQuestions() {
+	public String extractQuestions() {
 		StringOutput sb = new StringOutput();
 		List<Block> blocks = assessmentItem.getItemBody().getBlocks();
 		for(Block block:blocks) {
 			qtiSerializer.serializeJqtiObject(block, new StreamResult(sb));
 		}
 		question = sb.toString();
+		return question;
 	}
 	
 	/**
 	 * We loop around the textEntryInteraction, search the responseDeclaration. responseDeclaration
 	 * of type string are gap text, of type float are numerical.
 	 */
-	private void extractEntriesSettingsFromResponseDeclaration() {
+	public void extractEntriesSettingsFromResponseDeclaration() {
 		DoubleAdder mappedScore = new DoubleAdder();
 		AtomicInteger countAlternatives = new AtomicInteger(0);
 
@@ -199,6 +201,9 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 						extractTextEntrySettingsFromResponseDeclaration(textEntry, responseDeclaration, countAlternatives, mappedScore);
 						String marker = "responseIdentifier=\"" + interaction.getResponseIdentifier().toString() + "\"";
 						question = question.replace(marker, marker + " openolatType=\"string\"");
+						if(StringHelper.containsNonWhitespace(textEntry.getSolution())) {
+							question = question.replace(marker, marker + " data-qti-solution=\"" + escapeForDataQtiSolution(textEntry.getSolution()) + "\"");
+						}
 						entry = textEntry;
 						
 					} else if(responseDeclaration.hasBaseType(BaseType.FLOAT) && responseDeclaration.hasCardinality(Cardinality.SINGLE)) {
@@ -208,6 +213,9 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 						
 						String marker = "responseIdentifier=\"" + interaction.getResponseIdentifier().toString() + "\"";
 						question = question.replace(marker, marker + " openolatType=\"float\"");
+						if(numericalEntry.getSolution() != null) {
+							question = question.replace(marker, marker + " data-qti-solution=\"" + Double.toString(numericalEntry.getSolution()) + "\"");
+						}
 					}
 				}
 				if(entry != null) {
@@ -382,6 +390,14 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			textEntry.setCaseSensitive(caseSensitive);
 			textEntry.setAlternatives(alternatives);
 		}
+	}
+	
+	public String escapeForDataQtiSolution(String solution) {
+		return StringHelper.escapeHtml(solution).replace("/", "\u2215");
+	}
+	
+	public String unescapeDataQtiSolution(String solution) {
+		return StringEscapeUtils.unescapeHtml(solution).replace("\u2215", "/");
 	}
 
 	@Override
@@ -849,7 +865,6 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			incorrectOutcomeValue.setExpression(correctValue);
 			
 			responseRules.add(count++, incorrectOutcomeValue);
-			
 		}
 	}
 	
@@ -974,10 +989,10 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			return false;
 		}
 		
-		private boolean match(double firstNumber) {
+		private boolean match(double answer) {
 			double lTolerance = lowerTolerance == null ? 0.0d : lowerTolerance.doubleValue();
 			double uTolerance = upperTolerance == null ? 0.0d : upperTolerance.doubleValue();
-			return toleranceMode.isEqual(firstNumber, solution,
+			return toleranceMode.isEqual(solution, answer,
 					lTolerance, uTolerance,
 					true, true);
 		}
@@ -1016,17 +1031,6 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 
 		public List<TextEntryAlternative> getAlternatives() {
 			return alternatives;
-		}
-		
-		public String alternativesToString() {
-			StringBuilder sb = new StringBuilder();
-			if(alternatives != null) {
-				for(TextEntryAlternative alternative:alternatives) {
-					if(sb.length() > 0) sb.append(",");
-					sb.append(alternative.getAlternative());
-				}
-			}
-			return sb.toString();
 		}
 
 		public void setAlternatives(List<TextEntryAlternative> alternatives) {

@@ -38,15 +38,14 @@ import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
+import org.olat.modules.webFeed.Feed;
 import org.olat.modules.webFeed.FeedSecurityCallback;
 import org.olat.modules.webFeed.FeedViewHelper;
-import org.olat.modules.webFeed.models.Feed;
-import org.olat.modules.webFeed.models.Item;
+import org.olat.modules.webFeed.Item;
 import org.olat.util.logging.activity.LoggingResourceable;
 
 /**
- * This Controller is responsible for displaying a singel blog item for reading
- * (and maybe commenting later).
+ * This Controller is responsible for displaying a single feed item for reading.
  * 
  * <P>
  * Initial Date: Sep 30, 2009 <br>
@@ -100,6 +99,7 @@ public class ItemController extends BasicController implements Activateable2 {
 		putInitialPanel(vcItem);
 		// do logging
 		ThreadLocalUserActivityLogger.log(FeedLoggingAction.FEED_ITEM_READ, getClass(), LoggingResourceable.wrap(item));
+		 	
 	}
 
 	/**

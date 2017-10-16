@@ -65,6 +65,7 @@ import org.olat.core.commons.services.notifications.model.PublisherImpl;
 import org.olat.core.commons.services.notifications.model.SubscriberImpl;
 import org.olat.core.commons.services.notifications.ui.NotificationSubscriptionController;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
@@ -285,6 +286,20 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(q.toString(), Subscriber.class)
 				.setParameter("publisher", publisher)
+				.getResultList();
+	}
+	
+	private List<Subscriber> getValidSubscribersOf(String publisherType, String data) {
+		StringBuilder q = new StringBuilder();
+		q.append("select sub from notisub sub ")
+		 .append(" inner join fetch sub.identity as ident")
+		 .append(" inner join fetch sub.publisher as pub")
+		 .append(" where pub.publisherType=:publisherType and pub.data=:data and sub.publisher.state=").append(PUB_STATE_OK);
+		
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(q.toString(), Subscriber.class)
+				.setParameter("publisherType", publisherType)
+				.setParameter("data", data)
 				.getResultList();
 	}
 	
@@ -539,6 +554,7 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		htmlText.append(".o_m_sub ul li {padding: 0; margin: 1px 0;}");
 		htmlText.append(".o_m_go {padding: 5px 0 0 0}");
 		htmlText.append(".o_date {font-size: 90%; color: #888}");		
+		htmlText.append(".o_m_footer {background: #FAFAFA; border: 1px solid #eee; border-radius: 5px; padding: 0 0.5em 0.5em 0.5em; margin: 1em 0 1em 0;' class='o_m_h'}");
 		htmlText.append("</style>");
 		
 		for (Iterator<SubscriptionItem> it_subs = subItems.iterator(); it_subs.hasNext();) {
@@ -572,6 +588,10 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			htmlText.append("\n");
 			htmlText.append("</div></div>");
 		}
+		String basePath =  Settings.getServerContextPathURI() + "/auth/HomeSite/" + to.getKey() + "/";
+		htmlText.append("<div class='o_m_footer'>");
+		htmlText.append(translator.translate("footer.notifications", new String[] {basePath + "mysettings/0", basePath += "notifications/0", basePath + "/tab/1"}));
+		htmlText.append("</div>");
 
 		MailerResult result = null;
 		try {
@@ -691,13 +711,17 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 
 	private Publisher getPublisherForUpdate(SubscriptionContext subsContext) {
 		Publisher pub = getPublisher(subsContext);
-		if(pub != null && pub.getKey() != null) {
+		return getPublisherForUpdate(pub);
+	}
+	
+	private Publisher getPublisherForUpdate(Publisher publisher) {
+		if(publisher != null && publisher.getKey() != null) {
 			//prevent optimistic lock issue
-			dbInstance.getCurrentEntityManager().detach(pub);
-			pub = dbInstance.getCurrentEntityManager()
-					.find(PublisherImpl.class, pub.getKey(), LockModeType.PESSIMISTIC_WRITE);
+			dbInstance.getCurrentEntityManager().detach(publisher);
+			publisher = dbInstance.getCurrentEntityManager()
+					.find(PublisherImpl.class, publisher.getKey(), LockModeType.PESSIMISTIC_WRITE);
 		}
-		return pub;
+		return publisher;
 	}
 	
 	@Override
@@ -718,6 +742,15 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 				.createQuery(q, Publisher.class)
 				.setParameter("resName", resName)
 				.setParameter("resId", resId.longValue())
+				.getResultList();
+	}
+	
+	private List<Publisher> getPublishers(String publisherType, String data) {
+		String q = "select pub from notipublisher pub where pub.type=:publisherType and pub.data=:data";
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(q, Publisher.class)
+				.setParameter("publisherType", publisherType)
+				.setParameter("data", data)
 				.getResultList();
 	}
 
@@ -939,9 +972,8 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 			
 			Set<Long> subsKeys = new HashSet<Long>();
 			// 2. collect all keys of the affected subscribers
-			for (Iterator<Subscriber> it_subs = subscribers.iterator(); it_subs.hasNext();) {
-				Subscriber su = it_subs.next();
-				subsKeys.add(su.getKey());
+			for (Subscriber subscriber:subscribers) {
+				subsKeys.add(subscriber.getKey());
 			}
 			// fire the event
 			MultiUserEvent mue = EventFactory.createAffectedEvent(subsKeys);
@@ -949,6 +981,55 @@ public class NotificationsManagerImpl extends NotificationsManager implements Us
 		}
 	}
 	
+	
+	
+	@Override
+	public void markPublisherNews(String publisherType, String data, Identity ignoreNewsFor, boolean sendEvents) {
+		// to make sure: ignore if no subscriptionContext
+		if (!StringHelper.containsNonWhitespace(publisherType) ||  !StringHelper.containsNonWhitespace(data)) return;
+
+		List<Publisher> publisherToUpdates = getPublishers(publisherType, data);
+		if(publisherToUpdates == null || publisherToUpdates.isEmpty()) {
+			return;
+		}
+		
+		List<Publisher> updatedPublishers = new ArrayList<>(publisherToUpdates.size());
+		for(Publisher toUpdate:publisherToUpdates) {
+			toUpdate = getPublisherForUpdate(toUpdate);
+			toUpdate.setLatestNewsDate(new Date());
+			Publisher publisher = dbInstance.getCurrentEntityManager().merge(toUpdate);
+			dbInstance.commit();//commit the select for update
+			updatedPublishers.add(publisher);
+		}
+
+		// no need to sync, since there is only one gui thread at a time from one
+		// user
+		if (ignoreNewsFor != null) {
+			for(Publisher publisher: updatedPublishers) {
+				markSubscriberRead(ignoreNewsFor, publisher);
+			}
+		}
+		
+		if(sendEvents) {
+			//commit all things on the database
+			dbInstance.commit();
+			
+			// channel-notify all interested listeners (e.g. the pnotificationsportletruncontroller)
+			// 1. find all subscribers which can be affected
+			List<Subscriber> subscribers = getValidSubscribersOf(publisherType, data);
+			
+			Set<Long> subsKeys = new HashSet<Long>();
+			// 2. collect all keys of the affected subscribers
+			for (Subscriber subscriber:subscribers) {
+				subsKeys.add(subscriber.getKey());
+			}
+			// fire the event
+			MultiUserEvent mue = EventFactory.createAffectedEvent(subsKeys);
+			CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(mue, oresMyself);
+		}
+		
+	}
+
 	/**
 	 * @see org.olat.core.commons.services.notifications.NotificationsManager#registerAsListener(org.olat.core.util.event.GenericEventListener, org.olat.core.id.Identity)
 	 */

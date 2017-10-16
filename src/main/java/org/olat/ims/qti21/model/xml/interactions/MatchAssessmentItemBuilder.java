@@ -23,6 +23,10 @@ import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendAssociati
 import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendDefaultItemBody;
 import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendDefaultOutcomeDeclarations;
 import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendMatchInteraction;
+import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendSetOutcomeFeedbackCorrect;
+import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendSetOutcomeFeedbackIncorrect;
+import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendSetOutcomeScoreMapResponse;
+import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.appendSetOutcomeScoreMaxScore;
 import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.createMatchResponseDeclaration;
 import static org.olat.ims.qti21.model.xml.AssessmentItemFactory.createResponseProcessing;
 
@@ -34,6 +38,7 @@ import java.util.Map;
 import javax.xml.transform.stream.StreamResult;
 
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.model.xml.AssessmentItemBuilder;
@@ -43,14 +48,10 @@ import org.olat.ims.qti21.model.xml.interactions.SimpleChoiceAssessmentItemBuild
 import uk.ac.ed.ph.jqtiplus.group.NodeGroupList;
 import uk.ac.ed.ph.jqtiplus.node.content.ItemBody;
 import uk.ac.ed.ph.jqtiplus.node.content.basic.Block;
-import uk.ac.ed.ph.jqtiplus.node.expression.general.BaseValue;
 import uk.ac.ed.ph.jqtiplus.node.expression.general.Correct;
-import uk.ac.ed.ph.jqtiplus.node.expression.general.MapResponse;
 import uk.ac.ed.ph.jqtiplus.node.expression.general.Variable;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.IsNull;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Match;
-import uk.ac.ed.ph.jqtiplus.node.expression.operator.Not;
-import uk.ac.ed.ph.jqtiplus.node.expression.operator.Sum;
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.CorrectResponse;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
@@ -61,17 +62,14 @@ import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.Mapping;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.ResponseDeclaration;
 import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseCondition;
 import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseElse;
-import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseElseIf;
 import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseIf;
 import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseProcessing;
 import uk.ac.ed.ph.jqtiplus.node.item.response.processing.ResponseRule;
-import uk.ac.ed.ph.jqtiplus.node.item.response.processing.SetOutcomeValue;
 import uk.ac.ed.ph.jqtiplus.node.outcome.declaration.OutcomeDeclaration;
 import uk.ac.ed.ph.jqtiplus.node.shared.FieldValue;
 import uk.ac.ed.ph.jqtiplus.serialization.QtiSerializer;
 import uk.ac.ed.ph.jqtiplus.types.ComplexReferenceIdentifier;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
-import uk.ac.ed.ph.jqtiplus.value.BaseType;
 import uk.ac.ed.ph.jqtiplus.value.DirectedPairValue;
 import uk.ac.ed.ph.jqtiplus.value.SingleValue;
 
@@ -91,16 +89,17 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 	private MatchInteraction matchInteraction;
 	private Map<Identifier, List<Identifier>> associations;
 	private Map<DirectedPairValue, Double> scoreMapping;
+	 
 	
-	public MatchAssessmentItemBuilder(String title, QtiSerializer qtiSerializer) {
-		super(createAssessmentItem(title), qtiSerializer);
+	public MatchAssessmentItemBuilder(String title, String matchCssClass, QtiSerializer qtiSerializer) {
+		super(createAssessmentItem(title, matchCssClass), qtiSerializer);
 	}
 	
 	public MatchAssessmentItemBuilder(AssessmentItem assessmentItem, QtiSerializer qtiSerializer) {
 		super(assessmentItem, qtiSerializer);
 	}
 	
-	private static AssessmentItem createAssessmentItem(String title) {
+	private static AssessmentItem createAssessmentItem(String title, String matchCssClass) {
 		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.match, title);
 		
 		NodeGroupList nodeGroups = assessmentItem.getNodeGroups();
@@ -115,7 +114,11 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 
 		//the single choice interaction
 		ItemBody itemBody = appendDefaultItemBody(assessmentItem);
-		appendMatchInteraction(itemBody, responseDeclarationId);
+		MatchInteraction interaction = appendMatchInteraction(itemBody, responseDeclarationId);
+		List<String> cssClasses = new ArrayList<>();
+		cssClasses.add(matchCssClass);
+		interaction.setClassAttr(cssClasses);
+		
 		Map<Identifier, List<Identifier>> associations = new HashMap<>();
 		appendAssociationMatchResponseDeclaration(responseDeclaration, associations, 1.0);
 		
@@ -208,6 +211,7 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 				qtiSerializer.serializeJqtiObject(block, new StreamResult(sb));
 			}
 		}
+
 		question = sb.toString();
 	}
 	
@@ -238,7 +242,36 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 
 	@Override
 	public QTI21QuestionType getQuestionType() {
+		if(matchInteraction != null) {
+			List<?> cssClassses = matchInteraction.getClassAttr();
+			if(cssClassses != null && cssClassses.contains(QTI21Constants.CSS_MATCH_DRAG_AND_DROP)) {
+				return QTI21QuestionType.matchdraganddrop;
+			}
+		}
 		return QTI21QuestionType.match;
+	}
+	
+	public boolean hasMatchInteractionClass(String cssClass) {
+		List<String> cssClassses = matchInteraction.getClassAttr();
+		return cssClassses != null && cssClassses.contains(cssClass);
+	}
+	
+	public void addMatchInteractionClass(String cssClass) {
+		if(!StringHelper.containsNonWhitespace(cssClass)) return;
+
+		List<String> cssClassses = new ArrayList<>(matchInteraction.getClassAttr());
+		cssClassses.add(cssClass);
+		matchInteraction.setClassAttr(cssClassses);
+	}
+	
+	public void removeMatchInteractionClass(String... cssClasses) {
+		if(cssClasses == null || cssClasses.length == 0 || cssClasses[0] == null) return;
+
+		List<String> cssClassses = new ArrayList<>(matchInteraction.getClassAttr());
+		for(String cssClass:cssClasses) {
+			cssClassses.remove(cssClass);
+		}
+		matchInteraction.setClassAttr(cssClassses);
 	}
 	
 	public boolean isShuffle() {
@@ -411,7 +444,11 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 		ResponseCondition rule = new ResponseCondition(assessmentItem.getResponseProcessing());
 		responseRules.add(0, rule);
 		if(scoreEvaluation == ScoreEvaluation.perAnswer) {
-			buildMainScoreRulePerAnswer(rule);
+			if(associations.isEmpty()) {
+				buildMainScoreRulePerAnswerNoAnswers(rule);
+			} else {
+				buildMainScoreRulePerAnswer(rule);
+			}
 		} else {
 			buildMainScoreRuleAllCorrectAnswers(rule);
 		}
@@ -419,102 +456,140 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 	
 	@Override
 	protected void buildModalFeedbacksAndHints(List<OutcomeDeclaration> outcomeDeclarations, List<ResponseRule> responseRules) {
-		if(correctFeedback != null || incorrectFeedback != null) {
-			if(scoreEvaluation == ScoreEvaluation.perAnswer) {
-				ResponseCondition responseCondition = AssessmentItemFactory.createModalFeedbackResponseConditionByScore(assessmentItem.getResponseProcessing());
-				responseRules.add(responseCondition);
-			}
-		}
-
 		super.buildModalFeedbacksAndHints(outcomeDeclarations, responseRules);
 	}
 	
+	/**
+	 * Special case where no answers are correct:<br>
+	 * <ul>
+	 * 	<li>If no answers chosen: maxScore + correct
+	 * 	<li>If answer chosen: map score of answers + incorrect
+	 * </ul>
+	 * 
+	 * @param rule
+	 */
+	private void buildMainScoreRulePerAnswerNoAnswers(ResponseCondition rule) {
+		/*
+	      <responseIf>
+	        <isNull>
+	          <variable identifier="RESPONSE_1"/>
+	        </isNull>
+	        <setOutcomeValue identifier="SCORE">
+	          <sum>
+	            <variable identifier="SCORE"/>
+	            <variable identifier="MAXSCORE"/>
+	          </sum>
+	        </setOutcomeValue>
+	        <setOutcomeValue identifier="FEEDBACKBASIC">
+	          <baseValue baseType="identifier">correct</baseValue>
+	        </setOutcomeValue>
+	      </responseIf>
+	      <responseElse>
+	        <setOutcomeValue identifier="SCORE">
+	          <sum>
+	            <variable identifier="SCORE"/>
+	            <mapResponse identifier="RESPONSE_1"/>
+	          </sum>
+	        </setOutcomeValue>
+	        <setOutcomeValue identifier="FEEDBACKBASIC">
+	          <baseValue baseType="identifier">incorrect</baseValue>
+	        </setOutcomeValue>
+	      </responseElse>
+		*/
+		
+		ResponseIf responseIf = new ResponseIf(rule);
+		rule.setResponseIf(responseIf);
+
+		IsNull isNull = new IsNull(responseIf);
+		responseIf.getExpressions().add(isNull);
+		
+		Variable variable = new Variable(isNull);
+		variable.setIdentifier(ComplexReferenceIdentifier.parseString(responseIdentifier.toString()));
+		isNull.getExpressions().add(variable);
+		
+		//outcome sum score + max score
+		appendSetOutcomeScoreMaxScore(responseIf);
+			
+		//outcome correct feedback
+		appendSetOutcomeFeedbackCorrect(responseIf);
+		
+		ResponseElse responseElse = new ResponseElse(rule);
+		rule.setResponseElse(responseElse);
+		// outcome score
+		appendSetOutcomeScoreMapResponse(responseElse, responseIdentifier);
+		//outcome incorrect feedback
+		appendSetOutcomeFeedbackIncorrect(responseElse);
+	}
+	
+	/**
+	 * Case with some correct answers and scoring per answer:
+	 * <ul>
+	 *  <li>All correct: calculate score + correct
+	 *  <li>Else: calculate score + incorrect
+	 * </ul>
+	 * 
+	 * @param rule
+	 */
 	private void buildMainScoreRulePerAnswer(ResponseCondition rule) {
 		/*
 		<responseCondition>
-			<responseIf>
-				<not>
-					<isNull>
-						<variable identifier="RESPONSE_4953445" />
-					</isNull>
-				</not>
-				<setOutcomeValue identifier="SCORE">
-					<sum>
-						<variable identifier="SCORE" /><mapResponse identifier="RESPONSE_4953445" />
-					</sum>
-				</setOutcomeValue>
-				<setOutcomeValue identifier="FEEDBACKBASIC">
-					<baseValue baseType="identifier">
-						incorrect
-					</baseValue>
-				</setOutcomeValue>
-			</responseIf>
-		</responseCondition>
-		<responseCondition>
-			<responseIf>
-				<and>
-					<not>
-						<match>
-							<variable identifier="FEEDBACKBASIC" />
-							<baseValue baseType="identifier">
-								empty
-							</baseValue>
-						</match>
-					</not>
-					<equal toleranceMode="exact">
-						<variable identifier="SCORE" /><variable identifier="MAXSCORE" />
-					</equal>
-				</and>
-				<setOutcomeValue identifier="FEEDBACKBASIC">
-					<baseValue baseType="identifier">
-						correct
-					</baseValue>
-				</setOutcomeValue>
-			</responseIf>
+	      <responseIf>
+	        <match>
+	          <variable identifier="RESPONSE_1"/>
+	          <correct identifier="RESPONSE_1"/>
+	        </match>
+	        <setOutcomeValue identifier="SCORE">
+	          <sum>
+	            <variable identifier="SCORE"/>
+	            <mapResponse identifier="RESPONSE_1"/>
+	          </sum>
+	        </setOutcomeValue>
+	        <setOutcomeValue identifier="FEEDBACKBASIC">
+	          <baseValue baseType="identifier">correct</baseValue>
+	        </setOutcomeValue>
+	      </responseIf>
+	      <responseElse>
+	        <setOutcomeValue identifier="SCORE">
+	          <sum>
+	            <variable identifier="SCORE"/>
+	            <mapResponse identifier="RESPONSE_1"/>
+	          </sum>
+	        </setOutcomeValue>
+	        <setOutcomeValue identifier="FEEDBACKBASIC">
+	          <baseValue baseType="identifier">incorrect</baseValue>
+	        </setOutcomeValue>
+	      </responseElse>
 		</responseCondition>
 		*/
 		
 		//if no response
 		ResponseIf responseIf = new ResponseIf(rule);
 		rule.setResponseIf(responseIf);
+		Match match = new Match(responseIf);
+		responseIf.getExpressions().add(match);
 		
-		Not not = new Not(responseIf);
-		responseIf.getExpressions().add(not);
-
-		IsNull isNull = new IsNull(not);
-		not.getExpressions().add(isNull);
+		Variable responseVar = new Variable(match);
+		ComplexReferenceIdentifier choiceResponseIdentifier
+			= ComplexReferenceIdentifier.parseString(responseIdentifier.toString());
+		responseVar.setIdentifier(choiceResponseIdentifier);
+		match.getExpressions().add(responseVar);
 		
-		Variable variable = new Variable(isNull);
-		variable.setIdentifier(ComplexReferenceIdentifier.parseString(responseIdentifier.toString()));
-		isNull.getExpressions().add(variable);
+		Correct correct = new Correct(match);
+		correct.setIdentifier(choiceResponseIdentifier);
+		match.getExpressions().add(correct);
 		
-		{// outcome score
-			SetOutcomeValue scoreOutcome = new SetOutcomeValue(responseIf);
-			scoreOutcome.setIdentifier(QTI21Constants.SCORE_IDENTIFIER);
-			responseIf.getResponseRules().add(scoreOutcome);
-			
-			Sum sum = new Sum(scoreOutcome);
-			scoreOutcome.getExpressions().add(sum);
-			
-			Variable scoreVar = new Variable(sum);
-			scoreVar.setIdentifier(QTI21Constants.SCORE_CLX_IDENTIFIER);
-			sum.getExpressions().add(scoreVar);
-			
-			MapResponse mapResponse = new MapResponse(sum);
-			mapResponse.setIdentifier(responseIdentifier);
-			sum.getExpressions().add(mapResponse);
-		}
+		// outcome score
+		appendSetOutcomeScoreMapResponse(responseIf, responseIdentifier);
+		//outcome correct feedback
+		appendSetOutcomeFeedbackCorrect(responseIf);
 		
-		{//outcome feedback
-			SetOutcomeValue incorrectOutcomeValue = new SetOutcomeValue(responseIf);
-			incorrectOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
-			responseIf.getResponseRules().add(incorrectOutcomeValue);
-			
-			BaseValue incorrectValue = new BaseValue(incorrectOutcomeValue);
-			incorrectValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);
-			incorrectValue.setSingleValue(QTI21Constants.INCORRECT_IDENTIFIER_VALUE);
-			incorrectOutcomeValue.setExpression(incorrectValue);
-		}
+		ResponseElse responseElse = new ResponseElse(rule);
+		rule.setResponseElse(responseElse);
+		
+		// outcome score
+		appendSetOutcomeScoreMapResponse(responseElse, responseIdentifier);
+		// outcome  incorrect feedback
+		appendSetOutcomeFeedbackIncorrect(responseElse);
 	}
 
 	private void buildMainScoreRuleAllCorrectAnswers(ResponseCondition rule) {
@@ -563,82 +638,40 @@ public class MatchAssessmentItemBuilder extends AssessmentItemBuilder {
 		ResponseIf responseIf = new ResponseIf(rule);
 		rule.setResponseIf(responseIf);
 		
-		{//if no response
+		// match the correct answers (or null if there are no associations)
+		if(associations.isEmpty()) {
 			IsNull isNull = new IsNull(responseIf);
 			responseIf.getExpressions().add(isNull);
 			
-			Variable variable = new Variable(isNull);
-			variable.setIdentifier(ComplexReferenceIdentifier.parseString(responseIdentifier.toString()));
-			isNull.getExpressions().add(variable);
-			
-			SetOutcomeValue incorrectOutcomeValue = new SetOutcomeValue(responseIf);
-			incorrectOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
-			responseIf.getResponseRules().add(incorrectOutcomeValue);
-			
-			BaseValue incorrectValue = new BaseValue(incorrectOutcomeValue);
-			incorrectValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);
-			incorrectValue.setSingleValue(QTI21Constants.EMPTY_IDENTIFIER_VALUE);
-			incorrectOutcomeValue.setExpression(incorrectValue);
-		}
-		
-		ResponseElseIf responseElseIf = new ResponseElseIf(rule);
-		rule.getResponseElseIfs().add(responseElseIf);
-		
-		{// match the correct answers
-			Match match = new Match(responseElseIf);
-			responseElseIf.getExpressions().add(match);
-			
-			Variable scoreVar = new Variable(match);
+			Variable responseVar = new Variable(isNull);
 			ComplexReferenceIdentifier choiceResponseIdentifier
 				= ComplexReferenceIdentifier.parseString(responseIdentifier.toString());
-			scoreVar.setIdentifier(choiceResponseIdentifier);
-			match.getExpressions().add(scoreVar);
+			responseVar.setIdentifier(choiceResponseIdentifier);
+			isNull.getExpressions().add(responseVar);
+		} else {
+			Match match = new Match(responseIf);
+			responseIf.getExpressions().add(match);
+			
+			Variable responseVar = new Variable(match);
+			ComplexReferenceIdentifier choiceResponseIdentifier
+				= ComplexReferenceIdentifier.parseString(responseIdentifier.toString());
+			responseVar.setIdentifier(choiceResponseIdentifier);
+			match.getExpressions().add(responseVar);
 			
 			Correct correct = new Correct(match);
 			correct.setIdentifier(choiceResponseIdentifier);
 			match.getExpressions().add(correct);
 		}
 	
-		{//outcome score
-			SetOutcomeValue scoreOutcomeValue = new SetOutcomeValue(responseElseIf);
-			scoreOutcomeValue.setIdentifier(QTI21Constants.SCORE_IDENTIFIER);
-			responseElseIf.getResponseRules().add(scoreOutcomeValue);
+		//outcome score + max score
+		appendSetOutcomeScoreMaxScore(responseIf);
 			
-			Sum sum = new Sum(scoreOutcomeValue);
-			scoreOutcomeValue.getExpressions().add(sum);
-			
-			Variable scoreVar = new Variable(sum);
-			scoreVar.setIdentifier(QTI21Constants.SCORE_CLX_IDENTIFIER);
-			sum.getExpressions().add(scoreVar);
-			
-			Variable maxScoreVar = new Variable(sum);
-			maxScoreVar.setIdentifier(QTI21Constants.MAXSCORE_CLX_IDENTIFIER);
-			sum.getExpressions().add(maxScoreVar);
-		}
-			
-		{//outcome feedback
-			SetOutcomeValue correctOutcomeValue = new SetOutcomeValue(responseElseIf);
-			correctOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
-			responseElseIf.getResponseRules().add(correctOutcomeValue);
-			
-			BaseValue correctValue = new BaseValue(correctOutcomeValue);
-			correctValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);
-			correctValue.setSingleValue(QTI21Constants.CORRECT_IDENTIFIER_VALUE);
-			correctOutcomeValue.setExpression(correctValue);
-		}
+		//outcome correct feedback
+		appendSetOutcomeFeedbackCorrect(responseIf);
 		
 		ResponseElse responseElse = new ResponseElse(rule);
 		rule.setResponseElse(responseElse);
-		
-		{// outcome feedback
-			SetOutcomeValue incorrectOutcomeValue = new SetOutcomeValue(responseElse);
-			incorrectOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
-			responseElse.getResponseRules().add(incorrectOutcomeValue);
-			
-			BaseValue incorrectValue = new BaseValue(incorrectOutcomeValue);
-			incorrectValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);
-			incorrectValue.setSingleValue(QTI21Constants.INCORRECT_IDENTIFIER_VALUE);
-			incorrectOutcomeValue.setExpression(incorrectValue);
-		}
+		// outcome incorrect feedback
+		appendSetOutcomeFeedbackIncorrect(responseElse);
 	}
 }

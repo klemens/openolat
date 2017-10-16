@@ -414,6 +414,9 @@ ul.o_certificates li {
 	.o_content {
 		@include clearfix();
 	}
+	.o_enclosure {
+		clear: both;
+	}
 }
 
 /* Glossary */
@@ -590,6 +593,17 @@ div.o_assessment_user_type_filter {
 	}
 }
 
+/* list */
+ul.o_assessment_docs {
+	margin-bottom: 0;
+}
+ul.o_assessment_docs>li {
+	margin-bottom: 0.33em;
+}
+ul.o_assessment_docs>li:last-child {
+	margin-bottom: 0em;
+}
+
 /* personal mail box tool */
 .o_mail_message {
 	.o_mail_meta {
@@ -638,3 +652,18 @@ div.o_assessment_user_type_filter {
 		font-size: 80%;
 	}
 }	
+
+/* indicator on progress bar */
+.progress .o_progress_marker {
+	position: absolute; 
+	height: 100%;
+	top: 0;
+	width: 3px; 	
+	background: $o-progress-marker-color;
+}
+
+/* web documents */
+.o_web_content {
+	padding-bottom: floor($grid-gutter-width / 2);
+}
+
