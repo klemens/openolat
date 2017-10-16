@@ -2,7 +2,10 @@ $r.render("examDetails")
 
 #if ($showAppointmentTable)
 	<fieldset><legend>$r.translate("examLecturerOralView_html.appointmentTable")</legend>
-	<p style="overflow:hidden; margin-top: 0;"><span style="float:right;">$r.render("ExamLecturerWrittenController.refreshTable")</span></p>
+	#if ($showEarmarkedNote)
+	<div class="o_note" style="margin-top:0;">$r.translate("examLecturerView_html.note.earmarked")<br />$r.translate("examLecturerOralView_html.note.earmarked")</div>
+	#end
+	<p style="overflow:hidden; margin-top: 0;"><span style="float:right;">$r.render("ExamLecturerOralController.downloadCalendar") $r.render("ExamLecturerWrittenController.refreshTable")</span></p>
 	$r.render("appointmentTable")
 	</fieldset>
 #else

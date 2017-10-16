@@ -100,7 +100,7 @@ public class CommentEntryTableModel extends DefaultTableDataModel<CommentEntry> 
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("CommentEntryTableModel.header.creationDate", 0, null, locale));
 		tableCtr.addColumnDescriptor(new DefaultColumnDescriptor("CommentEntryTableModel.header.author", 1, null, locale));
 		DefaultColumnDescriptor commentColumn = new DefaultColumnDescriptor("CommentEntryTableModel.header.comment", 2, null, locale);
-		commentColumn.setEscapeHtml(EscapeMode.none);
+		commentColumn.setEscapeHtml(EscapeMode.antisamy);
 		tableCtr.addColumnDescriptor(commentColumn);
 	}
 }
