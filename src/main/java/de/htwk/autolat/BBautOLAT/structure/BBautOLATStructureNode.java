@@ -21,7 +21,9 @@
 
 package de.htwk.autolat.BBautOLAT.structure;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
@@ -65,6 +67,7 @@ import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.tree.CourseInternalLinkTreeModel;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.Role;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -118,6 +121,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			final UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
 		updateModuleConfigDefaults(false);
@@ -179,6 +183,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public Controller createPreviewController(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne) {
 		return createNodeRunConstructionResult(ureq, wControl, userCourseEnv, ne, null).getRunController();
 	}
@@ -190,6 +195,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 * 
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserScoreEvaluation(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		Float score = null;
 		Boolean passed = null;
@@ -214,6 +220,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		/*
 		 * first check the one click cache
@@ -226,6 +233,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev) {
 		oneClickStatusCache = null;
 		// only here we know which translator to take for translating condition
@@ -239,6 +247,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
 	 */
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		return null;
 	}
@@ -246,6 +255,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
 	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		return false;
 	}
@@ -294,6 +304,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getCutValueConfiguration()
 	 */
+	@Override
 	public Float getCutValueConfiguration() {
 		return null;
 	}
@@ -301,6 +312,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMaxScoreConfiguration()
 	 */
+	@Override
 	public Float getMaxScoreConfiguration() {
 		return null;
 	}
@@ -308,6 +320,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getMinScoreConfiguration()
 	 */
+	@Override
 	public Float getMinScoreConfiguration() {
 		return null;
 	}
@@ -315,6 +328,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserCoachComment(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserCoachComment(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "No coach comments available in ST nodes", null);
 	}
@@ -322,6 +336,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserLog(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserLog(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "No user logs available in ST nodes", null);
 	}
@@ -329,6 +344,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserUserComment(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "No comments available in ST nodes", null);
 	}
@@ -336,6 +352,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasCommentConfigured()
 	 */
+	@Override
 	public boolean hasCommentConfigured() {
 		// never has comments
 		return false;
@@ -344,6 +361,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasPassedConfigured()
 	 */
+	@Override
 	public boolean hasPassedConfigured() {
 		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getPassedExpression())) return true;
 		return false;
@@ -352,6 +370,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasScoreConfigured()
 	 */
+	@Override
 	public boolean hasScoreConfigured() {
 		if (scoreCalculator != null && StringHelper.containsNonWhitespace(scoreCalculator.getScoreExpression())) return true;
 		return false;
@@ -360,6 +379,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasStatusConfigured()
 	 */
+	@Override
 	public boolean hasStatusConfigured() {
 		return false;
 	}
@@ -367,6 +387,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#isEditableConfigured()
 	 */
+	@Override
 	public boolean isEditableConfigured() {
 		// ST nodes never editable, data generated on the fly
 		return false;
@@ -376,6 +397,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 * @see org.olat.course.nodes.AssessableCourseNode#updateUserCoachComment(java.lang.String,
 	 *      org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public void updateUserCoachComment(String coachComment, UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Coach comment variable can't be updated in ST nodes", null);
 	}
@@ -385,8 +407,9 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
+	@Override
 	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
-			Identity coachingIdentity, boolean incrementAttempts) {
+			Identity coachingIdentity, boolean incrementAttempts, Role doneBy) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Score variable can't be updated in ST nodes", null);
 	}
 
@@ -395,6 +418,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
+	@Override
 	public void updateUserUserComment(String userComment, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Comment variable can't be updated in ST nodes", null);
 	}
@@ -402,6 +426,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "No attempts available in ST nodes", null);
 
@@ -410,6 +435,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasAttemptsConfigured()
 	 */
+	@Override
 	public boolean hasAttemptsConfigured() {
 		return false;
 	}
@@ -419,14 +445,16 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.core.id.Identity)
 	 */
-	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+	@Override
+	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity, Role doneBy) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Attempts variable can't be updated in ST nodes", null);
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#incrementUserAttempts(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
-	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
+	@Override
+	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment, Role doneBy) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Attempts variable can't be updated in ST nodes", null);
 	}
 
@@ -442,6 +470,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListView(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getDetailsListView(UserCourseEnvironment userCourseEnvironment) {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Details not available in ST nodes", null);
 	}
@@ -449,6 +478,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListViewHeaderKey()
 	 */
+	@Override
 	public String getDetailsListViewHeaderKey() {
 		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Details not available in ST nodes", null);
 	}
@@ -456,6 +486,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#hasDetails()
 	 */
+	@Override
 	public boolean hasDetails() {
 		return false;
 	}
@@ -468,6 +499,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	 *          from previous node configuration version, set default to maintain
 	 *          previous behaviour
 	 */
+	@Override
 	public void updateModuleConfigDefaults(boolean isNewNode) {
 		ModuleConfiguration config = getModuleConfiguration();
 		if (isNewNode) {
@@ -489,6 +521,7 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	/**
 	 * @see org.olat.course.nodes.AbstractAccessableCourseNode#getConditionExpressions()
 	 */
+	@Override
 	public List getConditionExpressions() {
 		ArrayList retVal;
 		List parentsConditions = super.getConditionExpressions();
@@ -548,4 +581,28 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 		return false;
 	}
 
+	@Override
+	public boolean hasIndividualAsssessmentDocuments() {
+		return false;
+	}
+
+	@Override
+	public List<File> getIndividualAssessmentDocuments(UserCourseEnvironment userCourseEnvironment) {
+		return Collections.emptyList();
+	}
+
+	@Override
+	public void addIndividualAssessmentDocument(File document, String filename, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		// individual assessment documents not supported
+	}
+
+	@Override
+	public void removeIndividualAssessmentDocument(File document, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		// individual assessment documents not supported
+	}
+
+	@Override
+	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role doneBy) {
+		// not supported (cannot be manually assessed)
+	}
 }

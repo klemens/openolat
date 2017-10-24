@@ -2,6 +2,7 @@ package de.htwk.autolat.BBautOLAT;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -32,6 +33,7 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.Role;
 import org.olat.repository.RepositoryEntry;
 
 import de.htwk.autolat.Configuration.Configuration;
@@ -105,6 +107,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	 *      org.olat.course.run.userview.UserCourseEnvironment,
 	 *      org.olat.course.run.userview.NodeEvaluation)
 	 */
+	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl, UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {		
 		return new NodeRunConstructionResult(new BBautOLATRunController(wControl, ureq, this, userCourseEnv, ne, false));
 	}
@@ -117,6 +120,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		
 		StatusDescription sd = StatusDescription.NOERROR;
@@ -160,6 +164,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public StatusDescription[] isConfigValid(CourseEditorEnv cev) {
 		oneClickStatusCache = null;
 		//only here we know which translator to take for translating condition error messages
@@ -173,6 +178,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	/**
 	 * @see org.olat.course.nodes.CourseNode#getReferencedRepositoryEntry()
 	 */
+	@Override
 	public RepositoryEntry getReferencedRepositoryEntry() {
 		//TODO
 		return null;
@@ -181,6 +187,7 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	/**
 	 * @see org.olat.course.nodes.CourseNode#needsReferenceToARepositoryEntry()
 	 */
+	@Override
 	public boolean needsReferenceToARepositoryEntry() {
 		//TODO
 		return false;
@@ -188,28 +195,34 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	
 	//the following methods belong to the assessable course node
 
+	@Override
 	public Float getCutValueConfiguration() {
 		return null;
 	}
 
+	@Override
 	public String getDetailsListView(UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@Override
 	public String getDetailsListViewHeaderKey() {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@Override
 	public Float getMaxScoreConfiguration() {
 		return null;
 	}
 
+	@Override
 	public Float getMinScoreConfiguration() {
 		return null;
 	}
 
+	@Override
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
 		
 		//not needed, because the attempts are not just a counter but a limiter
@@ -225,16 +238,19 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		}
 	}
 
+	@Override
 	public String getUserCoachComment(UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@Override
 	public String getUserLog(UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@Override
 	public AssessmentEvaluation getUserScoreEvaluation(UserCourseEnvironment userCourseEnv) {
 		AssessmentEvaluation scoreEvaluation = new AssessmentEvaluation(0f, false);
 		
@@ -253,66 +269,79 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 		return scoreEvaluation;
 	}
 
+	@Override
 	public String getUserUserComment(UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
+	@Override
 	public boolean hasAttemptsConfigured() {
 		return true;
 	}
 
+	@Override
 	public boolean hasCommentConfigured() {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
+	@Override
 	public boolean hasDetails() {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
+	@Override
 	public boolean hasPassedConfigured() {
 		
 		return true;
 	}
 
+	@Override
 	public boolean hasScoreConfigured() {
 		
 		return true;
 	}
 
+	@Override
 	public boolean hasStatusConfigured() {
 
 		return false;
 	}
 
-	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment) {
+	@Override
+	public void incrementUserAttempts(UserCourseEnvironment userCourseEnvironment, Role doneBy) {
 		// TODO Auto-generated method stub
 		
 	}
 
+	@Override
 	public boolean isEditableConfigured() {
 		// TODO Auto-generated method stub
 		return false;
 	}
 
-	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+	@Override
+	public void updateUserAttempts(Integer userAttempts, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity, Role doneBy) {
 		// TODO Auto-generated method stub
 		
 	}
 
+	@Override
 	public void updateUserCoachComment(String coachComment, UserCourseEnvironment userCourseEnvironment) {
 		// TODO Auto-generated method stub
 		
 	}
 
+	@Override
 	public void updateUserScoreEvaluation(ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
-			Identity coachingIdentity, boolean incrementAttempts) {
+			Identity coachingIdentity, boolean incrementAttempts, Role doneBy) {
 		// TODO Auto-generated method stub
 		
 	}
 
+	@Override
 	public void updateUserUserComment(String userComment, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
 		// TODO Auto-generated method stub
 		
@@ -433,5 +462,30 @@ public class BBautOLATCourseNode extends AbstractAccessableCourseNode implements
 	@Override
 	public boolean isAssessedBusinessGroups() {
 		return false;
+	}
+
+	@Override
+	public boolean hasIndividualAsssessmentDocuments() {
+		return false;
+	}
+
+	@Override
+	public List<File> getIndividualAssessmentDocuments(UserCourseEnvironment userCourseEnvironment) {
+		return Collections.emptyList();
+	}
+
+	@Override
+	public void addIndividualAssessmentDocument(File document, String filename, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		// individual assessment documents not supported
+	}
+
+	@Override
+	public void removeIndividualAssessmentDocument(File document, UserCourseEnvironment userCourseEnvironment, Identity coachingIdentity) {
+		// individual assessment documents not supported
+	}
+
+	@Override
+	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role doneBy) {
+		// not supported (cannot be manually assessed)
 	}
 }
