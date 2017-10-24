@@ -51,6 +51,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.ims.qti.QTIResultManager;
 import org.olat.ims.qti.QTIResultSet;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 
 import de.bps.onyx.plugin.OnyxResultManager;
@@ -220,8 +221,8 @@ public class ReturnWSService {
 									status = AssessmentEntryStatus.done;
 								}
 								ScoreEvaluation scoreEvaluation = new ScoreEvaluation(qtiResultSet.getScore(), qtiResultSet.getIsPassed(),
-										status, qtiResultSet.getFullyAssessed(), qtiResultSet.getAssessmentID());
-								am.saveScoreEvaluation((AssessableCourseNode)courseNode, null, assessedIdentity, scoreEvaluation, userCourseEnvironment, false);
+										status, Boolean.TRUE, qtiResultSet.getFullyAssessed(), qtiResultSet.getAssessmentID());
+								am.saveScoreEvaluation((AssessableCourseNode)courseNode, null, assessedIdentity, scoreEvaluation, userCourseEnvironment, false, Role.coach);
 
 								CoreSpringFactory.getImpl(AssessmentNotificationsHandler.class).markPublisherNews(assessedIdentity, resourceId);
 							}

@@ -55,6 +55,7 @@ import org.olat.search.service.SearchResourceContext;
 import org.olat.search.service.indexer.AbstractHierarchicalIndexer;
 import org.olat.search.service.indexer.Indexer;
 import org.olat.search.service.indexer.OlatFullIndexer;
+import org.olat.search.service.indexer.repository.course.CourseNodeEntry;
 import org.olat.search.service.indexer.repository.course.CourseNodeIndexer;
 
 /**
@@ -127,15 +128,13 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 					logWarn("Can not index course node=" + childCourseNode.getIdent(), e);
 				}
 			}
-		} else if (isLogDebugEnabled()) {
-			logDebug("ChildNode is no CourseNode, " + node);
 		}
 		
 		//loop over all child nodes
 		int childCount = node.getChildCount();
 		for (int i=0;i<childCount; i++) {
 			INode childNode = node.getChildAt(i);
-  		doIndexCourse(repositoryResourceContext, course, childNode, indexWriter);
+			doIndexCourse(repositoryResourceContext, course, childNode, indexWriter);
 		}
 	}
 
@@ -166,10 +165,16 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 		RepositoryEntry repositoryEntry = repositoryManager.lookupRepositoryEntry(repositoryKey);
 		if (isLogDebugEnabled()) logDebug("repositoryEntry=" + repositoryEntry );
 
+		if(roles.isGuestOnly()) {
+			if(repositoryEntry.getAccess() != RepositoryEntry.ACC_USERS_GUESTS) {
+				return false;
+			}
+		}
+		
 		Long nodeId = bcContextEntry.getOLATResourceable().getResourceableId();
 		if (isLogDebugEnabled()) logDebug("nodeId=" + nodeId );
+		ICourse course = CourseFactory.loadCourse(repositoryEntry);
 		
-		ICourse course = CourseFactory.loadCourse(repositoryEntry.getOlatResource());
 		IdentityEnvironment ienv = new IdentityEnvironment();
 		ienv.setIdentity(identity);
 		ienv.setRoles(roles);
@@ -202,6 +207,7 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 		
 		if (mayAccessWholeTreeUp) {
 			CourseNodeIndexer courseNodeIndexer = getCourseNodeIndexer(courseNode);
+			bcContextEntry.setTransientState(new CourseNodeEntry(courseNode));
 			return courseNodeIndexer.checkAccess(bcContextEntry, businessControl, identity, roles)
 					&& super.checkAccess(bcContextEntry, businessControl, identity, roles);		
 		} else {
@@ -212,11 +218,9 @@ public class CourseIndexer extends AbstractHierarchicalIndexer {
 	private CourseNodeIndexer getCourseNodeIndexer(CourseNode node) {
 		String courseNodeName = node.getClass().getName();
 		List<Indexer> courseNodeIndexer = getIndexerByType(courseNodeName);
-    if (courseNodeIndexer != null && !courseNodeIndexer.isEmpty()) {
-    	return (CourseNodeIndexer)courseNodeIndexer.get(0);
-    } else if (isLogDebugEnabled()) {
-    	logDebug("No indexer found for node=" + node);
-    }
-    return null;
+		if (courseNodeIndexer != null && !courseNodeIndexer.isEmpty()) {
+			return (CourseNodeIndexer)courseNodeIndexer.get(0);
+		}
+		return null;
 	}
 }

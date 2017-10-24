@@ -97,6 +97,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	private int currentPage;
 	private int pageSize;
 	private final int defaultPageSize;
+	private boolean footer;
 	private boolean bordered; 
 	private boolean editMode;
 	private boolean exportEnabled;
@@ -259,6 +260,16 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	@Override
 	public void setBordered(boolean bordered) {
 		this.bordered = bordered;
+	}
+
+	@Override
+	public boolean isFooter() {
+		return footer;
+	}
+
+	@Override
+	public void setFooter(boolean footer) {
+		this.footer = footer;
 	}
 
 	@Override
@@ -984,6 +995,24 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		selectSortOption(sortKey, asc);
 		component.setDirty(true);
 	}
+	
+	@Override
+	public void sort(SortKey sortKey) {
+		collapseAllDetails();
+		orderBy = new SortKey[]{ sortKey };
+		
+		if(dataModel instanceof SortableFlexiTableDataModel) {
+			((SortableFlexiTableDataModel<?>)dataModel).sort(sortKey);
+		} else if(dataSource != null) {
+			currentPage = 0;
+			dataSource.clear();
+			dataSource.load(getSearchText(), getSelectedFilters(), getConditionalQueries(), 0, getPageSize(), orderBy);
+		}
+		reorderMultiSelectIndex();
+		selectSortOption(sortKey.getKey(), sortKey.isAsc());
+		component.setDirty(true);
+	}
+	
 
 	private void reorderMultiSelectIndex() {
 		if(multiSelectedIndex == null) return;

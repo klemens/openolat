@@ -34,10 +34,8 @@ import org.olat.core.commons.services.webdav.manager.WebDAVMergeSource;
 import org.olat.core.commons.services.webdav.servlets.RequestUtil;
 import org.olat.core.id.Identity;
 import org.olat.core.util.vfs.NamedContainerImpl;
-import org.olat.core.util.vfs.Quota;
-import org.olat.core.util.vfs.QuotaManager;
 import org.olat.core.util.vfs.VFSContainer;
-import org.olat.core.util.vfs.callbacks.FullAccessWithQuotaCallback;
+import org.olat.core.util.vfs.callbacks.FullAccessWithLazyQuotaCallback;
 import org.olat.core.util.vfs.callbacks.ReadOnlyCallback;
 import org.olat.core.util.vfs.callbacks.VFSSecurityCallback;
 import org.olat.group.model.SearchBusinessGroupParams;
@@ -119,7 +117,7 @@ class GroupfoldersWebDAVMergeSource extends WebDAVMergeSource {
 		OlatRootFolderImpl localImpl = new OlatRootFolderImpl(folderPath, this);
 		//already done in OlatRootFolderImpl localImpl.getBasefile().mkdirs(); // lazy initialize dirs
 		String containerName = RequestUtil.normalizeFilename(name);
-		NamedContainerImpl grpContainer = new NamedContainerImpl(containerName, localImpl);
+		NamedContainerImpl grpContainer = new GroupNamedContainer(containerName, localImpl);
 
 		boolean writeAccess;
 		if (!isOwner) {
@@ -129,7 +127,7 @@ class GroupfoldersWebDAVMergeSource extends WebDAVMergeSource {
 			if (lFolderAccess != null) {
 				folderAccess = lFolderAccess.intValue();
 			}
-			writeAccess = (folderAccess == CollaborationTools.CALENDAR_ACCESS_ALL);
+			writeAccess = (folderAccess == CollaborationTools.FOLDER_ACCESS_ALL);
 		} else {
 			writeAccess = true;
 		}
@@ -137,7 +135,7 @@ class GroupfoldersWebDAVMergeSource extends WebDAVMergeSource {
 		VFSSecurityCallback secCallback;
 		if(writeAccess) {
 			SubscriptionContext sc = new SubscriptionContext(group, "toolfolder");
-			secCallback = new FullAccessWithLazyQuotaCallback(folderPath, sc);
+			secCallback = new FullAccessWithLazyQuotaCallback(folderPath, QuotaConstants.IDENTIFIER_DEFAULT_GROUPS, sc);
 		} else {
 			secCallback = new ReadOnlyCallback();
 		}
@@ -145,27 +143,15 @@ class GroupfoldersWebDAVMergeSource extends WebDAVMergeSource {
 		return grpContainer;
 	}
 	
-	private static class FullAccessWithLazyQuotaCallback extends FullAccessWithQuotaCallback {
+	private static class GroupNamedContainer extends NamedContainerImpl {
 		
-		private final String folderPath;
-		
-		public FullAccessWithLazyQuotaCallback(String folderPath, SubscriptionContext sc) {
-			super(null, sc);
-			this.folderPath = folderPath;
+		public GroupNamedContainer(String containerName, VFSContainer container) {
+			super(containerName, container);
 		}
-		
+
 		@Override
-		public Quota getQuota() {
-			if(super.getQuota() == null) {
-				QuotaManager qm = QuotaManager.getInstance();
-				Quota q = qm.getCustomQuota(folderPath);
-				if (q == null) {
-					Quota defQuota = qm.getDefaultQuota(QuotaConstants.IDENTIFIER_DEFAULT_GROUPS);
-					q = QuotaManager.getInstance().createQuota(folderPath, defQuota.getQuotaKB(), defQuota.getUlLimitKB());
-				}
-				super.setQuota(q);
-			}
-			return super.getQuota();
+		public boolean exists() {
+			return true;
 		}
 	}
 }

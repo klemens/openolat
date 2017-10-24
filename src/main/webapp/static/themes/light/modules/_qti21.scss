@@ -9,6 +9,7 @@ ul.sessionControl {
 	}
 }
 
+/* Associations */
 .association {
 	margin: 20px 20px 20px 40px;
 	background: transparent url('#{$o-images-path}association_bg.png') repeat-x center center;
@@ -16,6 +17,28 @@ ul.sessionControl {
 
 .o_associate_item {
 	padding: 5px;
+	margin:0 15px 10px 0;
+	border: 2px solid $o-qti-gap-border-color;
+	
+	&.oo-selected {
+		border: 2px solid $o-qti-gap-selected-border-color;
+	}
+	
+	&.oo-choosed {
+		border: none !important;
+	}
+	
+	&.oo-drag {
+		border: 2px solid $o-qti-gap-drag-border-color !important;
+	}
+}
+
+.association_box {
+	border: 3px dotted $o-qti-gap-border-color;
+	
+	&.oo-filled {
+		border: 3px solid $o-qti-gap-border-color;
+	}
 }
 
 .association_box {
@@ -76,7 +99,7 @@ ul.sessionControl {
 	}
 	
 	&.oo-selected {
-		border: 3px solid grey;
+		border: 3px solid $o-qti-gap-selected-border-color;
 	}
 }
 
@@ -103,18 +126,132 @@ ul.sessionControl {
 	background-repeat:no-repeat;
 }
 
-/* essay extended text */
+div.hotspotInteraction {
+	overflow-x: auto;
+}
+
+img.o_hotspot_responsive[usemap] {
+	max-width: 100%;
+	width: auto;
+	height: auto;
+}
+
+/* Gap text / FIB */
+.form-inline.o_qti_gaptext_add_first_alternative {
+	padding: 9px 0 3px 0;
+}
+
+.form-inline.o_qti_gaptext_add_alternative {
+	margin-bottom: 3px;
+}
+
+/* Essay extended text */
 #itemBody .extendedTextInteraction {
 	margin: 15px 0;
+
+	textarea {
+		/* fix missing resize handle in Safe Exam Browser */
+		resize: vertical !important;
+	}
+	
+	.o_qti_essay_last_save {
+		padding: 2px 2px;
+		font-style: italic;
+		font-size: 90%;
+		text-align:right;
+	}
 }
 
-#o_qti_run_title, #o_qti_run_infos  {
+#o_qti_run_title {
 	 margin: 0 15px 0.5em 15px;
+	 h3 {
+	 	margin: 15px 0 0 0;
+	 }
+}
+#o_qti_run_infos {
+	border: 1px solid $o-qti-run-infos-border-color;
+	border-radius: $o-qti-run-infos-border-radius;
+	background: $o-qti-run-infos-bg;
+	padding: $padding-large-vertical 0;
+	margin: 0 15px 1em 15px;
+	
+	.progress {
+		background-color: $o-qti-run-infos-progress-bg;
+	}	
+	#o_qti_scoreinfo .progress-bar {
+		@include progress-bar-variant($o-qti-run-infos-score-progress-color);
+	}
+	
+	#o_qti_questioninfo .progress-bar {
+		@include progress-bar-variant($o-qti-run-infos-question-progress-color);
+	}
+	
+	#o_qti_run_scoreinfo,
+	#o_qti_run_scoreprogress {
+		white-space: nowrap;
+	}
 }
 
-/* drawing */
+#o_qti_results_infos {
+	border: 1px solid $o-qti-run-infos-border-color;
+	border-radius: $o-qti-run-infos-border-radius;
+	background: $o-qti-run-infos-bg;
+	padding: $padding-large-vertical 0;
+	margin: 0 0 1em 0;
+	
+	.progress {
+		background-color: $o-qti-run-infos-progress-bg;	
+	}
+	
+	#o_qti_run_scoreinfo,
+	#o_qti_run_scoreprogress {
+		white-space: nowrap;
+	}
+}
+
+#o_qti_assessment_test_timer {
+	border: 1px solid $o-qti-run-infos-border-color;
+	border-radius: $o-qti-run-infos-border-radius;
+	padding: $padding-large-vertical;
+	margin: 0 15px 1em 15px;
+	
+	.o_qti_timer {
+		
+	}
+	
+	&.o_10_minutes {
+		background-color: $o-box-warning-bg;
+	}
+	&.o_5_minutes {
+		background-color: $o-box-error-bg;
+	}
+	&.o_panic {
+		background-color: darken($o-box-error-bg, 25%);
+	}
+	
+	.o_qti_times_up {
+		padding-left: 2em;
+		font-weight: bold;
+	}
+	
+	.o_qti_times_message {
+		padding-left: 2em;
+		font-weight: bold;
+	}
+}
+
+
+/* Drawing */
 .o_draw_circle.o_qti_hotspot_correct, .o_draw_rectangle.o_qti_hotspot_correct {
 	background-color: rgba(229, 255, 204, 0.6);
+}
+
+#width_range_ui, #opacity_range_ui {
+	width: 120px;
+}
+
+.o_slider_width_range, .o_slider_opacity_range {
+	margin: 3px 10px 0 0;
 }
 
 .o_qti_hotspot_label {
@@ -128,48 +265,35 @@ ul.sessionControl {
 
 
 .o_info.o_assessmentsection_rubrics {
-	margin:0;
+	margin:0 0 0.5em 0;
+	position: relative;
+	
+	&.o_hide {
+		display: none;
+	}
+	&.o_show {
+		display: block;
+	}
+	
+	a.o_hide {
+		position: absolute;
+		bottom: 0.5em;
+		right: 1em;
+	}
 }
 
 .o_assessmentitem{
 	h1 {
 		margin-bottom: 0;
 	}
-
-	.o_assessmentitem_attempts {
-		float: right;
-		display: block;
-		padding: 0.3em;
-		border-radius: 0.5em;
-		border: 1px #eeeeee solid;
-		color: black;
-		font-size: 0.7em;
-	}
-	
-	.o_assessmentitem_status {
-		float: right;
-		display: block;
-		padding: 0.3em;
-		border-radius: 0.5em;
-		border-width: 1px;
-		color: white;
-		font-size: 0.8em;
-	}
-	
-	.o_assessmentitem_marks {
-		float: right;
-		display: block;
-		padding: 0.3em;
-		font-size: 0.8em;
-	}
 	
 	div.badResponse, span.badResponse {
-		color: red;
+		color: $o-qti-badResponse-color;
 		font-weight: bold;
 	}
 	
 	input.badResponse {
-  		border: 1px solid red;
+  		border: 1px solid $o-qti-badResponse-color;
 	}
 	
 	.infoControl{
@@ -197,62 +321,89 @@ ul.sessionControl {
 	
 	div.orderInteraction {
 		div.highlight {
-			border: 1px solid red;
+			border: 1px solid $o-qti-highlight-color;
 		}
-
-		div.box {
-			background-color: #eeeeee;
+		
+		div.box.vertical {
+			width: 50%;
+			float: left;
+			position: relative;
+			padding: 0;
+			margin-top: 5px;
+			
+			ul {
+				min-height: 200px;
+			}
+		}
+		
+		div.box.horizontal {
+			ul {
+				min-height: 50px;
+				width: 100%;
+			}
+		}
+		
+		div.box.source {
+			padding: 5px 10px;
+			border: 1px solid $o-qti-order-sources-border-color;
+			border-radius: $o-qti-order-border-radius;
+			background: $o-qti-order-sources-bg;
+		}
+		
+		div.box.source.horizontal {
+			padding: 5px 10px 15px 10px;
+		}
+		
+		div.box.target {
+			ul {
+				border: 2px solid $o-qti-order-drop-accept-border-color;
+				border-radius: $o-qti-order-border-radius;
+				background: $o-qti-order-target-bg;
+			}
+		}
+		
+		div.box.target.vertical {
+			padding: 6px 0 0 10px;
+			
+			ul {
+				padding: 10px;
+			}
+		}
+		
+		div.box.target.horizontal {
+			padding-top: 10px;
+			
+			ul {
+				padding: 10px 10px 0 10px;
+			}
+		}
+		
+		div.box.horizontal ul li {
+			float: left;
+			width: auto;
+			margin-right: 10px;
+			min-width: 50px;
 		}
 
 		div.box span.info {
-			margin-left: 1em;
-			color: #666666;
+			color: $o-qti-box-color;
 			font-style: italic;
 			font-size: smaller;
-		}
-
-		div.box.horizontal {
-  			margin: 0.5em 0;
-			width: 100%;
-		}
-
-		ul.horizontal {
-			float: left;
-			margin: 0 1em;
-			padding: 1em 0;
-			width: 100%;
-		}
-
-		div.box.vertical {
-			margin: 1em 0;
-			width: 49%;
-		}
-
-		div.box.vertical.source {
-			float: left;
-		}
-
-		div.box.vertical.target {
-			float: right;
-		}
-
-		ul.vertical {
-			margin: 0 1em;
-			padding: 1em 0;
-			width: auto;
 		}
 
 		ul {
 			list-style-type: none;
 			margin: 0;
 			padding: 0;
-			width: 60%;
 			
 			li {
-				margin: 0 3px 3px 3px;
-				padding: 0.4em;
-				padding-left: 1.5em;
-				font-size: 1em;
+				padding: 10px;
+				margin-bottom: 10px;
+				border: 2px $o-qti-order-source-border-style $o-qti-gap-border-color;
+				border-radius: $o-qti-order-border-radius;
+				background-color: #ffffff;
+				background: $o-qti-order-source-bg;
+				@include clearfix;				
 				
 				span.ui-icon {
 					position: absolute;
@@ -260,55 +411,235 @@ ul.sessionControl {
 				}
 			}
 		}
+	}
 
-		ul.horizontal li {
-			float: left;
-			width: auto;
-		}
+	.hottext {		
+		position: relative;
+		margin: -2px 0.15em -2px 0.15em;
+		white-space: nowrap;
 
-		br {
-			clear: both;
+		input {
+			margin: 0 3px 0 2px;
+			position: absolute;
+			top: 0.1em;
+			left: 0.05em;
+			+label {
+				display: inline;
+				padding: 0 0.1em 0 1.2em;
+				background: $o-qti-hottext-bg;
+				border: 1px solid $o-qti-hottext-border-color;
+				border-radius: $o-qti-hottext-border-radius;
+				
+				color: $o-qti-hottext-color;
+				font-weight: normal;
+				white-space: normal;
+			}
+			&:checked+label {
+				color: $o-qti-hottext-checked-color;
+				background: $o-qti-hottext-checked-bg;
+				border: 1px solid $o-qti-hottext-checked-border-color;
+			}
 		}
 	}
 
-	.hottext {
-		font-weight: bold;
-	}
 
 	.gap {
 		font-weight: bold;
 		border: 1px dashed #000;
 	}
+	
+	.textEntryInteraction {
+		input {
+			margin: -1px 2px;
+			line-height: 90%;		
+			vertical-align: middle;
+			font-size: ($font-size-base * 0.98);
+			line-height: 1.5; /* smaller than #itemBody */
+			border: 0.5px solid $o-qti-textEntryInteraction-border-color;
+			background: $o-qti-textEntryInteraction-bg;
+			padding: 0.5px 1px;
+			color: $o-qti-textEntryInteraction-color;
+			/* format fields with values in it in separate style */
+			&:valid,
+			&:disabled {
+				color: $o-qti-textEntryInteraction-filled-color;
+				-webkit-text-fill-color: $o-qti-textEntryInteraction-filled-color;
+				background: $o-qti-textEntryInteraction-filled-bg;				
+				border: 0.5px solid $o-qti-textEntryInteraction-filled-border-color;
+			}
+		}
+	}
 }
 
-.o_assessmentitem_status.ended {
-  background-color: #999999;
+/* item display wrapper to distinguish from the item tree */
+.o_assessmentitem_wrapper {
+	.itemTitle {
+		background: $o-qti-item-title-bg;
+		border: 1px solid $o-qti-item-title-border-color;
+		border-radius: $o-qti-item-title-border-radius $o-qti-item-title-border-radius 0 0;
+		margin-top: 0;
+		margin-bottom: 0;
+		padding: $padding-small-vertical $padding-small-horizontal;
+		line-height: 1.5em;
+	}
+	#itemBody {
+		min-height: $o-qti-item-min-height;
+		margin: 0;
+		padding: $padding-small-vertical $padding-small-horizontal;
+		border-left: 1px solid $o-qti-item-border-color;
+		border-right: 1px solid $o-qti-item-border-color;
+		font-size: $font-size-base;
+		line-height: 1.8; /* larger than .textEntryInteraction input */
+	}
+	.modalFeedback {
+		h4:first-of-type {
+			padding-left: $padding-small-horizontal;
+			margin-top: 0;
+		}
+		/* need to redeclare o_info since modalFeedback class is on same element */
+		/* remove margins to stack into item box*/
+		.o_info {
+			@extend %o_info;
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+		
+		.o_info.o_correct_modal_feedback {
+			@extend %o_success;
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+
+		.o_info.o_incorrect_modal_feedback {
+			@extend %o_error;
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+
+		.o_info.o_empty_modal_feedback {
+			@extend %o_note;
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+		
+		.o_togglebox_wrapper {
+			margin-bottom: 0;
+			margin-top: 0;	
+			
+			h4 {
+				border-left: 1px solid $o-qti-item-border-color;
+				border-right: 1px solid $o-qti-item-border-color;
+				padding-bottom: 5px;
+				margin-bottom: 0;
+			}
+		}
+	}
+}
+	
+	
+.o_assessmentitem_wrapper, .o_qti_menu_buttonstyle {
+	ul.o_testpartnavigation {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+	li.o_assessmentitem {
+		margin-bottom: 2px;
+	}	
+	
+	.o_assessmentitem_status {
+		float: right;
+		display: block;
+		padding: 0.3em;
+		margin-left: 1em;
+		border-radius: 0.3em;
+		border-width: 1px;
+		font-size: 0.8em;
+		line-height: 1.2em;
+		color: #fff;
+		
+		&.ended {
+		  background-color: $o-qti-status-ended-color;
+		}
+		&.invalid {
+		  background-color: $o-qti-status-invalid-color;
+		}
+		&.answered {
+		  background-color: $o-qti-status-answered-color;
+		}
+		&.notAnswered {
+		  background-color: $o-qti-status-notAnswered-color;
+		}
+		&.notPresented {
+			background-color: $o-qti-status-notPresented-color;
+		}
+		&.review {
+			background-color: $o-qti-status-review-color;
+		}
+		&.reviewNotAllowed, 
+		&.reviewInvalid, 
+		&.reviewNotAnswered, 
+		&.reviewNotSeen {
+			background-color: $o-qti-status-review-color;
+			opacity: 0.7;
+		}
+		
+		i:before {
+			color: #fff;
+		}
+	}
 }
 
-.o_assessmentitem_status.invalid {
-  background-color: red;
+.o_assessmentitem_controls {
+	background: $o-qti-item-controls-bg;
+	border: 1px solid $o-qti-item-controls-border-color;
+	border-radius: 0 0 $o-qti-item-controls-border-radius $o-qti-item-controls-border-radius;
+	margin-top: 0;
+	margin-bottom: $padding-large-horizontal;
+	padding: $padding-small-vertical $padding-small-horizontal;
+	
+	button {
+		margin-bottom: 0;
+	}
+	
+	/* button icons */
+	.o_sel_assessment_item_submit span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-check; 
+		padding-right: 0.5em
+	}
+	.o_sel_next_question span:after { 
+		@include o-make-icon(); 
+		content: $fa-var-chevron-right; 
+		padding-left: 0.5em
+	}
+	.o_sel_question_menu span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-bars; 
+		padding-right: 0.5em
+	}
+	.o_sel_end_testpart span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-check; 
+		padding-right: 0.5em
+	}
+	.o_sel_back_test_feedback span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-chevron-left; 
+		padding-right: 0.5em
+	}
+	.o_sel_show_solution span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-info; 
+		padding-right: 0.5em
+	}
+	.o_sel_solution_hide span:before { 
+		@include o-make-icon(); 
+		content: $fa-var-info; 
+		padding-right: 0.5em
+	}
 }
 
-.o_assessmentitem_status.answered {
-  background-color: blue;
-}
-
-.o_assessmentitem_status.notAnswered {
-  background-color: #ff9900;
-}
-
-.o_assessmentitem_status.notPresented {
-	background-color: green;
-}
-
-.o_assessmentitem_status.review {
-	background-color: #f52887;
-}
-
-.o_assessmentitem_status.reviewNotAllowed, .o_assessmentitem_status.reviewInvalid, .o_assessmentitem_status.reviewNotAnswered, .o_assessmentitem_status.reviewNotSeen {
-	background-color: #f52887;
-	opacity: 0.5;
-}
 
 .itemPrompt {
 	margin: 1.5em 0;
@@ -318,6 +649,14 @@ ul.sessionControl {
 
 #itemBody {
 	margin: 1em 0;
+}
+
+.o_sel_assessment_item_hint {
+	margin-top: 1em;
+}
+
+.o_assessment_test_results .o_sel_assessment_item_hint {
+	display:none;
 }
 
 /* Choice interaction */
@@ -331,8 +670,10 @@ tr.choiceinteraction {
 	}
 }
 
-.choiceInteraction table {
-
+.choiceInteraction {
+	label {
+		font-weight: normal;
+	}
 }
 
 .choiceInteraction div.o_qti_item_choice_option_flow  {
@@ -351,13 +692,13 @@ tr.choiceinteraction {
 }
 
 .choiceInteraction.choiceright table tr td.choiceInteraction {
-	background-color: #e7e7e7;
+	background-color: $o-qti-choice-tablelayout-bg;
 	border-bottom: 3px solid white;
 }
 
 /* Match interaction */
 .matchInteraction.choiceright table tr td.o_qti_item_kprim_text {
-	background-color: #e7e7e7;
+	background-color: $o-qti-choice-tablelayout-bg;
 	border-bottom: 3px solid white;
 }
 
@@ -367,8 +708,97 @@ tr.choiceinteraction {
 		width:auto;
 	}
 	
-	div.bar_green { background-color: $brand-success; }
-	div.bar_red { background-color: $brand-danger; }
+	div.bar_green { background-color: $o-qti-bar-green; }
+	div.bar_red { background-color: $o-qti-bar-red; }
+}
+
+/* Match interaction drag & drop */
+.source-left, .target-left, .source-right, .target-right {
+	width: 50%;
+	float: left;
+	position: relative;
+	padding: 0;
+	margin-top: 5px;
+}
+
+.source-top, target-top, .source-bottom, .target-bottom {
+
+}
+
+.o_match_dnd_sources {
+	padding: 10px 10px 0 10px;
+	min-height: 60px;
+	border: 1px solid $o-qti-match-sources-border-color;
+	border-radius: $o-qti-match-border-radius;
+	background: $o-qti-match-sources-bg;
+	
+	&.oo-accepted {
+		border-color: $o-qti-match-drop-accept-border-color;
+	}
+}
+
+.o_match_dnd_source {
+	padding: 10px;
+	margin-bottom: 10px;
+	border: 2px $o-qti-match-source-border-style $o-qti-gap-border-color;
+	border-radius: $o-qti-match-border-radius;
+	background-color: #ffffff;
+	background: $o-qti-match-source-bg;
+	@include clearfix;
+	
+	&.oo-selected {
+		border: 2px $o-qti-match-source-border-style $o-qti-match-selected-border-color;
+		background: $o-qti-match-selected-bg;
+	}
+	
+	&.oo-drag {
+		border: 2px $o-qti-match-source-border-style $o-qti-match-drag-border-color !important;
+	}
+	
+	cursor: move; /* fallback if grab cursor is unsupported */
+    cursor: grab;
+    cursor: -moz-grab;
+    cursor: -webkit-grab;	
+}
+
+.source-bottom .o_match_dnd_source, .source-top .o_match_dnd_source {
+	margin: 0 0 10px 0;
+}
+
+.o_match_dnd_targets .oo-accepted {
+	border: 2px solid $o-qti-match-drop-accept-border-color;
+	border-radius: $o-qti-match-border-radius;
+}
+
+.o_match_dnd_target {
+	padding: 10px 10px 0 10px;
+	margin: 0 0 10px 10px;
+	border: 2px solid $o-qti-match-target-border-color;
+	border-radius: $o-qti-match-border-radius;
+	background: $o-qti-match-target-bg;
+	@include clearfix;
+
+	.o_match_dnd_target_drop_zone {
+		margin: 0;
+		padding: 5px 0 0 15px;
+		min-height: 30px;
+		
+		.o_match_dnd_source {
+			border: 2px $o-qti-match-source-border-style $o-qti-match-choosed-border-color;
+		}
+	}
+}
+
+.target-bottom .o_match_dnd_target, .target-top .o_match_dnd_target {
+	margin: 0 0 10px 0;
+	
+	.o_match_dnd_target_drop_zone {
+		padding-left: 0px;
+		
+		.o_match_dnd_source {
+			padding-left: 15px;
+		}
+	}
 }
 
 /* MathEntryInteraction styling for MathAssess */
@@ -436,15 +866,15 @@ tr.choiceinteraction {
 	}
 
 	div.success {
-		background: green;
+		background: $o-qti-success;
 	}
 
 	div.failure {
-		background-color:gold;
+		background-color:$o-qti-failure;
 	}
 
 	div.error {
-		background-color:red;
+		background-color:$o-qti-error;
 	}
 
 	div.upConversionAjaxControlError {
@@ -486,29 +916,41 @@ tr.choiceinteraction {
 	}
 }
 
+/* Correct solution feedback */
+.o_togglebox_wrapper #modal-correct-solution div.o_togglebox_content {
+	background-color: $o-box-warning-bg;
+	border-color: $o-box-warning-color;
+}
+
 /* Candidate comment */
 .o_candidatecomment {
 	padding: 0;
-	margin: 2em 0;
+	margin: 2em 0 1em 0;
 	border: none;
 	
 	legend {
-	
+		font-size: 110%;
+		font-weight: bold;
+		color: $text-muted;
+		margin-bottom: $padding-small-horizontal;
+		border-bottom: 0;
 	}
 	
 	textarea {
 		display: block;
+		color: $text-muted;
 	}
 }
 
-ul.o_testpartnavigation {
+.o_qti_menu_menustyle ul.o_testpartnavigation {
 	list-style: none;
 	padding: 0;
 	margin: 0;
 	
 	li.o_assessmentsection {
-		border: 1px solid #eeeeee;
-		border-radius: 0.5em;
+		border: 1px solid $o-qti-menu-border-color;
+		border-radius: $o-qti-menu-border-radius;
+		background: $o-qti-menu-bg;
 		padding: 0 1em 0.5em 1em;
 		margin: 0 0 0.5em 0;
 		
@@ -529,24 +971,109 @@ ul.o_testpartnavigation {
 	
 	li.o_assessmentitem {
 		padding: 0.1em 0;
-		
-		a {
-			padding: 0;
-			text-decoration: none;
+	    a {
+	    	color : $o-qti-menu-link-color;
+	    	&:hover,
+			&:focus {
+				color: $o-qti-menu-link-hover-color;
+			}
+	    }
+		&.active a {
+			color : $o-qti-menu-link-active-color; 
+			&:hover,
+			&:focus {
+				color: $o-qti-menu-link-active-hover-color; 
+				background-color : $o-qti-menu-link-active-hover-bg;
+			}
+			font-weight: $o-qti-menu-link-active-font-weight;
 		}
+
+
 		
 		span {
 			vertical-align: middle;
 		}
-		
-		.itemStatus {
+
+		.o_assessmentitem_status {
 			display: inline;
-			float: none;
-			margin: 0.2em;
-			padding: 0.4em;
-			border-radius: 0.3em;
-			margin-left: 1em;
+			position: relative;
+			left: -0.3em;
+			background: transparent;
+			border: 0;
+			span {
+				/* hide status description */
+				display: none;
+			}
 		}
+
+		.o_assessmentitem_attempts {
+			float: right;
+			display: block;
+			padding: 0.3em;
+			border-radius: 2px;
+			background-color: #fafafa;
+			color: $o-qti-attempts-color;
+			font-size: 0.7em;
+			
+			&.o_assessmentitem_attempts_limited {
+				color: $o-qti-attempts-limited-color;
+			}
+			&.o_assessmentitem_attempts_nomore {
+				color: $o-qti-attempts-nomore-color;
+			}
+		}
+
+		.o_assessmentitem_marks {
+			float: right;
+			display: inline-block;
+			font-size: 0.8em;
+			position: relative;
+			top: 0.3em;
+			right: -0.5em;
+		}
+		
+		/* old badge style rendering
+		.o_assessmentitem_status {
+			float: right;
+			display: block;
+			padding: 0.3em;
+			border-radius: 0.3em;
+			border-width: 1px;
+			font-size: 0.8em;
+			color: #fff;
+			span { 
+				display: inline;
+			}
+			i { 
+				display: none;
+			}
+			&.ended {
+			  background-color: $o-qti-status-ended-color;
+			}
+			&.invalid {
+			  background-color: $o-qti-status-invalid-color;
+			}
+			&.answered {
+			  background-color: $o-qti-status-answered-color;
+			}
+			&.notAnswered {
+			  background-color: $o-qti-status-notAnswered-color;
+			}
+			&.notPresented {
+				background-color: $o-qti-status-notPresented-color;
+			}
+			&.review {
+				background-color: $o-qti-status-review-color;
+			}
+			&.reviewNotAllowed, 
+			&.reviewInvalid, 
+			&.reviewNotAnswered, 
+			&.reviewNotSeen {
+				background-color: $o-qti-status-review-color;
+				opacity: 0.7;
+			}
+		}
+		*/
 	}
 	
 	.o_assessmentitem .questionTitle {
@@ -554,6 +1081,12 @@ ul.o_testpartnavigation {
 	}
 }
 
+/* Test feedback after test */
+.testFeedback {
+	h1:first-of-type {
+		margin-top: 0;
+	}
+}
 
 /* Test Item Presentation */
 ul.testPartDrilldown {
@@ -562,8 +1095,9 @@ ul.testPartDrilldown {
 	margin: 0;
 	
 	li.o_assessmentsection {
-		border: 1px solid #eeeeee;
-		border-radius: 0.5em;
+		border: 1px solid $o-qti-menu-border-color;
+		border-radius: $o-qti-menu-border-radius;
+		background: $o-qti-menu-bg;
 		padding: 0 1em 0.5em 1em;
 		
 		header {
@@ -582,7 +1116,7 @@ ul.testPartDrilldown {
 	}
 	
 	li.currentItem {
-		border: 1px solid #eeeeee;
+		border: 1px solid $o-qti-menu-border-color;
 		border-radius: 0.5em;
 		padding: 0 1em;
 		margin-top: 1em;
@@ -592,3 +1126,94 @@ ul.testPartDrilldown {
 .testItemControl {
 	margin-top: 0.5em;
 }
+
+/* Statistics */
+.o_qti_statistics_answer {
+	background: #F5F5F5;
+	padding: 1px 2px;
+	width: 90%;
+	
+	p {
+		display: inline-block;
+	}
+}
+
+
+/* Results reporting / detailed assessment results */
+.o_assessment_test_results {
+	.o_qti_assessment_title {
+		border-bottom: 1px solid $panel-default-border;
+	}
+	
+	/* align tables in assessment results to have same column width */
+	table th {
+		width: 40%;	
+	}
+	.o_qti_metainfo {
+		.o_qti_metainfo_listing{
+			.o_qti_run_durationinfo {}
+			.o_qti_run_questioninfo {}
+			.o_qti_run_scoreinfo {}
+			.o_qti_cutinfo {}
+			.o_qti_stateinfo {}
+			.o_qti_signature {}
+		
+		}
+		.o_qti_metainfo_visual{}
+	}
+	.o_qti_sectionsummary {
+		.o_qti_section {
+			text-align: center;
+			.o_qti_section_visual{}
+			.o_qti_section_goto {}
+			.o_qti_section_sublisting {
+				padding: 0 10%;
+				min-height: 3em;
+			}
+		}
+	}
+	
+	.o_qti_sections {
+		.o_qti_section {
+			margin-top: 40px;
+			h3 {
+				margin-bottom: 20px;
+			}
+			.o_qti_items {
+				.o_qti_item {
+					.o_qti_item_id {
+						display: none;
+					}
+					.o_qti_item_comment {
+						@extend %o_note;
+						margin: 0;
+						padding: 5px 10px 10px 5px;
+						border-top: 1px solid $panel-default-border;
+						broder-bottom: 1px solid $panel-default-border;
+						h4 {
+							font-size: 100%;
+							font-weight: bold;
+							color: inherit;
+						}
+					}
+				}
+			
+			}
+		}
+	}
+	.o_qti_to_overview {
+		text-align: right;
+		@extend %o_small;			
+	}	
+}
+
+/* Editor */
+.o_sel_assessment_item_feedbacks {
+	min-height: 250px;
+}
+
+.o_alternative_question_types h4 select {
+	display: inline-block;
+	width: auto;
+}
+

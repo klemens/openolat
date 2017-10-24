@@ -55,6 +55,7 @@ import org.olat.modules.fo.Message;
 import org.olat.modules.fo.Status;
 import org.olat.modules.fo.manager.ForumManager;
 import org.olat.search.service.SearchResourceContext;
+import org.olat.search.service.document.CourseNodeDocument;
 import org.olat.search.service.document.ForumMessageDocument;
 import org.olat.search.service.document.file.DocumentAccessException;
 import org.olat.search.service.document.file.FileDocumentFactory;
@@ -81,11 +82,10 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 
 	@Override
 	public void doIndex(SearchResourceContext repositoryResourceContext, ICourse course, CourseNode courseNode, OlatFullIndexer indexWriter) throws IOException,InterruptedException  {
-		SearchResourceContext courseNodeResourceContext = new SearchResourceContext(repositoryResourceContext);
-		courseNodeResourceContext.setBusinessControlFor(courseNode);
-		courseNodeResourceContext.setTitle(courseNode.getShortTitle());
-		courseNodeResourceContext.setDescription(courseNode.getLongTitle());
-    
+		SearchResourceContext courseNodeResourceContext = createSearchResourceContext(repositoryResourceContext, courseNode, null);
+		Document document = CourseNodeDocument.createDocument(courseNodeResourceContext, courseNode);
+		indexWriter.addDocument(document);
+		
 		CoursePropertyManager coursePropMgr = course.getCourseEnvironment().getCoursePropertyManager();
 		DialogElementsPropertyManager dialogElmsMgr = DialogElementsPropertyManager.getInstance();
 		DialogPropertyElements elements = dialogElmsMgr.findDialogElements(coursePropMgr, courseNode);
@@ -158,12 +158,16 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 	@Override
 	public boolean checkAccess(ContextEntry contextEntry, BusinessControl businessControl, Identity identity, Roles roles)  {
 		ContextEntry ce = businessControl.popLauncherContextEntry();
+		if(ce == null || ce.getOLATResourceable() == null || ce.getOLATResourceable().getResourceableId() == null) {
+			return true;// it's the node itself
+		}
+		
 		OLATResourceable ores = ce.getOLATResourceable();
 		if(isLogDebugEnabled()) logDebug("OLATResourceable=" + ores);
-		if ( (ores != null) && (ores.getResourceableTypeName().startsWith("path=")) ) {
+		if (ores.getResourceableTypeName().startsWith("path=")) {
 			// => it is a file element, typeName format: 'path=/test1/test2/readme.txt'
 			return true;
-		} else if ((ores != null) && ores.getResourceableTypeName().equals( OresHelper.calculateTypeName(Message.class) ) ) {
+		} else if (ores.getResourceableTypeName().equals(OresHelper.calculateTypeName(Message.class))) {
 			// it is message => check message access
 			Long resourceableId = ores.getResourceableId();
 			Message message = ForumManager.getInstance().loadMessage(resourceableId);
@@ -174,9 +178,10 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 			boolean isMessageHidden = Status.getStatus(threadtop.getStatusCode()).isHidden(); 
 			//assumes that if is owner then is moderator so it is allowed to see the hidden forum threads		
 			//TODO: (LD) fix this!!! - the contextEntry is not the right context for this check
-			boolean isOwner = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable());
-			if(isMessageHidden && !isOwner) {
-				return false;
+			if(isMessageHidden) {
+				boolean isOwner = BaseSecurityManager.getInstance()
+						.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable());
+				return isOwner;
 			}		
 			return true;
 		} else {

@@ -35,6 +35,8 @@ import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentEventListener;
+import org.olat.core.gui.components.dropdown.DropdownItem;
+import org.olat.core.gui.components.form.flexible.elements.AutoCompleter;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
@@ -58,6 +60,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
+import org.olat.core.gui.components.form.flexible.impl.elements.AutoCompleterImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.DownloadLinkImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FileElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormCancel;
@@ -613,6 +616,23 @@ public class FormUIFactory {
 		return te;
 	}
 	
+	public AutoCompleter addTextElementWithAutoCompleter(String name, final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		return addTextElementWithAutoCompleter(null, name, i18nLabel, maxLen, initialValue, formLayout);
+	}
+	
+	public AutoCompleter addTextElementWithAutoCompleter(String id, String name, final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		String val = initialValue == null ? "" : initialValue;
+		AutoCompleterImpl te = new AutoCompleterImpl(id, name);
+		te.setNotLongerThanCheck(maxLen, "text.element.error.notlongerthan");
+		setLabelIfNotNull(i18nLabel, te);
+		te.setMaxLength(maxLen);
+		te.setValue(val);
+		formLayout.add(te);
+		return te;
+	}
+	
 	/**
 	 * Add a multi line text element, using the provided name as i18n key for the label, no max length check set, and fits content hight at maximium (100lnes).
 	 * 
@@ -767,7 +787,7 @@ public class FormUIFactory {
 	/**
 	 * 
 	 * This is a version with olat media only. The tiny media is disabled because we need to catch the object
-	 * tag use by QTI and interpret it as a olat video.
+	 * tag use by QTI and interpret it as a olat video. It enable the strict uri validation for file names.
 	 * 
 	 * @param name
 	 * @param i18nLabel
@@ -791,6 +811,8 @@ public class FormUIFactory {
 		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
 		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
 		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
+		rte.getEditorConfiguration().setFigCaption(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -807,6 +829,8 @@ public class FormUIFactory {
 		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
 		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
 		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
+		rte.getEditorConfiguration().setFigCaption(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -1213,5 +1237,15 @@ public class FormUIFactory {
 		setLabelIfNotNull(i18nLabel, slider);
 		formLayout.add(slider);
 		return slider;
+	}
+	
+	
+	public DropdownItem addDropdownMenu(String name, String i18nLabel, FormItemContainer formLayout, Translator translator) {
+		DropdownItem dropdown = new DropdownItem(name, name, translator);
+		dropdown.setEmbbeded(true);
+		dropdown.setButton(true);
+		setLabelIfNotNull(i18nLabel, dropdown);
+		formLayout.add(dropdown);
+		return dropdown;
 	}
 }

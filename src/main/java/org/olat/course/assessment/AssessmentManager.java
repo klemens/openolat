@@ -25,6 +25,7 @@
 
 package org.olat.course.assessment;
 
+import java.io.File;
 import java.util.Date;
 import java.util.List;
 
@@ -37,6 +38,8 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.Role;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
 
 /**
  * Description:<BR>
@@ -62,7 +65,17 @@ public interface AssessmentManager {
 	 * @param assessedIdentity The user whose score is changed
 	 * @param attempts The new attempts
 	 */
-	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts);
+	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts, Role by);
+	
+	/**
+	 * Change the last modification dates.
+	 * 
+	 * @param courseNode The course node
+	 * @param identity The identity which does the action
+	 * @param assessedIdentity The assessed identity
+	 * @param by The role of the identity which does the action.
+	 */
+	public void updateLastModifications(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnvironment, Role by);
 
 	/**
 	 * Save an assessment comment for this node for a user. If there is already a comment property available, 
@@ -73,6 +86,26 @@ public interface AssessmentManager {
 	 * @param comment
 	 */
 	public void saveNodeComment(CourseNode courseNode, Identity identity, Identity assessedIdentity, String comment);
+	
+	/**
+	 * Add an individual document for assessment purpose
+	 * 
+	 * @param courseNode The course element
+	 * @param identity The user who add the document
+	 * @param assessedIdentity The assessed user
+	 * @param document The document
+	 */
+	public void addIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity, File document, String filename);
+	
+	/**
+	 * Remove a document
+	 * 
+	 * @param courseNode The course element
+	 * @param identity The user who delete the document
+	 * @param assessedIdentity The assessed user
+	 * @param document The document to delete
+	 */
+	public void removeIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity, File document);
 
 	/**
 	 * Save an coach comment for this node for a user. If there is already a coach comment property available, 
@@ -89,7 +122,7 @@ public interface AssessmentManager {
 	 * @param courseNode
 	 * @param identity
 	 */
-	public void incrementNodeAttempts(CourseNode courseNode, Identity identity, UserCourseEnvironment userCourseEnvironment);
+	public void incrementNodeAttempts(CourseNode courseNode, Identity identity, UserCourseEnvironment userCourseEnvironment, Role by);
 	
 	/**
 	 * Increment the users attempts for this course node, but without logging (aimed at background job).
@@ -112,6 +145,19 @@ public interface AssessmentManager {
 	 * @return The achieved passed or null if no passed available
 	 */
 	public String getNodeComment(CourseNode courseNode, Identity identity);
+	
+	/**
+	 * @param courseNode The course node
+	 * @param identity The assessed identity.
+	 * @return A list of documents
+	 */
+	public List<File> getIndividualAssessmentDocuments(CourseNode courseNode, Identity identity);
+	
+	/**
+	 * 
+	 * @param courseNode
+	 */
+	public void deleteIndividualAssessmentDocuments(CourseNode courseNode);
 
 	/**
 	 * @param courseNode The course node
@@ -177,7 +223,8 @@ public interface AssessmentManager {
 	 */
 	
 	public void saveScoreEvaluation(AssessableCourseNode courseNode, Identity identity, Identity assessedIdentity,
-			ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment, boolean incrementUserAttempts);
+			ScoreEvaluation scoreEvaluation, UserCourseEnvironment userCourseEnvironment,
+			boolean incrementUserAttempts, Role by);
 	
 	/**
 	 * Provides an OLATResourceable for locking (of score/passed etc.) purposes (if doInSync is called on score/passed data)
@@ -206,8 +253,11 @@ public interface AssessmentManager {
 
 	public List<AssessmentEntry> getAssessmentEntries(CourseNode courseNode);
 	
+	public List<AssessmentEntry> getAssessmentEntriesWithStatus(CourseNode courseNode, AssessmentEntryStatus status, boolean excludeZeroScore);
+	
 	public List<AssessmentEntry> getAssessmentEntries(BusinessGroup group, CourseNode courseNode);
 	
 	public List<AssessmentEntry> getAssessmentEntries(Identity assessedIdentity);
+
 	
 }

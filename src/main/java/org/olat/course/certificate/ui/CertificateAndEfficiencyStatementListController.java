@@ -34,6 +34,7 @@ import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.BooleanCellRenderer;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.DateFlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiCellRenderer;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
@@ -55,6 +56,7 @@ import org.olat.core.gui.render.StringOutput;
 import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.GenericEventListener;
@@ -190,6 +192,7 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 				translate("table.header.show"), CMD_SHOW));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.lastModified));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.certificate, new DownloadCertificateCellRenderer(assessedIdentity)));
+		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Cols.recertification, new DateFlexiCellRenderer(getLocale())));
 		tableColumnModel.addFlexiColumnModel(new DefaultFlexiColumnModel("table.header.launchcourse",
 				translate("table.header.launchcourse"), CMD_LAUNCH_COURSE));
 		
@@ -244,12 +247,22 @@ public class CertificateAndEfficiencyStatementListController extends FormBasicCo
 				resourceKeyToStatments.put(resourceKey, wrapper);
 				statments.add(wrapper);
 			} else {
+				if(!StringHelper.containsNonWhitespace(wrapper.getDisplayName())) {
+					wrapper.setDisplayName(certificate.getCourseTitle());
+				}
 				wrapper.setResourceKey(resourceKey);
 			}
 			if(resourceKey != null && wrapper.getResourceKey() == null) {
 				wrapper.setResourceKey(resourceKey);
 			}
 			wrapper.setCertificate(certificate);
+		}
+		
+		for(CertificateAndEfficiencyStatement statment:statments) {
+			if(!StringHelper.containsNonWhitespace(statment.getDisplayName()) && statment.getResourceKey() != null) {
+				String displayName = repositoryManager.lookupDisplayNameByResourceKey(statment.getResourceKey());
+				statment.setDisplayName(displayName);
+			}
 		}
 		
 		tableModel.setObjects(statments);

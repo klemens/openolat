@@ -146,6 +146,7 @@ public class DialogElementsController extends BasicController {
 		content = createVelocityContainer("dialog");		
 		uploadButton = LinkFactory.createButton("dialog.upload.file", content, this);
 		uploadButton.setIconLeftCSS("o_icon o_icon-fw o_icon_upload");
+		uploadButton.setElementCssClass("o_sel_dialog_upload");
 		
 		isOlatAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
 		isGuestOnly = ureq.getUserSession().getRoles().isGuestOnly();
@@ -415,7 +416,7 @@ public class DialogElementsController extends BasicController {
 			OlatRootFolderImpl forumContainer = getForumContainer(forum.getKey());
 			
 			removeAsListenerAndDispose(fileUplCtr);
-			fileUplCtr = new FileUploadController(getWindowControl(),forumContainer, ureq, (int)FolderConfig.getLimitULKB(), Quota.UNLIMITED, null, false, false, false, true, false);
+			fileUplCtr = new FileUploadController(getWindowControl(),forumContainer, ureq, (int)FolderConfig.getLimitULKB(), Quota.UNLIMITED, null, false, false, false, false, true, false);
 			listenTo(fileUplCtr);
 			
 			recentDialogElement = new DialogElement();
@@ -472,7 +473,7 @@ public class DialogElementsController extends BasicController {
 	
 	private class MyLinkChooserController extends LinkChooserController {
 		public MyLinkChooserController(UserRequest ureq, WindowControl wControl, VFSContainer rootDir, String uploadRelPath) {
-			super(ureq, wControl, rootDir, uploadRelPath, null, null, "", null, true);
+			super(ureq, wControl, rootDir, uploadRelPath, null, null, false, "", null, true);
 		}
 		
 		@Override

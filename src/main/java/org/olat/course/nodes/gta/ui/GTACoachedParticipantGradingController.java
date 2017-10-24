@@ -39,10 +39,12 @@ import org.olat.course.assessment.ui.tool.AssessmentIdentityCourseNodeController
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.Task;
+import org.olat.course.nodes.gta.TaskList;
 import org.olat.course.nodes.gta.TaskProcess;
 import org.olat.course.nodes.ms.MSCourseNodeRunController;
 import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.assessment.ui.event.AssessmentFormEvent;
 import org.olat.repository.RepositoryEntry;
@@ -140,25 +142,31 @@ public class GTACoachedParticipantGradingController extends BasicController {
 		
 		ICourse course = CourseFactory.loadCourse(courseOres);
 		UserCourseEnvironment uce = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-		msCtrl = new MSCourseNodeRunController(ureq, getWindowControl(), uce, gtaNode, false, false);
+		msCtrl = new MSCourseNodeRunController(ureq, getWindowControl(), uce, gtaNode, false, false, true);
 		listenTo(msCtrl);
 		mainVC.put("msrun", msCtrl.getInitialComponent());
 	}
 	
 	private void doReopenAssessment(UserRequest ureq) {
-		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading, gtaNode);
+		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading, gtaNode, Role.coach);
 		fireEvent(ureq, Event.CHANGED_EVENT);
 	}
 	
 	private void doGraded(UserRequest ureq, UserCourseEnvironment assessedUserCourseEnv) {
 		removeAsListenerAndDispose(msCtrl);
-		msCtrl = new MSCourseNodeRunController(ureq, getWindowControl(), assessedUserCourseEnv, gtaNode, false, false);
+		msCtrl = new MSCourseNodeRunController(ureq, getWindowControl(), assessedUserCourseEnv, gtaNode, false, false, true);
 		listenTo(msCtrl);
 		mainVC.put("msrun", msCtrl.getInitialComponent());
 		
 		AssessmentEvaluation scoreEval = gtaNode.getUserScoreEvaluation(assessedUserCourseEnv);
 		if(scoreEval.getAssessmentStatus() == AssessmentEntryStatus.done) {
-			assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded, gtaNode);
+			if(assignedTask == null) {
+				RepositoryEntry courseEntry = coachCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+				TaskList taskList = gtaManager.createIfNotExists(courseEntry, gtaNode);
+				assignedTask = gtaManager.createTask(null, taskList, TaskProcess.graded, null, assessedIdentity, gtaNode);
+			} else {
+				assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded, gtaNode, Role.coach);
+			}
 			fireEvent(ureq, Event.CHANGED_EVENT);
 		}
 	}

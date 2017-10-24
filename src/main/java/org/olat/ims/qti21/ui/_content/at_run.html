@@ -1,27 +1,53 @@
 <div id="o_qti_run" class="row">
 	<div id="o_qti_run_title" class="o_header_with_buttons">
-		<h3>$r.escapeHtml($title)</h3>
+		<h2>$r.escapeHtml($title)</h2>
 		<div class="o_button_group o_button_group_right">
-		#if(${qtiWorksStatus.mayCloseTest()} && $r.available("closeTest") && $r.visible("closeTest"))
-			$r.render("closeTest")
-		#elseif(${qtiWorksStatus.mayEndCurrentTestPart()} && $r.available("endTest") && $r.visible("endTest"))
-			$r.render("endTest")
-		#end
-
-		#if(${qtiWorksStatus.mayCancelTest()} && $r.available("cancelTest") && $r.visible("cancelTest"))
+		#set( $showClose = ${qtiWorksStatus.mayCloseTest()} && $r.available("closeTest") && $r.visible("closeTest") )
+		
+		#if(${qtiWorksStatus.mayCancelTest()} && $r.available("cancelTest") && $r.visible("cancelTest") && !$showClose)
 			$r.render("cancelTest")
 		#end
-		#if(${qtiWorksStatus.maySuspendTest()} && $r.available("suspendTest") && $r.visible("suspendTest"))
+		#if(${qtiWorksStatus.maySuspendTest()} && $r.available("suspendTest") && $r.visible("suspendTest") && !$showClose)
 			$r.render("suspendTest")
 		#end
 		#if($r.available("closeResults") && $r.visible("closeResults"))
 			$r.render("closeResults")
 		#end
+		
+		#if($showClose)
+			$r.render("closeTest")
+		#elseif(${qtiWorksStatus.mayEndCurrentTestPart()} && $r.available("endTest") && $r.visible("endTest"))
+			$r.render("endTest")
+		#end
 		</div>
 	</div>
 
-	#if (!$qtiWorksStatus.isSurvey() && (($displayScoreProgress && $qtiWorksStatus.hasScore()) || $displayQuestionProgress))
-	<div id="o_qti_run_infos" class="panel panel-default"><div class="panel-body">
+	#if($qtiWorksStatus.assessmentTestTimeLimit && !$qtiWorksStatus.ended)
+	<div id="o_qti_assessment_test_timer" class="clearfix"><i class='o_icon o_icon_timelimit'> </i>
+		$r.translate("timelimit.running", "<span class='o_qti_timer'></span>","<span class='o_qti_timer_duration'></span>", "$qtiWorksStatus.assessmentTestEndTime")
+		<span class="o_qti_times_up" style="display:none;">$r.translate("timelimit.finished")</span>
+		<span class="o_qti_times_message o_10_minutes" style="display:none;"><i class="o_icon o_icon_timelimit_start"> </i> $r.translate("timelimit.10.minutes")</span>
+		<span class="o_qti_times_message o_5_minutes" style="display:none;"><i class="o_icon o_icon_timelimit_half"> </i> $r.translate("timelimit.5.minutes")</span>
+		<span class="o_qti_times_message o_panic" style="display:none;"><i class="o_icon o_icon_timelimit_end"> </i> $r.translate("timelimit.1.minute")</span>
+	</div>
+	<script type="text/javascript">
+	/* <![CDATA[ */
+	jQuery(function() {
+		jQuery('#o_qti_assessment_test_timer').qtiTimer({
+			startTime:$qtiWorksStatus.assessmentTestDuration,
+			availableTime: $qtiWorksStatus.assessmentTestMaximumTimeLimits,
+			formName: '${f.form.formName}',//forn name
+    		dispIdField: '{$f.form.dispatchFieldId}',//form dispatch id
+    		dispId: '${f.getFormItem("qtirun").formDispatchId}',//item id
+    		eventIdField: '${f.form.eventFieldId}' // form eventFieldId
+		})
+	});
+	/* ]]> */
+	</script>
+	#end
+
+	#if (!$qtiWorksStatus.isSurvey() && (($displayScoreProgress && $qtiWorksStatus.hasMaxScore()) || $displayQuestionProgress) && !$r.visible("qtiResults"))
+	<div id="o_qti_run_infos" class="clearfix">
 		#if (!$qtiWorksStatus.isSurvey() && $displayScoreProgress && $qtiWorksStatus.score)
 		<div id="o_qti_scoreinfo">
 			<div id="o_qti_run_scoreinfo" class="col-md-2 col-sm-3">
@@ -47,7 +73,7 @@
 			<div id="o_qti_run_questionprogress" class="col-md-4 col-sm-3">$r.render("questionProgress", "nl")</div>
 		</div>
 		#end
-	</div></div>
+	</div>
 	#end
 	
 	#if($r.visible("qtiResults"))

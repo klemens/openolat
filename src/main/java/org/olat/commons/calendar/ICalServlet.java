@@ -127,6 +127,8 @@ public class ICalServlet extends HttpServlet {
 	throws IOException {
 		String requestUrl = request.getPathInfo();
 		try {
+			//log need a session before the response is committed
+			request.getSession();
 			if (log.isDebug()) {
 				log.debug("doGet pathInfo=" + requestUrl);
 			}
@@ -205,7 +207,7 @@ public class ICalServlet extends HttpServlet {
 			response.setCharacterEncoding("UTF-8");
 			setCacheControl(response);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 		}
 
 		CalendarManager calendarManager = CoreSpringFactory.getImpl(CalendarManager.class);
@@ -244,7 +246,7 @@ public class ICalServlet extends HttpServlet {
 	
 	private void outputCalendar(Calendar calendar, HttpServletRequest request, HttpServletResponse response)
 	throws ValidationException, IOException {
-		boolean outlook = isOutlook(request);
+		Agent agent = getAgent(request);
 		updateUrlProperties(calendar);
 		
 		Writer out = response.getWriter();
@@ -274,11 +276,11 @@ public class ICalServlet extends HttpServlet {
 			out.write(CalScale.GREGORIAN.toString());
 		}
 
-		outputTTL(out);
+		outputTTL(agent, out);
 
 		Set<String> timezoneIds = new HashSet<>();
-		outputCalendarComponents(calendar, out, outlook, timezoneIds);
-		if(outlook) {
+		outputCalendarComponents(calendar, out, agent, timezoneIds);
+		if(agent == Agent.outlook) {
 			outputTimeZoneForOutlook(timezoneIds, out);
 		}
 		
@@ -302,7 +304,7 @@ public class ICalServlet extends HttpServlet {
 		} else {
 			List<CalendarFileInfos> iCalFiles = homeCalendarManager.getListOfCalendarsFiles(identity);
 			DBFactory.getInstance().commitAndCloseSession();
-			boolean outlook = isOutlook(request);
+			Agent agent = getAgent(request);
 			
 			Writer out = response.getWriter();
 			out.write(Calendar.BEGIN);
@@ -312,14 +314,14 @@ public class ICalServlet extends HttpServlet {
 			out.write(Version.VERSION_2_0.toString());
 			out.write(CalScale.GREGORIAN.toString());
 			
-			outputTTL(out);
+			outputTTL(agent, out);
 
 			Set<String> timezoneIds = new HashSet<>();
 			int numOfFiles = iCalFiles.size();
 			for(int i=0; i<numOfFiles; i++) {
-				outputCalendar(iCalFiles.get(i), out, outlook, timezoneIds);
+				outputCalendar(iCalFiles.get(i), out, agent, timezoneIds);
 			}
-			if(outlook) {
+			if(agent == Agent.outlook) {
 				outputTimeZoneForOutlook(timezoneIds, out);
 			}
 			
@@ -329,12 +331,18 @@ public class ICalServlet extends HttpServlet {
 		}
 	}
 	
-	private boolean isOutlook(HttpServletRequest request) {
+	private Agent getAgent(HttpServletRequest request) {
 		String userAgent = request.getHeader("User-Agent");
-		if(userAgent != null && userAgent.indexOf("Microsoft Outlook") >= 0) {
-			return true;
+		if(userAgent == null) {
+			return Agent.unkown;
+		} else if(userAgent != null && userAgent.indexOf("Microsoft Outlook") >= 0) {
+			return Agent.outlook;
+		} else if(userAgent != null && userAgent.indexOf("Google") >= 0 && userAgent.indexOf("Calendar") >= 0) {
+			return Agent.googleCalendar;
+		} else if(userAgent != null && userAgent.startsWith("Java/1.")) {
+			return Agent.java;
 		}
-		return false;
+		return Agent.unkown;
 	}
 	
 	/**
@@ -345,12 +353,14 @@ public class ICalServlet extends HttpServlet {
 	 * @param out
 	 * @throws IOException
 	 */
-	private void outputTTL(Writer out)
+	private void outputTTL(Agent agent, Writer out)
 	throws IOException {
 		out.write("X-PUBLISHED-TTL:PT" + TTL_HOURS + "H");
 		out.write(Strings.LINE_SEPARATOR);
-		out.write("REFRESH-INTERVAL;VALUE=DURATION:PT" + TTL_HOURS + "H");
-		out.write(Strings.LINE_SEPARATOR);
+		if(agent == null || agent != Agent.java) {
+			out.write("REFRESH-INTERVAL;VALUE=DURATION:PT" + TTL_HOURS + "H");
+			out.write(Strings.LINE_SEPARATOR);
+		}
 	}
 	
 	private void outputTimeZoneForOutlook(Set<String> timezoneIds,  Writer out) {
@@ -368,7 +378,7 @@ public class ICalServlet extends HttpServlet {
 		}
 	}
 	
-	private void outputCalendar(CalendarFileInfos fileInfos, Writer out, boolean outlook, Set<String> timezoneIds)
+	private void outputCalendar(CalendarFileInfos fileInfos, Writer out, Agent agent, Set<String> timezoneIds)
 	throws IOException {
 		try {
 			CalendarManager calendarManager = CoreSpringFactory.getImpl(CalendarManager.class);
@@ -378,22 +388,29 @@ public class ICalServlet extends HttpServlet {
 			String prefix = fileInfos.getType() + "-" + fileInfos.getCalendarId() + "-";
 			updateUUID(calendar, prefix);
 			
-			outputCalendarComponents(calendar, out, outlook, timezoneIds);
+			outputCalendarComponents(calendar, out, agent, timezoneIds);
 		} catch (IOException | OLATRuntimeException e) {
 			log.error("", e);
 		}
 	}
 	
-	private void outputCalendarComponents(Calendar calendar, Writer out, boolean outlook, Set<String> timezoneIds)
+	private void outputCalendarComponents(Calendar calendar, Writer out, Agent agent, Set<String> timezoneIds)
 	throws IOException {
 		try {
 			ComponentList events = calendar.getComponents();
 			for (final Iterator<?> i = events.iterator(); i.hasNext();) {
 				Object comp = i.next();
 				String event = comp.toString();
-				if (outlook && comp instanceof VEvent) {
+				if (agent == Agent.outlook && comp instanceof VEvent) {
 					event = quoteTimeZone(event, (VEvent)comp, timezoneIds);
 				}
+				if(agent == Agent.googleCalendar) {
+					event = event.replace("CLASS:PRIVATE" + Strings.LINE_SEPARATOR, "");
+					event = event.replace("X-OLAT-MANAGED:all" + Strings.LINE_SEPARATOR, "");
+					event = event.replace("DESCRIPTION:" + Strings.LINE_SEPARATOR, "");
+					event = event.replace("LOCATION:" + Strings.LINE_SEPARATOR, "");
+				}
+				
 				out.write(event);
 			}
 		} catch (IOException | OLATRuntimeException e) {
@@ -485,5 +502,12 @@ public class ICalServlet extends HttpServlet {
 				return null;
 			}
     	});
+    }
+    
+    private enum Agent {
+    		unkown,
+    		outlook,
+    		googleCalendar,
+    		java
     }
 }

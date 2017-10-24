@@ -27,6 +27,7 @@ import java.util.Map;
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
@@ -56,6 +57,7 @@ import org.olat.core.util.Util;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.course.assessment.AssessmentManager;
 import org.olat.course.assessment.bulk.PassedCellRenderer;
+import org.olat.course.highscore.ui.HighScoreRunController;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.MSCourseNode;
 import org.olat.course.nodes.gta.GTAManager;
@@ -70,6 +72,7 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.Role;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -163,6 +166,14 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 			layoutCont.contextPut(MSCourseNode.CONFIG_KEY_PASSED_CUT_VALUE, AssessmentHelper.getRoundedScore(config.getFloatEntry(MSCourseNode.CONFIG_KEY_PASSED_CUT_VALUE)));
 			layoutCont.contextPut(MSCourseNode.CONFIG_KEY_SCORE_MIN, AssessmentHelper.getRoundedScore(config.getFloatEntry(MSCourseNode.CONFIG_KEY_SCORE_MIN)));
 			layoutCont.contextPut(MSCourseNode.CONFIG_KEY_SCORE_MAX, AssessmentHelper.getRoundedScore(config.getFloatEntry(MSCourseNode.CONFIG_KEY_SCORE_MAX)));
+			
+			if (config.getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD,false)){
+				HighScoreRunController highScoreCtr = new HighScoreRunController(ureq, getWindowControl(), coachCourseEnv, gtaNode);
+				if (highScoreCtr.isViewHighscore()) {
+					Component highScoreComponent = highScoreCtr.getInitialComponent();
+					layoutCont.put("highScore", highScoreComponent);							
+				}
+			}
 		}
 		
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
@@ -307,12 +318,12 @@ public class GTACoachedGroupGradingController extends FormBasicController {
 		if(assignedTask == null) {
 			assignedTask = gtaManager.createTask(null, taskList, TaskProcess.graded, assessedGroup, null, gtaNode);
 		} else {
-			assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded, gtaNode);
+			assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.graded, gtaNode, Role.coach);
 		}
 	}
 	
 	private void doReopenAssessment(UserRequest ureq) {
-		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading, gtaNode);
+		assignedTask = gtaManager.updateTask(assignedTask, TaskProcess.grading, gtaNode, Role.coach);
 		fireEvent(ureq, Event.CHANGED_EVENT);
 	}
 	

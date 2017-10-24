@@ -106,11 +106,13 @@ public class UserAdminPage {
 	public UserAdminPage selectAndDeleteUser(String lastName) {
 		By checkBy = By.cssSelector("fieldset.o_sel_usersearch_searchform table input[type='checkbox']");
 		browser.findElement(checkBy).click();
+		OOGraphene.waitBusy(browser);
 		
 		//select
 		By selectBy = By.cssSelector("fieldset.o_sel_usersearch_searchform div.o_table_wrapper div.o_table_buttons button.btn.btn-default");
 		browser.findElement(selectBy).click();
 		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalDialog(browser);
 		
 		//confirm
 		By usernameBy = By.xpath("//div[contains(@class,'modal-dialog')]//p[text()[contains(.,'" + lastName + "')]]");
@@ -137,6 +139,8 @@ public class UserAdminPage {
 		By importBy = By.cssSelector("a.o_sel_id_start_import_user_button.btn-primary");
 		browser.findElement(importBy).click();
 		OOGraphene.waitBusy(browser);
+		By dataBy = By.cssSelector("fieldset.o_sel_import_users_data");
+		OOGraphene.waitElement(dataBy, browser);
 		return new ImportUserPage(browser);
 	}
 	

@@ -20,10 +20,11 @@
 
 package org.olat.course.nodes;
 
+import java.util.ArrayList;
 import java.util.List;
 
-import org.olat.commons.info.manager.InfoMessageFrontendManager;
-import org.olat.commons.info.model.InfoMessage;
+import org.olat.commons.info.InfoMessage;
+import org.olat.commons.info.InfoMessageFrontendManager;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.notifications.NotificationsManager;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
@@ -32,10 +33,12 @@ import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -150,6 +153,29 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 		return new NodeRunConstructionResult(titledCtrl);
 	}
 	
+	@Override
+	public List<ConditionExpression> getConditionExpressions() {
+		List<ConditionExpression> parentConditions = super.getConditionExpressions();
+		List<ConditionExpression> conditions = new ArrayList<>();
+		if(parentConditions != null && parentConditions.size() > 0) {
+			conditions.addAll(parentConditions);
+		}
+
+		Condition editCondition = getPreConditionEdit();
+		if(editCondition != null && StringHelper.containsNonWhitespace(editCondition.getConditionExpression())) {
+			ConditionExpression ce = new ConditionExpression(editCondition.getConditionId());
+			ce.setExpressionString(editCondition.getConditionExpression());
+			conditions.add(ce);
+		}
+		Condition adminCondition = getPreConditionAdmin();
+		if(adminCondition != null && StringHelper.containsNonWhitespace(adminCondition.getConditionExpression())) {
+			ConditionExpression ce = new ConditionExpression(adminCondition.getConditionId());
+			ce.setExpressionString(adminCondition.getConditionExpression());
+			conditions.add(ce);
+		}
+		return conditions;
+	}
+	
 	/**
 	 * Default set the write privileges to coaches and admin only
 	 * @return
@@ -222,6 +248,7 @@ public class InfoCourseNode extends AbstractAccessableCourseNode {
 	 * is called when deleting this node, clean up info-messages and subscriptions!
 	 */
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
 		// delete infoMessages and subscriptions (OLAT-6171)
 		String resSubpath = getIdent();
 		InfoMessageFrontendManager infoService = CoreSpringFactory.getImpl(InfoMessageFrontendManager.class);

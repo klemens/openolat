@@ -60,6 +60,7 @@ import org.olat.core.helpers.Settings;
 public class Formatter {
 
 	private static final DateFormat formatterDatetimeFilesystem = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss_SSS");
+	private static final DateFormat formatterDatetimeWithMinutes = new SimpleDateFormat("yyyy-MM-dd'T'HH-mm");
 	private static final DateFormat formatDateTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 	private static final DateFormat shortFormatDateFileSystem = new SimpleDateFormat("yyyyMMdd");
 
@@ -300,6 +301,19 @@ public class Formatter {
 	public static String formatDatetimeFilesystemSave(Date d) {
 		synchronized (formatterDatetimeFilesystem) {
 			return formatterDatetimeFilesystem.format(d);
+		}
+	}
+	
+	/**
+	 * Use this for naming files or directories with a timestamp. No Seconds and millis!
+	 * As windows does not like ":" in filenames formatDateAndTime(d) does not work
+	 * 
+	 * @param d the date to be formatted
+	 * @return a String with the formatted date and time
+	 */
+	public static String formatDatetimeWithMinutes(Date d) {
+		synchronized (formatterDatetimeWithMinutes) {
+			return formatterDatetimeWithMinutes.format(d);
 		}
 	}
 	
@@ -624,7 +638,7 @@ public class Formatter {
 		if (htmlFragment.contains("<math") || htmlFragment.contains("class='math'") || htmlFragment.contains("class=\"math\"")) {
 			// add math wrapper
 			String domid = "mw_" + CodeHelper.getRAMUniqueID();
-			String elem = htmlFragment.contains("<div") ? "div" : "span";
+			String elem = htmlFragment.contains("<div") || htmlFragment.contains("<p") ? "div" : "span";
 			StringBuilder sb = new StringBuilder(htmlFragment.length() + 200);
 			sb.append("<").append(elem).append(" id=\"").append(domid).append("\">");
 			sb.append(htmlFragment);
@@ -647,6 +661,7 @@ public class Formatter {
 	 * @return text with clickable links
 	 */
 	public static String formatURLsAsLinks(String textFragment) {
+		if(textFragment == null) return "";
 		Matcher matcher = urlPattern.matcher(textFragment); 		
 		
 		StringBuilder sb = new StringBuilder(128);

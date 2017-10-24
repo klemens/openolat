@@ -19,7 +19,6 @@
  */
 package org.olat.modules.video.ui;
 
-import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiSortableColumnDef;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
@@ -33,7 +32,6 @@ import org.olat.core.gui.translator.Translator;
  */
 public class TranscodingTableModel extends DefaultFlexiTableDataModel<TranscodingRow>{
 
-	protected FormUIFactory uifactory = FormUIFactory.getInstance();
 	private Translator translator;
 	public TranscodingTableModel(FlexiTableColumnModel columnModel, Translator translator) {
 		super(columnModel);
@@ -52,6 +50,7 @@ public class TranscodingTableModel extends DefaultFlexiTableDataModel<Transcodin
 			case resolutions: return translator.translate("quality.resolution." + resolution.getResolution());
 			case sumVideos: return resolution.getSumVideos();
 			case numberTranscodings: return resolution.getNumberTranscodings();
+			case failedTranscodings: return resolution.getFailedTranscodings();
 			case missingTranscodings: return resolution.getMissingTranscodings();
 			case transcode: return resolution.isAllTranscoded();
 			case delete: return resolution.getNumberTranscodings() > 0;
@@ -63,6 +62,7 @@ public class TranscodingTableModel extends DefaultFlexiTableDataModel<Transcodin
 		resolutions("quality.table.header.resolution"),
 		sumVideos("sum.video"),
 		numberTranscodings("number.transcodings"),
+		failedTranscodings("number.transcodings.failed"),
 		missingTranscodings("missing.transcodings"),
 		transcode("quality.transcode"),
 		delete("quality.delete");

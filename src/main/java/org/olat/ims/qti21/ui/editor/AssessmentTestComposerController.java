@@ -68,6 +68,7 @@ import org.olat.core.gui.control.generic.wizard.StepsMainRunController;
 import org.olat.core.gui.control.generic.wizard.StepsRunContext;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.helpers.Settings;
+import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.Util;
@@ -94,6 +95,7 @@ import org.olat.ims.qti21.model.xml.interactions.EssayAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.EntryType;
 import org.olat.ims.qti21.model.xml.interactions.HotspotAssessmentItemBuilder;
+import org.olat.ims.qti21.model.xml.interactions.HottextAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.KPrimAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MatchAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MultipleChoiceAssessmentItemBuilder;
@@ -109,6 +111,7 @@ import org.olat.ims.qti21.ui.editor.events.AssessmentItemEvent;
 import org.olat.ims.qti21.ui.editor.events.AssessmentSectionEvent;
 import org.olat.ims.qti21.ui.editor.events.AssessmentTestEvent;
 import org.olat.ims.qti21.ui.editor.events.AssessmentTestPartEvent;
+import org.olat.imscp.xml.manifest.FileType;
 import org.olat.imscp.xml.manifest.ResourceType;
 import org.olat.modules.qpool.QuestionItemView;
 import org.olat.modules.qpool.ui.SelectItemController;
@@ -147,8 +150,10 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	
 	private MenuTree menuTree;
 	private Dropdown exportItemTools, addItemTools, changeItemTools;
-	private Link newTestPartLink, newSectionLink, newSingleChoiceLink, newMultipleChoiceLink, newKPrimLink, newMatchLink,
-			newFIBLink, newNumericalLink, newHotspotLink, newEssayLink, newUploadLink, newDrawingLink;
+	private Link newTestPartLink, newSectionLink, newSingleChoiceLink, newMultipleChoiceLink,
+			newKPrimLink, newMatchLink, newMatchDragAndDropLink,
+			newFIBLink, newNumericalLink, newHotspotLink, newHottextLink,
+			newEssayLink, newUploadLink, newDrawingLink;
 	private Link importFromPoolLink, importFromTableLink, exportToPoolLink, exportToDocxLink;
 	private Link reloadInCacheLink, deleteLink, copyLink;
 	private final TooledStackedPanel toolbar;
@@ -159,7 +164,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	private SelectItemController selectQItemCtrl;
 	private DialogBoxController confirmDeleteCtrl;
 	private StepsMainRunController importTableWizard;
-	private final LayoutMain3ColsController columnLayoutCtr;
+	private LayoutMain3ColsController columnLayoutCtr;
 	
 	private File unzippedDirRoot;
 	private VFSContainer unzippedContRoot;
@@ -171,7 +176,9 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	
 	private final boolean survey = false;
 	private final boolean restrictedEdit;
+	
 	private boolean assessmentChanged = false;
+	private boolean deleteAuthorSesssion = false;
 	
 	private LockResult lockEntry;
 	private LockResult activeSessionLock;
@@ -192,6 +199,10 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		this.testEntry = testEntry;
 		restrictedEdit = qtiService.isAssessmentTestActivelyUsed(testEntry);
 		
+		FileResourceManager frm = FileResourceManager.getInstance();
+		unzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
+		unzippedContRoot = frm.unzipContainerResource(testEntry.getOlatResource());
+		
 		lockEntry = CoordinatorManager.getInstance().getCoordinator().getLocker().aquirePersistentLock(testEntry.getOlatResource(), getIdentity(), null);
 		if (lockEntry.isSuccess()) {
 			// acquired a lock for the duration of the session only
@@ -210,6 +221,12 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		}
 		
 		addLoggingResourceable(LoggingResourceable.wrapTest(testEntry));
+	
+		if(!checkResolvedAssessmentTest()) {
+			VelocityContainer errorVC = createVelocityContainer("error");
+			putInitialPanel(errorVC);
+			return;
+		}
 		
 		// test structure
 		menuTree = new MenuTree("atTree");
@@ -220,9 +237,6 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		menuTree.setElementCssClass("o_assessment_test_editor_menu");
 		menuTree.addListener(this);
 
-		FileResourceManager frm = FileResourceManager.getInstance();
-		unzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
-		unzippedContRoot = frm.unzipContainerResource(testEntry.getOlatResource());
 		updateTreeModel(false);
 		manifestBuilder = ManifestBuilder.read(new File(unzippedDirRoot, "imsmanifest.xml"));
 		//is the test editable ?
@@ -258,6 +272,9 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		newMatchLink = LinkFactory.createToolLink("new.match", translate("new.match"), this, "o_mi_qtimatch");
 		newMatchLink.setDomReplacementWrapperRequired(false);
 		addItemTools.addComponent(newMatchLink);
+		newMatchDragAndDropLink = LinkFactory.createToolLink("new.matchdraganddrop", translate("new.matchdraganddrop"), this, "o_mi_qtimatch_draganddrop");
+		newMatchDragAndDropLink.setDomReplacementWrapperRequired(false);
+		addItemTools.addComponent(newMatchDragAndDropLink);
 		
 		newFIBLink = LinkFactory.createToolLink("new.fib", translate("new.fib"), this, "o_mi_qtifib");
 		newFIBLink.setDomReplacementWrapperRequired(false);
@@ -265,6 +282,9 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		newNumericalLink = LinkFactory.createToolLink("new.fib.numerical", translate("new.fib.numerical"), this, "o_mi_qtinumerical");
 		newNumericalLink.setDomReplacementWrapperRequired(false);
 		addItemTools.addComponent(newNumericalLink);
+		newHottextLink = LinkFactory.createToolLink("new.hottext", translate("new.hottext"), this, "o_mi_qtihottext");
+		newHottextLink.setDomReplacementWrapperRequired(false);
+		addItemTools.addComponent(newHottextLink);
 		
 		newHotspotLink = LinkFactory.createToolLink("new.hotspot", translate("new.hotspot"), this, "o_mi_qtihotspot");
 		newHotspotLink.setDomReplacementWrapperRequired(false);
@@ -341,6 +361,21 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		partEditorFactory(ureq, selectedNode);
 	}
 	
+	private boolean checkResolvedAssessmentTest() {
+		ResolvedAssessmentTest resolvedObject;
+		try {
+			resolvedObject = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, false, true);
+			if(resolvedObject == null) {
+				logError("QTI 2.1 AssessmentTest is null: " + testEntry, null);
+				return false;
+			}
+			return resolvedObject.getRootNodeLookup().extractIfSuccessful() != null;
+		} catch (Exception e) {
+			logError("QTI 2.1 AssessmentTest is corrupted: " + testEntry, e);
+			return false;
+		}
+	}
+	
 	private void updateTreeModel(boolean forceReload) {
 		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, forceReload, true);
 		menuTree.setTreeModel(new AssessmentTestEditorAndComposerTreeModel(resolvedAssessmentTest));
@@ -354,7 +389,11 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	@Override
 	protected void doDispose() {
 		if (lockEntry != null && lockEntry.isSuccess()) {
-			CoordinatorManager.getInstance().getCoordinator().getLocker().releasePersistentLock(lockEntry);
+			try {
+				CoordinatorManager.getInstance().getCoordinator().getLocker().releasePersistentLock(lockEntry);
+			} catch (AssertException e) {
+				logWarn("Lock was already released", e);
+			}
 		}
 		if (activeSessionLock != null && activeSessionLock.isSuccess()) {
 			CoordinatorManager.getInstance().getCoordinator().getLocker().releaseLock(activeSessionLock);			
@@ -395,12 +434,14 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		} else if(event instanceof AssessmentItemEvent) {
 			AssessmentItemEvent aie = (AssessmentItemEvent)event;
 			if(AssessmentItemEvent.ASSESSMENT_ITEM_CHANGED.equals(aie.getCommand())) {
-				assessmentChanged = true;
+				assessmentChanged();
 				doSaveAssessmentTest(null);
 				doUpdate(aie.getAssessmentItemRef().getIdentifier(), aie.getAssessmentItem().getTitle());
 				doSaveManifest();
 			} else if(AssessmentItemEvent.ASSESSMENT_ITEM_METADATA_CHANGED.equals(aie.getCommand())) {
 				doSaveManifest();
+			} else if(AssessmentItemEvent.ASSESSMENT_ITEM_NEED_RELOAD.equals(aie.getCommand())) {
+				doReloadItem(ureq);
 			}
 		} else if(selectQItemCtrl == source) {
 			cmc.deactivate();
@@ -458,25 +499,29 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		} else if(newTestPartLink == source) {
 			doNewTestPart(ureq);		
 		} else if(newSingleChoiceLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new SingleChoiceAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new SingleChoiceAssessmentItemBuilder(translate("new.sc"), translate("new.answer"), qtiService.qtiSerializer()));
 		} else if(newMultipleChoiceLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new MultipleChoiceAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new MultipleChoiceAssessmentItemBuilder(translate("new.mc"), translate("new.answer"), qtiService.qtiSerializer()));
 		} else if(newKPrimLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new KPrimAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new KPrimAssessmentItemBuilder(translate("new.kprim"), translate("new.answer"), qtiService.qtiSerializer()));
 		} else if(newMatchLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new MatchAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new MatchAssessmentItemBuilder(translate("new.match"), QTI21Constants.CSS_MATCH_MATRIX, qtiService.qtiSerializer()));
+		} else if(newMatchDragAndDropLink == source) {
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new MatchAssessmentItemBuilder(translate("new.matchdraganddrop"), QTI21Constants.CSS_MATCH_DRAG_AND_DROP, qtiService.qtiSerializer()));
 		} else if(newFIBLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new FIBAssessmentItemBuilder(EntryType.text, qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new FIBAssessmentItemBuilder(translate("new.fib"), EntryType.text, qtiService.qtiSerializer()));
 		} else if(newNumericalLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new FIBAssessmentItemBuilder(EntryType.numerical, qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new FIBAssessmentItemBuilder(translate("new.fib.numerical"), EntryType.numerical, qtiService.qtiSerializer()));
 		} else if(newHotspotLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new HotspotAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new HotspotAssessmentItemBuilder(translate("new.hotspot"), qtiService.qtiSerializer()));
+		} else if(newHottextLink == source) {
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new HottextAssessmentItemBuilder(translate("new.hottext"), translate("new.hottext.start"), translate("new.hottext.text"), qtiService.qtiSerializer()));
 		} else if(newEssayLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new EssayAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new EssayAssessmentItemBuilder(translate("new.essay"), qtiService.qtiSerializer()));
 		} else if(newUploadLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new UploadAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new UploadAssessmentItemBuilder(translate("new.upload"), qtiService.qtiSerializer()));
 		} else if(newDrawingLink == source) {
-			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new DrawingAssessmentItemBuilder(qtiService.qtiSerializer()));
+			doNewAssessmentItem(ureq, menuTree.getSelectedNode(), new DrawingAssessmentItemBuilder(translate("new.drawing"), qtiService.qtiSerializer()));
 		} else if(importFromPoolLink == source) {
 			doSelectQItem(ureq);
 		} else if(importFromTableLink == source) {
@@ -647,11 +692,14 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		ManifestBuilder clonedManifestBuilder = ManifestBuilder.read(new File(unzippedDirRoot, "imsmanifest.xml"));
 		ResourceType resource = getResourceType(clonedManifestBuilder, itemRef);
 		ManifestMetadataBuilder metadata = clonedManifestBuilder.getMetadataBuilder(resource, true);
+		if(metadata == null) {
+			metadata = new ManifestMetadataBuilder();// not in imsmanifest.xml?
+		}
 
 		File itemFile = new File(rootNode.getSystemId());
 
 		qti21QPoolServiceProvider
-				.importAssessmentItemRef(getIdentity(), assessmentItem, itemFile, metadata, unzippedDirRoot, getLocale());
+				.importAssessmentItemRef(getIdentity(), assessmentItem, itemFile, metadata, getLocale());
 	}
 	
 	private void doExportDocx(UserRequest ureq) {
@@ -684,22 +732,31 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	private void doInsert(UserRequest ureq, List<QuestionItemView> items) {
 		TreeNode selectedNode = menuTree.getSelectedNode();
 		TreeNode sectionNode = getNearestSection(selectedNode);
-		
+
+		boolean allOk = true;
 		String firstItemId = null;
 		Map<AssessmentItemRef,AssessmentItem> flyingObjects = new HashMap<>();
 		try {
 			AssessmentSection section = (AssessmentSection)sectionNode.getUserObject();
 			for(QuestionItemView item:items) {
 				AssessmentItem assessmentItem = qti21QPoolServiceProvider.exportToQTIEditor(item, getLocale(), unzippedDirRoot);
-				AssessmentItemRef itemRef = doInsert(section, assessmentItem);
-				if(firstItemId == null) {
-					firstItemId = itemRef.getIdentifier().toString();
+				if(assessmentItem != null) {
+					AssessmentItemRef itemRef = doInsert(section, assessmentItem);
+					if(firstItemId == null) {
+						firstItemId = itemRef.getIdentifier().toString();
+					}
+					flyingObjects.put(itemRef, assessmentItem);
+				} else {
+					allOk &= false;
 				}
-				flyingObjects.put(itemRef, assessmentItem);
 			}
 		} catch (IOException | URISyntaxException e) {
 			showError("error.import.question");
 			logError("", e);
+		}
+		
+		if(!allOk) {
+			showError("error.import.question");
 		}
 		
 		if(firstItemId != null) {
@@ -803,6 +860,15 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		return null;
 	}
 	
+	private TreeNode doReloadItem(UserRequest ureq) {
+		TreeNode selectedNode = menuTree.getSelectedNode();
+		updateTreeModel(false);
+		menuTree.setSelectedNodeId(selectedNode.getIdent());
+		selectedNode = menuTree.getSelectedNode();
+		partEditorFactory(ureq, selectedNode);
+		return selectedNode;	
+	}
+	
 	/**
 	 * Create a new test part and a section. Test part need a section,
 	 * section ref as children, it's mandatory.
@@ -811,7 +877,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	 */
 	private void doNewTestPart(UserRequest ureq) {
 		TestPart testPart = AssessmentTestFactory.createTestPart(assessmentTestBuilder.getAssessmentTest());
-		AssessmentTestFactory.appendAssessmentSection(testPart);
+		AssessmentTestFactory.appendAssessmentSection(translate("new.section"), testPart);
 		
 		//save the test
 		doSaveAssessmentTest(null);
@@ -847,9 +913,9 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 
 		AssessmentSection newSection;
 		if(parentPart instanceof TestPart) {
-			newSection = AssessmentTestFactory.appendAssessmentSection((TestPart)parentPart);
+			newSection = AssessmentTestFactory.appendAssessmentSection(translate("new.section"), (TestPart)parentPart);
 		} else if(parentPart instanceof AssessmentSection) {
-			newSection = AssessmentTestFactory.appendAssessmentSection((AssessmentSection)parentPart);
+			newSection = AssessmentTestFactory.appendAssessmentSection(translate("new.section"), (AssessmentSection)parentPart);
 		} else {
 			showWarning("error.cannot.create.section");
 			return;
@@ -859,7 +925,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		URI testUri = resolvedAssessmentTest.getTestLookup().getSystemId();
 		File testFile = new File(testUri);
 		qtiService.updateAssesmentObject(testFile, resolvedAssessmentTest);
-		assessmentChanged = true;
+		assessmentChanged();
 
 		//reload the test
 		updateTreeModel(false);
@@ -941,7 +1007,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	 * @param flyingObjects A list of assessmentItems which are not part of the test but will be.
 	 */
 	private void doSaveAssessmentTest(Map<AssessmentItemRef,AssessmentItem> flyingObjects) {
-		assessmentChanged = true;
+		assessmentChanged();
 		recalculateMaxScoreAssessmentTest(flyingObjects);
 		assessmentTestBuilder.build();
 		URI testURI = resolvedAssessmentTest.getTestLookup().getSystemId();
@@ -965,6 +1031,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 				if(sectionPart instanceof AssessmentItemRef) {
 					AssessmentItemRef itemRef = (AssessmentItemRef)sectionPart;
 					ResolvedAssessmentItem resolvedAssessmentItem = resolvedAssessmentTest.getResolvedAssessmentItem(itemRef);
+					checkAndFixAbsolutePath(itemRef); 
 					
 					AssessmentItem assessmentItem = null;
 					if(resolvedAssessmentItem != null) {
@@ -993,7 +1060,56 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		}
 	}
 	
+	private void checkAndFixAbsolutePath(AssessmentItemRef itemRef) {
+		if(itemRef == null || itemRef.getHref() == null) return;
+		
+		String href = itemRef.getHref().toString();
+		if(isAbsolutePath(href)) {
+			try {
+				String relativeHref = fixAbsolutePath(href);
+				itemRef.setHref(new URI(relativeHref));
+			} catch (URISyntaxException e) {
+				logError("", e);
+			}
+		}
+	}
+	
+	private void checkAndFixAbsolutePath(ResourceType resource) {
+		if(resource == null) return;
+		
+		if(isAbsolutePath(resource.getHref())) {
+			resource.setHref(fixAbsolutePath(resource.getHref()));
+			
+			List<FileType> files = resource.getFile();
+			if(files != null) {
+				for(FileType file:files) {
+					if(isAbsolutePath(file.getHref())) {
+						file.setHref(fixAbsolutePath(file.getHref()));
+					}
+				}
+			}
+		}
+	}
+	
+	/**
+	 * It check if the path is absolute and in the form of a absolute within an openolat instance.
+	 * @param href
+	 * @return
+	 */
+	private boolean isAbsolutePath(String href) {
+		return href != null && href.startsWith("/") && href.contains("/bcroot/repository/") && href.contains("/_unzipped_/");
+	}
+	
+	private String fixAbsolutePath(String href) {
+		int index = href.indexOf("/_unzipped_/") + ("/_unzipped_/").length();
+		return href.substring(index);
+	}
+	
 	private void doSaveManifest() {
+		List<ResourceType> resources = manifestBuilder.getResourceList();
+		for(ResourceType resource:resources) {
+			checkAndFixAbsolutePath(resource);
+		}
 		manifestBuilder.write(new File(unzippedDirRoot, "imsmanifest.xml"));
 	}
 	
@@ -1028,14 +1144,19 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 		Object uobject = selectedNode.getUserObject();
 		if(uobject instanceof AssessmentTest) {
 			AssessmentTest test = (AssessmentTest)uobject;
+			URI testURI = resolvedAssessmentTest.getTestLookup().getSystemId();
+			File testFile = new File(testURI);
 			TestPart uniqueTestPart = test.getTestParts().size() == 1 ? test.getTestParts().get(0) : null;
-			currentEditorCtrl = new AssessmentTestEditorController(ureq, getWindowControl(), assessmentTestBuilder, uniqueTestPart, restrictedEdit);
+			currentEditorCtrl = new AssessmentTestEditorController(ureq, getWindowControl(), assessmentTestBuilder, uniqueTestPart,
+					unzippedDirRoot, unzippedContRoot, testFile, restrictedEdit);
 		} else if(uobject instanceof TestPart) {
 			currentEditorCtrl = new AssessmentTestPartEditorController(ureq, getWindowControl(), (TestPart)uobject,
 					restrictedEdit, assessmentTestBuilder.isEditable());
 		} else if(uobject instanceof AssessmentSection) {
+			URI testURI = resolvedAssessmentTest.getTestLookup().getSystemId();
+			File testFile = new File(testURI);
 			currentEditorCtrl = new AssessmentSectionEditorController(ureq, getWindowControl(), (AssessmentSection)uobject,
-					restrictedEdit, assessmentTestBuilder.isEditable());
+					unzippedDirRoot, unzippedContRoot, testFile, restrictedEdit, assessmentTestBuilder.isEditable());
 		} else if(uobject instanceof AssessmentItemRef) {
 			AssessmentItemRef itemRef = (AssessmentItemRef)uobject;
 			ResolvedAssessmentItem item = resolvedAssessmentTest.getResolvedAssessmentItem(itemRef);
@@ -1101,7 +1222,7 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 				qtiService.qtiSerializer().serializeJqtiObject(originalAssessmentItem, out);
 				
 				//change identifier and title
-				ResolvedAssessmentItem resolvedCopyItem = qtiService.loadAndResolveAssessmentItem(itemFile.toURI(), unzippedDirRoot);
+				ResolvedAssessmentItem resolvedCopyItem = qtiService.loadAndResolveAssessmentItemForCopy(itemFile.toURI(), unzippedDirRoot);
 				AssessmentItem copiedAssessmentItem = resolvedCopyItem.getRootNodeLookup().extractIfSuccessful();
 				copiedAssessmentItem.setIdentifier(IdentifierGenerator.newAsString(type.getPrefix()));
 				copiedAssessmentItem.setTitle(originalAssessmentItem.getTitle() + " (Copy)");
@@ -1131,12 +1252,18 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 	
 	private void doForceReloadFiles() {
 		updateTreeModel(true);
+		assessmentChanged();
 	}
 	
 	private void doConfirmDelete(UserRequest ureq) {
 		if(confirmDeleteCtrl != null) return;
 		
 		TreeNode selectedNode = menuTree.getSelectedNode();
+		if(selectedNode == null) {
+			showWarning("warning.atleastone");
+			return;
+		}
+		
 		Object uobject = selectedNode.getUserObject();
 		if(uobject instanceof AssessmentTest) {
 			showWarning("error.cannot.delete");
@@ -1228,12 +1355,15 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 			RootNodeLookup<AssessmentItem> rootNode = resolvedAssessmentItem.getItemLookup();
 			if(rootNode != null) {
 				URI itemUri = rootNode.getSystemId();
-				File itemFile = new File(itemUri);
-				deleted = itemFile.delete();
+				List<AssessmentItemRef> itemRefs = resolvedAssessmentTest.getItemRefsBySystemIdMap().get(itemUri);
+				if(itemRefs.size() <= 1) {
+					File itemFile = new File(itemUri);
+					deleted = itemFile.delete();
+				}
 			}
 		}
 		if(deleted) {
-			assessmentChanged = true;
+			assessmentChanged();
 		}
 		
 		logAudit(removed + " " + deleted + " removed item ref", null);
@@ -1262,6 +1392,15 @@ public class AssessmentTestComposerController extends MainLayoutBasicController 
 			doDeleteAssessmentSection(section);
 		}
 		testPart.getParent().getTestParts().remove(testPart);
+	}
+	
+	private void assessmentChanged() {
+		assessmentChanged = true;
+		
+		if(!deleteAuthorSesssion) {
+			deleteAuthorSesssion = true;//delete sessions only once
+			qtiService.deleteAuthorAssessmentTestSession(testEntry);
+		}
 	}
 
 	private ResourceType getResourceType(AssessmentItemRef itemRef) {

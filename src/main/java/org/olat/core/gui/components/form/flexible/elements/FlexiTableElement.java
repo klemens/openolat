@@ -98,6 +98,19 @@ public interface FlexiTableElement extends FormItem {
 	 * @param bordered Set or not border to the cells
 	 */
 	public void setBordered(boolean bordered);
+	
+	/**
+	 * @return True if the footer is enabled
+	 */
+	public boolean isFooter();
+	
+	/**
+	 * To enable the footer, the data model need to implement
+	 * org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableFooterModel
+	 * 
+	 * @param footer Enable/disable the footer
+	 */
+	public void setFooter(boolean footer);
 
 	/**
 	 * @return True if muli selection is enabled
@@ -380,7 +393,20 @@ public interface FlexiTableElement extends FormItem {
 	
 	public void quickSearch(UserRequest ureq, String search);
 	
+	/**
+	 * Sort with the specified parameter. A null sort key
+	 * will remove the order by.
+	 * 
+	 * @param sortKey
+	 * @param asc
+	 */
 	public void sort(String sortKey, boolean asc);
+	
+	/**
+	 * Order by the specified setting.
+	 * @param sortKey The sort key cannot be null.
+	 */
+	public void sort(SortKey sortKey);
 	
 	@Override
 	public void reset();

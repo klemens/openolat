@@ -1,0 +1,37 @@
+<div class="o_sel_lecture_participant_blocks"><div class="o_header_with_buttons">
+<h3><i class="o_icon o_CourseModule_icon"> </i> $title</h3>
+#if($r.isNotNull($withPrint) && $withPrint)
+	<div class="o_button_group o_button_group_right">
+		$r.render("open.course")
+		<script type="text/javascript">
+/* <![CDATA[ */ 
+function print() {
+	try {
+		var ww = window.open("$r.commandURI("print")", "$winid", "height=800,left=100,top=100,width=800,toolbar=no,titlebar=0,status=0,menubar=yes,location=no,scrollbars=1");
+		ww.focus();
+	} catch(e) {
+		if(jQuery(document).ooLog().isDebugEnabled()) jQuery(document).ooLog('debug','Error when trying to dock div id::$r.getId("undck")', "org.olat.core.gui.control.generic.docking._content.docked.html");
+	}
+}
+/* ]]> */
+		</script>
+		<a class="btn btn-default" href="javascript:print()" title="$r.translate("print")"><i class="o_icon o_icon_print"> </i> $r.translate("print")</a>
+		$r.contextHelpWithWrapper("Lectures - User view")
+	</div>
+#end
+</div>
+$r.render("table")
+<ul class="list-unstyled">
+	<li><i class="o_icon o_lectures_rollcall_ok"> </i> $r.translate("table.legend.attended")</li>
+	#if($r.isTrue($authorizedAbsenceEnabled))
+	<li><i class="o_icon o_lectures_rollcall_warning"> </i> $r.translate("table.legend.authorized")</li>
+	<li><i class="o_icon o_lectures_rollcall_danger"> </i> $r.translate("table.legend.unauthorized")</li>
+	#else
+	<li><i class="o_icon o_lectures_rollcall_danger"> </i> $r.translate("table.legend.absent")</li>
+	#end
+	<li><i class="o_icon o_icon_cancelled"> </i> $r.translate("cancelled")</li>
+	<li><i class="o_icon o_icon_status_in_review"> </i> $r.translate("in.progress")</li>
+	<li><i class="o_icon o_lectures_rollcall_free"> </i> $r.translate("table.legend.free")</li>
+	<li>(*) $r.translate("table.legend.free")</li>
+</ul>
+</div>

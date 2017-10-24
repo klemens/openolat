@@ -20,6 +20,8 @@
 @import "modules/type";
 @import "modules/content_embedded";  /* add all styles that are created by html editor but can also be rendered in 
    										main window, not in iframe (e.g. forum post, blog entry) */
+@import "modules/radial-progress";
+   										
 
 /* general layout */
 @import "modules/layout";
@@ -71,8 +73,11 @@
 @import "modules/user";
 @import "modules/members";
 @import "modules/grouptask";
+@import "modules/lecture";
 
 @import "modules/thirdparty";
 
 @import "modules/print";
+
+@import "modules/highscore";
 

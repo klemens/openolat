@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.DoubleAdder;
 
 import javax.xml.transform.stream.StreamResult;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.olat.core.gui.render.StringOutput;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -101,16 +102,15 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 	
 	private QTI21QuestionType questionType = QTI21QuestionType.fib;
 	
-	public FIBAssessmentItemBuilder(EntryType type, QtiSerializer qtiSerializer) {
-		super(createAssessmentItem(type), qtiSerializer);
+	public FIBAssessmentItemBuilder(String title, EntryType type, QtiSerializer qtiSerializer) {
+		super(createAssessmentItem(title, type), qtiSerializer);
 	}
 	
 	public FIBAssessmentItemBuilder(AssessmentItem assessmentItem, QtiSerializer qtiSerializer) {
 		super(assessmentItem, qtiSerializer);
 	}
 	
-	private static AssessmentItem createAssessmentItem(EntryType type) {
-		String title = (type == EntryType.text) ? "Gap text" : "Numerical input";
+	private static AssessmentItem createAssessmentItem(String title, EntryType type) {
 		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.fib, title);
 		
 		//define the response
@@ -168,20 +168,21 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 		}
 	}
 	
-	private void extractQuestions() {
+	public String extractQuestions() {
 		StringOutput sb = new StringOutput();
 		List<Block> blocks = assessmentItem.getItemBody().getBlocks();
 		for(Block block:blocks) {
 			qtiSerializer.serializeJqtiObject(block, new StreamResult(sb));
 		}
 		question = sb.toString();
+		return question;
 	}
 	
 	/**
 	 * We loop around the textEntryInteraction, search the responseDeclaration. responseDeclaration
 	 * of type string are gap text, of type float are numerical.
 	 */
-	private void extractEntriesSettingsFromResponseDeclaration() {
+	public void extractEntriesSettingsFromResponseDeclaration() {
 		DoubleAdder mappedScore = new DoubleAdder();
 		AtomicInteger countAlternatives = new AtomicInteger(0);
 
@@ -200,6 +201,9 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 						extractTextEntrySettingsFromResponseDeclaration(textEntry, responseDeclaration, countAlternatives, mappedScore);
 						String marker = "responseIdentifier=\"" + interaction.getResponseIdentifier().toString() + "\"";
 						question = question.replace(marker, marker + " openolatType=\"string\"");
+						if(StringHelper.containsNonWhitespace(textEntry.getSolution())) {
+							question = question.replace(marker, marker + " data-qti-solution=\"" + escapeForDataQtiSolution(textEntry.getSolution()) + "\"");
+						}
 						entry = textEntry;
 						
 					} else if(responseDeclaration.hasBaseType(BaseType.FLOAT) && responseDeclaration.hasCardinality(Cardinality.SINGLE)) {
@@ -209,6 +213,9 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 						
 						String marker = "responseIdentifier=\"" + interaction.getResponseIdentifier().toString() + "\"";
 						question = question.replace(marker, marker + " openolatType=\"float\"");
+						if(numericalEntry.getSolution() != null) {
+							question = question.replace(marker, marker + " data-qti-solution=\"" + Double.toString(numericalEntry.getSolution()) + "\"");
+						}
 					}
 				}
 				if(entry != null) {
@@ -383,6 +390,14 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			textEntry.setCaseSensitive(caseSensitive);
 			textEntry.setAlternatives(alternatives);
 		}
+	}
+	
+	public String escapeForDataQtiSolution(String solution) {
+		return StringHelper.escapeHtml(solution).replace("/", "\u2215");
+	}
+	
+	public String unescapeDataQtiSolution(String solution) {
+		return StringEscapeUtils.unescapeHtml(solution).replace("\u2215", "/");
 	}
 
 	@Override
@@ -580,8 +595,8 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 						<correct identifier="RESPONSE_1" />
 					</match>
 					<equal toleranceMode="relative" tolerance="0.1 0.1" includeLowerBound="true" includeUpperBound="true">
-						<variable identifier="RESPONSE_2" />
 						<correct identifier="RESPONSE_2" />
+						<variable identifier="RESPONSE_2" />
 					</equal>
 				</and>
 				<setOutcomeValue identifier="SCORE">
@@ -645,13 +660,13 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 					ComplexReferenceIdentifier responseIdentifier = ComplexReferenceIdentifier
 							.assumedLegal(numericalEntry.getResponseIdentifier().toString());
 					
-					Variable variable = new Variable(equal);
-					variable.setIdentifier(responseIdentifier);
-					equal.getExpressions().add(variable);
-					
 					Correct correct = new Correct(equal);
 					correct.setIdentifier(responseIdentifier);
 					equal.getExpressions().add(correct);
+
+					Variable variable = new Variable(equal);
+					variable.setIdentifier(responseIdentifier);
+					equal.getExpressions().add(variable);
 				}
 			}
 			
@@ -773,13 +788,13 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 				ComplexReferenceIdentifier responseIdentifier = ComplexReferenceIdentifier
 						.assumedLegal(numericalEntry.getResponseIdentifier().toString());
 				
-				Variable variable = new Variable(equal);
-				variable.setIdentifier(responseIdentifier);
-				equal.getExpressions().add(variable);
-				
 				Correct correct = new Correct(equal);
 				correct.setIdentifier(responseIdentifier);
 				equal.getExpressions().add(correct);
+				
+				Variable variable = new Variable(equal);
+				variable.setIdentifier(responseIdentifier);
+				equal.getExpressions().add(variable);
 				
 				SetOutcomeValue mapOutcomeValue = new SetOutcomeValue(responseIf);
 				responseIf.getResponseRules().add(mapOutcomeValue);
@@ -850,7 +865,6 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			incorrectOutcomeValue.setExpression(correctValue);
 			
 			responseRules.add(count++, incorrectOutcomeValue);
-			
 		}
 	}
 	
@@ -956,17 +970,31 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 			if(StringHelper.containsNonWhitespace(response)) {
 				try {
 					double firstNumber = Double.parseDouble(response);
-					double lTolerance = lowerTolerance == null ? 0.0d : lowerTolerance.doubleValue();
-					double uTolerance = upperTolerance == null ? 0.0d : upperTolerance.doubleValue();
-					return toleranceMode.isEqual(firstNumber, solution,
-							lTolerance, uTolerance,
-							true, true);
+					return match(firstNumber);
+				} catch(NumberFormatException nfe) {
+					if(response.indexOf(',') >= 0) {//allow , instead of .
+	                    try {
+							double firstNumber = Double.parseDouble(response.replace(',', '.'));
+							return match(firstNumber);
+						} catch (final NumberFormatException e1) {
+							//format can happen
+						} catch (Exception e) {
+							log.error("", e);
+						}
+	            	}
 				} catch (Exception e) {
 					log.error("", e);
-					return false;
 				}
 			}
 			return false;
+		}
+		
+		private boolean match(double answer) {
+			double lTolerance = lowerTolerance == null ? 0.0d : lowerTolerance.doubleValue();
+			double uTolerance = upperTolerance == null ? 0.0d : upperTolerance.doubleValue();
+			return toleranceMode.isEqual(solution, answer,
+					lTolerance, uTolerance,
+					true, true);
 		}
 	}
 	
@@ -1003,17 +1031,6 @@ public class FIBAssessmentItemBuilder extends AssessmentItemBuilder {
 
 		public List<TextEntryAlternative> getAlternatives() {
 			return alternatives;
-		}
-		
-		public String alternativesToString() {
-			StringBuilder sb = new StringBuilder();
-			if(alternatives != null) {
-				for(TextEntryAlternative alternative:alternatives) {
-					if(sb.length() > 0) sb.append(",");
-					sb.append(alternative.getAlternative());
-				}
-			}
-			return sb.toString();
 		}
 
 		public void setAlternatives(List<TextEntryAlternative> alternatives) {

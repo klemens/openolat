@@ -81,10 +81,18 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			
 			//render headers
 			renderHeaders(sb, ftC, translator);
+			//render footers
+			if(ftE.isFooter()) {
+				sb.append("<tfoot>");
+				renderFooter(renderer, sb, ftC, ubu, translator, renderResult);
+				sb.append("</tfoot>");
+			}
 			//render body
 			sb.append("<tbody>");
 			renderBody(renderer, sb, ftC, ubu, translator, renderResult);
-			sb.append("</tbody></table>");
+			sb.append("</tbody>");
+			
+			sb.append("</table>");
 			renderFooterButtons(sb, ftC, translator);
 			//draggable
 			if(ftE.getColumnIndexForDragAndDropLabel() > 0) {
@@ -218,7 +226,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			renderFormItem(renderer, sb, ftE.getSearchElement(), ubu, translator, renderResult, args);
 			sb.append("<div class='input-group-btn'>");
 			// reset quick search
-			sb.append("<a href=\"javascript:")
+			String id = ftE.getSearchElement().getFormDispatchId();
+			sb.append("<a href=\"javascript:jQuery('#").append(id).append("').val('');")
 			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 					  new NameValuePair("reset-search", "true")))
 			  .append("\" class='btn o_reset_quick_search'><i class='o_icon o_icon_remove_filters'> </i></a>");
@@ -408,6 +417,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 	protected abstract void renderRow(Renderer renderer, StringOutput target, FlexiTableComponent ftC, String rowIdPrefix,
 			int row, URLBuilder ubu, Translator translator, RenderResult renderResult);
 
+	protected abstract void renderFooter(Renderer renderer, StringOutput target, FlexiTableComponent ftC,
+			URLBuilder ubu, Translator translator, RenderResult renderResult);
 
 	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
@@ -419,15 +430,15 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			renderPageSize(sb, ftC, translator);
 		}
 
-		sb.append("<ul class='pagination'>");
 		if(pageSize > 0 && rows > pageSize) {
+			sb.append("<ul class='pagination'>");
 			int page = ftE.getPage();
 			int maxPage = (int)Math.ceil(((double) rows / (double) pageSize));
 			renderPageBackLink(sb, ftC, page);
 			renderPageNumberLinks(sb, ftC, page, maxPage);
 			renderPageNextLink(sb, ftC, page, maxPage);
+			sb.append("</ul>");
 		}
-		sb.append("</ul>");
 	}
 	
 	private void renderPageSize(StringOutput sb, FlexiTableComponent ftC, Translator translator) {

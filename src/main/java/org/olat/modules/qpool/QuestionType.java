@@ -37,6 +37,8 @@ public enum QuestionType {
 	UPLOAD,
 	DRAWING,
 	MATCH,
+	MATCHDRAGANDDROP,
+	HOTTEXT,
 	UNKOWN
 
 }

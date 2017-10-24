@@ -33,9 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.modules.portfolio.Category;
 import org.olat.modules.portfolio.Media;
@@ -56,7 +54,6 @@ public class StandardEditMediaController extends FormBasicController {
 	private TextBoxListElement categoriesEl;
 
 	private Media mediaReference;
-	private final String businessPath;
 	private Map<String,String> categories = new HashMap<>();
 	
 	@Autowired
@@ -65,7 +62,6 @@ public class StandardEditMediaController extends FormBasicController {
 	public StandardEditMediaController(UserRequest ureq, WindowControl wControl, Media media) {
 		super(ureq, wControl);
 		setTranslator(Util.createPackageTranslator(PortfolioHomeController.class, getLocale(), getTranslator()));
-		businessPath = media.getBusinessPath();
 		mediaReference = media;
 		
 		List<Category> categoryList = portfolioService.getCategories(media);
@@ -93,11 +89,6 @@ public class StandardEditMediaController extends FormBasicController {
 		Date collectDate = mediaReference == null ? new Date() : mediaReference.getCollectionDate();
 		String date = Formatter.getInstance(getLocale()).formatDate(collectDate);
 		uifactory.addStaticTextElement("artefact.collect.date", "artefact.collect.date", date, formLayout);
-
-		if(StringHelper.containsNonWhitespace(businessPath)) {
-			String link = BusinessControlFactory.getInstance().getURLFromBusinessPathString(businessPath);
-			uifactory.addStaticTextElement("artefact.collect.link", "artefact.collect.link", link, formLayout);
-		}
 		
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		formLayout.add(buttonsCont);

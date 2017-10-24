@@ -19,8 +19,12 @@
  */
 package org.olat.ims.qti21.ui.editor.interactions;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 
+import org.cyberneko.html.parsers.SAXParser;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
@@ -34,6 +38,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
+import org.olat.core.gui.control.winmgr.Command;
+import org.olat.core.gui.control.winmgr.JSCommand;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
@@ -44,6 +50,9 @@ import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.Numeri
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder.TextEntry;
 import org.olat.ims.qti21.ui.editor.AssessmentTestEditorController;
 import org.olat.ims.qti21.ui.editor.events.AssessmentItemEvent;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
  * 
@@ -84,6 +93,7 @@ public class FIBEditorController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), formLayout);
+		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
@@ -93,8 +103,8 @@ public class FIBEditorController extends FormBasicController {
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", question, 16, -1, itemContainer,
 				formLayout, ureq.getUserSession(),  getWindowControl());
 		textEl.addActionListener(FormEvent.ONCLICK);
-		textEl.setEnabled(!restrictedEdit);
 		RichTextConfiguration richTextConfig = textEl.getEditorConfiguration();
+		richTextConfig.setReadOnly(restrictedEdit);
 		
 		boolean hasNumericals = itemBuilder.hasNumericalInputs();
 		boolean hasTexts = itemBuilder.hasTextEntry();
@@ -115,7 +125,7 @@ public class FIBEditorController extends FormBasicController {
 		} else {
 			setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_fragetypen_fib");
 		}
-		richTextConfig.enableQTITools(hasTexts, hasNumericals);
+		richTextConfig.enableQTITools(hasTexts, hasNumericals, false);
 		
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
@@ -132,15 +142,38 @@ public class FIBEditorController extends FormBasicController {
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(textEntrySettingsCtrl == source) {
+			if(event == Event.DONE_EVENT) {
+				String solution = textEntrySettingsCtrl.getSolution();
+				String responseIdentifier = textEntrySettingsCtrl.getResponseIdentifier().toString();
+				feedbackToTextElement(responseIdentifier, solution);
+			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(numericalEntrySettingsCtrl == source) {
+			if(event == Event.DONE_EVENT) {
+				Double val = numericalEntrySettingsCtrl.getSolution();
+				String solution = val == null ? "" : Double.toString(val);
+				String responseIdentifier = numericalEntrySettingsCtrl.getResponseIdentifier().toString();
+				feedbackToTextElement(responseIdentifier, solution);
+			}
 			cmc.deactivate();
 			cleanUp();
 		} else if(cmc == source) {
 			cleanUp();
 		}
 		super.event(ureq, source, event);
+	}
+	
+	private void feedbackToTextElement(String responseIdentifier, String solution) {
+		try {
+			JSONObject jo = new JSONObject();
+			jo.put("responseIdentifier", responseIdentifier);
+			jo.put("data-qti-solution", solution);
+			Command jsc = new JSCommand("try { tinymce.activeEditor.execCommand('qtiUpdateTextEntry', false, " + jo.toString() + "); } catch(e){if(window.console) console.log(e) }");
+			getWindowControl().getWindowBackOffice().sendCommandTo(jsc);
+		} catch (JSONException e) {
+			logError("", e);
+		}
 	}
 	
 	private void cleanUp() {
@@ -160,10 +193,33 @@ public class FIBEditorController extends FormBasicController {
 				String responseIdentifier = ureq.getParameter("responseIdentifier");
 				String selectedText = ureq.getParameter("selectedText");
 				String type = ureq.getParameter("gapType");
-				doGapEntry(ureq, responseIdentifier, selectedText, type);
+				String newEntry = ureq.getParameter("newEntry");
+				String emptySolution = ureq.getParameter("emptySolution");
+				doGapEntry(ureq, responseIdentifier, selectedText, emptySolution, type, "true".equals(newEntry));
+			} else if("copy-gapentry".equals(cmd)) {
+				String responseIdentifier = ureq.getParameter("responseIdentifier");
+				String selectedText = ureq.getParameter("selectedText");
+				String type = ureq.getParameter("gapType");
+				doCopyGapEntry(responseIdentifier, selectedText, type);
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+
+		String questionText = textEl.getRawValue();
+		if(!StringHelper.containsNonWhitespace(questionText)) {
+			textEl.setErrorKey("form.legende.mandatory", null);
+			allOk &= false;
+		} else if(!questionText.contains("<textentryinteraction")) {
+			textEl.setErrorKey("error.missing.fib", null);
+			allOk &= false;
+		}
+
+		return allOk & super.validateFormLogic(ureq);
 	}
 
 	@Override
@@ -172,68 +228,161 @@ public class FIBEditorController extends FormBasicController {
 		itemBuilder.setTitle(titleEl.getValue());
 		//set the question with the text entries
 		String questionText = textEl.getRawValue();
+		extractSolution(questionText);
 		itemBuilder.setQuestion(questionText);
 
 		fireEvent(ureq, new AssessmentItemEvent(AssessmentItemEvent.ASSESSMENT_ITEM_CHANGED, itemBuilder.getAssessmentItem(), QTI21QuestionType.fib));
+
+		itemBuilder.extractQuestions();
+		itemBuilder.extractEntriesSettingsFromResponseDeclaration();
+		String question = itemBuilder.getQuestion();
+		textEl.setValue(question);
 	}
 
 	@Override
 	protected void propagateDirtinessToContainer(FormItem fiSrc, FormEvent event) {
 		//
 	}
+	
+	private void doCopyGapEntry(String responseIdentifier, String selectedText, String type) {
+		AbstractEntry interaction = itemBuilder.getEntry(responseIdentifier);
+		if(interaction == null) {
+			createEntry(responseIdentifier, selectedText, type, true);
+		}
+	}
 
-	private void doGapEntry(UserRequest ureq, String responseIdentifier, String selectedText, String type) {
+	private void doGapEntry(UserRequest ureq, String responseIdentifier, String selectedText, String emptySolution, String type, boolean newEntry) {
 		if(textEntrySettingsCtrl != null || numericalEntrySettingsCtrl != null) return;
 		
 		AbstractEntry interaction = itemBuilder.getEntry(responseIdentifier);
 		if(interaction == null) {
-			if("string".equalsIgnoreCase(type)) {
-				TextEntry textInteraction = itemBuilder.createTextEntry(responseIdentifier);
-				if(StringHelper.containsNonWhitespace(selectedText)) {
-					String[] alternatives = selectedText.split(",");
-					for(String alternative:alternatives) {
-						if(StringHelper.containsNonWhitespace(alternative)) {
-							alternative = alternative.trim();
-							if(textInteraction.getSolution() == null) {
-								textInteraction.setSolution(alternative);
-							} else {
-								textInteraction.addAlternative(alternative, textInteraction.getScore());
-							}
-						}
-					}
-					if(alternatives.length > 0) {
-						textInteraction.setSolution(alternatives[0]);
-					}
-				}
-				interaction = textInteraction;
-			} else if("float".equalsIgnoreCase(type)) {
-				NumericalEntry numericalInteraction = itemBuilder.createNumericalEntry(responseIdentifier);
-				if(StringHelper.containsNonWhitespace(selectedText)) {
-					try {
-						Double val = Double.parseDouble(selectedText.trim());
-						numericalInteraction.setSolution(val);
-					} catch (NumberFormatException e) {
-						//
-					}
-				}
-				interaction = numericalInteraction;
-			}
+			interaction = createEntry(responseIdentifier, selectedText, type, newEntry);
+		} else if(StringHelper.containsNonWhitespace(selectedText)) {
+			updateSolution(interaction, selectedText, emptySolution);
 		}
 		
 		if(interaction instanceof TextEntry) {
-			textEntrySettingsCtrl = new FIBTextEntrySettingsController(ureq, getWindowControl(), (TextEntry)interaction);
+			textEntrySettingsCtrl = new FIBTextEntrySettingsController(ureq, getWindowControl(), (TextEntry)interaction, restrictedEdit);
 			listenTo(textEntrySettingsCtrl);
 			
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), textEntrySettingsCtrl.getInitialComponent(), true, translate("title.add") );
 			cmc.activate();
 			listenTo(cmc);
 		} else if(interaction instanceof NumericalEntry) {
-			numericalEntrySettingsCtrl = new FIBNumericalEntrySettingsController(ureq, getWindowControl(), (NumericalEntry)interaction);
+			numericalEntrySettingsCtrl = new FIBNumericalEntrySettingsController(ureq, getWindowControl(), (NumericalEntry)interaction, restrictedEdit);
 			listenTo(numericalEntrySettingsCtrl);
 			
 			cmc = new CloseableModalController(getWindowControl(), translate("close"), numericalEntrySettingsCtrl.getInitialComponent(), true, translate("title.add") );
 			cmc.activate();
 			listenTo(cmc);
+		}
+	}
+	
+	private AbstractEntry createEntry(String responseIdentifier, String selectedText, String type, boolean newEntry) {
+		AbstractEntry interaction = null;
+		if("string".equalsIgnoreCase(type)) {
+			TextEntry textInteraction = itemBuilder.createTextEntry(responseIdentifier);
+			if(StringHelper.containsNonWhitespace(selectedText)) {
+				String[] alternatives = selectedText.split(",");
+				for(String alternative:alternatives) {
+					if(StringHelper.containsNonWhitespace(alternative)) {
+						alternative = alternative.trim();
+						if(textInteraction.getSolution() == null) {
+							textInteraction.setSolution(alternative);
+						} else {
+							textInteraction.addAlternative(alternative, textInteraction.getScore());
+						}
+					}
+				}
+				if(alternatives.length > 0) {
+					String solution = alternatives[0];
+					if(newEntry && "gap".equals(solution)) {
+						solution = "";
+					}
+					textInteraction.setSolution(solution);
+				}
+			}
+			interaction = textInteraction;
+		} else if("float".equalsIgnoreCase(type)) {
+			NumericalEntry numericalInteraction = itemBuilder.createNumericalEntry(responseIdentifier);
+			if(newEntry && "gap".equals(selectedText)) {
+				//skip it, it's a placeholder
+			} else if(StringHelper.containsNonWhitespace(selectedText)) {
+				try {
+					Double val = Double.parseDouble(selectedText.trim());
+					numericalInteraction.setSolution(val);
+				} catch (NumberFormatException e) {
+					//
+				}
+			}
+			interaction = numericalInteraction;
+		}
+		return interaction;
+	}
+	
+	private void extractSolution(String content) {
+		try {
+			SAXParser parser = new SAXParser();
+			parser.setProperty("http://cyberneko.org/html/properties/names/elems", "lower");
+			parser.setFeature("http://cyberneko.org/html/features/balance-tags/document-fragment", true);
+			parser.setProperty("http://cyberneko.org/html/properties/default-encoding", "UTF-8");
+			parser.setContentHandler(new SolutionExtractorHandler());
+			parser.parse(new InputSource(new ByteArrayInputStream(content.getBytes())));
+		} catch (Exception e) {
+			logError("", e);
+		}
+	}
+	
+	private void updateSolution(AbstractEntry entry, String solution, String solutionEmpty) {
+		if(entry == null) {
+			//problem
+		} else if(entry instanceof TextEntry) {
+			if("true".equals(solutionEmpty)) {
+				((TextEntry)entry).setSolution("");
+			} else {
+				solution = itemBuilder.unescapeDataQtiSolution(solution);
+				((TextEntry)entry).setSolution(solution);
+			}
+		} else if(entry instanceof NumericalEntry) {
+			try {
+				double val = Double.parseDouble(solution);
+				((NumericalEntry)entry).setSolution(val);
+			} catch (NumberFormatException e) {
+				logError("", e);
+			}
+		}
+	}
+	
+	private class SolutionExtractorHandler extends DefaultHandler {
+		
+		@Override
+		public void startElement(String uri, String localName, String qName, Attributes attributes) {
+			if("textentryinteraction".equals(localName)) {
+				localName = qName = "textEntryInteraction";
+				
+				String solution = null;
+				String solutionEmpty = null;
+				String responseIdentifier = null;
+				for(int i=0; i<attributes.getLength(); i++) {
+					String name = attributes.getLocalName(i);
+					if("data-qti-solution".equals(name)) {
+						solution = attributes.getValue(i);
+						if(solution != null) {
+							solution = itemBuilder.unescapeDataQtiSolution(solution);
+						}
+					} else if("data-qti-solution-empty".equals(name)) {
+						solutionEmpty = attributes.getValue(i);
+					} else if("responseIdentifier".equalsIgnoreCase(name)) {
+						responseIdentifier = attributes.getValue(i);
+					}
+				}
+				
+				if(StringHelper.containsNonWhitespace(responseIdentifier)
+						&& (StringHelper.containsNonWhitespace(solution) || StringHelper.containsNonWhitespace(solutionEmpty))) {
+					AbstractEntry entry = itemBuilder.getTextEntry(responseIdentifier);
+					updateSolution(entry, solution, solutionEmpty);
+				}
+			}
 		}
 	}
 }

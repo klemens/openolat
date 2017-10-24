@@ -33,13 +33,11 @@ import uk.ac.ed.ph.jqtiplus.node.expression.outcome.TestVariables;
 import uk.ac.ed.ph.jqtiplus.node.outcome.declaration.OutcomeDeclaration;
 import uk.ac.ed.ph.jqtiplus.node.test.AssessmentTest;
 import uk.ac.ed.ph.jqtiplus.node.test.TestFeedback;
+import uk.ac.ed.ph.jqtiplus.node.test.TimeLimits;
 import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeCondition;
-import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeConditionChild;
-import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeIf;
 import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeProcessing;
 import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeRule;
 import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.SetOutcomeValue;
-import uk.ac.ed.ph.jqtiplus.types.Identifier;
 import uk.ac.ed.ph.jqtiplus.value.FloatValue;
 
 /**
@@ -59,6 +57,7 @@ public class AssessmentTestBuilder {
 	
 	private Double cutValue;
 	private Double maxScore;
+	private Long maximumTimeLimits;
 	private OutcomeRule testScoreRule;
 	private OutcomeCondition cutValueRule;
 	
@@ -77,6 +76,7 @@ public class AssessmentTestBuilder {
 		extractMaxScore();
 		extractRules();
 		extractFeedbacks();
+		extractTimeLimits();
 	}
 	
 	private void extractMaxScore() {
@@ -98,47 +98,15 @@ public class AssessmentTestBuilder {
 				// pass rule
 				if(outcomeRule instanceof OutcomeCondition) {
 					OutcomeCondition outcomeCondition = (OutcomeCondition)outcomeRule;
-					boolean findIf = findSetOutcomeValue(outcomeCondition.getOutcomeIf(), QTI21Constants.PASS_IDENTIFIER);
-					boolean findElse = findSetOutcomeValue(outcomeCondition.getOutcomeElse(), QTI21Constants.PASS_IDENTIFIER);
+					boolean findIf = QtiNodesExtractor.findSetOutcomeValue(outcomeCondition.getOutcomeIf(), QTI21Constants.PASS_IDENTIFIER);
+					boolean findElse = QtiNodesExtractor.findSetOutcomeValue(outcomeCondition.getOutcomeElse(), QTI21Constants.PASS_IDENTIFIER);
 					if(findIf && findElse) {
-						cutValue = extractCutValue(outcomeCondition.getOutcomeIf());
+						cutValue = QtiNodesExtractor.extractCutValue(outcomeCondition.getOutcomeIf());
 						cutValueRule = outcomeCondition;
 					}
 				}
 			}
 		}
-	}
-	
-	public static Double extractCutValue(OutcomeIf outcomeIf) {
-		if(outcomeIf != null && outcomeIf.getExpressions().size() > 0) {
-			Expression gte = outcomeIf.getExpressions().get(0);
-			if(gte.getExpressions().size() > 1) {
-				Expression baseValue = gte.getExpressions().get(1);
-				if(baseValue instanceof BaseValue) {
-					BaseValue value = (BaseValue)baseValue;
-					if(value.getSingleValue() instanceof FloatValue) {
-						return ((FloatValue)value.getSingleValue()).doubleValue();
-					}
-				}
-			}
-		}
-		return null;
-	}
-	
-	public static boolean findSetOutcomeValue(OutcomeConditionChild outcomeConditionChild, Identifier identifier) {
-		if(outcomeConditionChild == null
-				|| outcomeConditionChild.getOutcomeRules() == null
-				|| outcomeConditionChild.getOutcomeRules().isEmpty()) return false;
-		
-		List<OutcomeRule> outcomeRules = outcomeConditionChild.getOutcomeRules();
-		for(OutcomeRule outcomeRule:outcomeRules) {
-			SetOutcomeValue setOutcomeValue = (SetOutcomeValue)outcomeRule;
-			if(identifier.equals(setOutcomeValue.getIdentifier())) {
-				return true;
-			}
-		}
-		
-		return false;
 	}
 	
 	private void extractFeedbacks() {
@@ -152,6 +120,13 @@ public class AssessmentTestBuilder {
 			} else {
 				additionalFeedbacks.add(feedbackBuilder);
 			}
+		}
+	}
+	
+	private void extractTimeLimits() {
+		TimeLimits timeLimits = assessmentTest.getTimeLimits();
+		if(timeLimits != null && timeLimits.getMaximum() != null) {
+			maximumTimeLimits = timeLimits.getMaximum().longValue();
 		}
 	}
 	
@@ -179,6 +154,21 @@ public class AssessmentTestBuilder {
 		this.maxScore = maxScore;
 	}
 
+	/**
+	 * @return The maximum time for the test in seconds.
+	 */
+	public Long getMaximumTimeLimits() {
+		return maximumTimeLimits;
+	}
+
+	/**
+	 * The maximum time to solve the test in seconds.
+	 * @param maximumTimeLimits A positove value in seconds or null
+	 */
+	public void setMaximumTimeLimits(Long maximumTimeLimits) {
+		this.maximumTimeLimits = maximumTimeLimits;
+	}
+
 	public TestFeedbackBuilder getPassedFeedback() {
 		return passedFeedback;
 	}
@@ -204,6 +194,14 @@ public class AssessmentTestBuilder {
 		
 		if(assessmentTest.getOutcomeProcessing() == null) {
 			assessmentTest.setOutcomeProcessing(new OutcomeProcessing(assessmentTest));
+		}
+		
+		if(maximumTimeLimits != null) {
+			TimeLimits timeLimits = new TimeLimits(assessmentTest);
+			timeLimits.setMaximum(maximumTimeLimits.doubleValue());
+			assessmentTest.setTimeLimits(timeLimits);
+		} else {
+			assessmentTest.setTimeLimits(null);
 		}
 		
 		buildScore();
@@ -320,7 +318,7 @@ public class AssessmentTestBuilder {
 				assessmentTest.getOutcomeProcessing().getOutcomeRules().add(cutValueRule);
 			}
 		} else if(cutValueRule != null) {
-			assessmentTest.getOutcomeDeclarations().remove(cutValueRule);
+			assessmentTest.getOutcomeProcessing().getOutcomeRules().remove(cutValueRule);
 		}
 	}
 	

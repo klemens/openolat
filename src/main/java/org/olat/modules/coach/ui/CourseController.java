@@ -31,6 +31,7 @@ import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
@@ -71,6 +72,7 @@ import org.olat.modules.coach.model.CourseStatEntry;
 import org.olat.modules.coach.model.EfficiencyStatementEntry;
 import org.olat.modules.coach.model.IdentityResourceKey;
 import org.olat.modules.coach.ui.EfficiencyStatementEntryTableDataModel.Columns;
+import org.olat.modules.coach.ui.UserDetailsController.Segment;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
@@ -88,7 +90,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  */
 public class CourseController extends FormBasicController implements Activateable2, GenericEventListener, TooledController {
 	
-	private final Link openCourse;
+	private FormLink openCourse;
 	private Link nextCourse, detailsCourseCmp, previousCourse;
 
 	private FlexiTableElement tableEl;
@@ -97,7 +99,7 @@ public class CourseController extends FormBasicController implements Activateabl
 	private CloseableModalController cmc;
 	private ContactController contactCtrl;
 	private final TooledStackedPanel stackPanel;
-	private EfficiencyStatementDetailsController statementCtrl;
+	private UserDetailsController statementCtrl;
 	
 	private boolean hasChanged = false;
 	private int index;
@@ -137,10 +139,6 @@ public class CourseController extends FormBasicController implements Activateabl
 		initForm(ureq);
 		loadModel();
 		
-		openCourse = LinkFactory.createButton("open", flc.getFormItemComponent(), this);
-		openCourse.setIconLeftCSS("o_icon o_CourseModule_icon");
-		flc.getFormItemComponent().put("open.group", openCourse);
-		
 		CoordinatorManager.getInstance().getCoordinator().getEventBus()
 			.registerFor(this, getIdentity(), CertificatesManager.ORES_CERTIFICATE_EVENT);
 	}
@@ -170,6 +168,9 @@ public class CourseController extends FormBasicController implements Activateabl
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		openCourse = uifactory.addFormLink("open.course", formLayout, Link.BUTTON);
+		openCourse.setIconLeftCSS("o_icon o_CourseModule_icon");
+		
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
 			layoutCont.contextPut("courseName", StringHelper.escapeHtml(course.getDisplayname()));
@@ -199,7 +200,9 @@ public class CourseController extends FormBasicController implements Activateabl
 				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.recertification, new DateFlexiCellRenderer(getLocale())));
 			}
 		}
-		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.lastModification));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Columns.lastModification));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(Columns.lastUserModified));
+		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(false, Columns.lastCoachModified));
 		
 		model = new EfficiencyStatementEntryTableDataModel(columnsModel);
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", model, 20, false, getTranslator(), formLayout);
@@ -274,7 +277,9 @@ public class CourseController extends FormBasicController implements Activateabl
 					doSelectDetails(ureq, selectedRow);
 				}
 			}
-		} 
+		} else if (source == openCourse) {
+			doOpenCourse(ureq);
+		}
 		super.formInnerEvent(ureq, source, event);
 	}
 
@@ -289,8 +294,6 @@ public class CourseController extends FormBasicController implements Activateabl
 					reloadModel();
 				}
 			}
-		} else if (source == openCourse) {
-			doOpenCourse(ureq);
 		}
 		super.event(ureq, source, event);
 	}
@@ -354,9 +357,9 @@ public class CourseController extends FormBasicController implements Activateabl
 	}
 	
 	private void doSelectDetails(UserRequest ureq,  EfficiencyStatementEntry entry) {
-		boolean selectAssessmentTool = false;
+		Segment selectedTool = null;
 		if(statementCtrl != null) {
-			selectAssessmentTool = statementCtrl.isAssessmentToolSelected();
+			selectedTool = statementCtrl.getSelectedSegment();
 			removeAsListenerAndDispose(statementCtrl);
 		}
 
@@ -369,8 +372,8 @@ public class CourseController extends FormBasicController implements Activateabl
 				fullname, String.valueOf(entryIndex), String.valueOf(model.getRowCount())
 		});
 		
-		statementCtrl = new EfficiencyStatementDetailsController(ureq, bwControl, stackPanel,
-				entry, assessedIdentity, details, entryIndex, model.getRowCount(), selectAssessmentTool);
+		statementCtrl = new UserDetailsController(ureq, bwControl, stackPanel,
+				entry, assessedIdentity, details, entryIndex, model.getRowCount(), selectedTool);
 		listenTo(statementCtrl);
 		
 		stackPanel.popUpToController(this);

@@ -44,7 +44,7 @@ import org.openqa.selenium.WebElement;
 @Location("dmz")
 public class LoginPage {
 	
-	private static final String footerUserDivXPath = "//div[@id='o_footer_user']";
+	private static final String footerUserDivXPath = "//div[@id='o_footer_user']/span[@id='o_username']";
 	private static final String acknowledgeCheckboxXPath = "//input[@name='acknowledge_checkbox']";
 	
 	public static final By loginFormBy = By.cssSelector("div.o_login_form");
@@ -60,9 +60,9 @@ public class LoginPage {
 	@Drone
 	private WebDriver browser;
 	
-	public static LoginPage getLoginPage(WebDriver browser, URL deployemntUrl) {
+	public static LoginPage getLoginPage(WebDriver browser, URL deploymentUrl) {
 		LoginPage page = new LoginPage(browser);
-		browser.navigate().to(deployemntUrl);
+		browser.navigate().to(deploymentUrl);
 		return page;
 	}
 	
@@ -75,7 +75,7 @@ public class LoginPage {
 	}
 
 	public LoginPage assertOnLoginPage() {
-		Assert.assertTrue(browser.findElement(loginFormBy).isDisplayed());
+		OOGraphene.waitElement(loginFormBy, 5, browser);
 		return this;
 	}
 	
@@ -199,7 +199,7 @@ public class LoginPage {
 		OOGraphene.waitBusy(browser);
 		
 		By errorMessageby = By.cssSelector("div.modal-body.alert.alert-danger");
-		OOGraphene.waitElement(errorMessageby, 2, browser);
+		OOGraphene.waitElement(errorMessageby, browser);
 		return this;
 	}
 	
@@ -234,6 +234,9 @@ public class LoginPage {
 		By okBy = By.cssSelector("button.btn.btn-primary");
 		browser.findElement(okBy).click();
 		OOGraphene.waitBusy(browser);
+
+		By reservationBy = By.xpath("//div[contains(@class,'o_reservation')]");
+		OOGraphene.waitElementDisappears(reservationBy, 5, browser);
 		return this;
 	}
 }

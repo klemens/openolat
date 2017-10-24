@@ -71,7 +71,7 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
-import org.olat.core.util.vfs.restapi.SystemItemFilter;
+import org.olat.core.util.vfs.filters.SystemItemFilter;
 import org.olat.core.util.vfs.restapi.VFSStreamingOutput;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.Message;
@@ -130,11 +130,11 @@ public class ForumWebService {
 	/**
 	 * Retrieves the threads in the forum
 	 * @response.representation.200.qname {http://www.example.com}messageVOes
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc The root message of the thread
-   * @response.representation.200.example {@link org.olat.modules.fo.restapi.Examples#SAMPLE_MESSAGEVOes}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc The root message of the thread
+	 * @response.representation.200.example {@link org.olat.modules.fo.restapi.Examples#SAMPLE_MESSAGEVOes}
 	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
-   * @response.representation.404.doc The author, forum or message not found
+	 * @response.representation.404.doc The author, forum or message not found
 	 * @param start
 	 * @param limit
 	 * @param orderBy (value name,creationDate)

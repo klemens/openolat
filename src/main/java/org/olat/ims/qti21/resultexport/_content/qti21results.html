@@ -1,0 +1,74 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>$rootTitle</title>	
+	<link rel='stylesheet' href='../../../css/offline/qti/theme.css' />
+	<script type="text/javascript" src='../../../js/jquery/jquery-2.1.3.min.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/maphilight/jquery.maphilight.min.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.associate.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.gapMatch.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.graphicAssociate.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.graphicGap.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.graphicOrder.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.hotspot.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.match.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.match_dnd.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.order.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.positionObject.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.qtiTimer.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.selectPoint.js'></script>
+	<script type="text/javascript" src='../../../js/jquery/qti/jquery.slider.js'></script>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<script type="text/javascript">
+/* <![CDATA[ */ 
+function setFlexiFormDirtyByListener(e){
+	//
+}
+function o_mathjax() {
+	window.MathJax = {
+			extensions: ["jsMath2jax.js"],
+			messageStyle: 'none',
+			showProcessingMessages: false,
+			showMathMenu: false,
+			menuSettings: { },
+			jsMath2jax: {
+				preview: "none"
+			},
+			tex2jax: {
+				ignoreClass: "math"
+			},
+			"HTML-CSS": {
+			    EqnChunk: 5, EqnChunkFactor: 1, EqnChunkDelay: 100
+			},
+			"fast-preview": {
+				disabled: true
+			}
+		}
+	jQuery.ajax("${r.mathJaxCdnFullUrl()}MathJax.js?config=${r.mathJaxConfig()}", {
+		cache: true,
+		dataType: "script",
+		crossDomain: true,
+		success: function() {
+		}
+	});
+}
+var BFormatter = {
+	// format on load
+	formatLatexFormulas : function(domId) {}
+};
+jQuery(function() {
+	if ((window.unsafeWindow == null ? window : unsafeWindow).MathJax == null) {
+		var count = jQuery('div.math,span.math,math,div.mathEntryInteraction').length;
+		if (count > 0) {
+		    o_mathjax();
+		}
+	}
+});
+/* ]]> */
+	</script>
+</head>
+<body class="o_page_margins">
+	<div id="o_main">$r.render("results")</div>
+</body>
+</html>

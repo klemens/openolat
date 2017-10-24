@@ -4,10 +4,13 @@
 		$r.render("feed.add.item")
 	</div>
 #end
-##<h4 class="o_title">$r.translate("blog.posts") ($helper.itemsCount($callback))</h4>
+#if ($callback.mayCreateItems() && $feed.isExternal())
+	<div class="pull-right">
+		$r.render("feed.external.url")
+	</div>
+#end
 <div class="clearfix"></div>
-
-#if (!$feed.hasItems())
+#if ($items.size() == 0)
 	<div class="o_blog_no_posts o_important">
 		<p>
 			<i class="o_icon o_icon_warn"></i>
@@ -23,8 +26,7 @@
 		#end
 	</div>
 #else
-	<!-- loop over episodes -->
-	#foreach( $post in $helper.getItems($callback) ) 	
+	#foreach( $post in $helper.getItemsOnPage($items) )
 		<div class="o_post o_block_with_datecomp clearfix $!post.extraCSSClass()">
 			<div class="o_head">
 				#if (( $helper.isAuthor($post) && !$post.isDraft()) && $feed.isInternal() && $r.available("feed.artefact.item.$post.getGuid()"))
@@ -44,41 +46,42 @@
 					</small>
 				#end
 				</h3>
-				<div class="o_meta">				
+				<div class="o_meta">
 				#set ( $info = $helper.getInfo($post) )
 				#if ( $info )
 					$info
-					#if($helper.isModified($post)), 
+					#if($helper.isModified($post))
 						<div class="text-warning">$r.escapeHtml($helper.getModifierInfo($post))</div>
 					#end
 				#end
 				</div>
 			</div>
-			
+
 			<div class="o_content o_user_content_block">
-				 $!helper.getItemDescriptionForBrowser($post) 
+				 $!helper.getItemDescriptionForBrowser($post)
 			</div>
-			
+
 			<div class="o_block_footer">
 				<div class="clearfix">
 					<ul class="o_readmore list-inline pull-right">
-						#if ( $post.getContent() && $post.getContent() != "" )
+						#if ( ($post.getContent() && $post.getContent() != "")
+							|| ($post.getEnclosure() && $post.getEnclosure() != "" ) )
 							<li>$r.render("link.to.$post.getGuid()")</li>
 						#end
 						#if ($feed.isExternal() && $post.getExternalLink())
 							<li><a href="$!post.getExternalLink()" target="_blank">
-								$r.translate("feed.item.original") 
+								$r.translate("feed.item.original")
 								<i class="o_icon o_icon_start"></i>
 							</a></li>
 						#end
 					</ul>
-	
+
 					#if ($r.available("commentsAndRating.${post.getGuid()}"))
 						$r.render("commentsAndRating.${post.getGuid()}")
 					#end
 				</div>
 			</div>
-				
+
 			#if($feed.isInternal())
 			<div class="o_button_group">
 				#if ($r.available("feed.edit.item.$post.getGuid()") && $r.visible("feed.edit.item.$post.getGuid()"))
@@ -91,21 +94,34 @@
 			#end
 		</div>
 	#end
-	
-	<ul class="pagination">
-		#if ( $helper.hasOlderItems() )
-		<li>
-			$r.render("feed.older.items")
-		</li>
-		#end
-		#if ( $helper.hasNewerItems() )
-		<li>
-			$r.render("feed.startpage")
-		</li>
-		<li>
-			$r.render("feed.newer.items")
-		</li>
-		#end
-	</ul>
+
+	<div class="o_button_group">
+		<ul class="pagination">
+			<li>
+				#if ( $helper.hasOlderItems($items) )
+					$r.getComponent("feed.older.items").setEnabled($true)
+				#else
+					$r.getComponent("feed.older.items").setEnabled($false)
+				#end
+				$r.render("feed.older.items")
+			</li>
+			<li>
+				#if ( $helper.hasNewerItems() )
+					$r.getComponent("feed.startpage").setEnabled($true)
+				#else
+					$r.getComponent("feed.startpage").setEnabled($false)
+				#end
+				$r.render("feed.startpage")
+			</li>
+			<li>
+				#if ( $helper.hasNewerItems() )
+					$r.getComponent("feed.newer.items").setEnabled($true)
+				#else
+					$r.getComponent("feed.newer.items").setEnabled($false)
+				#end
+				$r.render("feed.newer.items")
+			</li>
+		</ul>
+	</div>
 #end
 </div>

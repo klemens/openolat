@@ -68,8 +68,10 @@ import org.olat.core.logging.activity.OlatResourceableType;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.coordinate.LockResult;
+import org.olat.core.util.mail.MailPackage;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.ImsCPFileResource;
+import org.olat.modules.lecture.restapi.LectureBlocksWebService;
 import org.olat.repository.ErrorList;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -157,15 +159,27 @@ public class RepositoryEntryResource {
     return response.build();
   }
   
-  
-  //get put/post delete add owner
+	/**
+	 * To get the web service for the lecture blocks of a specific learning resource.
+	 * @response.representation.200.doc A web service to manage the lecture blocks
+	 * @param repoEntryKey The primary key of the learning resource 
+	 * @return The web service for lecture blocks.
+	 */
+	@Path("lectureblocks")
+	public LectureBlocksWebService getLectureBlocksWebService(@PathParam("repoEntryKey")String repoEntryKey) {
+	    RepositoryEntry re = lookupRepositoryEntry(repoEntryKey);
+	    if(re == null) return null;
+		LectureBlocksWebService service = new LectureBlocksWebService(re);
+		CoreSpringFactory.autowireObject(service);
+		return service;
+	}
   
 	/**
 	 * Returns the list of owners of the repository entry specified by the groupKey.
 	 * @response.representation.200.qname {http://www.example.com}userVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc Owners of the repository entry
-   * @response.representation.200.example {@link org.olat.user.restapi.Examples#SAMPLE_USERVOes}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc Owners of the repository entry
+	 * @response.representation.200.example {@link org.olat.user.restapi.Examples#SAMPLE_USERVOes}
 	 * @response.representation.404.doc The repository entry cannot be found
 	 * @param repoEntryKey The key of the repository entry
 	 * @param request The HTTP Request
@@ -213,7 +227,7 @@ public class RepositoryEntryResource {
 
 			UserRequest ureq = RestSecurityHelper.getUserRequest(request);
 			IdentitiesAddEvent iae = new IdentitiesAddEvent(identityToAdd);
-			repositoryManager.addOwners(ureq.getIdentity(), iae, repoEntry);
+			repositoryManager.addOwners(ureq.getIdentity(), iae, repoEntry, new MailPackage(false));
 			return Response.ok().build();
 		} catch (Exception e) {
 			log.error("Trying to add an owner to a repository entry", e);
@@ -237,7 +251,7 @@ public class RepositoryEntryResource {
 			List<Identity> identityToAdd = loadIdentities(owners);
 			UserRequest ureq = RestSecurityHelper.getUserRequest(request);
 			IdentitiesAddEvent iae = new IdentitiesAddEvent(identityToAdd);
-			repositoryManager.addOwners(ureq.getIdentity(), iae, repoEntry);
+			repositoryManager.addOwners(ureq.getIdentity(), iae, repoEntry, new MailPackage(false));
 			return Response.ok().build();
 		} catch (Exception e) {
 			log.error("Trying to add an owner to a repository entry", e);
@@ -283,9 +297,9 @@ public class RepositoryEntryResource {
 	/**
 	 * Returns the list of coaches of the repository entry.
 	 * @response.representation.200.qname {http://www.example.com}userVO
-   * @response.representation.200.mediaType application/xml, application/json
-   * @response.representation.200.doc Coaches of the repository entry
-   * @response.representation.200.example {@link org.olat.user.restapi.Examples#SAMPLE_USERVOes}
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc Coaches of the repository entry
+	 * @response.representation.200.example {@link org.olat.user.restapi.Examples#SAMPLE_USERVOes}
 	 * @response.representation.404.doc The repository entry cannot be found
 	 * @param repoEntryKey The key of the repository entry
 	 * @param request The HTTP Request

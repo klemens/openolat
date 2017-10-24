@@ -20,11 +20,14 @@
 
 package org.olat.ldap;
 
+import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
+
 import java.io.FileInputStream;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
-import java.text.ParseException;
 import java.util.Date;
 import java.util.Enumeration;
 
@@ -35,10 +38,9 @@ import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
-import org.quartz.CronTrigger;
 import org.quartz.JobDetail;
 import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
+import org.quartz.Trigger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -128,6 +130,8 @@ public class LDAPLoginModule extends AbstractSpringModule {
 	// Propagate the password changes onto the LDAP server
 	@Value("${ldap.propagatePasswordChangedOnLdapServer}")
 	private boolean propagatePasswordChangedOnLdapServer;
+	@Value("${ldap.resetLockTimoutOnPasswordChange}")
+	private boolean resetLockTimoutOnPasswordChange;
 	@Value("${ldap.changePasswordUrl}")
 	private String changePasswordUrl;
 	// Configuration for syncing user attributes
@@ -265,21 +269,23 @@ public class LDAPLoginModule extends AbstractSpringModule {
 	private void initCronSyncJob() {
 		try {
 			// Create job with cron trigger configuration
-			JobDetail jobDetail = new JobDetail("LDAP_Cron_Syncer_Job", Scheduler.DEFAULT_GROUP, LDAPUserSynchronizerJob.class);
-			CronTrigger trigger = new CronTrigger();
-			trigger.setName("LDAP_Cron_Syncer_Trigger");
-			trigger.setCronExpression(ldapSyncCronSyncExpression);
+			JobDetail jobDetail = newJob(LDAPUserSynchronizerJob.class)
+					.withIdentity("LDAP_Cron_Syncer_Job", Scheduler.DEFAULT_GROUP)
+					.build();
+			Trigger trigger = newTrigger()
+				    .withIdentity("LDAP_Cron_Syncer_Trigger")
+				    .withSchedule(cronSchedule(ldapSyncCronSyncExpression))
+				    .build();
+
 			// Schedule job now
 			scheduler.scheduleJob(jobDetail, trigger);
 			log.info("LDAP cron syncer is enabled with expression::" + ldapSyncCronSyncExpression);
-		} catch (ParseException e) {
+		} catch (Exception e) {
 			setLdapSyncCronSync(false);
 			log.error("LDAP configuration in attribute 'ldapSyncCronSyncExpression' is not valid ("
 				+ ldapSyncCronSyncExpression
 				+ "). See http://quartz.sourceforge.net/javadoc/org/quartz/CronTrigger.html to learn more about the cron syntax. Disabling LDAP cron syncing",
 				e);
-		} catch (SchedulerException e) {
-			log.error("Error while scheduling LDAP cron sync job. Disabling LDAP cron syncing", e);
 		}
 	}
 
@@ -443,6 +449,10 @@ public class LDAPLoginModule extends AbstractSpringModule {
 		this.propagatePasswordChangedOnLdapServer = propagatePasswordChangedOnServer;
 	}
 
+	public void setResetLockTimoutOnPasswordChange(boolean resetLockTimoutOnPasswordChange) {
+		this.resetLockTimoutOnPasswordChange = resetLockTimoutOnPasswordChange;
+	}
+
 	public boolean isLDAPEnabled() {
 		return ldapEnabled;
 	}
@@ -508,6 +518,10 @@ public class LDAPLoginModule extends AbstractSpringModule {
 
 	public boolean isPropagatePasswordChangedOnLdapServer(){
 		return propagatePasswordChangedOnLdapServer;
+	}
+
+	public boolean isResetLockTimoutOnPasswordChange() {
+		return resetLockTimoutOnPasswordChange;
 	}
 
 	public String getChangePasswordUrl() {

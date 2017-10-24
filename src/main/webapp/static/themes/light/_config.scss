@@ -25,6 +25,7 @@
 	Add your custom font sizes and other bootstrap overrides here. 
 	Full spec here: http://getbootstrap.com/customize/
 */
+$input-bg-disabled				: #fafafa !default; /* lighter than default bootstrap */
 
 /* 	Add standard bootstrap variables to the mix */
 @import "../../bootstrap/stylesheets/bootstrap/variables";
@@ -356,9 +357,97 @@ $o-portfolio-lead-space-sm							: $padding-large-vertical !default;
 $o-portfolio-lead-background-color					: lighten($gray-base, 95%) !default;
 $o-portfolio-lead-border-color						: darken($o-portfolio-lead-background-color,10%) !default;
 $o-portfolio-lead-border-radius						: $border-radius-small !default;
+$o-portfolio-lead-ended-background-color				: lighten($brand-danger, 30%) !default;
+$o-portfolio-lead-ended-border-color					: darken($o-portfolio-lead-ended-background-color	,10%) !default;
 $o-portfolio-page-summary-font-size					: $font-size-large !default;
 
+/* QTI2 eAssessment */
+$o-qti-status-notPresented-color					: lighten($text-muted,40%) !default;
+$o-qti-status-notAnswered-color						: $brand-warning !default;
+$o-qti-status-answered-color						: $brand-success !default;
+$o-qti-status-ended-color							: $brand-info !default;
+$o-qti-status-invalid-color							: $brand-danger !default;
+$o-qti-status-review-color							: $brand-info !default;
+$o-qti-attempts-color								: $text-muted !default;
+$o-qti-attempts-limited-color						: $brand-warning !default;
+$o-qti-attempts-nomore-color						: $brand-info !default;
+$o-qti-menu-link-color								: $o-tree-link-color !default;
+$o-qti-menu-link-hover-color						: $o-tree-link-hover-color !default;
+$o-qti-menu-link-active-color						: $o-tree-link-active-color !default;
+$o-qti-menu-link-active-hover-color					: $o-tree-link-active-hover-color !default;
+$o-qti-menu-link-active-hover-bg					: $o-tree-link-active-hover-bg !default;
+$o-qti-menu-link-active-font-weight					: $o-tree-link-active-font-weight !default;
+$o-qti-menu-bg										: $o-toolbar-bg-color !default;
+$o-qti-menu-border-color							: $o-toolbar-border-color !default;
+$o-qti-menu-border-radius							: $border-radius-base !default;
+$o-qti-item-title-bg								: $o-qti-menu-bg !default;
+$o-qti-item-title-border-color						: $o-qti-menu-border-color !default;
+$o-qti-item-title-border-radius						: $o-qti-menu-border-radius !default;
+$o-qti-item-min-height								: 200px !default;
+$o-qti-item-border-color							: $o-qti-menu-border-color !default;
+$o-qti-item-controls-bg								: $o-qti-menu-bg !default;
+$o-qti-item-controls-border-color					: $o-qti-menu-border-color !default;
+$o-qti-item-controls-border-radius					: $o-qti-menu-border-radius !default;
+$o-qti-run-infos-bg									: $o-qti-menu-bg !default;
+$o-qti-run-infos-border-color						: $o-qti-menu-border-color !default;
+$o-qti-run-infos-border-radius						: $o-qti-menu-border-radius !default;
+$o-qti-run-infos-progress-bg						: #eee !default;
+$o-qti-run-infos-question-progress-color			: $brand-primary !default;
+$o-qti-run-infos-score-progress-color				: $brand-primary !default;
+$o-qti-badResponse-color							: $brand-danger !default;
+$o-qti-highlight-color								: $brand-danger !default;
+$o-qti-bar-green									: $brand-success !default;
+$o-qti-bar-red										: $brand-danger !default;
+$o-qti-success										: $brand-success !default;
+$o-qti-failure										: $brand-warning !default;
+$o-qti-error										: $brand-danger !default;
+$o-qti-box-bg										: #eee !default;
+$o-qti-box-color									: #666 !default;
+$o-qti-choice-tablelayout-bg						: #e7e7e7 !default;
+$o-qti-userselection-color							: $text-color !default;
+$o-qti-userselection-bg								: $state-info-bg !default;
+$o-qti-userselection-border-color					: $state-info-border !default;
+$o-qti-gap-border-color								: #999 !default;
+$o-qti-gap-drag-border-color						: $brand-primary !default;
+$o-qti-gap-selected-border-color					: $brand-primary !default;
+$o-qti-hottext-color								: $text-color !default;
+$o-qti-hottext-bg									: $o-qti-menu-bg !default;
+$o-qti-hottext-border-color							: $o-qti-menu-border-color !default;
+$o-qti-hottext-border-radius						: 2px !default;
+$o-qti-hottext-checked-color						: $o-qti-userselection-color !default;
+$o-qti-hottext-checked-bg							: $o-qti-userselection-bg !default;
+$o-qti-hottext-checked-border-color					: $o-qti-userselection-border-color !default;
+$o-qti-match-border-color							: #999 !default;
+$o-qti-match-choosed-border-color					: #777 !default;
+$o-qti-match-drag-border-color						: $brand-warning !default;
+$o-qti-match-sources-bg								: $o-qti-run-infos-bg !default;
+$o-qti-match-sources-border-color					: $o-qti-run-infos-border-color !default;
+$o-qti-match-source-bg								: $state-warning-bg !default;
+$o-qti-match-source-border-style					: dashed !default;
+$o-qti-match-selected-border-color					: $brand-warning !default;
+$o-qti-match-selected-bg							: lighten($brand-warning, 25%) !default;
+$o-qti-match-drop-accept-border-color				: darken($brand-info, 25%) !default;
+$o-qti-match-target-border-color					: $brand-info !default;
+$o-qti-match-target-bg								: $state-info-bg !default;
+$o-qti-match-border-radius							: $panel-border-radius !default;
+$o-qti-order-source-border-style						: dashed !default;
+$o-qti-order-sources-border-color					: $o-qti-run-infos-border-color !default;
+$o-qti-order-border-radius							: $panel-border-radius !default;
+$o-qti-order-source-bg								: $state-warning-bg !default;
+$o-qti-order-sources-bg								: $o-qti-run-infos-bg !default;
+$o-qti-order-drop-accept-border-color				: darken($brand-info, 25%) !default;
+$o-qti-order-target-bg								: $state-info-bg !default;
+$o-qti-textEntryInteraction-color					: $text-color !default;
+$o-qti-textEntryInteraction-bg						: #fff !default;
+$o-qti-textEntryInteraction-border-color			: $o-qti-gap-border-color !default;
+$o-qti-textEntryInteraction-filled-color			: $o-qti-userselection-color !default;
+$o-qti-textEntryInteraction-filled-bg				: $o-qti-userselection-bg !default;
+$o-qti-textEntryInteraction-filled-border-color		: $o-qti-userselection-border-color !default;
 
+/* Lecture module */
+$o-lm-current-bg									: $o-toolbar-bg-color !default;
+$o-lm-current-border-color							: transparent !default; 
+$o-lm-current-border-radius							: $border-radius-base !default;
 
 /* Chat and other floating window */
 $o-dialog-window-bg				: #fefefe !default;
@@ -400,9 +489,15 @@ $o-forum-quote-font-size		: $font-size-small !default;
 $o-forum-attachment-font-size	: $font-size-small !default;
 
 /* Evaluation forms */
-$o-evaluation-slider-margin-bottom			: 8px;
-$o-evaluation-step-labels-margin-bottom		: 8px;
-$o-evaluation-slider-hover-background-color	: $table-bg-hover;
+$o-evaluation-block-margin-top				: 2em !default;
+$o-evaluation-block-margin-bottom			: 2em !default;
+$o-evaluation-side-labels-font-weight		: normal !default;
+$o-evaluation-step-labels-margin-bottom		: 1em !default;
+$o-evaluation-step-labels-font-weight		: bold !default;
+$o-evaluation-step-background-color 		: $table-bg-accent !default;
+$o-evaluation-slider-margin-bottom			: 1em !default;
+$o-evaluation-slider-hover-background-color	: $table-bg-hover !default;
+
 
 /* Portlets site */
 $o-portlet-border				: $panel-default-border !default;
@@ -455,6 +550,50 @@ $o-datecomp-month-color			: #fff !default;
 $o-datecomp-day-bg				: $body-bg !default;
 $o-datecomp-day-color			: $text-color !default;
 
+/* Highscore component */
+$o-hs-position-title-color			: gradient !default;
+$o-hs-position-title-size			: 3em !default;
+$o-hs-position-title-weight			: 700 !default;
+$o-hs-position-size					: 1.2em !default;
+$o-hs-position-weight				: bold !default;
+$o-hs-position-relative-size		: 1em !default;	
+$o-hs-position-relative-weight		: normal !default;	
+
+$o-hs-podium-border					: 1px solid #d9d9d9 !default;
+$o-hs-podium-border-radius			: $panel-border-radius !default;
+$o-hs-podium-bg-gradientstyle		: true !default;
+$o-hs-podium-first-bg				: #FFD700 !default;
+$o-hs-podium-second-bg				: #C0C0C0 !default;
+$o-hs-podium-third-bg				: #cd7f32 !default;
+
+$o-hs-score-color					: $text-muted !default;
+$o-hs-score-size					: 90% !default;
+$o-hs-rank-first-color				: #666 !default;
+$o-hs-rank-second-color				: #666 !default;
+$o-hs-rank-third-color				: #666 !default;
+
+$o-hs-podium-height					: 300px !default;
+$o-hs-podium-margin-bottom			: 50px !default;
+$o-hs-podium-first-height			: 150px !default;
+$o-hs-podium-second-height			: 100px !default;
+$o-hs-podium-third-height			: 80px !default;
+
+$o-hs-singleportrait-vertical-align	: -125px !default;
+$o-hs-position-height				: 30px !default;
+$o-hs-position-fontsize				: 130% !default;
+
+$o-hs-histogram-height				: 300px !default;
+$o-hs-histogram-bottom				: -40px !default;
+$o-hs-histogram-margin-bottom		: 40px !default;
+
+$o-hs-histogram-axis-color				: #888 !default;
+$o-hs-histogram-text-color				: #888 !default;
+$o-hs-histogram-bar-myself-color		: $brand-primary !default;
+$o-hs-histogram-bar-myself-hover-color	: lighten($brand-primary,10%) !default;
+$o-hs-histogram-bar-other-color			: $gray-light !default;
+$o-hs-histogram-bar-other-hover-color	: lighten($gray-light, 10%) !default;
+$o-hs-histogram-bar-empty-color			: black !default;
+
 /* Process step component */
 $o-step-border-width		: 4px !default;
 $o-step-milestone-size		: ($o-step-border-width * 4) !default;
@@ -468,6 +607,32 @@ $o-step-done-color			: lighten($brand-primary,10%) !default;
 $o-step-done-marker-color	: $brand-success !default;
 $o-step-meta-color			: $text-muted !default;
 $o-step-meta-size			: $font-size-small !default;
+
+
+/* Radial progress component */
+/* more 3-style 
+$o-radial-progress-circle-bg			: $progress-bg !default;
+$o-radial-progress-shadow				: 6px 6px 10px rgba(0,0,0,0.1) !default;
+*/
+$o-radial-progress-circle-size			: 120px !default;
+$o-radial-progress-circle-size-sm		: 80px !default;
+$o-radial-progress-circle-size-lg		: 180px !default;
+$o-radial-progress-circle-bg			: #eee !default;
+$o-radial-progress-circle-color			: $progress-bar-bg !default;
+$o-radial-progress-inset-color			: #fff !default;
+$o-radial-progress-transition-length	: 1s !default;
+$o-radial-progress-shadow				: none !default;
+$o-radial-progress-number-color			: $progress-bar-bg !default;
+$o-radial-progress-addon-color			: $text-muted !default;
+$o-radial-progress-margin 				: 10px !default;
+$o-radial-progress-circle-success-color		: $progress-bar-success-bg !default;
+$o-radial-progress-percentage-success-color	: $progress-bar-success-bg !default;
+$o-radial-progress-circle-warning-color		: $progress-bar-warning-bg !default;
+$o-radial-progress-percentage-warning-color	: $progress-bar-warning-bg !default;
+$o-radial-progress-circle-danger-color		: $progress-bar-danger-bg !default;
+$o-radial-progress-percentage-danger-color	: $progress-bar-danger-bg !default;
+$o-radial-progress-circle-info-color		: $progress-bar-info-bg !default;
+$o-radial-progress-percentage-info-color	: $progress-bar-info-bg !default;
 
 /* Drawing */
 $o-drawing-border-color		: $brand-primary;
@@ -486,7 +651,8 @@ $o-cit-quote-font-size			: $font-size-large !default;
 $o-cit-quote-color				: $o-forum-quote-color !default;
 
 /* Sliders */
-$o-slider-border					: #999;
+$o-slider-border					: #aaa !default;
+$o-slider-background				: #f9f9f9 !default;
 $o-slider-handler-border-color		: $brand-primary !default;
 $o-slider-handler-background-color	: $brand-primary !default;
 
@@ -495,3 +661,5 @@ $o-portrait-radius				: 50% !default;
 $o-portrait-border				: none !default;
 $o-bookmark-color				: #bc2d0c !default;
 $o-imagebg-text-background		: rgba(255, 255, 255, 0.8) !default;
+$o-progress-marker-color		: rgb(255, 0, 0) !default; /* danger color */
+$o-cal-desc-background-color	: $o-toolbar-bg-color !default;

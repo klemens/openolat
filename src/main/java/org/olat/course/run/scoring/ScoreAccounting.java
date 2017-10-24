@@ -31,6 +31,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.hibernate.LazyInitializationException;
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -46,6 +48,8 @@ import org.olat.course.nodes.PersistentAssessableCourseNode;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.repository.RepositoryEntry;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.model.RepositoryEntryLifecycle;
 
 /**
@@ -173,6 +177,18 @@ public class ScoreAccounting {
 			return se;
 		}
 		
+		private void updateLastModified(CourseNode cNode, LastModifications lastModifications) {
+			AssessmentEvaluation eval = cachedScoreEvals.get(cNode);
+			if(eval != null) {
+				lastModifications.addLastUserModified(eval.getLastUserModified());
+				lastModifications.addLastCoachModified(eval.getLastCoachModified());
+			}
+			
+			for(int i=cNode.getChildCount(); i-->0; ) {
+				updateLastModified((CourseNode)cNode.getChildAt(i), lastModifications);
+			}
+		}
+		
 		/**
 		 * Recalculate the score of structure nodes.
 		 * 
@@ -189,6 +205,11 @@ public class ScoreAccounting {
 
 				Float score = null;
 				Boolean passed = null;
+				Boolean userVisibility = entry == null ? null : entry.getUserVisibility();
+				Long assessmendId = entry == null ? null : entry.getAssessmentId();
+				int numOfAssessmentDocs = entry == null ? -1 : entry.getNumberOfAssessmentDocuments();
+				Date lastModified = entry == null ? null : entry.getLastModified();
+				
 				AssessmentEntryStatus assessmentStatus = AssessmentEntryStatus.inProgress;
 				ConditionInterpreter ci = userCourseEnvironment.getConditionInterpreter();
 				if (cNode.hasScoreConfigured() && scoreExpressionStr != null) {
@@ -205,8 +226,7 @@ public class ScoreAccounting {
 						if(failedType == null || failedType == FailedEvaluationType.failedAsNotPassed) {
 							passed = Boolean.FALSE;
 						} else if(failedType == FailedEvaluationType.failedAsNotPassedAfterEndDate) {
-							CourseGroupManager cgm = userCourseEnvironment.getCourseEnvironment().getCourseGroupManager();
-							RepositoryEntryLifecycle lifecycle = cgm.getCourseEntry().getLifecycle();
+							RepositoryEntryLifecycle lifecycle = getRepositoryEntryLifecycle();
 							if(lifecycle != null && lifecycle.getValidTo() != null && lifecycle.getValidTo().compareTo(new Date()) < 0) {
 								passed = Boolean.FALSE;
 							}
@@ -215,7 +235,11 @@ public class ScoreAccounting {
 						}
 					}
 				}
-				se = new AssessmentEvaluation(score, passed, null, assessmentStatus, null, null, null, null);
+				
+				LastModifications lastModifications = new LastModifications();
+				updateLastModified(cNode, lastModifications);
+				se = new AssessmentEvaluation(score, passed, null, assessmentStatus, userVisibility, null, assessmendId, null, null, numOfAssessmentDocs,
+						lastModified, lastModifications.getLastUserModified(), lastModifications.getLastCoachModified());
 				
 				if(entry == null) {
 					Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
@@ -229,14 +253,69 @@ public class ScoreAccounting {
 						entry.setScore(null);
 					}
 					entry.setPassed(passed);
+					if(lastModifications.getLastCoachModified() != null
+							&& (entry.getLastCoachModified() == null || (entry.getLastCoachModified() != null && entry.getLastCoachModified().before(lastModifications.getLastCoachModified())))) {
+						entry.setLastCoachModified(lastModifications.getLastCoachModified());
+					}
+					if(lastModifications.getLastUserModified() != null
+							&& (entry.getLastUserModified() == null || (entry.getLastUserModified() != null && entry.getLastUserModified().before(lastModifications.getLastUserModified())))) {
+						entry.setLastUserModified(lastModifications.getLastUserModified());
+					}	
 					entry = userCourseEnvironment.getCourseEnvironment().getAssessmentManager().updateAssessmentEntry(entry);
 					identToEntries.put(cNode.getIdent(), entry);
 					changes = true;
 				}
 			} else {
+				//only update the last modifications dates
+				LastModifications lastModifications = new LastModifications();
+				updateLastModified(cNode, lastModifications);
+				if(entry == null) {
+					if(lastModifications.getLastCoachModified() != null || lastModifications.getLastUserModified() != null) {
+						se = new AssessmentEvaluation(new Date(), lastModifications.getLastUserModified(), lastModifications.getLastCoachModified());
+						Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
+						userCourseEnvironment.getCourseEnvironment().getAssessmentManager()
+							.createAssessmentEntry(cNode, assessedIdentity, se);
+						changes = true;
+					}
+				} else {
+					boolean updated = false;
+					if(lastModifications.getLastCoachModified() != null
+							&& (entry.getLastCoachModified() == null || (entry.getLastCoachModified() != null && entry.getLastCoachModified().before(lastModifications.getLastCoachModified())))) {
+						entry.setLastCoachModified(lastModifications.getLastCoachModified());
+						updated = true;
+					}
+					if(lastModifications.getLastUserModified() != null
+							&& (entry.getLastUserModified() == null || (entry.getLastUserModified() != null && entry.getLastUserModified().before(lastModifications.getLastUserModified())))) {
+						entry.setLastUserModified(lastModifications.getLastUserModified());
+						updated = true;
+					}
+					if(updated) {
+						entry = userCourseEnvironment.getCourseEnvironment().getAssessmentManager().updateAssessmentEntry(entry);
+						identToEntries.put(cNode.getIdent(), entry);
+						changes = true;
+					}
+				}
+				
 				se = AssessmentEvaluation.EMPTY_EVAL;
 			}
 			return se;
+		}
+		
+		private RepositoryEntryLifecycle getRepositoryEntryLifecycle() {
+			CourseGroupManager cgm = userCourseEnvironment.getCourseEnvironment().getCourseGroupManager();
+			try {
+				RepositoryEntryLifecycle lifecycle = cgm.getCourseEntry().getLifecycle();
+				if(lifecycle != null) {
+					lifecycle.getValidTo();//
+				}
+				return lifecycle;
+			} catch (LazyInitializationException e) {
+				//OO-2667: only seen in 1 instance but as it's a critical place, secure the system
+				RepositoryEntry reloadedEntry = CoreSpringFactory.getImpl(RepositoryService.class)
+						.loadByKey(cgm.getCourseEntry().getKey());
+				userCourseEnvironment.getCourseEnvironment().updateCourseEntry(reloadedEntry);
+				return reloadedEntry.getLifecycle();
+			}
 		}
 		
 		private boolean same(AssessmentEvaluation se, AssessmentEntry entry) {
@@ -252,6 +331,18 @@ public class ScoreAccounting {
 					|| (se.getScore() != null && entry.getScore() == null)
 					|| (se.getScore() != null && entry.getScore() != null
 							&& Math.abs(se.getScore().floatValue() - entry.getScore().floatValue()) > 0.00001)) {
+				same &= false;
+			}
+			
+			if((entry.getLastUserModified() == null && se.getLastUserModified() != null)
+					|| (se.getLastUserModified() != null && entry.getLastUserModified() != null
+							&& se.getLastUserModified().after(entry.getLastUserModified()))) {
+				same &= false;
+			}
+			
+			if((entry.getLastCoachModified() == null && se.getLastCoachModified() != null)
+					|| (se.getLastCoachModified() != null && entry.getLastCoachModified() != null
+							&& se.getLastCoachModified().after(entry.getLastCoachModified()))) {
 				same &= false;
 			}
 			
@@ -288,9 +379,12 @@ public class ScoreAccounting {
 	}
 
 	/**
-	 * ----- to called by getScoreFunction only -----
-	 * @param childId
-	 * @return Float
+	 * Evaluate the score of the course element. The method
+	 * takes the visibility of the results in account and will
+	 * return 0.0 if the results are not visiblity.
+	 * 
+	 * @param childId The specified course element ident
+	 * @return A float (never null)
 	 */
 	public Float evalScoreOfCourseNode(String childId) {
 		CourseNode foundNode = findChildByID(childId);
@@ -299,8 +393,13 @@ public class ScoreAccounting {
 		if (foundNode instanceof AssessableCourseNode) {
 			AssessableCourseNode acn = (AssessableCourseNode) foundNode;
 			ScoreEvaluation se = evalCourseNode(acn);
-			if(se != null) { // the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
-				score = se.getScore();
+			if(se != null) {
+				// the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
+				if(se.getUserVisible() == null || se.getUserVisible().booleanValue()) {
+					score = se.getScore();
+				} else {
+					score = new Float(0.0f);
+				}
 			}
 			if (score == null) { // a child has no score yet
 				score = new Float(0.0f); // default to 0.0, so that the condition can be evaluated (zero points makes also the most sense for "no results yet", if to be expressed in a number)
@@ -314,9 +413,12 @@ public class ScoreAccounting {
 	}
 
 	/**
-	 * ----- to be called by getPassedFunction only -----
-	 * @param childId
-	 * @return Boolean
+	 * Evaluate the passed / failed state of a course element. The method
+	 * takes the visibility of the results in account and will return false
+	 * if the results are not visible.
+	 * 
+	 * @param childId The specified course element ident
+	 * @return true/false never null
 	 */
 	public Boolean evalPassedOfCourseNode(String childId) {
 		CourseNode foundNode = findChildByID(childId);
@@ -332,6 +434,11 @@ public class ScoreAccounting {
 		ScoreEvaluation se = evalCourseNode(acn);
 		if (se == null) { // the node could not provide any sensible information on scoring. e.g. a STNode with no calculating rules
 			log.error("could not evaluate node '" + acn.getShortTitle() + "' (" + acn.getClass().getName() + "," + childId + ")", null);
+			return Boolean.FALSE;
+		}
+		// check if the results are visible
+		if(se.getUserVisible() != null && !se.getUserVisible().booleanValue()) {
+			return Boolean.FALSE;
 		}
 		Boolean passed = se.getPassed();
 		if (passed == null) { // a child has no "Passed" yet
@@ -349,6 +456,32 @@ public class ScoreAccounting {
 	 */
 	public boolean isError() {
 		return error;
+	}
+	
+	private static class LastModifications {
+		
+		private Date lastUserModified;
+		private Date lastCoachModified;
+		
+		public Date getLastUserModified() {
+			return lastUserModified;
+		}
+		
+		public void addLastUserModified(Date date) {
+			if(date != null && (lastUserModified == null || lastUserModified.before(date))) {
+				lastUserModified = date;
+			}
+		}
+		
+		public Date getLastCoachModified() {
+			return lastCoachModified;
+		}
+		
+		public void addLastCoachModified(Date date) {
+			if(date != null && (lastCoachModified == null || lastCoachModified.before(date))) {
+				lastCoachModified = date;
+			}
+		}
 	}
 }
 

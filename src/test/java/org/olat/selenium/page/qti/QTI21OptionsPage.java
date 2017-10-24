@@ -19,7 +19,7 @@
  */
 package org.olat.selenium.page.qti;
 
-import org.olat.ims.qti21.QTI21DeliveryOptions.ShowResultsOnFinish;
+import org.olat.ims.qti21.QTI21AssessmentResultsOptions;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -39,15 +39,46 @@ public class QTI21OptionsPage {
 		this.browser = browser;
 	}
 	
-	public QTI21OptionsPage showResults(Boolean show, ShowResultsOnFinish level) {
+	public QTI21OptionsPage showResults(Boolean show, QTI21AssessmentResultsOptions options) {
 		By showResultsBy = By.cssSelector("div.o_sel_qti_show_results input[type='checkbox']");
 		WebElement showResultsEl = browser.findElement(showResultsBy);
 		OOGraphene.check(showResultsEl, show);
 		OOGraphene.waitBusy(browser);
 		
-		By resultsLevelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='radio'][value='" + level + "']");
+		By resultsLevelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox']");
 		OOGraphene.waitElement(resultsLevelBy, 5, browser);
-		browser.findElement(resultsLevelBy).click();
+
+		if(options.isMetadata()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='metadata']");
+			browser.findElement(levelBy).click();
+		}
+		if(options.isSectionSummary()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='sectionsSummary']");
+			browser.findElement(levelBy).click();
+		}
+		if(options.isQuestionSummary()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='questionSummary']");
+			browser.findElement(levelBy).click();
+		}
+		if(options.isQuestions()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='questions']");
+			browser.findElement(levelBy).click();
+		}
+		if(options.isUserSolutions()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='userSolutions']");
+			browser.findElement(levelBy).click();
+		}
+		if(options.isCorrectSolutions()) {
+			By levelBy = By.cssSelector("div.o_sel_qti_show_results_options input[type='checkbox'][value='correctSolutions']");
+			browser.findElement(levelBy).click();
+		}
+		return this;
+	}
+	
+	public QTI21OptionsPage enableSuspend() {
+		By suspendBy = By.cssSelector(".o_sel_qti_enable_suspend input[type='checkbox']");
+		WebElement suspendEl = browser.findElement(suspendBy);
+		OOGraphene.check(suspendEl, Boolean.TRUE);
 		return this;
 	}
 	

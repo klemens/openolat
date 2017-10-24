@@ -21,7 +21,6 @@ package org.olat.selenium.page.course;
 
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
@@ -35,13 +34,8 @@ import org.openqa.selenium.WebElement;
  *
  */
 public class AssessmentCEConfigurationPage {
-	
-	@Drone
-	private WebDriver browser;
-	
-	public AssessmentCEConfigurationPage() {
-		//
-	}
+
+	private final WebDriver browser;
 	
 	public AssessmentCEConfigurationPage(WebDriver browser) {
 		this.browser = browser;
@@ -77,9 +71,7 @@ public class AssessmentCEConfigurationPage {
 		cutValEl.sendKeys(Float.toString(cutVal));
 		
 		By saveBy = By.cssSelector(".o_sel_course_ms_form button.btn.btn-primary");
-		browser.findElement(saveBy).click();
-		OOGraphene.waitBusy(browser);
-		
+		OOGraphene.click(saveBy, browser);
 		return this;
 	}
 	

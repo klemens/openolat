@@ -55,6 +55,7 @@ public class CSVToAssessmentItemConverter {
 	
 	private static final OLog log = Tracing.createLoggerFor(CSVToAssessmentItemConverter.class);
 
+	private int currentLine;
 	private int kprimPosition = 0;
 	private ImportOptions options;
 	private final QtiSerializer qtiSerializer;
@@ -70,10 +71,16 @@ public class CSVToAssessmentItemConverter {
 		return items;
 	}
 	
+	public int getCurrentLine() {
+		return currentLine;
+	}
+	
 	public void parse(String input) {
 		String[] lines = input.split("\r?\n");
 		
 		for (int i = 0; i<lines.length; i++) {
+			currentLine = i+1;
+			
 			String line = lines[i];
 			if (line.equals("")) {
 				continue;
@@ -287,7 +294,7 @@ public class CSVToAssessmentItemConverter {
 			AssessmentItemBuilder itemBuilder;
 			switch(type) {
 				case "fib": {
-					FIBAssessmentItemBuilder fibItemBuilder = new FIBAssessmentItemBuilder(EntryType.text, qtiSerializer);
+					FIBAssessmentItemBuilder fibItemBuilder = new FIBAssessmentItemBuilder("Gap text", EntryType.text, qtiSerializer);
 					fibItemBuilder.setQuestion("");
 					fibItemBuilder.clearTextEntries();
 					fibItemBuilder.setScoreEvaluationMode(ScoreEvaluation.perAnswer);
@@ -295,7 +302,7 @@ public class CSVToAssessmentItemConverter {
 					break;
 				}
 				case "mc": {
-					MultipleChoiceAssessmentItemBuilder mcItemBuilder = new MultipleChoiceAssessmentItemBuilder(qtiSerializer);
+					MultipleChoiceAssessmentItemBuilder mcItemBuilder = new MultipleChoiceAssessmentItemBuilder("Multiple choice", "New answer", qtiSerializer);
 					mcItemBuilder.clearSimpleChoices();
 					mcItemBuilder.clearMapping();
 					mcItemBuilder.setShuffle(options.isShuffle());
@@ -304,7 +311,7 @@ public class CSVToAssessmentItemConverter {
 					break;
 				}
 				case "sc": {
-					SingleChoiceAssessmentItemBuilder scItemBuilder = new SingleChoiceAssessmentItemBuilder(qtiSerializer);
+					SingleChoiceAssessmentItemBuilder scItemBuilder = new SingleChoiceAssessmentItemBuilder("Single choice", "New answer", qtiSerializer);
 					scItemBuilder.clearSimpleChoices();
 					scItemBuilder.clearMapping();
 					scItemBuilder.setShuffle(options.isShuffle());
@@ -314,7 +321,7 @@ public class CSVToAssessmentItemConverter {
 				}
 				case "kprim": {
 					kprimPosition = 0;
-					KPrimAssessmentItemBuilder kprimItemBuilder = new KPrimAssessmentItemBuilder(qtiSerializer);
+					KPrimAssessmentItemBuilder kprimItemBuilder = new KPrimAssessmentItemBuilder("Kprim", "New answer", qtiSerializer);
 					itemBuilder = kprimItemBuilder;
 					break;
 				}

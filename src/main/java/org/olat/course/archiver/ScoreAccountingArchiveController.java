@@ -62,13 +62,15 @@ public class ScoreAccountingArchiveController extends BasicController {
 	private VelocityContainer myContent;
 	private VelocityContainer vcFeedback;
 	private Link startButton, downloadButton;
+	
 
 	/**
 	 * Constructor for the score accounting archive controller
 	 * @param ureq
 	 * @param course
 	 */
-	public ScoreAccountingArchiveController(UserRequest ureq, WindowControl wControl, OLATResourceable ores) {
+	public ScoreAccountingArchiveController(UserRequest ureq, WindowControl wControl, 
+			OLATResourceable ores) {
 		super(ureq, wControl);
 		this.ores = ores;
 

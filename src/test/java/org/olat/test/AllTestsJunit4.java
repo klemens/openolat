@@ -20,7 +20,7 @@
 * <a href="http://www.openolat.org">
 * OpenOLAT - Online Learning and Training</a><br>
 * This file has been modified by the OpenOLAT community. Changes are licensed
-* under the Apache 2.0 license as the original file.  
+* under the Apache 2.0 license as the original file.
 * <p>
 */
 package org.olat.test;
@@ -40,7 +40,7 @@ package org.olat.test;
 
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
- 
+
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
 	org.olat.core.util.i18n.I18nTest.class,
@@ -69,6 +69,7 @@ import org.junit.runners.Suite;
 	org.olat.core.util.mail.manager.MailManagerTest.class,
 	org.olat.core.util.openxml.OpenXmlWorkbookTest.class,
 	org.olat.core.util.openxml.OpenXMLDocumentTest.class,
+	org.olat.core.util.xml.XMLDigitalSignatureUtilTest.class,
 	org.olat.core.id.context.BusinessControlFactoryTest.class,
 	org.olat.core.id.context.HistoryManagerTest.class,
 	org.olat.core.id.IdentityEnvironmentTest.class,
@@ -93,6 +94,7 @@ import org.junit.runners.Suite;
 	org.olat.core.commons.services.webdav.manager.DigestAuthenticationTest.class,
 	org.olat.core.commons.services.webdav.manager.WebDAVManagerTest.class,
 	org.olat.core.commons.services.webdav.servlets.RequestUtilsTest.class,
+	org.olat.core.commons.services.sms.manager.MessageLogDAOTest.class,
 	org.olat.core.commons.services.taskexecutor.PersistentTaskDAOTest.class,
 	org.olat.core.commons.services.taskexecutor.TaskExecutorManagerTest.class,
 	org.olat.admin.user.delete.service.UserDeletionManagerTest.class,
@@ -131,6 +133,7 @@ import org.junit.runners.Suite;
 	org.olat.instantMessaging.InstantMessageServiceTest.class,
 	org.olat.course.condition.ConditionTest.class,
 	org.olat.course.condition.KeyAndNameConverterTest.class,
+	org.olat.course.highscore.HighScoreManagerTest.class,
 	org.olat.course.nodes.en.EnrollmentManagerSerialTest.class,
 	org.olat.course.nodes.en.EnrollmentManagerConcurrentTest.class,
 	org.olat.course.nodes.gta.manager.GTAManagerTest.class,
@@ -139,6 +142,11 @@ import org.junit.runners.Suite;
 	org.olat.course.assessment.AssessmentManagerTest.class,
 	org.olat.course.assessment.manager.UserCourseInformationsManagerTest.class,
 	org.olat.course.assessment.manager.AssessmentModeManagerTest.class,
+	org.olat.course.statistic.DailyStatisticUpdateManagerTest.class,
+	org.olat.course.statistic.DayOfWeekStatisticUpdateManagerTest.class,
+	org.olat.course.statistic.HourOfDayStatisticUpdateManagerTest.class,
+	org.olat.course.statistic.SimpleStatisticInfoHelperTest.class,
+	org.olat.course.statistic.WeeklyStatisticUpdateManagerTest.class,
 	org.olat.modules.assessment.manager.AssessmentEntryDAOTest.class,
 	org.olat.course.certificate.manager.CertificatesManagerTest.class,
 	org.olat.course.config.CourseConfigManagerImplTest.class,
@@ -166,10 +174,22 @@ import org.junit.runners.Suite;
 	org.olat.modules.portfolio.manager.SharedWithMeQueriesTest.class,
 	org.olat.modules.portfolio.manager.PortfolioServiceTest.class,
 	org.olat.modules.portfolio.manager.BinderUserInformationsDAOTest.class,
+	org.olat.modules.lecture.manager.LectureBlockDAOTest.class,
+	org.olat.modules.lecture.manager.LectureBlockRollCallDAOTest.class,
+	org.olat.modules.lecture.manager.LectureParticipantSummaryDAOTest.class,
+	org.olat.modules.lecture.manager.LectureServiceTest.class,
+	org.olat.modules.lecture.manager.ReasonDAOTest.class,
+	org.olat.modules.lecture.manager.LectureBlockReminderDAOTest.class,
+	org.olat.modules.lecture.manager.RepositoryEntryLectureConfigurationDAOTest.class,
+	org.olat.modules.lecture.manager.LectureBlockAuditLogDAOTest.class,
 	org.olat.modules.reminder.ReminderModuleTest.class,
 	org.olat.modules.reminder.manager.ReminderDAOTest.class,
 	org.olat.modules.reminder.manager.ReminderRuleEngineTest.class,
 	org.olat.modules.video.manager.VideoTranscodingDAOTest.class,
+	org.olat.modules.video.manager.VideoMetadataDAOTest.class,
+	org.olat.modules.webFeed.manager.FeedDAOTest.class,
+	org.olat.modules.webFeed.manager.ItemDAOTest.class,
+	org.olat.modules.webFeed.manager.FeedFileStorgeTest.class,
 	org.olat.properties.PropertyTest.class,
 	org.olat.search.service.document.file.FileDocumentFactoryTest.class,
 	org.olat.search.service.indexer.repository.course.SPCourseNodeIndexerTest.class,
@@ -196,16 +216,20 @@ import org.junit.runners.Suite;
 	org.olat.ims.qti21.model.xml.AssessmentItemBuilderTest.class,
 	org.olat.ims.qti21.model.xml.MultipleChoiceAssessmentItemBuilderTest.class,
 	org.olat.ims.qti21.model.xml.SingleChoiceAssessmentItemBuilderTest.class,
-	
+	org.olat.ims.qti21.model.xml.HottextAssessmentItemBuilderTest.class,
 	org.olat.ims.qti21.model.xml.AssessmentHtmlBuilderTest.class,
 	org.olat.ims.qti21.model.xml.AssessmentItemPackageTest.class,
 	org.olat.ims.qti21.model.xml.ManifestPackageTest.class,
 	org.olat.ims.qti21.pool.QTI12To21ConverterTest.class,
+	org.olat.ims.qti21.pool.QTI12To21HtmlHandlerTest.class,
 	org.olat.ims.qti21.pool.QTI21QPoolServiceProviderTest.class,
 	org.olat.ims.qti21.repository.handlers.QTI21AssessmentTestHandlerTest.class,
-	org.olat.ims.qti21.model.xml.OnyxToQtiAssessementItemsTest.class,
+	org.olat.ims.qti21.model.xml.Onyx38ToQtiWorksAssessementItemsTest.class,
+	org.olat.ims.qti21.model.xml.OnyxToQtiWorksAssessementItemsTest.class,
+	org.olat.ims.qti21.model.xml.OnyxToQtiWorksAssessementTestsTest.class,
+	org.olat.ims.qti21.model.xml.OpenOLATAssessementItemsTest.class,
+	org.olat.ims.qti21.model.xml.QTI21ExplorerHandlerTest.class,
 	org.olat.ims.lti.LTIManagerTest.class,
-	org.olat.modules.webFeed.FeedManagerImplTest.class,
 	org.olat.modules.qpool.manager.MetadataConverterHelperTest.class,
 	org.olat.modules.qpool.manager.QuestionDAOTest.class,
 	org.olat.modules.qpool.manager.FileStorageTest.class,
@@ -222,10 +246,10 @@ import org.junit.runners.Suite;
 	org.olat.core.commons.services.mark.MarksTest.class,
 	org.olat.test.SpringInitDestroyVerficationTest.class,
 	//org.olat.course.statistic.weekly.TestWeeklyStatisticManager_fillGaps.class, don't know what it tests
-	org.olat.core.commons.services.commentAndRating.UserCommentsTest.class,
-	org.olat.core.commons.services.commentAndRating.UserRatingsDAOTest.class,
+	org.olat.core.commons.services.commentAndRating.manager.UserCommentsDAOTest.class,
+	org.olat.core.commons.services.commentAndRating.manager.UserRatingsDAOTest.class,
 	org.olat.course.auditing.UserNodeAuditManagerTest.class,
-	org.olat.shibboleth.util.ShibbolethAttributeTest.class,
+	org.olat.shibboleth.handler.SpringShibbolethAttributeHandlerFactoryTest.class,
 	org.olat.core.CoreSpringFactoryTest.class,
 	org.olat.portfolio.PortfolioModuleTest.class,
 	org.olat.portfolio.EPArtefactManagerTest.class,
@@ -266,6 +290,9 @@ import org.junit.runners.Suite;
 	org.olat.restapi.GroupMgmtTest.class,
 	org.olat.restapi.I18nTest.class,
 	org.olat.restapi.MyForumsTest.class,
+	org.olat.restapi.LecturesBlocksTest.class,
+	org.olat.restapi.LecturesBlocksRootTest.class,
+	org.olat.restapi.LecturesBlockRollCallTest.class,
 	org.olat.restapi.NotificationsTest.class,
 	org.olat.restapi.NotificationsSubscribersTest.class,
 	org.olat.restapi.RepositoryEntryLifecycleTest.class,
@@ -276,6 +303,7 @@ import org.junit.runners.Suite;
 	org.olat.restapi.UserCoursesTest.class,
 	org.olat.restapi.UserMgmtTest.class,
 	org.olat.restapi.ContactsTest.class,
+	org.olat.restapi.SharedFolderTest.class,
 	org.olat.restapi.SystemTest.class,
 	org.olat.restapi.ChangePasswordTest.class,
 	org.olat.restapi.RegistrationTest.class,
@@ -289,17 +317,37 @@ import org.junit.runners.Suite;
 	org.olat.resource.accesscontrol.ACOrderManagerTest.class,
 	org.olat.resource.accesscontrol.ACTransactionManagerTest.class,
 	org.olat.resource.accesscontrol.ACReservationDAOTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.AdvanceOrderDAOTest.class,
 	org.olat.core.util.vfs.version.VersionManagerTest.class,
 	/**
 	 * Pure JUnit test without need of framework
 	 */
+	org.olat.core.commons.services.commentAndRating.manager.CommentAndRatingServiceImplTest.class,
+	org.olat.core.gui.components.form.flexible.impl.elements.richText.TextModeTest.class,
+	org.olat.core.gui.components.form.flexible.impl.elements.TextElementRendererTest.class,
+	org.olat.modules.card2brain.manager.Card2BrainManagerImplTest.class,
 	org.olat.modules.fo.WordCountTest.class,
+	org.olat.modules.webFeed.manager.FeedManagerImplTest.class,
+	org.olat.modules.webFeed.manager.RomeFeedFetcherTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.AutoAccessManagerImplTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.ExternalIdHandlerTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.ExternalRefHandlerTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.IdentifierHandlerTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.InputValidatorTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.InternalIdHandlerTest.class,
+	org.olat.resource.accesscontrol.provider.auto.manager.SemicolonSplitterTest.class,
+	org.olat.shibboleth.manager.DifferenceCheckerTest.class,
+	org.olat.shibboleth.manager.ShibbolethAttributesTest.class,
+	org.olat.shibboleth.manager.ShibbolethManagerImplTest.class,
+	org.olat.shibboleth.handler.DoNothingHandlerTest.class,
+	org.olat.shibboleth.handler.FirstValueHandlerTest.class,
+	org.olat.shibboleth.handler.SchacGenderHandlerTest.class,
 	/**
-	 * 
+	 *
 	 * Place tests which load their own Spring context
-	 * with @ContextConfiguration below the others as they may taint the 
+	 * with @ContextConfiguration below the others as they may taint the
 	 * cached Spring context
-	 * 
+	 *
 	 * IMPORTANT: If you create mock spring contexts in the test source tree of olatcore and
 	 * you like to use them in olat3 you have to copy them to the test source tree of olat3
 	 * as well as the tests on hudson run agains a jar version of olatcore where the test source

@@ -22,12 +22,30 @@
 				</tr> 
 				<tr class="o_score">
 					<th>$r.translate("score.yourscore")</th>
-					<td>$score</td> 
+					<td>
+					#if($r.isNotNull($score))
+						#if($resultsVisible)
+							$score
+						#else
+							<span id="o_score_in_review" class="o_in_review">
+								<i class="o_icon o_icon-fw o_icon_warn"> </i>
+								$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+							</span>
+							$r.mouseoverHelp("o_score_in_review", "assessment.review.explanation")
+						#end
+					#end
+					</td> 
 				</tr> 
-				<tr class="o_state #if ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
+				<tr class="o_state #if(!$resultsVisible) #elseif ($hasPassedValue && $passed) o_passed #elseif($hasPassedValue && !$passed) o_failed #else o_unknown #end">
 					<th>$r.translate("passed.yourpassed")</th>
 					<td>
-					#if($hasPassedValue && $passed)	
+					#if($hasPassedValue && !$resultsVisible)
+						<span id="o_passed_in_review" class="o_in_review">
+							<i class="o_icon o_icon-fw o_icon_warn"> </i>
+							$r.translateWithPackage("org.olat.course.nodes.ms", "in.review")
+						</span>
+						$r.mouseoverHelp("o_passed_in_review", "assessment.review.explanation")
+					#elseif($hasPassedValue && $passed)	
 						<i class="o_icon o_icon_passed"></i> 
 						$r.translate("passed.yes")
 					#elseif($hasPassedValue && !$passed)		
@@ -42,30 +60,61 @@
 			</table>
 		</div>
 	
-		#if ($comment)		
+		#if ($r.isNotEmpty($comment))		
 		<div class="panel panel-default o_comment">
 		  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseComment">
 	  			<h4 class="panel-title">
-	  				<i id="collapseCommentsToggler" class="o_icon o_icon-fw o_icon_close_togglebox"> </i>
+	  				<i id="collapseCommentsToggler" class="o_icon o_icon-fw #if($r.isTrue($in-comment)) o_icon_close_togglebox #else o_icon_open_togglebox #end"> </i>
 	  				$r.translate("comment.yourcomment")
 	  			</h4>
 	  		</div>
-		<div id="collapseComment" class="panel-collapse collapse in"><div class="panel-body">
+			<div id="collapseComment" class="panel-collapse collapse #if($r.isTrue($in-comment)) in #end"><div class="panel-body">
 				$comment
-	  		</div>
-		</div></div>
+	  		</div></div>
+	  	</div>
 		<script type="text/javascript">
 			/* <![CDATA[ */
 				jQuery('#collapseComment').on('hide.bs.collapse', function () {
-						jQuery('#collapseCommentsToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+					jQuery('#collapseCommentsToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+					$r.backgroundCommand("hide","panel","comment")
 				})
 				jQuery('#collapseComment').on('show.bs.collapse', function () {
-						jQuery('#collapseCommentsToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+					jQuery('#collapseCommentsToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+					$r.backgroundCommand("show","panel","comment")
 				})
 			/* ]]> */
 		</script>
 		#end
-
+		
+		#if ($r.isNotEmpty($docs))
+		<div class="panel panel-default o_assessment_docs">
+		  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseAssessmentDocuments">
+		  		<h4 class="panel-title">
+		  			<i id="collapseAssessmentDocumentsToggler" class="o_icon o_icon-fw #if($r.isTrue($in-assessmentDocuments)) o_icon_close_togglebox #else o_icon_open_togglebox #end"> </i>
+		  			$r.translate("assessment.documents.title")
+		  		</h4>
+		  	</div>
+			<div id="collapseAssessmentDocuments" class="panel-collapse collapse #if($r.isTrue($in-assessmentDocuments)) in #end"><div class="panel-body">
+				<ul class="list-unstyled">
+				#foreach($doc in $docs)
+					<li><a href="$docsMapperUri/$doc.name" target="_blank"><i class="o_icon o_icon-fw $r.getFiletypeIconCss($doc.name)"> </i> $r.escapeHtml($doc.name) ($r.formatBytes(${doc.length()}))</a></li>
+				#end
+				</ul>
+	  		</div></div>
+		</div>
+		<script type="text/javascript">
+			/* <![CDATA[ */
+				jQuery('#collapseAssessmentDocuments').on('hide.bs.collapse', function () {
+					jQuery('#collapseAssessmentDocumentsToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+					$r.backgroundCommand("hide","panel","assessmentDocuments")
+				})
+				jQuery('#collapseAssessmentDocuments').on('show.bs.collapse', function () {
+					jQuery('#collapseAssessmentDocumentsToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+					$r.backgroundCommand("show","panel","assessmentDocuments")
+				})
+			/* ]]> */
+		</script>
+		#end
 	#else
 		<div class="o_no_scoreinfo">
 			$r.translate("score.noscoreinfoyet")
@@ -80,16 +129,19 @@
 		</div>
 	#end
 #end
+#if ($r.available("highScore"))
+	$r.render("highScore")
+#end
 	
 #if($showResultsOnHomePage && $attempts >0)	
 	<div class="panel panel-default o_results">
 	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseResults">
 	  		<h4 class="panel-title">
-	  			<i id="collapseResultsToggler" class="o_icon o_icon-fw o_icon_close_togglebox"> </i>	  	
+	  			<i id="collapseResultsToggler" class="o_icon o_icon-fw #if($r.isTrue($in-results)) o_icon_close_togglebox #else o_icon_open_togglebox #end"> </i>	  	
 		  		$r.translate("showResults.title")
 		  	</h4>
 	  	</div>
-		<div id="collapseResults" class="panel-collapse collapse in"><div class="panel-body">
+		<div id="collapseResults" class="panel-collapse collapse #if($r.isTrue($in-results)) in #end"><div class="panel-body">
 		  	#if($showResultsVisible)
 				#if ($showResults)
 					$r.render("command.hideResults")					  				  
@@ -113,10 +165,12 @@
 	<script type="text/javascript">
 		/* <![CDATA[ */
 			jQuery('#collapseResults').on('hide.bs.collapse', function () {
-					jQuery('#collapseResultsToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+				jQuery('#collapseResultsToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+				$r.backgroundCommand("hide","panel","results")
 			})
 			jQuery('#collapseResults').on('show.bs.collapse', function () {
-					jQuery('#collapseResultsToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+				jQuery('#collapseResultsToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+				$r.backgroundCommand("show","panel","results")
 			})
 		/* ]]> */
 	</script>
@@ -131,13 +185,25 @@
 	<div class="panel panel-default o_disclaimer">
 	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseDisclaimer">
 	  		<h4 class="panel-title">
-	  			<i id="collapseDisclaimerToggler" class="o_icon o_icon-fw o_icon_close_togglebox"> </i>
+	  			<i id="collapseDisclaimerToggler" class="o_icon o_icon-fw #if($r.isTrue($in-disclaimer)) o_icon_close_togglebox #else o_icon_open_togglebox #end"> </i>
 	  			$r.translate("disclaimer")
 	  		</h4>
 	  	</div>
-	  	<div id="collapseDisclaimer" class="panel-collapse collapse in"><div class="panel-body">
+	  	<div id="collapseDisclaimer" class="panel-collapse collapse #if($r.isTrue($in-disclaimer)) in #end"><div class="panel-body">
 		$r.render("disc")
   		</div></div>
+  		<script type="text/javascript">
+		/* <![CDATA[ */
+			jQuery('#collapseDisclaimer').on('hide.bs.collapse', function () {
+				jQuery('#collapseDisclaimerToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+				$r.backgroundCommand("hide","panel","disclaimer")
+			})
+			jQuery('#collapseDisclaimer').on('show.bs.collapse', function () {
+				jQuery('#collapseDisclaimerToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+				$r.backgroundCommand("show","panel","disclaimer")
+			})
+		/* ]]> */
+		</script>
 	</div>
 	#end
 #else
@@ -145,16 +211,28 @@
 	<div class="panel panel-default o_disclaimer">
 	  	<div class="panel-heading" data-toggle="collapse" data-target="#collapseDisclaimer">
 	  		<h4 class="panel-title">
-	  			<i id="collapseDisclaimerToggler" class="o_icon o_icon-fw o_icon_close_togglebox"> </i>
+	  			<i id="collapseDisclaimerToggler" class="o_icon o_icon-fw #if($r.isTrue($in-disclaimer)) o_icon_close_togglebox #else o_icon_open_togglebox #end"> </i>
 	  			$r.translate("disclaimer")
 	  		</h4>
 	  	</div>
-	  	<div id="collapseDisclaimer" class="panel-collapse collapse in"><div class="panel-body">
+	  	<div id="collapseDisclaimer" class="panel-collapse collapse #if($r.isTrue($in-disclaimer)) in #end"><div class="panel-body">
 		$r.render("disc")
   		</div></div>
+ 		<script type="text/javascript">
+		/* <![CDATA[ */
+			jQuery('#collapseDisclaimer').on('hide.bs.collapse', function () {
+				jQuery('#collapseDisclaimerToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+				$r.backgroundCommand("hide","panel","disclaimer")
+			})
+			jQuery('#collapseDisclaimer').on('show.bs.collapse', function () {
+				jQuery('#collapseDisclaimerToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+				$r.backgroundCommand("show","panel","disclaimer")
+			})
+		/* ]]> */
+		</script>
 	</div>
 	#end
-		
+	#if ($infobox)		
 	<div class="o_statusinfo">
 		<p>
 		$r.translate("Intro.test")
@@ -168,7 +246,7 @@
 		</p>
 		#end
 	</div>
-		
+	#end		
 	<div class="o_button_group">
 		$r.render("start")
 	</div>
@@ -184,23 +262,25 @@
 			})
 		/* ]]> */
 	</script>
-
-#if ($log && $showChangelog)
-<div class="o_box">
-    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
-    <pre class="small">
+	
+#if ($changelogconfig)
+	#if ($log && $showChangelog)
+	<div class="o_box">
+	    #o_togglebox_start("o_course_run_log" $r.translate("log.title"))
+	    <pre class="small">
 $log
-    </pre>
-    #o_togglebox_end()
-</div>    
-#end
-    
-#if($changeLog)
-<div class="o_box">
-    #o_togglebox_start("o_course_run_changelog" $r.translate("changelog.title"))
-    <pre class="small">
+	    </pre>
+	    #o_togglebox_end()
+	</div>    
+	#end
+	    
+	#if($changeLog)
+	<div class="o_box">
+	    #o_togglebox_start("o_course_run_changelog" $r.translate("changelog.title"))
+	    <pre class="small">
 $changeLog
-    </pre>
-    #o_togglebox_end()
-</div>
+	    </pre>
+	    #o_togglebox_end()
+	</div>
+	#end
 #end

@@ -50,6 +50,9 @@ public class QTI21AssessableResource extends AssessableResource {
 		Controller resetToolCtrl = new QTI21ResetToolController(ureq, wControl, entry, options);
 		List<Controller> toolsCtrl = new ArrayList<>(1);
 		toolsCtrl.add(resetToolCtrl);
+		
+		Controller retrieveToolCtrl = new QTI21RetrieveTestsToolController(ureq, wControl, entry, options);
+		toolsCtrl.add(retrieveToolCtrl);
 		return toolsCtrl;
 	}
 }

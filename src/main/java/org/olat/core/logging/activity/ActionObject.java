@@ -82,6 +82,7 @@ public enum ActionObject {
 	resource,
 	rights,
 	rightsempty,
+	search,
 	sharedfolder,
 	spgetfile,
 	statistic,
@@ -94,6 +95,8 @@ public enum ActionObject {
 	tools,
 	toolsempty,
 	waitingperson,
-	bulkassessment;
+	bulkassessment,
+	lectures,
+	lecturesRollcall;
 
 }

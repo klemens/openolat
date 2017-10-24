@@ -27,6 +27,7 @@ import org.olat.selenium.page.core.CalendarPage;
 import org.olat.selenium.page.core.ContactPage;
 import org.olat.selenium.page.core.FolderPage;
 import org.olat.selenium.page.core.IMPage;
+import org.olat.selenium.page.course.InfoMessageCEPage;
 import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.portfolio.BinderPage;
@@ -144,10 +145,10 @@ public class GroupPage {
 		return this;
 	}
 	
-	public GroupPage openNews() {
+	public InfoMessageCEPage openNews() {
 		openMenuItem(newsTool);
-		OOGraphene.waitElement(By.id("o_msg_info"), 5, browser);
-		return this;
+		OOGraphene.waitElement(By.className("o_infomsg"), 5, browser);
+		return new InfoMessageCEPage(browser);
 	}
 	
 	public FolderPage openFolder() {
@@ -186,9 +187,9 @@ public class GroupPage {
 	 * @return
 	 */
 	public String getGroupURL() {
-		By urlBy = By.cssSelector("p.o_sel_group_url");
+		By urlBy = By.cssSelector("p.o_sel_group_url input");
 		WebElement urlEl = browser.findElement(urlBy);
-		String url = urlEl.getText();
+		String url = urlEl.getAttribute("value");
 		return url;
 	}
 	
@@ -223,8 +224,11 @@ public class GroupPage {
 	}
 	
 	public GroupPage setWaitingList() {
-		By waitingListBy = By.cssSelector(".o_sel_group_edit_waiting_list input[type='checkbox']");
-		browser.findElement(waitingListBy).click();
+		By waitingListBy = By.xpath("//div[contains(@class,'o_sel_group_edit_waiting_list')]//label[input[@type='checkbox']]");
+		By waitingListCheckBy = By.xpath("//div[contains(@class,'o_sel_group_edit_waiting_list')]//input[@type='checkbox']");
+		WebElement waitingListEl = browser.findElement(waitingListBy);
+		WebElement waitingListCheckEl = browser.findElement(waitingListCheckBy);
+		OOGraphene.check(waitingListEl, waitingListCheckEl, Boolean.TRUE);
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
@@ -268,15 +272,6 @@ public class GroupPage {
 		checkToolEl.click();
 		OOGraphene.waitBusy(browser);
 		OOGraphene.waitElement(tool.getMenuItemBy(), 2, browser);
-		return this;
-	}
-	
-	public GroupPage setMembersInfos(String text) {		
-		OOGraphene.tinymce(text, browser);
-		
-		By submitBy = By.cssSelector(".o_sel_collaboration_news_save button.btn-primary");
-		browser.findElement(submitBy).click();
-		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -334,22 +329,22 @@ public class GroupPage {
 	}
 	
 	public GroupPage assertParticipantList() {
-		By participantListBy = By.id("o_sel_group_participants");
+		By participantListBy = By.className("o_sel_participants");
 		List<WebElement> participantListEl = browser.findElements(participantListBy);
 		Assert.assertFalse(participantListEl.isEmpty());
 		return this;
 	}
 	
 	public GroupPage assertMembersInOwnerList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_coaches");
+		return assertMembers(owner, "o_sel_coaches");
 	}
 	
 	public GroupPage assertMembersInParticipantList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_participants");
+		return assertMembers(owner, "o_sel_participants");
 	}
 	
 	public GroupPage assertMembersInWaitingList(UserVO owner) {
-		return assertMembers(owner, "o_sel_group_waiting_list");
+		return assertMembers(owner, "o_sel_waiting_list");
 	}
 	
 	private GroupPage assertMembers(UserVO member, String cssClass) {
@@ -359,20 +354,20 @@ public class GroupPage {
 	}
 	
 	public boolean isInMembersOwnerList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_coaches");
+		return isMembers(owner, "o_sel_coaches");
 	}
 	
 	public boolean isInMembersParticipantList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_participants");
+		return isMembers(owner, "o_sel_participants");
 	}
 	
 	public boolean isInMembersInWaitingList(UserVO owner) {
-		return isMembers(owner, "o_sel_group_waiting_list");
+		return isMembers(owner, "o_sel_waiting_list");
 	}
 	
 	private boolean isMembers(UserVO member, String cssClass) {
 		String firstName = member.getFirstName();
-		By longBy = By.xpath("//div[@id='" + cssClass + "']//table//tr//td//a[contains(text(),'" + firstName + "')]");
+		By longBy = By.xpath("//div[contains(@class,'" + cssClass + "')]//div[contains(@class,'o_cmember_info_wrapper')]/a/span[contains(text(),'" + firstName + "')]");
 		List<WebElement> elements = browser.findElements(longBy);
 		return elements.size() > 0;
 	}

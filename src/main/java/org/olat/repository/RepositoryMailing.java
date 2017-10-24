@@ -25,6 +25,7 @@ import org.apache.velocity.VelocityContext;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.helpers.Settings;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
@@ -60,7 +61,7 @@ public class RepositoryMailing {
 	}
 	
 	/**
-	 * The mail template when adding users to a group.
+	 * The mail template when adding users to a course.
 	 * 
 	 * @param re
 	 * @param actor
@@ -73,13 +74,26 @@ public class RepositoryMailing {
 	}
 	
 	/**
-	 * The mail template when adding tutors to a group.
+	 * The mail template when adding tutors to a course.
 	 * 
 	 * @param re
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
 	private static MailTemplate createAddTutorMailTemplate(RepositoryEntry re, Identity actor) {
+		String subjectKey = "notification.mail.added.subject";
+		String bodyKey = "notification.mail.added.body";
+		return createMailTemplate(re, actor, subjectKey, bodyKey);
+	}
+	
+	/**
+	 * The mail template when adding owner to a course.
+	 * 
+	 * @param re
+	 * @param actor
+	 * @return the generated MailTemplate
+	 */
+	private static MailTemplate createAddOwnerMailTemplate(RepositoryEntry re, Identity actor) {
 		String subjectKey = "notification.mail.added.subject";
 		String bodyKey = "notification.mail.added.body";
 		return createMailTemplate(re, actor, subjectKey, bodyKey);
@@ -108,6 +122,8 @@ public class RepositoryMailing {
 				return createRemoveParticipantMailTemplate(re, ureqIdentity);
 			case addTutor:
 				return createAddTutorMailTemplate(re, ureqIdentity);
+			case addOwner:
+				return createAddOwnerMailTemplate(re, ureqIdentity);
 		}
 		return null;
 	}
@@ -160,13 +176,14 @@ public class RepositoryMailing {
 		addParticipant,
 		removeParticipant,
 		addTutor,
+		addOwner
 	}
 	
 	private static MailTemplate createMailTemplate(RepositoryEntry re, Identity actor, String subjectKey, String bodyKey) {
 		// build learning resources as list of url as string
 		final String reName = re.getDisplayname();
 		final String redescription = (StringHelper.containsNonWhitespace(re.getDescription()) ? FilterFactory.getHtmlTagAndDescapingFilter().filter(re.getDescription()) : ""); 
-
+		final String reUrl = Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + re.getKey();
 		// get some data about the actor and fetch the translated subject / body via i18n module
 		String[] bodyArgs = new String[] {
 				actor.getUser().getProperty(UserConstants.FIRSTNAME, null),
@@ -180,6 +197,8 @@ public class RepositoryMailing {
 		String subject = trans.translate(subjectKey);
 		String body = trans.translate(bodyKey, bodyArgs);
 		
+		
+		
 		// create a mail template which all these data
 		MailTemplate mailTempl = new MailTemplate(subject, body, null) {
 			@Override
@@ -192,6 +211,7 @@ public class RepositoryMailing {
 				// Put variables from greater context
 				context.put("coursename", reName);
 				context.put("coursedescription", redescription);
+				context.put("courseurl", reUrl);
 			}
 		};
 		return mailTempl;

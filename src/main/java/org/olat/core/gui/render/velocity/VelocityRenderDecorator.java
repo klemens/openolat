@@ -56,7 +56,6 @@ import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.WebappHelper;
-import org.olat.core.util.filter.Filter;
 import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.filter.impl.OWASPAntiSamyXSSFilter;
 import org.olat.core.util.i18n.I18nManager;
@@ -197,6 +196,14 @@ public class VelocityRenderDecorator implements Closeable {
 		return "";
 	}
 	
+	public String javaScriptCommand(String command, boolean dirtyCheck, boolean pushState, String key1, String value1, String key2, String value2) {
+		renderer.getUrlBuilder().buildXHREvent(target, null, dirtyCheck, pushState,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command),
+				new NameValuePair(key1, value1),
+				new NameValuePair(key2, value2));
+		return "";
+	}
+	
 	/**
 	 * Creates the start of a java script fragment to execute a background request. It's
 	 * up to you to close the javascript call.
@@ -206,6 +213,12 @@ public class VelocityRenderDecorator implements Closeable {
 	 */
 	public String openJavaScriptCommand(String command) {
 		renderer.getUrlBuilder().openXHREvent(target, null, false, false,
+				new NameValuePair(VelocityContainer.COMMAND_ID, command));
+		return "";
+	}
+	
+	public String openJavaScriptCommand(String command, boolean dirtyCheck, boolean pushState) {
+		renderer.getUrlBuilder().openXHREvent(target, null, dirtyCheck, pushState,
 				new NameValuePair(VelocityContainer.COMMAND_ID, command));
 		return "";
 	}
@@ -344,6 +357,22 @@ public class VelocityRenderDecorator implements Closeable {
 		return sb;
 	}
 	
+	public StringOutput mathJaxCdnFullUrl() {
+		StringOutput sb = new StringOutput(100);
+		if(WebappHelper.getMathJaxCdn().startsWith("http")) {
+			sb.append(WebappHelper.getMathJaxCdn());
+		} else {
+			sb.append("https:").append(WebappHelper.getMathJaxCdn());
+		}
+		return sb;
+	}
+
+	public StringOutput mathJaxConfig() {
+		StringOutput sb = new StringOutput(100);
+		sb.append(WebappHelper.getMathJaxConfig());
+		return sb;
+	}
+	
 	public StringOutput contextPath() {
 		StringOutput sb = new StringOutput(100);
 		sb.append(Settings.getServerContextPath());
@@ -452,6 +481,30 @@ public class VelocityRenderDecorator implements Closeable {
 	}
 
 	/**
+	 * Add some mouse-over help text to an element, ideally an icon
+	 * 
+	 * @param domElem The DOM id of the element that triggers the mouse-over 
+	 * @param i18nKey The text to be displayed (including HTML formatting)
+	 * @param position Optional param, values: top, bottom, left right. Default is "top"
+	 * @return
+	 */
+	public StringOutput mouseoverHelp(String... args) {
+		String domElem = args[0];
+		String i18nKey = args[1];
+		String position = "top"; // default
+		if (args.length > 2 && args[2] != null) {
+			position = args[2];
+		}
+		StringOutput sb = new StringOutput(100);
+		sb.append("<script>jQuery(function () {jQuery('#").append(domElem).append("').tooltip({placement:\"").append(position).append("\",container: \"body\",html:true,title:\"");
+		if (i18nKey != null) {
+			sb.append(StringHelper.escapeJavaScript(translate(i18nKey)));
+		}
+		sb.append("\"});})</script>");
+		return sb;
+	}
+
+	/**
 	 * @param componentName
 	 * @param arg1
 	 * @return
@@ -507,6 +560,14 @@ public class VelocityRenderDecorator implements Closeable {
 	 */
 	public String translate(String key, String arg1) {
 		return translate(key, new String[] {arg1});
+	}
+	
+	public String translate(String key, String arg1, String arg2) {
+		return translate(key, new String[] {arg1, arg2});
+	}
+	
+	public String translate(String key, String arg1, String arg2, String arg3) {
+		return translate(key, new String[] {arg1, arg2, arg3});
 	}
 	
 	public String translate(String key, Integer arg1) {
@@ -670,6 +731,26 @@ public class VelocityRenderDecorator implements Closeable {
 		return sb;
 	}
 	
+	public boolean isTrue(Object obj) {
+		if("true".equals(obj)) {
+			return true;
+		}
+		if(obj instanceof Boolean) {
+			return ((Boolean)obj).booleanValue();
+		}
+		return false;
+	}
+	
+	public boolean isFalse(Object obj) {
+		if("falsse".equals(obj)) {
+			return true;
+		}
+		if(obj instanceof Boolean) {
+			return !((Boolean)obj).booleanValue();
+		}
+		return false;
+	}
+	
 	public boolean isNull(Object obj) {
 		return obj == null;
 	}
@@ -758,6 +839,15 @@ public class VelocityRenderDecorator implements Closeable {
 	public boolean enabled(String componentName) {
 		Component source = renderer.findComponent(componentName);
 		return (source != null && source.isVisible() && source.isEnabled());
+	}
+	
+	public boolean enabled(Component component) {
+		return component != null && component.isVisible() && component.isEnabled();
+	}
+	
+	public boolean enabled(FormItem item) {
+		if(item == null) return false;
+		return enabled(item.getComponent());
 	}
 	
 	/**
@@ -894,8 +984,7 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @return Source without HTML tags.
 	 */
 	public static String filterHTMLTags(String source) {
-		Filter htmlTagsFilter = FilterFactory.getHtmlTagsFilter();
-		return htmlTagsFilter.filter(source);
+		return FilterFactory.getHtmlTagsFilter().filter(source);
 	}
 	
 	/**
@@ -904,6 +993,7 @@ public class VelocityRenderDecorator implements Closeable {
 	 * @return The css class for the file or a default css class
 	 */
 	public static String getFiletypeIconCss(String filename) {
+		if(filename == null) return "";
 		return CSSHelper.createFiletypeIconCssClassFor(filename);
 	}
 	
@@ -921,15 +1011,17 @@ public class VelocityRenderDecorator implements Closeable {
 	}
 	
 	public Languages getLanguages() {
-		I18nManager i18nMgr = I18nManager.getInstance();
-		Collection<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
+		I18nManager i18nMgr = CoreSpringFactory.getImpl(I18nManager.class);
+		I18nModule i18nModule = CoreSpringFactory.getImpl(I18nModule.class);
+		
+		Collection<String> enabledKeysSet = i18nModule.getEnabledLanguageKeys();
 		Map<String, String> langNames = new HashMap<String, String>();
 		Map<String, String> langTranslators = new HashMap<String, String>();
 		String[] enabledKeys = ArrayHelper.toArray(enabledKeysSet);
 		String[] names = new String[enabledKeys.length];
 		for (int i = 0; i < enabledKeys.length; i++) {
 			String key = enabledKeys[i];
-			String langName = i18nMgr.getLanguageInEnglish(key, I18nModule.isOverlayEnabled());
+			String langName = i18nMgr.getLanguageInEnglish(key, i18nModule.isOverlayEnabled());
 			langNames.put(key, langName);
 			names[i] = langName;
 			String author = i18nMgr.getLanguageAuthor(key);

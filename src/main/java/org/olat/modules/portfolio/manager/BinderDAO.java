@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +37,8 @@ import org.olat.basesecurity.Invitation;
 import org.olat.basesecurity.manager.GroupDAO;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.modules.portfolio.Assignment;
 import org.olat.modules.portfolio.AssignmentStatus;
@@ -67,6 +70,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class BinderDAO {
+	
+	private static final OLog log = Tracing.createLoggerFor(BinderDAO.class);
 
 	@Autowired
 	private DB dbInstance;
@@ -205,6 +210,12 @@ public class BinderDAO {
 	
 	private void syncMovingAssignments(SectionImpl templateSection, SectionImpl currentSection, Map<Section,Section> templateToSectionsMap) {
 		List<Assignment> templateAssignments = new ArrayList<>(templateSection.getAssignments());
+		for(Iterator<Assignment> currentAssignmentIt=currentSection.getAssignments().iterator(); currentAssignmentIt.hasNext(); ) {
+			if(currentAssignmentIt.next() == null) {
+				currentAssignmentIt.remove();
+			}
+		}
+
 		List<Assignment> currentAssignments = new ArrayList<>(currentSection.getAssignments());
 		for(int i=0; i<currentAssignments.size(); i++) {
 			Assignment currentAssignment = currentAssignments.get(i);
@@ -248,6 +259,11 @@ public class BinderDAO {
 		
 		List<Assignment> currentAssignments = new ArrayList<>(currentSection.getAssignments());
 		for(Assignment currentAssignment:currentAssignments) {
+			if(currentAssignment == null) {
+				log.error("Missing assignment: " + currentSection.getKey());
+				continue;
+			}
+			
 			Assignment refAssignment = currentAssignment.getTemplateReference();
 			if(refAssignment == null) {
 				if(currentAssignment.getAssignmentStatus() != AssignmentStatus.deleted) {
@@ -558,10 +574,13 @@ public class BinderDAO {
 	}
 	
 	public Binder deleteSection(Binder binder, Section section) {
-		List<Page> pages = section.getPages();
+		List<Page> pages = new ArrayList<>(section.getPages());
 		//delete pages
 		for(Page page:pages) {
-			pageDao.deletePage(page);
+			if(page != null) {
+				pageDao.deletePage(page);
+				section.getPages().remove(page);
+			}
 		}
 		
 		List<Assignment> assignments = new ArrayList<>(((SectionImpl)section).getAssignments());

@@ -22,12 +22,12 @@ package org.olat.selenium.page.course;
 import java.net.URL;
 import java.util.List;
 
-import org.jboss.arquillian.graphene.Graphene;
 import org.junit.Assert;
 import org.olat.restapi.support.vo.CourseVO;
 import org.olat.selenium.page.core.BookingPage;
 import org.olat.selenium.page.core.MenuTreePageFragment;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.selenium.page.lecture.LectureRepositoryAdminPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -55,9 +55,10 @@ public class CoursePageFragment {
 	public static final By assessmentModeBy = By.className("o_sel_course_assessment_mode");
 	public static final By membersCourseBy = By.className("o_sel_course_members");
 	public static final By treeContainerBy = By.id("o_main_left_content");
-	public static final By efficiencyStatementsBy = By.className(" o_sel_course_options_certificates");
+	public static final By efficiencyStatementsBy = By.className("o_sel_course_options_certificates");
+	public static final By lecturesAdministrationBy = By.className("o_sel_course_lectures_admin");
 	
-	private WebDriver browser;
+	private final WebDriver browser;
 	
 	public CoursePageFragment(WebDriver browser) {
 		this.browser = browser;
@@ -183,10 +184,28 @@ public class CoursePageFragment {
 	}
 	
 	/**
-	 * Click the editor link in the tools drop-down
-	 * @return
+	 * Click the editor link in the tools drop-down and
+	 * wait the edit mode.
+	 * 
+	 * @return Itself
 	 */
 	public CourseEditorPageFragment edit() {
+		if(!browser.findElement(toolsMenu).isDisplayed()) {
+			openToolsMenu();
+		}
+		browser.findElement(editCourseBy).click();
+		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(By.xpath("//div[contains(@class,'o_edit_mode')]"), 5, browser);
+		OOGraphene.closeBlueMessageWindow(browser);
+		return new CourseEditorPageFragment(browser);
+	}
+	
+	/**
+	 * Try to edit the course but don't wait the edit mode.
+	 * 
+	 * @return Itself
+	 */
+	public CourseEditorPageFragment tryToEdit() {
 		if(!browser.findElement(toolsMenu).isDisplayed()) {
 			openToolsMenu();
 		}
@@ -230,9 +249,7 @@ public class CoursePageFragment {
 		}
 		browser.findElement(assessmentModeBy).click();
 		OOGraphene.waitBusy(browser);
-
-		WebElement main = browser.findElement(By.id("o_main_container"));
-		return Graphene.createPageFragment(AssessmentModePage.class, main);
+		return new AssessmentModePage(browser);
 	}
 	
 	public RepositoryAccessPage accessConfiguration() {
@@ -253,9 +270,17 @@ public class CoursePageFragment {
 		}
 		browser.findElement(efficiencyStatementsBy).click();
 		OOGraphene.waitBusy(browser);
-
-		WebElement main = browser.findElement(By.id("o_main_container"));
-		return Graphene.createPageFragment(EfficiencyStatementConfigurationPage.class, main);
+		return new EfficiencyStatementConfigurationPage(browser);
+	}
+	
+	public LectureRepositoryAdminPage lecturesAdministration() {
+		if(!browser.findElement(settingsMenu).isDisplayed()) {
+			openSettingsMenu();
+		}
+		browser.findElement(lecturesAdministrationBy).click();
+		OOGraphene.waitBusy(browser);
+		return new LectureRepositoryAdminPage(browser)
+				.assertOnAdminPage();
 	}
 	
 	public BookingPage bookingTool() {

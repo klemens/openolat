@@ -21,7 +21,6 @@ package org.olat.modules.video.ui;
 
 import java.util.Date;
 
-import org.olat.core.gui.components.form.flexible.FormUIFactory;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 
 /**
@@ -31,7 +30,7 @@ import org.olat.core.gui.components.form.flexible.elements.FormLink;
  */
 public class TranscodingQueueTableRow {
 
-	private String resid;
+	private FormLink resid;
 	private String displayname;
 	private FormLink creator;
 	private Date creationDate;
@@ -39,8 +38,8 @@ public class TranscodingQueueTableRow {
 	private String size;
 	private String format;
 	private FormLink deleteLink;
-
-	protected FormUIFactory uifactory = FormUIFactory.getInstance();
+	private FormLink retranscodeLink;
+	private Object[] failureReason;
 
 
 	/**
@@ -53,7 +52,7 @@ public class TranscodingQueueTableRow {
 	 * @param format the format
 	 * @param deleteLink FormLink for delete row and corresponding Videodata or null if no deleteLink should be shown
 	 */
-	public TranscodingQueueTableRow(String resid, String displayname, Date creationDate, FormLink resolution, String dimension, String size, String format, FormLink deleteLink) {
+	public TranscodingQueueTableRow(FormLink resid, String displayname, Date creationDate, FormLink resolution, String dimension, String size, String format, FormLink deleteLink) {
 		this.resid = resid;
 		this.displayname = displayname;
 		this.creator = resolution;
@@ -65,6 +64,15 @@ public class TranscodingQueueTableRow {
 		if(deleteLink != null) this.deleteLink = deleteLink;
 	}
 	
+
+	public Object[] getFailureReason() {
+		return failureReason;
+	}
+
+	public void setFailureReason(Object[] failureReason) {
+		this.failureReason = failureReason;
+	}
+
 	public Date getCreationDate(){
 		return creationDate;
 	}
@@ -81,11 +89,11 @@ public class TranscodingQueueTableRow {
 		this.displayname = displayname;
 	}
 	
-	public String getResid(){
+	public FormLink getResid(){
 		return resid;
 	}
 	
-	public void setResid(String resid){
+	public void setResid(FormLink resid){
 		this.resid = resid;
 	}
 	
@@ -128,5 +136,13 @@ public class TranscodingQueueTableRow {
 	public void setDeleteLink(FormLink deleteLink) {
 		this.deleteLink = deleteLink;
 	}
+
+	public FormLink getRetranscodeLink() {
+		return retranscodeLink;
+	}
+
+	public void setRetranscodeLink(FormLink retranscodeLink) {
+		this.retranscodeLink = retranscodeLink;
+	}	
 }
 

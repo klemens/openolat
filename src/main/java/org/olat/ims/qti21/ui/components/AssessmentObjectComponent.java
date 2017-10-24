@@ -53,7 +53,10 @@ public abstract class AssessmentObjectComponent extends AbstractComponent implem
 	
 	private Context context;
 	
+	private boolean hideFeedbacks = false;
+	
 	private String mapperUri;
+	private String submissionMapperUri;
 	private URI assessmentObjectUri;
 	private ResourceLocator resourceLocator;
 	private CandidateSessionContext candidateSessionContext;
@@ -71,6 +74,19 @@ public abstract class AssessmentObjectComponent extends AbstractComponent implem
 	public void setMapperUri(String mapperUri) {
 		this.mapperUri = mapperUri;
 	}
+	
+	/**
+	 * Allow to define a specific mapper uri for the uploaded files.
+	 * 
+	 * @return The specific submission mapper uri or the standard one if it was not defined
+	 */
+	public String getSubmissionMapperUri() {
+		return submissionMapperUri == null ? mapperUri : submissionMapperUri;
+	}
+	
+	public void setSubmissionMapperUri(String submissionMapperUri) {
+		this.submissionMapperUri = submissionMapperUri;
+	}
 
 	public URI getAssessmentObjectUri() {
 		return assessmentObjectUri;
@@ -80,6 +96,14 @@ public abstract class AssessmentObjectComponent extends AbstractComponent implem
 		this.assessmentObjectUri = assessmentObjectUri;
 	}
 	
+	public boolean isHideFeedbacks() {
+		return hideFeedbacks;
+	}
+
+	public void setHideFeedbacks(boolean hideFeedbacks) {
+		this.hideFeedbacks = hideFeedbacks;
+	}
+
 	public abstract String getResponseUniqueIdentifier(ItemSessionState itemSessionState, Interaction interaction);
 
 	public abstract Interaction getInteractionOfResponseUniqueIdentifier(String responseUniqueId);
@@ -168,11 +192,14 @@ public abstract class AssessmentObjectComponent extends AbstractComponent implem
 		jsa.addRequiredStaticJsFile("assessment/rendering/javascript/UpConversionAjaxController.js");
 		
 		jsa.addRequiredStaticJsFile("js/jquery/maphilight/jquery.maphilight.js");
+		// drawing needs slider, slider need it too
+		// order needs sortable
+		// drag and drop used a lot...
 		jsa.addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.11.4.custom.qti.min.js");
 		
-
 		jsa.addRequiredStaticJsFile("js/jquery/openolat/jquery.paint.js");
-		
+
+		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.choice.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.associate.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.graphicAssociate.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.graphicGap.js");
@@ -182,8 +209,11 @@ public abstract class AssessmentObjectComponent extends AbstractComponent implem
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.slider.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.order.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.match.js");
+		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.match_dnd.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.gapMatch.js");
 		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.hotspot.js");
+		jsa.addRequiredStaticJsFile("js/jquery/qti/jquery.hotspot.responsive.js");
+
 	}
 	
 	@Override

@@ -40,11 +40,12 @@ import org.olat.ims.qti.statistics.model.StatisticsItem;
 import org.olat.ims.qti21.QTI21StatisticsManager;
 import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.ims.qti21.model.statistics.AbstractTextEntryInteractionStatistics;
+import org.olat.ims.qti21.model.statistics.AssessmentItemStatistic;
+import org.olat.ims.qti21.model.statistics.ChoiceStatistics;
 import org.olat.ims.qti21.model.statistics.HotspotChoiceStatistics;
 import org.olat.ims.qti21.model.statistics.KPrimStatistics;
 import org.olat.ims.qti21.model.statistics.MatchStatistics;
 import org.olat.ims.qti21.model.statistics.NumericalInputInteractionStatistics;
-import org.olat.ims.qti21.model.statistics.SimpleChoiceStatistics;
 import org.olat.ims.qti21.model.statistics.TextEntryInteractionStatistics;
 import org.olat.ims.qti21.model.xml.QtiNodesExtractor;
 import org.olat.ims.qti21.model.xml.interactions.FIBAssessmentItemBuilder;
@@ -57,15 +58,21 @@ import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.CorrectResponse;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.ChoiceInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.HotspotInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.TextEntryInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleAssociableChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleMatchSet;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.content.Hottext;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.graphic.HotspotChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.MapEntry;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.ResponseDeclaration;
+import uk.ac.ed.ph.jqtiplus.node.test.AssessmentItemRef;
+import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentItem;
+import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentTest;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
+import uk.ac.ed.ph.jqtiplus.utils.QueryUtils;
 import uk.ac.ed.ph.jqtiplus.value.BaseType;
 import uk.ac.ed.ph.jqtiplus.value.DirectedPairValue;
 import uk.ac.ed.ph.jqtiplus.value.SingleValue;
@@ -116,13 +123,21 @@ public class QTI21StatisticsManagerImpl implements QTI21StatisticsManager {
 			  .append(" )");
 		} else if(searchParams.getLimitToGroups() != null && searchParams.getLimitToGroups().size() > 0) {
 			sb.append(" and asession.identity.key in ( select membership.identity.key from bgroupmember membership")
-			  .append("   where membership.group in (:baseGroups)")
+			  .append("   where membership.group in (:baseGroups) and membership.role='").append(GroupRole.participant).append("'")
 			  .append(" )");
 		} else {
 			//limit to participants
-			sb.append(" and asession.identity.key in ( select membership.identity.key from repoentrytogroup as rel, bgroup as reBaseGroup, bgroupmember membership ")
-			  .append("   where rel.entry.key=:repositoryEntryKey and rel.group.key=reBaseGroup.key and membership.group.key=reBaseGroup.key and membership.role='").append(GroupRole.participant).append("'")
-			  .append(" )");
+			sb.append(" and (asession.identity.key in ( select membership.identity.key from repoentrytogroup as rel, bgroupmember membership ")
+			  .append("   where rel.entry.key=:repositoryEntryKey and rel.group.key=membership.group.key and membership.role='").append(GroupRole.participant).append("'")
+			  //.append("   where rel.entry.key=:repositoryEntryKey and rel.group.key=reBaseGroup.key and membership.group.key=reBaseGroup.key and membership.role='").append(GroupRole.participant).append("'")
+			   .append(" )");
+			// add non members
+			if(searchParams.isViewNonMembers()) {
+				sb.append(" or asession.identity.key not in (select membership.identity.key from repoentrytogroup as rel, bgroupmember as membership")
+			      .append("    where rel.entry.key=:repositoryEntryKey and rel.group.key=membership.group.key")
+			      .append(" )");
+			}
+			sb.append(")");
 		}
 
 		return sb;
@@ -308,7 +323,7 @@ public class QTI21StatisticsManagerImpl implements QTI21StatisticsManager {
 	}
 
 	@Override
-	public List<SimpleChoiceStatistics> getChoiceInteractionStatistics(String itemRefIdent,
+	public List<ChoiceStatistics> getChoiceInteractionStatistics(String itemRefIdent,
 			AssessmentItem assessmentItem, ChoiceInteraction choiceInteraction, QTI21StatisticSearchParams searchParams) {
 
 		List<RawData> results = getRawDatas(itemRefIdent, choiceInteraction.getResponseIdentifier().toString(), searchParams);
@@ -332,13 +347,46 @@ public class QTI21StatisticsManagerImpl implements QTI21StatisticsManager {
 			}
 		}
 
-		List<SimpleChoiceStatistics> choicesStatistics = new ArrayList<>();
+		List<ChoiceStatistics> choicesStatistics = new ArrayList<>();
 		for(int i=0; i<simpleChoices.size(); i++) {
-			choicesStatistics.add(new SimpleChoiceStatistics(simpleChoices.get(i), counts[i]));
+			choicesStatistics.add(new ChoiceStatistics(simpleChoices.get(i), counts[i]));
 		}
 		return choicesStatistics;
 	}
 	
+	@Override
+	public List<ChoiceStatistics> getHottextInteractionStatistics(String itemRefIdent,
+			AssessmentItem assessmentItem, HottextInteraction hottextInteraction,
+			QTI21StatisticSearchParams searchParams) {
+
+		List<RawData> results = getRawDatas(itemRefIdent, hottextInteraction.getResponseIdentifier().toString(), searchParams);
+		
+		List<Hottext> hottexts = QueryUtils.search(Hottext.class, hottextInteraction);
+		long[] counts = new long[hottexts.size()];
+		for(int i=counts.length; i-->0; ) {
+			counts[i] = 0l;
+		}
+
+		for(RawData result:results) {
+			Long numOfAnswers = result.getCount();;
+			if(numOfAnswers != null && numOfAnswers.longValue() > 0) {
+				String stringuifiedResponse = result.getStringuifiedResponse();
+				for(int i=hottexts.size(); i-->0; ) {
+					String identifier = hottexts.get(i).getIdentifier().toString();
+					if(stringuifiedResponse.contains(identifier)) {
+						counts[i] += numOfAnswers.longValue();
+					}
+				}
+			}
+		}
+
+		List<ChoiceStatistics> choicesStatistics = new ArrayList<>();
+		for(int i=0; i<hottexts.size(); i++) {
+			choicesStatistics.add(new ChoiceStatistics(hottexts.get(i), counts[i]));
+		}
+		return choicesStatistics;
+	}
+
 	@Override
 	public List<HotspotChoiceStatistics> getHotspotInteractionStatistics(String itemRefIdent,
 			AssessmentItem assessmentItem, HotspotInteraction hotspotInteraction,
@@ -591,6 +639,120 @@ public class QTI21StatisticsManagerImpl implements QTI21StatisticsManager {
 			datas.add(new RawData(itemSessionKey, responseIdentifier, stringuifiedResponse, count));
 		}
 		return datas;
+	}
+	
+	@Override
+	public List<AssessmentItemStatistic> getStatisticPerItem(ResolvedAssessmentTest resolvedAssessmentTest, QTI21StatisticSearchParams searchParams, double numOfParticipants) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select isession.assessmentItemIdentifier, isession.score, isession.manualScore, count(*) from qtiassessmentitemsession isession")
+		  .append(" inner join isession.assessmentTestSession asession");
+		decorateRSet(sb, searchParams, true);
+		sb.append(" and isession.duration > 0")
+		  .append(" group by isession.assessmentItemIdentifier, isession.score, isession.manualScore");
+		
+		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Object[].class);
+		decorateRSetQuery(query, searchParams);
+		List<Object[]> results = query.getResultList();
+		if(results.isEmpty()) {
+			return new ArrayList<>();
+		}
+		
+		Map<String,AssessmentItemRef> itemMap = new HashMap<>();
+		for(AssessmentItemRef itemRef:resolvedAssessmentTest.getAssessmentItemRefs()) {
+			itemMap.put(itemRef.getIdentifier().toString(), itemRef);
+		}
+
+		Map<String, AssessmentItemHelper> identifierToHelpers = new HashMap<>();
+		for(Object[] result:results) {
+			int pos = 0;
+			String identifier = PersistenceHelper.extractString(result, pos++);
+			BigDecimal score = (BigDecimal)result[pos++];
+			BigDecimal manualScore = (BigDecimal)result[pos++];
+			Long count = PersistenceHelper.extractLong(result, pos++);
+			if(score == null || identifier == null || count == null) {
+				continue;
+			}
+
+			AssessmentItemHelper helper = identifierToHelpers.get(identifier);
+			if(helper == null) {
+				AssessmentItemRef itemRef = itemMap.get(identifier);
+				if(itemRef == null) {
+					continue;
+				} 
+				ResolvedAssessmentItem item = resolvedAssessmentTest.getResolvedAssessmentItem(itemRef);
+				if(item == null) {
+					continue;
+				}
+				helper = new AssessmentItemHelper(item.getRootNodeLookup().extractIfSuccessful());
+				identifierToHelpers.put(identifier, helper);
+			}
+			
+			helper.addCount(count);
+			if(manualScore != null) {
+				helper.addTotalScore(count, manualScore);
+			} else {
+				helper.addTotalScore(count, score);
+			}
+
+			if(helper.getMaxScore() != null) {
+				double maxValue = helper.getMaxScore().doubleValue();
+				if(Math.abs(score.doubleValue() - maxValue) < 0.0001) {
+					helper.addCorrectAnswers(count);
+				}
+			}
+		}
+		
+		List<AssessmentItemStatistic> statistics = new ArrayList<>(identifierToHelpers.size());
+		for(AssessmentItemHelper helper:identifierToHelpers.values()) {
+			long numOfAnswersItem = helper.count;
+			long numOfCorrectAnswers = helper.countCorrectAnswers;
+			double average = (helper.totalScore / helper.count);
+			double averageParticipants = (helper.totalScore / numOfParticipants);
+			statistics.add(new AssessmentItemStatistic(helper.getAssessmentItem(), average, averageParticipants, numOfAnswersItem, numOfCorrectAnswers));
+		}
+		return statistics;
+	}
+	
+	public static class AssessmentItemHelper {
+		private long count = 0l;
+		private double totalScore = 0.0d;
+		private Double maxScore;
+		private long countCorrectAnswers = 0;
+		private final AssessmentItem assessmentItem;
+		
+		public AssessmentItemHelper(AssessmentItem assessmentItem) {
+			this.assessmentItem = assessmentItem;
+			if(assessmentItem != null) {
+				maxScore = QtiNodesExtractor.extractMaxScore(assessmentItem);
+			}
+		}
+		
+		public AssessmentItem getAssessmentItem() {
+			return assessmentItem;
+		}
+		
+		public Double getMaxScore() {
+			return maxScore;
+		}
+		
+		public void addTotalScore(Long numOfAnswers, BigDecimal score) {
+			if(numOfAnswers != null && score != null) {
+				totalScore += (numOfAnswers.doubleValue() * score.doubleValue());
+			}
+		}
+		
+		public void addCount(Long toAdd) {
+			if(toAdd != null) {
+				count += toAdd.longValue();
+			}
+		}
+		
+		public void addCorrectAnswers(Long toAdd) {
+			if(toAdd != null) {
+				countCorrectAnswers += toAdd.longValue();
+			}
+		}
 	}
 	
 	public static class RawData {

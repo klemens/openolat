@@ -27,6 +27,7 @@
 package org.olat.core.util.mail;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -64,6 +65,10 @@ public class ContactList extends LogDelegator {
 	private Map<String, Identity> identiEmails = new HashMap<String, Identity>();
 	private boolean emailPrioInstitutional = false;
 
+	public ContactList() {
+		//
+	}
+	
 	/**
 	 * A ContacList must have at least a name != null, matching ^[^;,:]*$
 	 * 
@@ -71,7 +76,6 @@ public class ContactList extends LogDelegator {
 	 */
 	public ContactList(String name) {
 		setName(name);
-		this.description = null;
 	}
 
 	/**
@@ -269,7 +273,7 @@ public class ContactList extends LogDelegator {
 	 * 
 	 * @param listOfIdentity List containing Identites
 	 */
-	public void addAllIdentites(List<Identity> listOfIdentity) {
+	public void addAllIdentites(Collection<Identity> listOfIdentity) {
 		for (Identity identity:listOfIdentity) {
 			add(identity);
 		}

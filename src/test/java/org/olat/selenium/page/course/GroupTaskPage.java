@@ -22,7 +22,6 @@ package org.olat.selenium.page.course;
 import java.io.File;
 import java.util.List;
 
-import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
@@ -38,12 +37,7 @@ import org.openqa.selenium.WebElement;
  */
 public class GroupTaskPage {
 
-	@Drone
-	private WebDriver browser;
-	
-	public GroupTaskPage() {
-		//
-	}
+	private final WebDriver browser;
 	
 	public GroupTaskPage(WebDriver browser) {
 		this.browser = browser;
@@ -51,6 +45,7 @@ public class GroupTaskPage {
 	
 	public GroupTaskPage assertAssignmentAvailable() {
 		By assignmentBy = By.id("o_step_assignement_content");
+		OOGraphene.waitElement(assignmentBy, browser);
 		List<WebElement> assignementEls = browser.findElements(assignmentBy);
 		Assert.assertEquals(1, assignementEls.size());
 		return this;
@@ -58,6 +53,7 @@ public class GroupTaskPage {
 	
 	public GroupTaskPage assertTask(String taskName) {
 		By selectLinkBy = By.xpath("//div[@id='o_step_assignement_content']//h5//span[contains(text(),'" + taskName + "')]");
+		OOGraphene.waitElement(selectLinkBy, browser);
 		List<WebElement> selectLinkEls = browser.findElements(selectLinkBy);
 		Assert.assertFalse(selectLinkEls.isEmpty());
 		return this;
@@ -65,6 +61,7 @@ public class GroupTaskPage {
 	
 	public GroupTaskPage assertSubmissionAvailable() {
 		By assignmentBy = By.id("o_step_submit_content");
+		OOGraphene.waitElement(assignmentBy, browser);
 		List<WebElement> assignementEls = browser.findElements(assignmentBy);
 		Assert.assertEquals(1, assignementEls.size());
 		return this;
@@ -79,6 +76,13 @@ public class GroupTaskPage {
 		return this;
 	}
 	
+	public GroupTaskPage selectTask(String name) {
+		By taskBy = By.xpath("//div[@id='o_step_assignement_content']//table//tr[td[contains(text(),'" + name + "')]]/td//a[contains(@href,'select')]");
+		OOGraphene.clickAndWait(taskBy, browser);
+		OOGraphene.waitAndCloseBlueMessageWindow(browser);
+		return this;
+	}
+	
 	public GroupTaskPage submitFile(File file) {
 		return uploadFile("o_step_submit_content", file);
 	}
@@ -89,8 +93,7 @@ public class GroupTaskPage {
 	
 	private GroupTaskPage uploadFile(String stepId, File file) {
 		By uploadButtonBy = By.cssSelector("#" + stepId + " .o_sel_course_gta_submit_file");
-		browser.findElement(uploadButtonBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.clickAndWait(uploadButtonBy, browser);//TODO sel clickAndWait
 		OOGraphene.waitModalDialog(browser);
 		
 		By inputBy = By.cssSelector(".o_fileinput input[type='file']");
@@ -105,8 +108,7 @@ public class GroupTaskPage {
 	
 	public GroupTaskPage submitText(String filename, String text) {
 		By uploadButtonBy = By.cssSelector("#o_step_submit_content .o_sel_course_gta_create_doc");
-		browser.findElement(uploadButtonBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.clickAndWait(uploadButtonBy, browser);//TODO sel clickAndWait
 		OOGraphene.waitModalDialog(browser);
 		
 		By filenameBy = By.cssSelector(".o_sel_course_gta_doc_filename input[type='text']");
@@ -124,8 +126,7 @@ public class GroupTaskPage {
 	
 	public GroupTaskPage submitDocuments() {
 		By submitBy = By.cssSelector("#o_step_submit_content .o_sel_course_gta_submit_docs");
-		browser.findElement(submitBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.clickAndWait(submitBy, browser);
 		
 		//confirm
 		confirmDialog();
@@ -136,7 +137,6 @@ public class GroupTaskPage {
 	public GroupTaskPage submitRevision() {
 		By submitBy = By.cssSelector("#o_step_revision_content .o_sel_course_gta_submit_revisions");
 		browser.findElement(submitBy).click();
-		OOGraphene.waitBusy(browser);
 		return confirmDialog();
 	}
 	
@@ -144,8 +144,9 @@ public class GroupTaskPage {
 	 * Confirm a yes / no dialog box
 	 */
 	private GroupTaskPage confirmDialog() {
+		OOGraphene.waitModalDialog(browser);
+		
 		By confirmButtonBy = By.cssSelector("div.modal-dialog div.modal-footer a");
-		OOGraphene.waitElement(confirmButtonBy, 5, browser);
 		browser.findElement(confirmButtonBy).click();
 		OOGraphene.waitBusy(browser);
 		return this;

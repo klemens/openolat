@@ -152,7 +152,7 @@ public class AuthoringEnvPage {
 		By createBy = By.cssSelector("div.modal.o_sel_author_create_popup .o_sel_author_create_wizard");
 		browser.findElement(createBy).click();
 		OOGraphene.waitBusy(browser);
-		return CourseWizardPage.getWizard(browser);
+		return new CourseWizardPage(browser);
 	}
 	
 	/**
@@ -170,6 +170,13 @@ public class AuthoringEnvPage {
 			.clickToolbarBack();
 	}
 	
+	/**
+	 * Try to upload a resource if the type is recognized.
+	 * 
+	 * @param title The title of the learning resource
+	 * @param resource The zip file to import
+	 * @return Itself
+	 */
 	public AuthoringEnvPage uploadResource(String title, File resource) {
 		WebElement importLink = browser.findElement(By.className("o_sel_author_import"));
 		Assert.assertTrue(importLink.isDisplayed());
@@ -187,13 +194,23 @@ public class AuthoringEnvPage {
 		//save
 		By saveBy = By.cssSelector("div.o_sel_repo_save_details button.btn-primary");
 		WebElement saveButton = browser.findElement(saveBy);
-		saveButton.click();
-		OOGraphene.waitBusy(browser);
+		if(saveButton.isEnabled()) {
+			saveButton.click();
+			OOGraphene.waitBusy(browser);
+			OOGraphene.waitElement(RepositoryEditDescriptionPage.generaltabBy, browser);
+		}
+		return this;
+	}
+	
+	public AuthoringEnvPage assertOnResourceType() {
+		By typeEl = By.cssSelector(".o_sel_author_type");
+		OOGraphene.waitElement(typeEl, 5, browser);
 		return this;
 	}
 	
 	public void selectResource(String title) {
 		By selectBy = By.xpath("//div[contains(@class,'o_coursetable')]//a[contains(text(),'" + title + "')]");
+		OOGraphene.waitElement(selectBy, browser);
 		browser.findElement(selectBy).click();
 		OOGraphene.waitBusy(browser);
 	}

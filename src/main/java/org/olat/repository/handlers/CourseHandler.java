@@ -26,6 +26,8 @@
 package org.olat.repository.handlers;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
@@ -82,6 +84,7 @@ import org.olat.course.PersistingCourseImpl;
 import org.olat.course.Structure;
 import org.olat.course.assessment.AssessmentMode;
 import org.olat.course.config.CourseConfig;
+import org.olat.course.editor.CourseAccessAndProperties;
 import org.olat.course.export.CourseEnvironmentMapper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.groupsandrights.PersistingCourseGroupManager;
@@ -92,6 +95,7 @@ import org.olat.fileresource.types.GlossaryResource;
 import org.olat.fileresource.types.ResourceEvaluation;
 import org.olat.fileresource.types.SharedFolderFileResource;
 import org.olat.modules.glossary.GlossaryManager;
+import org.olat.modules.lecture.LectureService;
 import org.olat.modules.reminder.Reminder;
 import org.olat.modules.reminder.ReminderModule;
 import org.olat.modules.reminder.ReminderRule;
@@ -252,9 +256,29 @@ public class CourseHandler implements RepositoryHandler {
 		course = CourseFactory.loadCourse(cgm.getCourseResource());
 		course.postImport(fImportBaseDirectory, envMapper);
 		
-		//rename root nodes
-		course.getRunStructure().getRootNode().setShortTitle(Formatter.truncateOnly(displayname, 25)); //do not use truncate!
-		course.getRunStructure().getRootNode().setLongTitle(displayname);
+		//rename root nodes, but only when user modified the course title
+		boolean doUpdateTitle = true;
+		File repoConfigXml = new File(fImportBaseDirectory, "repo.xml");
+		if (repoConfigXml.exists()) {
+			RepositoryEntryImport importConfig;
+			try {
+				importConfig = RepositoryEntryImportExport.getConfiguration(new FileInputStream(repoConfigXml));
+				if(importConfig != null) {
+					if (displayname.equals(importConfig.getDisplayname())) {					
+						// do not update if title was not modified during import
+						// user does not expect to have an updated title and there is a chance
+						// the root node title is not the same as the course title
+						doUpdateTitle = false;
+					}
+				}
+			} catch (FileNotFoundException e) {
+				// ignore
+			}
+		}
+		if (doUpdateTitle) {
+			course.getRunStructure().getRootNode().setShortTitle(Formatter.truncateOnly(displayname, 25)); //do not use truncate!
+			course.getRunStructure().getRootNode().setLongTitle(displayname);
+		}
 		//course.saveRunStructure();
 		CourseEditorTreeNode editorRootNode = ((CourseEditorTreeNode)course.getEditorTreeModel().getRootNode());
 		editorRootNode.getCourseNode().setShortTitle(Formatter.truncateOnly(displayname, 25)); //do not use truncate!
@@ -426,8 +450,14 @@ public class CourseHandler implements RepositoryHandler {
 		course.postCopy(envMapper, sourceCourse);
 		
 		cloneReminders(author, envMapper, source, target);
+		cloneLectureConfig(source, target);
 		
 		return target;
+	}
+	
+	private void cloneLectureConfig(RepositoryEntry source, RepositoryEntry target) {
+		LectureService lectureService = CoreSpringFactory.getImpl(LectureService.class);
+		lectureService.copyRepositoryEntryLectureConfiguration(source, target);
 	}
 	
 	private void cloneReminders(Identity author, CourseEnvironmentMapper envMapper, RepositoryEntry source, RepositoryEntry target) {
@@ -450,6 +480,7 @@ public class CourseHandler implements RepositoryHandler {
 
 			Reminder clonedReminder = reminderService.createReminder(target, author);
 			clonedReminder.setDescription(reminder.getDescription());
+			clonedReminder.setEmailSubject(reminder.getEmailSubject());
 			clonedReminder.setEmailBody(reminder.getEmailBody());
 			clonedReminder.setConfiguration(reminderService.toXML(clonedRules));
 			reminderService.save(clonedReminder);
@@ -537,12 +568,16 @@ public class CourseHandler implements RepositoryHandler {
 		final CourseCreationHelper ccHelper = new CourseCreationHelper(ureq.getLocale(), repoEntry, courseConfig , course);
 		StepRunnerCallback finishCallback = new StepRunnerCallback() {
 			public Step execute(UserRequest uureq, WindowControl control, StepsRunContext runContext) {
+				// retrieve access and properties
+				CourseAccessAndProperties accessAndProps = (CourseAccessAndProperties) runContext.get("accessAndProperties");
+				courseConfig.setAccessAndProperties(accessAndProps);
+				
 				// here goes the code which reads out the wizards data from the runContext and then does some wizardry
 				ccHelper.finalizeWorkflow(uureq);
 				control.setInfo(CourseCreationMailHelper.getSuccessMessageString(uureq));
 				// send notification mail
 				final MailerResult mr = CourseCreationMailHelper.sentNotificationMail(uureq, ccHelper.getConfiguration());
-				MailHelper.printErrorsAndWarnings(mr, control, uureq.getLocale());
+				MailHelper.printErrorsAndWarnings(mr, control, uureq.getUserSession().getRoles().isOLATAdmin(), uureq.getLocale());
 				return StepsMainRunController.DONE_MODIFIED;
 			}
 		};

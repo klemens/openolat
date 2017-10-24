@@ -39,27 +39,36 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
 public class AssessedIdentityElementRow extends UserPropertiesRow {
 	
 	private final Integer attempts;
+	private final Boolean userVisibility;
 	private final BigDecimal score;
 	private final Boolean passed;
-	private final Date creationDate;
-	private final Date lastModified;
+	private final Date initialCourseLaunchDate;
+	private final Date lastModified, lastUserModified, lastCoachModified;
+	private final int numOfAssessmentDocs;
 	private final AssessmentEntryStatus status;
 	
-	public AssessedIdentityElementRow(Identity identity, AssessmentEntry entry, List<UserPropertyHandler> userPropertyHandlers, Locale locale) {
+	public AssessedIdentityElementRow(Identity identity, AssessmentEntry entry, Date initialCourseLaunchDate,
+			List<UserPropertyHandler> userPropertyHandlers, Locale locale) {
 		super(identity, userPropertyHandlers, locale);
+		this.initialCourseLaunchDate = initialCourseLaunchDate;
 		if(entry != null) {
 			attempts = entry.getAttempts();
 			score = entry.getScore();
 			passed = entry.getPassed();
-			creationDate = entry.getCreationDate();
+			userVisibility = entry.getUserVisibility();
 			lastModified = entry.getLastModified();
+			lastUserModified = entry.getLastUserModified();
+			lastCoachModified = entry.getLastCoachModified();
 			status = entry.getAssessmentStatus();
+			numOfAssessmentDocs = entry.getNumberOfAssessmentDocuments();
 		} else {
 			attempts = null;
 			score = null;
 			passed = null;
-			creationDate = lastModified = null;
+			userVisibility = null;
+			lastModified = lastUserModified = lastCoachModified = null;
 			status = null;
+			numOfAssessmentDocs = 0;
 		}
 	}
 
@@ -75,15 +84,32 @@ public class AssessedIdentityElementRow extends UserPropertiesRow {
 		return passed;
 	}
 
-	public Date getCreationDate() {
-		return creationDate;
+	public Date getInitialCourseLaunchDate() {
+		return initialCourseLaunchDate;
 	}
+	
 
 	public Date getLastModified() {
 		return lastModified;
 	}
+	
+	public Date getLastUserModified() {
+		return lastUserModified;
+	}
+	
+	public Date getLastCoachModified() {
+		return lastCoachModified;
+	}
+
+	public int getNumOfAssessmentDocs() {
+		return numOfAssessmentDocs;
+	}
 
 	public AssessmentEntryStatus getAssessmentStatus() {
 		return status;
+	}
+	
+	public Boolean getUserVisibility() {
+		return userVisibility;
 	}
 }

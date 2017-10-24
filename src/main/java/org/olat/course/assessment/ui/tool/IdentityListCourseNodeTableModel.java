@@ -118,6 +118,7 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 			switch(IdentityCourseElementCols.values()[col]) {
 				case username: return row.getIdentityName();
 				case attempts: return row.getAttempts();
+				case userVisibility: return row.getUserVisibility();
 				case score: return row.getScore();
 				case min: {
 					if(!(courseNode instanceof STCourseNode) && courseNode.hasScoreConfigured()) {
@@ -133,14 +134,22 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 				}
 				case status: return "";
 				case passed: return row.getPassed();
+				case numOfAssessmentDocs: {
+					if(row.getNumOfAssessmentDocs() <= 0) {
+						return null;
+					}
+					return row.getNumOfAssessmentDocs();
+				}
 				case assessmentStatus: return row.getAssessmentStatus();
 				case certificate: return certificateMap.get(row.getIdentityKey());
 				case recertification: {
 					CertificateLight certificate = certificateMap.get(row.getIdentityKey());
 					return certificate == null ? null : certificate.getNextRecertificationDate();
 				}
-				case initialLaunchDate: return row.getCreationDate();
-				case lastScoreUpdate: return row.getLastModified();
+				case initialLaunchDate: return row.getInitialCourseLaunchDate();
+				case lastModified: return row.getLastModified();
+				case lastUserModified: return row.getLastUserModified();
+				case lastCoachModified: return row.getLastCoachModified();		
 			}
 		}
 		int propPos = col - AssessmentToolConstants.USER_PROPS_OFFSET;
@@ -155,6 +164,7 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 	public enum IdentityCourseElementCols implements FlexiSortableColumnDef {
 		username("table.header.name"),
 		attempts("table.header.attempts"),
+		userVisibility("table.header.userVisibility"),
 		score("table.header.score"),
 		min("table.header.min"),
 		max("table.header.max"),
@@ -164,7 +174,10 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 		certificate("table.header.certificate"),
 		recertification("table.header.recertification"),
 		initialLaunchDate("table.header.initialLaunchDate"),
-		lastScoreUpdate("table.header.lastScoreDate");
+		lastModified("table.header.lastScoreDate"),
+		lastUserModified("table.header.lastUserModificationDate"),
+		lastCoachModified("table.header.lastCoachModificationDate"),
+		numOfAssessmentDocs("table.header.num.assessmentDocs");
 		
 		private final String i18nKey;
 		

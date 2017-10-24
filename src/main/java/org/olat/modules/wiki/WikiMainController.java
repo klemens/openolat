@@ -98,6 +98,8 @@ import org.olat.modules.fo.manager.ForumManager;
 import org.olat.modules.fo.ui.ForumController;
 import org.olat.modules.portfolio.PortfolioV2Module;
 import org.olat.modules.portfolio.ui.component.MediaCollectorComponent;
+import org.olat.modules.wiki.WikiPageSort.WikiFileComparator;
+import org.olat.modules.wiki.WikiPageSort.WikiPageNameComparator;
 import org.olat.modules.wiki.gui.components.wikiToHtml.ErrorEvent;
 import org.olat.modules.wiki.gui.components.wikiToHtml.FilterUtil;
 import org.olat.modules.wiki.gui.components.wikiToHtml.RequestImageEvent;
@@ -110,6 +112,7 @@ import org.olat.modules.wiki.portfolio.WikiMediaHandler;
 import org.olat.modules.wiki.versioning.ChangeInfo;
 import org.olat.modules.wiki.versioning.HistoryTableDateModel;
 import org.olat.portfolio.EPUIFactory;
+import org.olat.search.SearchModule;
 import org.olat.search.SearchServiceUIFactory;
 import org.olat.search.SearchServiceUIFactory.DisplayOption;
 import org.olat.util.logging.activity.LoggingResourceable;
@@ -181,6 +184,8 @@ public class WikiMainController extends BasicController implements CloneableCont
 	// indicates if user is already on image-detail-view-page (OLAT-6233)
 	private boolean isImageDetailView = false;
 	@Autowired
+	private SearchModule searchModule;
+	@Autowired
 	private WikiMediaHandler wikiMediaHandler;
 	@Autowired
 	private PortfolioV2Module portfolioModule;
@@ -193,7 +198,6 @@ public class WikiMainController extends BasicController implements CloneableCont
 		this.ores = ores;
 		this.securityCallback = securityCallback;
 		this.subsContext = securityCallback.getSubscriptionContext();
-		boolean guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
 
 		WikiPage page = null;
 		Wiki wiki = getWiki();
@@ -212,9 +216,10 @@ public class WikiMainController extends BasicController implements CloneableCont
 		if (initialPageName != null && wiki.pageExists(WikiManager.generatePageId(initialPageName))) {
 			page = wiki.getPage(initialPageName, true);
 		} else {
-			page = wiki.getPage(WikiPage.WIKI_INDEX_PAGE);
-			if (initialPageName != null)
+			page = wiki.getPage(WikiPage.WIKI_INDEX_PAGE, true);
+			if (initialPageName != null) {
 				showError("wiki.error.page.not.found");
+			}
 		}
 		this.pageId = page.getPageId();
 
@@ -273,7 +278,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		content.put("navigation", navigationContent);
 
 		// search
-		if (!guestOnly) {
+		if (searchModule.isSearchAllowed(ureq.getUserSession().getRoles())) {
 			SearchServiceUIFactory searchServiceUIFactory = (SearchServiceUIFactory) CoreSpringFactory
 					.getBean(SearchServiceUIFactory.class);
 			searchCtrl = searchServiceUIFactory.createInputController(ureq, wControl, DisplayOption.STANDARD, null);
@@ -325,8 +330,8 @@ public class WikiMainController extends BasicController implements CloneableCont
 
 		JSAndCSSComponent js = new JSAndCSSComponent("js", new String[] { "js/openolat/wiki.js" }, null);
 		content.put("js", js);
-		editContent.contextPut("fileList", wiki.getMediaFileList());
-		editContent.contextPut("linkList", wiki.getListOfAllPageNames());
+		
+		updateFileAndLinkList(wiki);
 
 		tabs.addTab(translate("tab.edit"), editContent);
 
@@ -350,7 +355,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		content.put("wikiTabs", tabs);
 		// if not content yet switch to the edit tab
 		if (page.getContent().equals("") && securityCallback.mayEditAndCreateArticle()) {
-			tabs.setSelectedPane(2);
+			tabs.setSelectedPane(ureq, 2);
 			tryToSetEditLock(page, ureq, ores);
 		}
 		updatePageContext(ureq, page);
@@ -360,6 +365,15 @@ public class WikiMainController extends BasicController implements CloneableCont
 
 		// set pageId to the latest used
 		this.pageId = page.getPageId();
+	}
+	
+	private void updateFileAndLinkList(Wiki wiki) {
+		List<VFSItem> mediaFiles = wiki.getMediaFileList();
+		Collections.sort(mediaFiles, new WikiFileComparator(getLocale()));
+		editContent.contextPut("fileList", mediaFiles);
+		List<String> allPages = wiki.getListOfAllPageNames();
+		Collections.sort(allPages, new WikiPageNameComparator(getLocale()));
+		editContent.contextPut("linkList", allPages);
 	}
 
 	private void updateWikiMenu(Wiki wiki) {
@@ -507,8 +521,9 @@ public class WikiMainController extends BasicController implements CloneableCont
 				&& !(event instanceof RequestImageEvent)) {
 			page = wiki.getPage(pageId, true);
 			// set recent page id to the page currently used
-			if (page != null)
+			if (page != null) {
 				pageId = page.getPageId();
+			}
 		}
 
 		if (source == content) {
@@ -558,10 +573,10 @@ public class WikiMainController extends BasicController implements CloneableCont
 			 ************************************************************************/
 			if (command.equals(ACTION_EDIT_MENU)) {
 				page = wiki.getPage(WikiPage.WIKI_MENU_PAGE);
-				editContent.contextPut("linkList", wiki.getListOfAllPageNames());
+				updateFileAndLinkList(wiki);
 				tryToSetEditLock(page, ureq, ores);
 				updatePageContext(ureq, page);
-				tabs.setSelectedPane(2);
+				tabs.setSelectedPane(ureq, 2);
 			}
 		} else if (source == toMainPageLink) { // home link
 			page = openIndexPage(ureq, wiki);
@@ -571,11 +586,11 @@ public class WikiMainController extends BasicController implements CloneableCont
 			openLastChangesPage(ureq, wiki);
 		} else if (source == editMenuButton) {
 			page = wiki.getPage(WikiPage.WIKI_MENU_PAGE);
-			editContent.contextPut("linkList", wiki.getListOfAllPageNames());
+			updateFileAndLinkList(wiki);
 			tryToSetEditLock(page, ureq, ores);
 			updatePageContext(ureq, page);
 			// wikiEditForm.setPage(page);
-			tabs.setSelectedPane(2);
+			tabs.setSelectedPane(ureq, 2);
 		} else if (source == archiveLink) {
 			// archive a snapshot of the wiki in the users personal folder
 			archiveWikiDialogCtr = activateOkCancelDialog(ureq, null, translate("archive.question"),
@@ -599,7 +614,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			editContent.remove(wikiVersionDisplayComp);
 		} else if (source == revertVersionButton) {
 			wikiEditForm.setPage(selectedPage);
-			tabs.setSelectedPane(2);
+			tabs.setSelectedPane(ureq, 2);
 			tryToSetEditLock(page, ureq, ores);
 		} else if (source instanceof Link && "select-page".equals(command)) {
 			String name = source.getComponentName();
@@ -634,8 +649,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			 * tabbed pane change to edit tab
 			 **********************************************************************/
 			wikiEditForm.resetUpdateComment();
-			editContent.contextPut("linkList", wiki.getListOfAllPageNames());
-			editContent.contextPut("fileList", wiki.getMediaFileList());
+			updateFileAndLinkList(wiki);
 			// try to edit acquire lock for this page
 			tryToSetEditLock(page, ureq, ores);
 		} else if (command.equals(TabbedPaneChangedEvent.TAB_CHANGED) && compName.equals("vc_versions")) {
@@ -690,7 +704,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		Link pageLink = LinkFactory.createToolLink(page.getPageName(), "select-page", page.getPageName(), this);
 		breadcrumpDropdown.addComponent(pageLink);
 		setTabsEnabled(true);
-		tabs.setSelectedPane(0);
+		tabs.setSelectedPane(ureq, 0);
 		return page;
 	}
 
@@ -701,7 +715,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		breadcrumpDropdown.addComponent(pageLink);
 		updatePageContext(ureq, page);
 		setTabsEnabled(true);
-		tabs.setSelectedPane(0);
+		tabs.setSelectedPane(ureq, 0);
 		addToHistory(ureq, OresHelper.createOLATResourceableTypeWithoutCheck("index"), null);
 		return page;
 	}
@@ -713,7 +727,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		articleContent.contextPut("page", recentChanges);
 		wikiArticleComp.setWikiContent(recentChanges.getContent());
 		setTabsEnabled(false);
-		tabs.setSelectedPane(0);
+		tabs.setSelectedPane(ureq, 0);
 		addToHistory(ureq, OresHelper.createOLATResourceableTypeWithoutCheck("lastChanges"), null);
 	}
 
@@ -724,7 +738,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		wikiArticleComp.setWikiContent(a2zPage.getContent());
 		clearPortfolioLink();
 		setTabsEnabled(false);
-		tabs.setSelectedPane(0);
+		tabs.setSelectedPane(ureq, 0);
 		addToHistory(ureq, OresHelper.createOLATResourceableTypeWithoutCheck("az"), null);
 	}
 
@@ -816,7 +830,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 		updatePageContext(ureq, page);
 		doReleaseEditLock();
 		tryToSetEditLock(page, ureq, ores);
-		tabs.setSelectedPane(2);
+		tabs.setSelectedPane(ureq, 2);
 		return page;
 	}
 
@@ -880,7 +894,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			if (event.getCommand().equals(FolderEvent.UPLOAD_EVENT)) {
 				FolderEvent fEvent = (FolderEvent) event;
 				createMediaMetadataFile(fEvent.getFilename(), ureq.getIdentity().getKey());
-				editContent.contextPut("fileList", wiki.getMediaFileList());
+				updateFileAndLinkList(wiki);
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -891,7 +905,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 				WikiManager.getInstance().deleteWikiPage(ores, page);
 				page = wiki.getPage(WikiPage.WIKI_INDEX_PAGE);
 				updatePageContext(ureq, page);
-				tabs.setSelectedPane(0);
+				tabs.setSelectedPane(ureq, 0);
 			}
 		} else if (source == mediaTableCtr) {
 			if (event.getCommand().equals(Table.COMMANDLINK_ROWACTION_CLICKED)) {
@@ -921,7 +935,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 				TableMultiSelectEvent tmse = (TableMultiSelectEvent) event;
 				if (tmse.getAction().equals(ACTION_DELETE_MEDIAS)) {
 					deleteMediaFile(mediaFilesTableModel.getObjects(tmse.getSelection()), ureq);
-					editContent.contextPut("fileList", wiki.getMediaFileList());
+					updateFileAndLinkList(wiki);
 				}
 			}
 		} else if (source == archiveWikiDialogCtr) {
@@ -947,7 +961,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 				Link pageLink = LinkFactory.createToolLink(page.getPageName(), "select-page", page.getPageName(), this);
 				breadcrumpDropdown.addComponent(pageLink);
 			}
-			tabs.setSelectedPane(0);
+			tabs.setSelectedPane(ureq, 0);
 		} else if (source == wikiEditForm) {
 			// set recent page id to the page currently used
 			this.pageId = page.getPageId();
@@ -1011,7 +1025,7 @@ public class WikiMainController extends BasicController implements CloneableCont
 			}
 
 			if (wantClose) {
-				tabs.setSelectedPane(0);
+				tabs.setSelectedPane(ureq, 0);
 				doReleaseEditLock();
 				return;
 			}

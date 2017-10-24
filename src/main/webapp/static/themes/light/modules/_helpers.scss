@@ -13,6 +13,16 @@
 	@extend %o_block_top;
 	@extend %o_block_bottom;
 }
+.o_block_small_bottom, %o_block_small_bottom {
+	margin-bottom: 0.5em;
+}
+.o_block_small_top, %o_block_small_top {
+	margin-top: 0.5em;
+}
+.o_block_small, %o_block_small {
+	@extend %o_block_small_top;
+	@extend %o_block_small_bottom;
+}
 .o_block_large_bottom, %o_block_large_bottom {
 	margin-bottom: 2em;
 }
@@ -38,6 +48,18 @@
 .o_block_inline_both {
 	@extend %o_block_inline_left;
 	@extend %o_block_inline_right;
+}
+
+/* vertical and horizontal centered block: add wrappern and place content in wrapper */
+.o_block_centered_wrapper {
+	display: table; 
+	width: 100%; 
+	height: 100%;
+}
+.o_block_centered_content {
+	display: table-cell; 
+	vertical-align: middle; 
+	text-align: center;
 }
 
 /* content block with a full-scale background image (fat media style) */
@@ -108,20 +130,49 @@
 .o_header_with_buttons {
 	@include clearfix();
 	@extend %o_block_bottom;
-	h1, h2, h3, h4 {
+	h1, h2, h3, h4, h5, h6 {
 		display: inline-block;
 	}
 	.o_button_group {
-		/* same as h3 and h4 */
-		margin-top: ($line-height-computed / 2);
 		margin-bottom: 0;
 		float: right;
 	}
+	/* optimize for header spacing */
+	h1 +.o_button_group {
+			margin-top: ($line-height-computed * 1.4);
+	}	
+	h2 +.o_button_group {
+			margin-top: ($line-height-computed * 1.2);
+	}	
+	h3 +.o_button_group {
+			margin-top: ($line-height-computed);
+	}	
+	h4 +.o_button_group {
+			margin-top: ($line-height-computed / 2);
+	}	
+	h5 +.o_button_group {
+			margin-top: ($line-height-computed / 3);
+	}	
+	h6 +.o_button_group {
+			margin-top: ($line-height-computed / 4);
+	}	
+}
+/* special case for no-margin headers in content area */
+#o_main_center .o_header_with_buttons h2 +.o_button_group {
+	margin-top: 0;	
 }
 
 .panel-heading.o_header_with_buttons {
 	margin-bottom: 0;
 }
+
+/* minimized text-style buttons */
+.o_button_textstyle {
+	&:before {content:'['}
+	&:after {content:']'}
+}
+
+
 
 .panel-imagebg {
 	background-repeat:no-repeat;
@@ -223,6 +274,11 @@
 .o_deleted, %o_deleted { 
 	text-decoration: line-through;
 }	
+/* highlight a row on hover event */
+.o_highlight_on_hover:hover { 
+	background-color: $table-bg-hover;
+}
+	
 /* clickable elements that should indicate this with a cursor change */
 .o_clickable, %o_clickable {
 	cursor: pointer;
@@ -242,19 +298,25 @@
 
 /* link or other copy&paste code blocks that might be to long for the screen (creates a scrollbar) */
 .o_copy_code, %o_copy_code {
-	overflow-x: auto;  
-	overflow-y: auto;
   	font-family: $font-family-monospace;
   	padding: 2px 4px;
   	font-size: 90%;
   	color: $code-color;
  	background-color: $code-bg;
   	border-radius: $border-radius-base;
+  	
+  	input,textarea {
+  		border: 0;
+  		width: 95%;
+  		background: transparent;
+  	}
 }
 
 /* text that should be on one line, e.g. in tables */
 .o_nowrap, %o_nowrap {
 	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }	
 
 /* titles with subtitles */
@@ -273,6 +335,23 @@
 	@include img-responsive(inline-block);
 	max-width: 100%;
 }
+
+/* figures with captions */
+.o_figure_caption_bottom {
+	display: inline-block;	
+	min-width: 50%;
+	figure { 
+		display: table; 
+	}
+	figcaption { 
+		display: table-caption; 
+		caption-side: bottom ; 
+		font-size: 90%;
+		font-style: italic;
+		text-align: center;
+	}
+}
+
 
 /* vertical centered helper */
 .o_image_vertical_center_helper {

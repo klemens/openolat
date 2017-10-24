@@ -44,7 +44,6 @@ import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.course.MembersPage;
 import org.olat.selenium.page.course.PortfolioElementPage;
-import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.portfolio.BinderPage;
@@ -55,8 +54,8 @@ import org.olat.selenium.page.portfolio.EntryPage;
 import org.olat.selenium.page.portfolio.MediaCenterPage;
 import org.olat.selenium.page.portfolio.PortfolioV2HomePage;
 import org.olat.selenium.page.repository.AuthoringEnvPage;
-import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage.ResourceType;
+import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.wiki.WikiPage;
@@ -184,7 +183,7 @@ public class PortfolioV2Test {
 			.selectTabLearnContent()
 			.choosePortfolio(binderTitle)
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 	
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -193,7 +192,10 @@ public class PortfolioV2Test {
 		membersPage
 			.importMembers()
 			.setMembers(ryomou)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Participant log in
 		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
@@ -473,7 +475,10 @@ public class PortfolioV2Test {
 		members
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//efficiency statement is default on
 		//go to the assessment to to set the points
@@ -678,10 +683,10 @@ public class PortfolioV2Test {
 		AssessmentCEConfigurationPage assessmentConfig = new AssessmentCEConfigurationPage(browser);
 		assessmentConfig
 			.selectConfiguration()
-			.setScoreAuto(0.1f, 10.0f, 5.0f);
+			.setScoreAuto(0.0f, 10.0f, 5.0f);
 		courseEditor
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 	
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -690,7 +695,10 @@ public class PortfolioV2Test {
 		membersPage
 			.importMembers()
 			.setMembers(rei)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Participant log in
 		LoginPage reiLoginPage = LoginPage.getLoginPage(reiBrowser, deploymentUrl);
@@ -729,10 +737,10 @@ public class PortfolioV2Test {
 			.openAccessMenu()
 			.addMember()
 			.searchMember(author, false)
-			.next()
-			.next()
+			.nextUsers()
+			.nextOverview()
 			.fillAccessRights(binderTitle, Boolean.TRUE)
-			.next()
+			.nextPermissions()
 			.deSelectEmail()
 			.finish();
 		

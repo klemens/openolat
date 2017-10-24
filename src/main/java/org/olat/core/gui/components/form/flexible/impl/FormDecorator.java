@@ -147,6 +147,14 @@ public class FormDecorator {
 		return FormJSHelper.getXHRFnCallFor(theForm, elementId, 1, true, true, new NameValuePair(key, value));
 	}
 	
+	public String backgroundCommand(String command, String key, String value) {
+		Form theForm = container.getRootForm();
+		String elementId = "o_fi" + container.getComponent().getDispatchID();
+		return FormJSHelper.getXHRNFFnCallFor(theForm, elementId, 1,
+				new NameValuePair("fcid", command),
+				new NameValuePair(key, value));
+	}
+	
 	public String appendFlexiFormDirty(String id) {
 		StringOutput sb = new StringOutput(256);
 		FormJSHelper.appendFlexiFormDirty(sb, container.getRootForm(), id);
@@ -179,6 +187,10 @@ public class FormDecorator {
 		}
 		return "";
 	}
+	
+	public Form getForm() {
+		return container.getRootForm();
+	}
 
 	/**
 	 * Internal helper to get a form item for the given name
@@ -186,7 +198,7 @@ public class FormDecorator {
 	 * @param formItemName
 	 * @return
 	 */
-	private FormItem getFormItem(String formItemName) {
+	public FormItem getFormItem(String formItemName) {
 		return container.getFormComponent(formItemName);
 	}
 

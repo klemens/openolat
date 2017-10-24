@@ -55,23 +55,33 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	private StringBuilder textBuffer;
 	private Spacing startSpacing;
 	
+	private boolean appendToCursor = true;
 	protected final OpenXMLDocument factory;
 	
-	protected List<Node> content = new ArrayList<Node>();
-	protected Deque<StyleStatus> styleStack = new ArrayDeque<StyleStatus>();
+	protected List<Node> content = new ArrayList<>();
+	protected Deque<StyleStatus> styleStack = new ArrayDeque<>();
 	
 	protected Table currentTable;
 	protected Element currentParagraph;
 	protected ListParagraph currentListParagraph;
 	protected boolean pNeedNewParagraph = true;
 	
+	protected double maxWidthCm = OpenXMLConstants.PAGE_FULL_WIDTH_CM;
+	
 	public HTMLToOpenXMLHandler(OpenXMLDocument document) {
 		this.factory = document;
 	}
 	
-	public HTMLToOpenXMLHandler(OpenXMLDocument document, Element paragraph) {
+
+	/**
+	 * @param document The OpenXML document
+	 * @param paragraph The current paragraph
+	 * @param appendToCursor If true, append automatically to the document
+	 */
+	public HTMLToOpenXMLHandler(OpenXMLDocument document, Element paragraph, boolean appendToCursor) {
 		this(document);
 		this.currentParagraph = paragraph;
+		this.appendToCursor = appendToCursor;
 	}
 	
 	public HTMLToOpenXMLHandler(OpenXMLDocument document, Spacing spacing) {
@@ -79,8 +89,16 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		this.startSpacing = spacing;
 	}
 	
+	public void setMaxWidthCm(double width) {
+		this.maxWidthCm = width;
+	}
+	
 	public void setInitialParagraph(Element paragraph) {
 		this.currentParagraph = paragraph;
+	}
+	
+	public List<Node> getContent() {
+		return content;
 	}
 	
 	/**
@@ -147,6 +165,17 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			content.add(element);
 		}
 		return null;
+	}
+	
+	protected void trimTextBuffer() {
+		if(textBuffer == null) return;
+		
+		String text = textBuffer.toString().trim();
+		if(text.length() == 0) {
+			textBuffer = null;
+		} else {
+			textBuffer = new StringBuilder(text);
+		}
 	}
 	
 	protected void flushText() {
@@ -315,7 +344,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	}
 	
 	protected void setImage(String path) {
-		Element imgEl = factory.createImageEl(path);
+		Element imgEl = factory.createImageEl(path, maxWidthCm);
 		if(imgEl != null) {
 			PredefinedStyle style = getCurrentPredefinedStyle();
 			Element runEl = factory.createRunEl(Collections.singletonList(imgEl), style);
@@ -325,7 +354,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	}
 	
 	protected void setImage(File file) {
-		Element imgEl = factory.createImageEl(file);
+		Element imgEl = factory.createImageEl(file, maxWidthCm);
 		if(imgEl != null) {
 			PredefinedStyle style = getCurrentPredefinedStyle();
 			Element runEl = factory.createRunEl(Collections.singletonList(imgEl), style);
@@ -343,21 +372,29 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		closeParagraph();
 	}
 	
-	protected void startTable() {
+	public void startTable() {
 		closeParagraph();
 		currentTable = new Table();
 	}
 	
-	protected void startTable(Integer... width) {
+	public void startTable(Integer... width) {
 		closeParagraph();
 		currentTable = new Table(width);
 	}
 	
-	protected void startCurrentTableRow() {
+	public void startCurrentTableRow() {
 		currentTable.addRowEl();
 	}
 	
-	protected void closeCurrentTableRow() {
+	public Node addCell(int colSpan, int rowSpan) {
+		return currentTable.addCellEl(colSpan, rowSpan);
+	}
+	
+	public Node addCell(Element cellEl) {
+		return currentTable.addCellEl(cellEl, 1);
+	}
+	
+	public void closeCurrentTableRow() {
 		if(currentTable != null) {
 			currentTable.closeRow();
 		}
@@ -366,7 +403,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		currentParagraph = null;
 	}
 	
-	protected void endTable() {
+	public void endTable() {
 		if(currentTable != null) {
 			content.add(currentTable.getTableEl());
 		}
@@ -377,7 +414,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 	@Override
 	public void startElement(String uri, String localName, String qName, Attributes attributes) {
 		String tag = localName.toLowerCase();
-		if("p".equalsIgnoreCase(tag)) {
+		if("p".equals(tag)) {
 			getCurrentParagraph(pNeedNewParagraph);
 		} else if("span".equalsIgnoreCase(tag)) {
 			flushText();
@@ -393,18 +430,18 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			styleStack.add(new StyleStatus(tag, styles));
 		} else if("br".equals(tag)) {
 			closeParagraph();
-		} else if("em".equalsIgnoreCase(tag)) {
+		} else if("em".equals(tag)) {
 			flushText();
 			Style[] styles = setTextPreferences(Style.italic);
 			styleStack.add(new StyleStatus(tag, styles));
-		} else if("strong".equalsIgnoreCase(tag)) {
+		} else if("strong".equals(tag)) {
 			flushText();
 			Style[] styles = setTextPreferences(Style.bold);
 			styleStack.add(new StyleStatus(tag, styles));
 		} else if("img".equals(tag)) {
 			String path = attributes.getValue("src");
 			setImage(path);
-		} else if("table".equalsIgnoreCase(tag)) {
+		} else if("table".equals(tag)) {
 			startTable();
 		} else if("tr".equals(tag)) {
 			startCurrentTableRow();
@@ -430,9 +467,11 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 					appendParagraph(new Spacing(120, 0));
 					pNeedNewParagraph = false;
 				} else {
+					getCurrentParagraph(pNeedNewParagraph);
 					styleStack.add(new StyleStatus(tag, new Style[0]));
 				}
 			} else {
+				getCurrentParagraph(pNeedNewParagraph);
 				styleStack.add(new StyleStatus(tag, new Style[0]));
 			}
 		}
@@ -480,6 +519,7 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			popStyle(tag);
 		} else if("div".equals(tag)) {
 			popStyle(tag);
+			closeParagraph();
 		}
 	}
 	
@@ -488,8 +528,10 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 		//clean up trailing text and pack it in a last paragraph
 		closeParagraph();
 
-		for(Node node:content) {
-			factory.getCursor().appendChild(node);
+		if(appendToCursor) {
+			for(Node node:content) {
+				factory.getCursor().appendChild(node);
+			}
 		}
 	}
 	
@@ -592,11 +634,11 @@ public class HTMLToOpenXMLHandler extends DefaultHandler {
 			return currentRowEl.appendChild(currentCellEl);
 		}
 		
-		public Node addCellEl(Element cellEl, int colSpan) {
+		public Element addCellEl(Element cellEl, int colSpan) {
 			nextCol += closeCell(nextCol);
 			currentCellEl = cellEl;
 			nextCol += (colSpan <= 1 ? 1 : colSpan);
-			return currentRowEl.appendChild(currentCellEl);
+			return (Element)currentRowEl.appendChild(currentCellEl);
 		}
 		
 		public int closeCell(int lastIndex) {

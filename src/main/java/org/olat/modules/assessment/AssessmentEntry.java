@@ -40,6 +40,14 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 	
 	public Date getLastModified();
 	
+	public Date getLastCoachModified();
+	
+	public void setLastCoachModified(Date date);
+	
+	public Date getLastUserModified();
+	
+	public void setLastUserModified(Date date);
+	
 	public Long getAssessmentId();
 	
 	public void setAssessmentId(Long assessmentId);
@@ -48,13 +56,13 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 
 	public void setAttempts(Integer attempts);
 
-	public BigDecimal getScore();
-
 	public void setScore(BigDecimal score);
 
-	public Boolean getPassed();
-
 	public void setPassed(Boolean passed);
+	
+	public Boolean getUserVisibility();
+	
+	public void setUserVisibility(Boolean visibility);
 	
 	public AssessmentEntryStatus getAssessmentStatus();
 	
@@ -75,6 +83,10 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 	public String getComment();
 
 	public void setComment(String comment);
+	
+	public int getNumberOfAssessmentDocuments();
+	
+	public void setNumberOfAssessmentDocuments(int numOfDocuments);
 
 	public String getCoachComment();
 

@@ -21,9 +21,12 @@ package org.olat.modules.portfolio.ui;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -44,6 +47,7 @@ import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
@@ -88,8 +92,13 @@ public class BinderAssessmentController extends FormBasicController {
 	private FormLink saveAndDoneLink, reopenLink;
 	private BinderAssessmentDataModel model;
 	
+	private CloseableModalController cmc;
+	private SectionDatesEditController editSectionDatesCtrl;
+
 	private boolean withScore;
 	private boolean withPassed;
+	private Float minScore, maxScore;
+	private final String displayname;
 	
 	@Autowired
 	private PortfolioService portfolioService;
@@ -99,8 +108,11 @@ public class BinderAssessmentController extends FormBasicController {
 		super(ureq, wControl, "section_assessment");
 		this.binder = binder;
 		this.secCallback = secCallback;
-		this.withPassed = config.isWithPassed();
-		this.withScore = config.isWithScore();
+		withPassed = config.isWithPassed();
+		withScore = config.isWithScore();
+		minScore = config.getMinScore();
+		maxScore = config.getMaxScore();
+		displayname = config.getDisplayname();
 		initForm(ureq);
 		loadModel();
 	}
@@ -238,6 +250,29 @@ public class BinderAssessmentController extends FormBasicController {
 	protected void doDispose() {
 		//
 	}
+	
+	
+
+	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(editSectionDatesCtrl == source) {
+			if(event == Event.DONE_EVENT) {
+				loadModel();
+			}
+			cmc.deactivate();
+			cleanUp();
+		} else if(cmc == source) {
+			cleanUp();
+		}
+		super.event(ureq, source, event);
+	}
+	
+	private void cleanUp() {
+		removeAsListenerAndDispose(editSectionDatesCtrl);
+		removeAsListenerAndDispose(cmc);
+		editSectionDatesCtrl = null;
+		cmc = null;
+	}
 
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
@@ -260,12 +295,56 @@ public class BinderAssessmentController extends FormBasicController {
 				fireEvent(ureq, Event.CHANGED_EVENT);
 			} else if("reopen".equals(cmd)) {
 				AssessmentSectionWrapper row = (AssessmentSectionWrapper)button.getUserObject();
-				doReopen(row.getSection());
+				doReopen(ureq, row.getSection());
 				loadModel();
 				fireEvent(ureq, Event.CHANGED_EVENT);
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+
+	@Override
+	protected boolean validateFormLogic(UserRequest ureq) {
+		boolean allOk = true;
+
+		flc.contextRemove("scoreError");
+		if(withScore && (maxScore != null || minScore != null)) {
+			double scoreTotal = 0.0d;
+
+			Set<Section> visibleSections = new HashSet<>();
+			List<AssessmentSectionWrapper> rows = model.getObjects();
+			for(AssessmentSectionWrapper row:rows) {
+				BigDecimal score = row.getScore();
+				if(row.getScoreEl() != null) {
+					String value = row.getScoreEl().getValue();
+					if(StringHelper.containsNonWhitespace(value)) {
+						score = new BigDecimal(value);
+					}
+				}
+				if(score != null) {
+					scoreTotal += score.doubleValue();
+				}
+				visibleSections.add(row.getSection());
+			}
+			
+			// add score of other sections
+			List<AssessmentSection> assessmentSections = portfolioService.getAssessmentSections(binder, null);
+			for(AssessmentSection assessmentSection:assessmentSections) {
+				if(!visibleSections.contains(assessmentSection.getSection()) && assessmentSection.getScore() != null) {
+					scoreTotal += assessmentSection.getScore().doubleValue();
+				}
+			}
+			
+			if(maxScore != null && (maxScore.doubleValue() < scoreTotal)) {
+				flc.contextPut("scoreError", translate("error.score", new String[] { "0", AssessmentHelper.getRoundedScore(maxScore), displayname }));
+				allOk &= false;
+			} else if(minScore != null && (minScore.doubleValue() > scoreTotal)) {
+				flc.contextPut("scoreError", translate("error.score", new String[] { "0", AssessmentHelper.getRoundedScore(maxScore), displayname }));
+				allOk &= false;
+			}
+		}
+		
+		return allOk & super.validateFormLogic(ureq);
 	}
 
 	@Override
@@ -310,10 +389,20 @@ public class BinderAssessmentController extends FormBasicController {
 				LoggingResourceable.wrap(section));
 	}
 	
-	private void doReopen(Section section) {
-		portfolioService.changeSectionStatus(section, SectionStatus.inProgress, getIdentity());
-		ThreadLocalUserActivityLogger.log(PortfolioLoggingAction.PORTFOLIO_SECTION_REOPEN, getClass(),
-				LoggingResourceable.wrap(section));
+	private void doReopen(UserRequest ureq, Section section) {
+		if(section.getSectionStatus() != null && section.getSectionStatus().equals(SectionStatus.closed)) {
+			portfolioService.changeSectionStatus(section, SectionStatus.inProgress, getIdentity());
+			ThreadLocalUserActivityLogger.log(PortfolioLoggingAction.PORTFOLIO_SECTION_REOPEN, getClass(),
+					LoggingResourceable.wrap(section));
+		} else if(section.getEndDate() != null && section.getEndDate().compareTo(new Date()) < 0) {
+			editSectionDatesCtrl = new SectionDatesEditController(ureq, getWindowControl(), section);
+			listenTo(editSectionDatesCtrl);
+			
+			String title = translate("override.dates.section");
+			cmc = new CloseableModalController(getWindowControl(), null, editSectionDatesCtrl.getInitialComponent(), true, title, true);
+			listenTo(cmc);
+			cmc.activate();
+		}
 	}
 	
 	private void doReopenBinder() {
