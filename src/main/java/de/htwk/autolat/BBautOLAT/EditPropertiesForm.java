@@ -57,7 +57,11 @@ public class EditPropertiesForm extends FormBasicController {
 	private FormSubmit submit;
 
 	private long courseID;
-	
+
+	// Don't allow editing score points and start of the assessment period
+	// if there are already some task instances by users
+	private boolean limitedEditing = false;
+
 	public EditPropertiesForm(String name, UserRequest ureq, WindowControl wControl, long courseID, long courseNodeID) {
 		super(ureq, wControl);
 		
@@ -153,8 +157,16 @@ public class EditPropertiesForm extends FormBasicController {
 				}
 			}
 		}
+
+		// Load current configuration for updating and further checks
 		Configuration conf = ConfigurationManagerImpl.getInstance().getConfigurationByCourseID(courseID, courseNodeID);
-		
+
+		// Only allow extending the assessment period
+		if(limitedEditing && conf.getEndDate() != null && enddate.before(conf.getEndDate())) {
+			endDate.setErrorKey("error.form.editproperties.limited.enddatebeforeprevious", null);
+			return;
+		}
+
 		conf.setBeginDate(begindate);
 		conf.setEndDate(enddate);
 		conf.setScorePoints(scorePoints);
@@ -169,11 +181,10 @@ public class EditPropertiesForm extends FormBasicController {
 	}
 	
 	public void setEnable(boolean isEnabled) {
+		limitedEditing = !isEnabled;
+
 		beginDate.setEnabled(isEnabled);
-		endDate.setEnabled(isEnabled);
 		scorepoints.setEnabled(isEnabled);
-		submit.setEnabled(isEnabled);
-		
 	}
 	
 	public void updateElements() {
