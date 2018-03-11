@@ -32,6 +32,7 @@ import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
 import org.olat.core.commons.modules.singlepage.SinglePageController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
@@ -47,6 +48,8 @@ import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseFactory;
 import org.olat.course.CourseModule;
 import org.olat.course.ICourse;
+import org.olat.course.assessment.ui.tool.AssessmentCourseNodeController;
+import org.olat.course.assessment.ui.tool.IdentityListCourseNodeController;
 import org.olat.course.condition.Condition;
 import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
@@ -66,8 +69,12 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.tree.CourseInternalLinkTreeModel;
+import org.olat.group.BusinessGroup;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.Role;
+import org.olat.modules.assessment.model.AssessmentRunStatus;
+import org.olat.modules.assessment.ui.AssessmentToolContainer;
+import org.olat.modules.assessment.ui.AssessmentToolSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.util.logging.activity.LoggingResourceable;
 
@@ -604,5 +611,30 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	@Override
 	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role doneBy) {
 		// not supported (cannot be manually assessed)
+	}
+
+	@Override
+	public boolean hasCompletion() {
+		return false;
+	}
+
+	@Override
+	public Double getUserCurrentRunCompletion(UserCourseEnvironment userCourseEnvironment) {
+		throw new OLATRuntimeException(BBautOLATStructureNode.class, "No completion available for autolat structure nodes", null);
+	}
+
+	@Override
+	public AssessmentCourseNodeController getIdentityListController(UserRequest ureq, WindowControl wControl,
+			TooledStackedPanel stackPanel, RepositoryEntry courseEntry, BusinessGroup group,
+			UserCourseEnvironment coachCourseEnv, AssessmentToolContainer toolContainer,
+			AssessmentToolSecurityCallback assessmentCallback) {
+		return new IdentityListCourseNodeController(ureq, wControl, stackPanel,
+				courseEntry, group, this, coachCourseEnv, toolContainer, assessmentCallback);
+	}
+
+	@Override
+	public void updateCurrentCompletion(UserCourseEnvironment userCourseEnvironment, Identity identity,
+			Double currentCompletion, AssessmentRunStatus status, Role doneBy) {
+		throw new OLATRuntimeException(BBautOLATStructureNode.class, "Completion variable can't be updated in autolat structure nodes", null);
 	}
 }
