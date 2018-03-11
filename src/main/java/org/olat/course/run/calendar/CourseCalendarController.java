@@ -34,6 +34,7 @@ import org.olat.collaboration.CollaborationTools;
 import org.olat.collaboration.CollaborationToolsFactory;
 import org.olat.commons.calendar.CalendarManager;
 import org.olat.commons.calendar.model.CalendarUserConfiguration;
+import org.olat.commons.calendar.model.Kalendar;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.LinkProvider;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
@@ -70,14 +71,24 @@ public class CourseCalendarController extends BasicController {
 		super(ureq, wControl);
 		this.userCourseEnv = userCourseEnv;
 		List<KalendarRenderWrapper> calendars = getListOfCalendarWrappers(ureq);
-		calendarController = new WeeklyCalendarController(ureq, wControl, calendars,
-				WeeklyCalendarController.CALLER_COURSE, false);
+		calendarController = new WeeklyCalendarController(ureq, wControl, calendars, WeeklyCalendarController.CALLER_COURSE,
+				userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseResource(), false);
+		calendarController.setDifferentiateManagedEvent(needToDifferentiateManagedEvents(calendars));
 		listenTo(calendarController);
 		putInitialPanel(calendarController.getInitialComponent());
 	}
+	
+	private boolean needToDifferentiateManagedEvents(List<KalendarRenderWrapper> calendars) {
+		boolean hasManaged = false;
+		for(KalendarRenderWrapper wrapper:calendars) {
+			Kalendar cal = wrapper.getKalendar();
+			hasManaged |= cal.hasManagedEvents();
+		}
+		return hasManaged;
+	}
 
 	private List<KalendarRenderWrapper> getListOfCalendarWrappers(UserRequest ureq) {
-		List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
+		List<KalendarRenderWrapper> calendars = new ArrayList<>();
 		// add course calendar
 		ICourse course = CourseFactory.loadCourse(userCourseEnv.getCourseEnvironment().getCourseGroupManager().getCourseEntry());
 		courseKalendarWrapper = calendarManager.getCourseCalendar(course);

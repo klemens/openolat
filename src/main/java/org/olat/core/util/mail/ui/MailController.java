@@ -46,6 +46,7 @@ import org.olat.core.util.mail.MailModule;
 import org.olat.core.util.mail.model.DBMail;
 import org.olat.core.util.mail.model.DBMailAttachment;
 import org.olat.core.util.mail.model.DBMailRecipient;
+import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -62,6 +63,7 @@ public class MailController extends FormBasicController {
 	
 	private String mapperBaseURI;
 	private final boolean back;
+	private final boolean outbox;
 	private final DBMail mail;
 	private final List<DBMailAttachment> attachments;
 	private boolean showAllRecipients = false;
@@ -73,11 +75,12 @@ public class MailController extends FormBasicController {
 	@Autowired
 	private MailManager mailManager;
 
-	public MailController(UserRequest ureq, WindowControl wControl, DBMail mail, boolean back) {
+	public MailController(UserRequest ureq, WindowControl wControl, DBMail mail, boolean back, boolean outbox) {
 		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(MailModule.class, ureq.getLocale()));
 		this.mail = mail;
 		this.back = back;
+		this.outbox = outbox;
 		attachments = mailManager.getAttachments(mail);
 		if(!attachments.isEmpty()) {
 			mapperBaseURI = registerMapper(ureq, new MailAttachmentMapper(mailManager));
@@ -136,10 +139,12 @@ public class MailController extends FormBasicController {
 		sb.append("<ul class='list-inline'><li>");
 		if (from != null) {
 			sb.append(getFullName(from));
-			if (mailModule.isShowMailAddresses()) {
+			if (showMailAdresses()) {
 				Identity fromIdentity = from.getRecipient();
 				if (fromIdentity != null) {
-					sb.append(" &lt;").append(fromIdentity.getUser().getEmail()).append("&gt; ");
+					sb.append(" &lt;");
+					sb.append(UserManager.getInstance().getUserDisplayEmail(fromIdentity, getLocale()));
+					sb.append("&gt; ");
 				}
 			}			
 		}
@@ -149,7 +154,7 @@ public class MailController extends FormBasicController {
 	
 	private String getRecipients() {
 		StringBuilder sb = new StringBuilder();
-		Set<String> groups = new HashSet<String>();
+		Set<String> groups = new HashSet<>();
 		int recipientsCounter = 0;
 		int groupCounter = 0;
 		sb.append("<ul class='list-inline'>");
@@ -173,25 +178,27 @@ public class MailController extends FormBasicController {
 				groups.add(group);
 				groupCounter = 0;
 			}
-			if (mailModule.isShowRecipientNames()) {
+			if (showRecipientNames()) {
 				if (recipient.getRecipient() != null) {
-					// recipient is an individual
-					Identity repicientIdentity = recipient.getRecipient();
 					sb.append("<li class='o_recipient'>");
 					if(groupCounter> 0) sb.append(", ");
 					sb.append("<span>").append(getFullName(recipient)).append("</span>");
-					if (mailModule.isShowMailAddresses()) {
-						sb.append(" &lt;").append(repicientIdentity.getUser().getEmail()).append("&gt;");
+					if (showMailAdresses()) {
+						sb.append(" &lt;");
+						sb.append(UserManager.getInstance().getUserDisplayEmail(recipient.getRecipient(), getLocale()));
+						sb.append("&gt;");
 					}
 					sb.append("</li>");
 					groupCounter++;
 				}
+			}
+			if (showMailAdresses()) {
 				if (recipient.getEmailAddress() != null) {
 					// recipient is not an OpenOLAT identity but an external email
 					sb.append("<li class='o_mail'>");
 					if(groupCounter > 0) sb.append(", ");
 					sb.append("&lt;");
-					sb.append(recipient.getEmailAddress());
+					sb.append(UserManager.getInstance().getUserDisplayEmail(recipient.getEmailAddress(), getLocale()));
 					sb.append("&gt;</li>");
 					groupCounter++;
 				}
@@ -199,6 +206,16 @@ public class MailController extends FormBasicController {
 		}
 		sb.append("</ul>");
 		return sb.toString();
+	}
+
+	private boolean showRecipientNames() {
+		return (outbox && mailModule.isShowOutboxRecipientNames()) 
+				|| (!outbox && mailModule.isShowInboxRecipientNames());
+	}
+
+	private boolean showMailAdresses() {
+		return (outbox && mailModule.isShowOutboxMailAddresses()) 
+				|| (!outbox && mailModule.isShowInboxMailAddresses());
 	}
 	
 	private String getFullName(DBMailRecipient recipient) {

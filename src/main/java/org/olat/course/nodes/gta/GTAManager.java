@@ -353,6 +353,12 @@ public interface GTAManager {
 	
 	public Task resetTaskRefused(Task task, GTACourseNode cNode);
 	
+	public boolean toggleMark(RepositoryEntry entry, GTACourseNode gtaNode, Identity marker, Identity participant);
+
+	public List<IdentityMark> getMarks(RepositoryEntry entry, GTACourseNode gtaNode, Identity marker);
+	
+	public boolean hasMarks(RepositoryEntry entry, GTACourseNode gtaNode, Identity marker);
+
 	public void log(String step, String operation, Task assignedTask, Identity actor, Identity assessedIdentity, BusinessGroup assessedGroup,
 			CourseEnvironment courseEnv, GTACourseNode cNode);
 	

@@ -21,18 +21,27 @@ package org.olat.modules.qpool.ui;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
+import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.modules.qpool.QPoolService;
+import org.olat.modules.qpool.QuestionItem;
+import org.olat.modules.qpool.QuestionItemAuditLog.Action;
+import org.olat.modules.qpool.QuestionItemAuditLogBuilder;
 import org.olat.modules.qpool.QuestionItemShort;
+import org.olat.modules.qpool.ui.events.QItemsProcessedEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -41,25 +50,29 @@ import org.olat.modules.qpool.QuestionItemShort;
  *
  */
 public class ConversionConfirmationController extends FormBasicController {
+
+	private static final String ADD_TO_SOURCE_KEY = "add.to.source.key";
+	private static final String[] addToItemsSourceKeys = new String[] { ADD_TO_SOURCE_KEY };
+	private static final String[] editableKeys = new String[] { "editable" };
 	
 	private SingleSelection formatEl;
 	private FormLayoutContainer exampleHelpEl;
+	private StaticTextElement questionsEl;
+	private MultipleSelectionElement addToItemsSourceEl;
+	private MultipleSelectionElement editableEl;
 	
 	private final Map<String,List<QuestionItemShort>> formatToItems;
+	private final QuestionItemsSource itemsSource;
+	
+	@Autowired
+	private QPoolService qpoolService;
 	
 	public ConversionConfirmationController(UserRequest ureq, WindowControl wControl,
-			Map<String,List<QuestionItemShort>> formatToItems) {
+			Map<String,List<QuestionItemShort>> formatToItems, QuestionItemsSource itemsSource) {
 		super(ureq, wControl);
 		this.formatToItems = formatToItems;
+		this.itemsSource = itemsSource;
 		initForm(ureq);
-	}
-	
-	public String getSelectedFormat() {
-		return formatEl.isOneSelected() ? formatEl.getSelectedKey() : null;
-	}
-	
-	public List<QuestionItemShort> getSelectedItems() {
-		return formatToItems.get(getSelectedFormat());
 	}
 
 	@Override
@@ -77,12 +90,23 @@ public class ConversionConfirmationController extends FormBasicController {
 		exampleHelpEl = FormLayoutContainer.createCustomFormLayout("example.help", "example.help", getTranslator(), page);
 		formLayout.add(exampleHelpEl);
 		
+		questionsEl = uifactory.addStaticTextElement("convert.questions", "", formLayout);
+		
+		String[] addToItemsSourceValues = new String[] { itemsSource.getAskToSourceText(getTranslator()) };
+		addToItemsSourceEl = uifactory.addCheckboxesHorizontal("convert.add.to.source", "", formLayout, addToItemsSourceKeys, addToItemsSourceValues);
+		addToItemsSourceEl.addActionListener(FormEvent.ONCHANGE);
+		addToItemsSourceEl.select(ADD_TO_SOURCE_KEY, itemsSource.askAddToSourceDefault());
+		
+		String[] editableValues = new String[] { translate("convert.editable") };
+		editableEl = uifactory.addCheckboxesHorizontal("convert.editable", "", formLayout, editableKeys, editableValues);
+		
 		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsCont.setRootForm(mainForm);
 		formLayout.add(buttonsCont);
-		uifactory.addFormCancelButton("cancel", buttonsCont, ureq, getWindowControl());
 		uifactory.addFormSubmitButton("convert.item", buttonsCont);
+		uifactory.addFormCancelButton("cancel", buttonsCont, ureq, getWindowControl());
 		updateInfos();
+		updateUI();
 	}
 	
 	@Override
@@ -94,19 +118,59 @@ public class ConversionConfirmationController extends FormBasicController {
 		String format = formatEl.getSelectedKey();
 		List<QuestionItemShort> items = formatToItems.get(format);
 		setFormInfo("convert.item.msg", new String[]{ Integer.toString(items.size()) });
+		questionsEl.setValue(getQuestionNames(items));
+	}
+
+	private String getQuestionNames(List<QuestionItemShort> items) {
+		return items.stream()
+				.map(item -> item.getTitle())
+				.collect(Collectors.joining(", "));
+	}
+	
+	private void updateUI() {
+		boolean showAddToSource = itemsSource.askAddToSource();
+		addToItemsSourceEl.setVisible(showAddToSource);
+		boolean showEditable = itemsSource.askEditable() && addToItemsSourceEl.isAtLeastSelected(1);
+		editableEl.setVisible(showEditable);
 	}
 
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(formatEl == source) {
 			updateInfos();
+		} else if(addToItemsSourceEl == source) {
+			updateUI();
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		fireEvent(ureq, Event.DONE_EVENT);
+		String format = formatEl.isOneSelected() ? formatEl.getSelectedKey() : null;
+		List<QuestionItemShort> itemsToConvert = formatToItems.get(format);
+		List<QuestionItem> convertedItems = qpoolService.convertItems(getIdentity(), itemsToConvert, format,
+				getLocale());
+		addToItemsSource(convertedItems);
+		logAudit(convertedItems);
+		fireEvent(ureq, new QItemsProcessedEvent(convertedItems, itemsToConvert.size(),
+				itemsToConvert.size() - convertedItems.size()));
+	}
+	
+	private void addToItemsSource(List<QuestionItem> items) {
+		boolean addToItemsSource = addToItemsSourceEl.isAtLeastSelected(1);
+		boolean editable = editableEl.isAtLeastSelected(1);
+		if (addToItemsSource) {
+			itemsSource.addToSource(items, editable);
+		}
+	}
+
+	private void logAudit(List<QuestionItem> items) {
+		for (QuestionItem item: items) {
+			QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+					Action.CREATE_QUESTION_ITEM_BY_CONVERSION);
+			builder.withAfter(item);
+			qpoolService.persist(builder.create());
+		}
 	}
 
 	@Override

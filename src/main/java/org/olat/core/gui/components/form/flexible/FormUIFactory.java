@@ -87,6 +87,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableElementImpl;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.progressbar.ProgressBarItem;
+import org.olat.core.gui.components.rating.RatingFormItem;
 import org.olat.core.gui.components.tree.MenuTreeItem;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.control.WindowBackOffice;
@@ -386,6 +387,9 @@ public class FormUIFactory {
 		return ss;
 	}
 
+	public SingleSelection addDropdownSingleselect(final String name, FormItemContainer formLayout, final String[] theKeys, final String[] theValues) {
+		return addDropdownSingleselect(name, name, name, formLayout, theKeys, theValues, null);
+	}
 
 	/**
 	 * Add a drop down menu (also called pulldown menu), with a label's i18n key being the same as the <code>name<code>.
@@ -429,7 +433,7 @@ public class FormUIFactory {
 	 * @return
 	 */
 	public SingleSelection addDropdownSingleselect(final String id, final String name, final String i18nLabel, FormItemContainer formLayout, final String[] theKeys, final String[] theValues, final String[] theCssClasses) {
-		SingleSelection ss = new SelectboxSelectionImpl(id, name);
+		SingleSelection ss = new SelectboxSelectionImpl(id, name, formLayout.getTranslator().getLocale());
 		ss.setKeysAndValues(theKeys, theValues, theCssClasses);
 		setLabelIfNotNull(i18nLabel, ss);
 		formLayout.add(ss);
@@ -545,6 +549,10 @@ public class FormUIFactory {
 		return fiWrapper;
 	}
 	
+	public TextElement addTextElement(final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		return addTextElement(i18nLabel, i18nLabel, maxLen, initialValue, formLayout);
+	}
 	
 	/**
 	 * 
@@ -711,7 +719,8 @@ public class FormUIFactory {
 		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
-		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());			
+		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());		
+		rte.getEditorConfiguration().setPathInStatusBar(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -1247,5 +1256,17 @@ public class FormUIFactory {
 		setLabelIfNotNull(i18nLabel, dropdown);
 		formLayout.add(dropdown);
 		return dropdown;
+	}
+	
+	public RatingFormItem addRatingItem(String name, String i18nLabel, float initialRating, int maxRating, boolean allowUserInput, FormItemContainer formLayout) {
+		RatingFormItem ratingCmp = new RatingFormItem(name, initialRating, maxRating, allowUserInput);
+		setLabelIfNotNull(i18nLabel, ratingCmp);
+		if(i18nLabel != null) {
+			ratingCmp.showLabel(true);
+		}
+		if(formLayout != null) {
+			formLayout.add(ratingCmp);
+		}
+		return ratingCmp;
 	}
 }

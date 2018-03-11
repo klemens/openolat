@@ -39,6 +39,7 @@ import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.CoreSpringFactory;
+import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
@@ -74,6 +75,7 @@ import org.olat.properties.Property;
 import org.olat.repository.CatalogEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.repository.RepositoryService;
 import org.olat.repository.controllers.EntryChangedEvent;
 import org.olat.repository.controllers.EntryChangedEvent.Change;
 import org.olat.repository.manager.CatalogManager;
@@ -504,6 +506,9 @@ public class PublishProcess {
 			}
 		}
 		
+		//commit all changes before sending an event
+		DBFactory.getInstance().commitAndCloseSession();
+		
 		/*
 		 * broadcast event
 		 */
@@ -710,13 +715,20 @@ public class PublishProcess {
 		manager.setLeaveSetting(accessAndProps.getRepositoryEntry(), accessAndProps.getSetting());
 		
 		List<OfferAccess> offerAccess = accessAndProps.getOfferAccess();
+		// 1: add new and update existing offerings
 		ACService acService = CoreSpringFactory.getImpl(ACService.class);
 		for (OfferAccess newLink : offerAccess) {
 			acService.saveOfferAccess(newLink);
 		}
+		// 2: remove offerings not available anymore
+		List<OfferAccess> deletedOfferAccess = accessAndProps.getDeletedOfferAccess();
+		for (OfferAccess deletedLink : deletedOfferAccess) {
+			acService.deletedLinkToMethod(deletedLink);
+		}
 		
 		MultiUserEvent modifiedEvent = new EntryChangedEvent(repositoryEntry, author, Change.modifiedAtPublish, "publish");
 		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, repositoryEntry);
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().fireEventToListenersOf(modifiedEvent, RepositoryService.REPOSITORY_EVENT_ORES);
 	}
 	
 	

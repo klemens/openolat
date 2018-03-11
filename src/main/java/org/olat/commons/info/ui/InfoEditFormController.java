@@ -39,6 +39,7 @@ import org.olat.core.gui.components.form.flexible.impl.Form;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.FileElementEvent;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -55,6 +56,8 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class InfoEditFormController extends FormBasicController {
+	
+	private static final int MESSAGE_MAX_LENGTH = 32000;
 
 	private TextElement titleEl;
 	private FileElement attachmentEl;
@@ -94,16 +97,23 @@ public class InfoEditFormController extends FormBasicController {
 		messageEl.getEditorConfiguration().setRelativeUrls(false);
 		messageEl.getEditorConfiguration().setRemoveScriptHost(false);
 		messageEl.getEditorConfiguration().enableCharCount();
+		messageEl.getEditorConfiguration().setPathInStatusBar(true);
 		messageEl.setMandatory(true);
-		messageEl.setMaxLength(2000);
+		messageEl.setMaxLength(MESSAGE_MAX_LENGTH);
 		
 		attachmentEl = uifactory.addFileElement(getWindowControl(), "attachment", formLayout);
 		attachmentEl.setDeleteEnabled(true);
 		attachmentEl.setMaxUploadSizeKB(5000, "attachment.max.size", new String[] { "5000" });
+		
 		attachmentEl.addActionListener(FormEvent.ONCHANGE);
 		if(infoMessage.getAttachmentPath() != null) {
 			attachmentPath = infoMessage.getAttachmentPath();
-			attachmentPathToDelete.add(infoMessage.getAttachmentPath());
+			String filename = attachmentPath;
+			int lastIndex = filename.lastIndexOf('/');
+			if(lastIndex > 0) {
+				filename = filename.substring(lastIndex + 1);
+			}
+			attachmentEl.setInitialFile(new File(filename));
 		}
 	}
 	
@@ -120,17 +130,21 @@ public class InfoEditFormController extends FormBasicController {
 	@Override
 	protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 		if(attachmentEl == source) {
-			if (attachmentEl.isUploadSuccess()) {
+			if(FileElementEvent.DELETE.equals(event.getCommand())) {
+				attachmentPathToDelete.add(attachmentPath);
+				attachmentEl.reset();
+				attachmentEl.setInitialFile(null);
+				attachmentEl.clearError();
+				attachmentPath = null;
+			} else if(attachmentEl.isUploadSuccess()) {
 				File uploadedFile = attachmentEl.getUploadFile();
 				String uploadedFilename = attachmentEl.getUploadFileName();
 				if(attachmentPath != null) {
 					attachmentPathToDelete.add(attachmentPath);
 				}
 				attachmentPath = infoMessageFrontendManager.storeAttachment(uploadedFile, uploadedFilename, infoMessage.getOLATResourceable(), infoMessage.getResSubPath());
-			} else {
-				attachmentPathToDelete.add(attachmentPath);
 			}
-			this.fireEvent(ureq, Event.CHANGED_EVENT);
+			fireEvent(ureq, Event.CHANGED_EVENT);
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
@@ -139,24 +153,24 @@ public class InfoEditFormController extends FormBasicController {
 	protected boolean validateFormLogic(UserRequest ureq) {
 		titleEl.clearError();
 		messageEl.clearError();
-		boolean allOk = true;
+		boolean allOk = super.validateFormLogic(ureq);
 		
 		String t = titleEl.getValue();
 		if(!StringHelper.containsNonWhitespace(t)) {
 			titleEl.setErrorKey("form.legende.mandatory", new String[] {});
-			allOk = false;
+			allOk &= false;
 		} else if (t.length() > 500) {
 			titleEl.setErrorKey("input.toolong", new String[] {"500", Integer.toString(t.length())});
-			allOk = false;
+			allOk &= false;
 		}
 		
 		String m = messageEl.getValue();
 		if(!StringHelper.containsNonWhitespace(m)) {
 			messageEl.setErrorKey("form.legende.mandatory", new String[] {});
-			allOk = false;
-		} else if (m.length() > 2000) {
-			messageEl.setErrorKey("input.toolong", new String[] {"2000", Integer.toString(m.length())});
-			allOk = false;
+			allOk &= false;
+		} else if (m.length() > MESSAGE_MAX_LENGTH) {
+			messageEl.setErrorKey("input.toolong", new String[] { Integer.toString(MESSAGE_MAX_LENGTH), Integer.toString(m.length()) });
+			allOk &= false;
 		}
 		
 		List<ValidationStatus> validation = new ArrayList<>();
@@ -164,7 +178,7 @@ public class InfoEditFormController extends FormBasicController {
 		if(validation.size() > 0) {
 			allOk &= false;
 		}
-		return allOk & super.validateFormLogic(ureq);
+		return allOk;
 	}
 	
 	public InfoMessage getInfoMessage() {

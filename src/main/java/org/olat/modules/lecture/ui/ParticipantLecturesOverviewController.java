@@ -271,7 +271,7 @@ public class ParticipantLecturesOverviewController extends FormBasicController i
 	
 	private void doExportLog(UserRequest ureq) {
 		List<LectureBlockAuditLog> auditLog = lectureService.getAuditLog(assessedIdentity);
-		IdentityAuditLogExport export = new IdentityAuditLogExport(assessedIdentity, auditLog, getTranslator());
+		IdentityAuditLogExport export = new IdentityAuditLogExport(assessedIdentity, auditLog, authorizedAbsenceEnabled, getTranslator());
 		ureq.getDispatchResult().setResultingMediaResource(export);
 	}
 }

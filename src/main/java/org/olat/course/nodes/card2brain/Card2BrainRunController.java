@@ -46,7 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  */
 public class Card2BrainRunController extends BasicController {
-
+	
 	private Panel main;
 
 	private final ModuleConfiguration config;
@@ -84,7 +84,7 @@ public class Card2BrainRunController extends BasicController {
 
 		LTIContext context = new Card2BrainContext();
 		Map<String, String> unsignedProps = ltiManager.forgeLTIProperties(getIdentity(), getLocale(), context, true,
-				true);
+				true, false);
 
 		Mapper contentMapper = new PostDataMapper(unsignedProps, url, oauth_consumer_key, oauth_secret, false);
 

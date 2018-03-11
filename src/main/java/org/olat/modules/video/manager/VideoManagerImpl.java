@@ -350,7 +350,6 @@ public class VideoManagerImpl implements VideoManager {
 		return videoFile.getBasefile();
 	}
 
-
 	/**
 	 * Resolve the given path to a file in the master directory and return it
 	 * 
@@ -455,43 +454,40 @@ public class VideoManagerImpl implements VideoManager {
 		}		
 	}
 
-	
 	@Override
 	public List<VideoTranscoding> getVideoTranscodings(OLATResource video){
-		List<VideoTranscoding> videoTranscodings = videoTranscodingDao.getVideoTranscodings(video);
-		return videoTranscodings;
+		return videoTranscodingDao.getVideoTranscodings(video);
 	}
 	
 	@Override
+	public VideoTranscoding getVideoTranscoding(Long key) {
+		return videoTranscodingDao.getVideoTranscoding(key);
+	}
+
+	@Override
 	public List<VideoTranscoding> getAllVideoTranscodings() {
-		List<VideoTranscoding> videoTranscodings = videoTranscodingDao.getAllVideoTranscodings();
-		return videoTranscodings;
+		return videoTranscodingDao.getAllVideoTranscodings();
 	}
 	
 	@Override 
 	public List<TranscodingCount> getAllVideoTranscodingsCount() {
-		List<TranscodingCount> allVideoTranscodings = videoTranscodingDao.getAllVideoTranscodingsCount();
-		return allVideoTranscodings;
+		return videoTranscodingDao.getAllVideoTranscodingsCount();
 	}
 	
 	@Override 
 	public List<TranscodingCount> getAllVideoTranscodingsCountSuccess(int errorcode) {
-		List<TranscodingCount> allVideoTranscodings = videoTranscodingDao.getAllVideoTranscodingsCountSuccess(errorcode);
-		return allVideoTranscodings;
+		return videoTranscodingDao.getAllVideoTranscodingsCountSuccess(errorcode);
 	}
 	
 	@Override 
 	public List<TranscodingCount> getAllVideoTranscodingsCountFails(int errorcode) {
-		List<TranscodingCount> allVideoTranscodings = videoTranscodingDao.getAllVideoTranscodingsCountFails(errorcode);
-		return allVideoTranscodings;
+		return videoTranscodingDao.getAllVideoTranscodingsCountFails(errorcode);
 	}
 	
 	@Override
 	public List<VideoTranscoding> getOneVideoResolution(int resolution) {
-		List<VideoTranscoding> oneResolution = videoTranscodingDao.getOneVideoResolution(resolution);
-		return oneResolution;
+		return videoTranscodingDao.getOneVideoResolution(resolution);
 	}
-	
 
 	@Override
 	public String getAspectRatio(int width, int height) {
@@ -889,17 +885,22 @@ public class VideoManagerImpl implements VideoManager {
 	}
 	
 	@Override
-	public long getVideoDuration (OLATResource videoResource){
+	public long getVideoDuration(OLATResource videoResource){
 		VFSContainer masterContainer = getMasterContainer(videoResource);
-		VFSLeaf video = (VFSLeaf) masterContainer.resolve(FILENAME_VIDEO_MP4);	
-		long duration = movieService.getDuration(video, FILETYPE_MP4);
-		return duration;
+		VFSLeaf video = (VFSLeaf)masterContainer.resolve(FILENAME_VIDEO_MP4);	
+		return movieService.getDuration(video, FILETYPE_MP4);
 	}
 	
 	@Override
+	public long getVideoFrameCount(OLATResource videoResource) {
+		VFSContainer masterContainer = getMasterContainer(videoResource);
+		VFSLeaf video = (VFSLeaf)masterContainer.resolve(FILENAME_VIDEO_MP4);	
+		return movieService.getFrameCount(video, FILETYPE_MP4);
+	}
+
+	@Override
 	public List<VideoMetaImpl> getAllVideoResourcesMetadata() {
-		List<VideoMetaImpl> metadata = videoMetadataDao.getAllVideoResourcesMetadata();
-		return metadata;
+		return videoMetadataDao.getAllVideoResourcesMetadata();
 	}
 	
 	@Override

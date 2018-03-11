@@ -354,7 +354,7 @@ public class CourseTest extends OlatJerseyTestCase {
 		
 		//make auth1 and auth2 owner
 		RepositoryEntry repositoryEntry = repositoryManager.lookupRepositoryEntry(course1, true);
-		List<Identity> authors = new ArrayList<Identity>();
+		List<Identity> authors = new ArrayList<>();
 		authors.add(auth1);
 		authors.add(auth2);
 		IdentitiesAddEvent identitiesAddedEvent = new IdentitiesAddEvent(authors);
@@ -424,6 +424,29 @@ public class CourseTest extends OlatJerseyTestCase {
 		boolean isTutor = repositoryService.hasRole(auth1, repositoryEntry, GroupRoles.coach.name());
 		dbInstance.intermediateCommit();
 		assertTrue(isTutor);
+	}
+	
+	@Test
+	public void removeCoach() throws IOException, URISyntaxException {
+		//add a coach
+		Identity coach = JunitTestHelper.createAndPersistIdentityAsRndUser("Course-coach");
+		RepositoryEntry repositoryEntry = repositoryManager.lookupRepositoryEntry(course1, true);
+		repositoryService.addRole(coach, repositoryEntry, GroupRoles.coach.name());
+		dbInstance.commitAndCloseSession();
+		boolean isTutor = repositoryService.hasRole(coach, repositoryEntry, GroupRoles.coach.name());
+		Assert.assertTrue(isTutor);
+		
+		//test remove
+		assertTrue(conn.login("administrator", "openolat"));
+		URI request = UriBuilder.fromUri(getContextURI()).path("/repo/courses/" + course1.getResourceableId() + "/tutors/" + coach.getKey()).build();
+		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		EntityUtils.consume(response.getEntity());
+		
+		//check database
+		boolean deletedCoach = repositoryService.hasRole(coach, repositoryEntry, GroupRoles.coach.name());
+		Assert.assertFalse(deletedCoach);
 	}
 
 	@Test
@@ -501,6 +524,29 @@ public class CourseTest extends OlatJerseyTestCase {
 	}
 	
 	@Test
+	public void removeParticipant() throws IOException, URISyntaxException {
+		//add a coach
+		Identity participant = JunitTestHelper.createAndPersistIdentityAsRndUser("Course-part");
+		RepositoryEntry repositoryEntry = repositoryManager.lookupRepositoryEntry(course1, true);
+		repositoryService.addRole(participant, repositoryEntry, GroupRoles.participant.name());
+		dbInstance.commitAndCloseSession();
+		boolean isParticipant = repositoryService.hasRole(participant, repositoryEntry, GroupRoles.participant.name());
+		Assert.assertTrue(isParticipant);
+		
+		//test remove
+		assertTrue(conn.login("administrator", "openolat"));
+		URI request = UriBuilder.fromUri(getContextURI()).path("/repo/courses/" + course1.getResourceableId() + "/participants/" + participant.getKey()).build();
+		HttpDelete method = conn.createDelete(request, MediaType.APPLICATION_JSON);
+		HttpResponse response = conn.execute(method);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		EntityUtils.consume(response.getEntity());
+		
+		//check database
+		boolean stillParticipant = repositoryService.hasRole(participant, repositoryEntry, GroupRoles.participant.name());
+		Assert.assertFalse(stillParticipant);
+	}
+	
+	@Test
 	public void addParticipants() throws IOException, URISyntaxException {
 		Assert.assertTrue(conn.login("administrator", "openolat"));
 		ICourse course = CoursesWebService.createEmptyCourse(admin, "course1", "course1 long name", null);
@@ -566,6 +612,62 @@ public class CourseTest extends OlatJerseyTestCase {
 		
 		RepositoryEntry repositoryEntry = repositoryManager.lookupRepositoryEntry(courseToClose, true);
 		Assert.assertEquals(0, repositoryEntry.getAccess());
+	}
+	
+	@Test
+	public void exportCourse()
+	throws IOException, URISyntaxException {
+		Assert.assertTrue(conn.login("administrator", "openolat"));
+		Identity author = JunitTestHelper.createAndPersistIdentityAsRndUser("course-owner");
+		RepositoryEntry course = JunitTestHelper.deployBasicCourse(author);
+		dbInstance.closeSession();
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("repo").path("courses")
+				.path(course.getOlatResource().getResourceableId().toString()).path("file").build();
+		HttpGet method = conn.createGet(request, "application/zip", true);
+		HttpResponse response = conn.execute(method);
+
+		Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+		byte[] exportedFile = EntityUtils.toByteArray(response.getEntity());
+		Assert.assertTrue(exportedFile.length > 1000);	
+	}
+	
+	@Test
+	public void exportCourse_owner()
+	throws IOException, URISyntaxException {
+		Identity author = JunitTestHelper.createAndPersistIdentityAsRndUser("course-owner-2");
+		RepositoryEntry course = JunitTestHelper.deployBasicCourse(author);
+		dbInstance.closeSession();
+		
+		Assert.assertTrue(conn.login(author.getName(), "A6B7C8"));
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("repo").path("courses")
+				.path(course.getOlatResource().getResourceableId().toString()).path("file").build();
+		HttpGet method = conn.createGet(request, "application/zip", true);
+		HttpResponse response = conn.execute(method);
+
+		Assert.assertEquals(200, response.getStatusLine().getStatusCode());
+		byte[] exportedFile = EntityUtils.toByteArray(response.getEntity());
+		Assert.assertTrue(exportedFile.length > 1000);	
+	}
+	
+	@Test
+	public void exportCourse_notOwner()
+	throws IOException, URISyntaxException {
+		Identity owner = JunitTestHelper.createAndPersistIdentityAsRndUser("course-owner-3");
+		Identity otherUser = JunitTestHelper.createAndPersistIdentityAsRndUser("course-owner-4");
+		RepositoryEntry course = JunitTestHelper.deployBasicCourse(owner);
+		dbInstance.closeSession();
+		
+		Assert.assertTrue(conn.login(otherUser.getName(), "A6B7C8"));
+		
+		URI request = UriBuilder.fromUri(getContextURI()).path("repo").path("courses")
+				.path(course.getOlatResource().getResourceableId().toString()).path("file").build();
+		HttpGet method = conn.createGet(request, "application/zip", true);
+		HttpResponse response = conn.execute(method);
+
+		Assert.assertEquals(401, response.getStatusLine().getStatusCode());
+		EntityUtils.consume(response.getEntity());
 	}
 	
 	protected List<UserVO> parseUserArray(InputStream body) {

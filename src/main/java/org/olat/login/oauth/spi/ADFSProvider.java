@@ -89,7 +89,8 @@ public class ADFSProvider implements OAuthSPI {
 
 	@Override
 	public String getAppSecret() {
-		return "n/A";
+		return StringHelper.containsNonWhitespace(oauthModule.getAdfsApiSecret())
+				? oauthModule.getAdfsApiSecret() : "n/A";
 	}
 
 	@Override
@@ -121,5 +122,10 @@ public class ADFSProvider implements OAuthSPI {
 	private String getValue(JSONObject obj, String property) {
 		String value = obj.optString(property);
 		return StringHelper.containsNonWhitespace(value) ? value : null;
+	}
+	
+	@Override
+	public String getIssuerIdentifier() {
+		return oauthModule.getAdfsOAuth2Endpoint();
 	}
 }

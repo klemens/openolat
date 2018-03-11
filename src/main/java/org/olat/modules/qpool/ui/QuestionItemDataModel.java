@@ -19,13 +19,13 @@
  */
 package org.olat.modules.qpool.ui;
 
+import java.text.DecimalFormat;
 import java.util.List;
 
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataSourceModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableDataSourceDelegate;
 import org.olat.core.gui.translator.Translator;
-import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.ui.metadata.MetaUIFactory;
 
 /**
@@ -36,6 +36,8 @@ import org.olat.modules.qpool.ui.metadata.MetaUIFactory;
  */
 public class QuestionItemDataModel extends DefaultFlexiTableDataSourceModel<ItemRow> {
 
+	private static final DecimalFormat THREE_DIGITS_FORMAT = new DecimalFormat("#.###");
+	
 	private final Translator translator;
 	
 	public QuestionItemDataModel(FlexiTableColumnModel columnModel, FlexiTableDataSourceDelegate<ItemRow> source, Translator translator) {
@@ -70,12 +72,14 @@ public class QuestionItemDataModel extends DefaultFlexiTableDataSourceModel<Item
 			case identifier: return item.getIdentifier();
 			case masterIdentifier: return item.getMasterIdentifier();
 			case title: return item.getTitle();
+			case topic: return item.getTopic();
 			case keywords: return item.getKeywords();
 			case coverage: return item.getCoverage();
 			case additionalInfos: return item.getAdditionalInformations();
 			case creationDate: return item.getCreationDate();
 			case lastModified: return item.getLastModified();
 			case taxnonomyLevel: return item.getTaxonomyLevelName();
+			case taxnonomyPath: return item.getTaxonomicPath();
 			case difficulty: return MetaUIFactory.bigDToString(item.getDifficulty());
 			case stdevDifficulty: return MetaUIFactory.bigDToString(item.getStdevDifficulty());
 			case differentiation: return MetaUIFactory.bigDToString(item.getDifferentiation());
@@ -90,33 +94,36 @@ public class QuestionItemDataModel extends DefaultFlexiTableDataSourceModel<Item
 				}
 				return type;
 			}
-			case rating: return item.getRating();
+			case rating: return round(item.getRating());
+			case numberOfRatings: return item.getNumberOfRatings();
 			case format: return item.getFormat();
 			case itemVersion: return item.getItemVersion();
-			case status: {
-				QuestionStatus s = item.getQuestionStatus();
-				if(s == null) {
-					return "";
-				}
-				return translator.translate("lifecycle.status." + s.name());
-			}
+			case status: return item.getQuestionStatus();
+			case statusLastModified: return item.getQuestionStatusLastModified();
 			case editable: return item.isEditable() ? Boolean.TRUE : Boolean.FALSE;
 			case mark: return item.getMarkLink();
 			default: return "-";
 		}
 	}
 	
+	private String round(Double value) {
+		if (value == null) return null;
+		return THREE_DIGITS_FORMAT.format(value.doubleValue());
+	}
+
 	public enum Cols {
 		key("general.key"),
 		identifier("general.identifier"),
 		masterIdentifier("general.master.identifier"),
 		title("general.title"),
+		topic("general.topic"),
 		keywords("general.keywords"),
 		coverage("general.coverage"),
 		additionalInfos("general.additional.informations"),
 		creationDate("technical.creation"),
 		lastModified("technical.lastModified"),
 		taxnonomyLevel("classification.taxonomy.level"),
+		taxnonomyPath("classification.taxonomic.path"),
 		difficulty("question.difficulty"),
 		stdevDifficulty("question.stdevDifficulty"),
 		differentiation("question.differentiation"),
@@ -125,8 +132,10 @@ public class QuestionItemDataModel extends DefaultFlexiTableDataSourceModel<Item
 		type("question.type"),
 		format("technical.format"),
 		rating("rating"),
+		numberOfRatings("numberOfRatings"),
 		itemVersion("lifecycle.version"),
 		status("lifecycle.status"),
+		statusLastModified("lifecycle.status.last.modified"),
 		editable("editable"),
 		mark("mark");
 		

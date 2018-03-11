@@ -68,15 +68,12 @@ import org.olat.modules.qpool.ExportFormatOptions;
 import org.olat.modules.qpool.ExportFormatOptions.Outcome;
 import org.olat.modules.qpool.QItemFactory;
 import org.olat.modules.qpool.QPoolSPI;
+import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionItemShort;
-import org.olat.modules.qpool.manager.QEducationalContextDAO;
-import org.olat.modules.qpool.manager.QItemTypeDAO;
-import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
-import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.DefaultExportFormat;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.repository.RepositoryEntry;
@@ -102,21 +99,15 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	@Autowired
 	private DB dbInstance;
 	@Autowired
+	private QPoolService qpoolService;
+	@Autowired
 	private QTIModule qtiModule;
 	@Autowired
 	private QPoolFileStorage qpoolFileStorage;
 	@Autowired
-	private QLicenseDAO qLicenseDao;
-	@Autowired
-	private QItemTypeDAO qItemTypeDao;
-	@Autowired
 	private QuestionItemDAO questionItemDao;
-	@Autowired
-	private QEducationalContextDAO qEduContextDao;
-	@Autowired
-	private TaxonomyLevelDAO taxonomyLevelDao;
 	
-	private static final List<ExportFormatOptions> formats = new ArrayList<ExportFormatOptions>(2);
+	private static final List<ExportFormatOptions> formats = new ArrayList<>(2);
 	static {
 		formats.add(DefaultExportFormat.ZIP_EXPORT_FORMAT);
 		formats.add(DefaultExportFormat.DOCX_EXPORT_FORMAT);
@@ -198,8 +189,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public List<QuestionItem> importItems(Identity owner, Locale defaultLocale, String filename, File file) {
-		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale, filename, file,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
+		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale, filename, file);
 		return processor.process();
 	}
 	
@@ -228,8 +218,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		item.setLabel(title);
 		item.setTitle(title);
 		
-		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
+		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale);
 		
 		Document doc = QTIEditHelper.itemToXml(item);
 		Element itemEl = (Element)doc.selectSingleNode("questestinterop/item");
@@ -242,8 +231,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	}
 	
 	public QuestionItemImpl importBeecomItem(Identity owner, ItemAndMetadata itemAndMetadata, VFSContainer sourceDir, Locale defaultLocale) {
-		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, dbInstance);
+		QTIImportProcessor processor = new QTIImportProcessor(owner, defaultLocale);
 		
 		String editor = null;
 		String editorVersion = null;
@@ -311,7 +299,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	}
 	
 	private List<Long> toKeys(List<? extends QuestionItemShort> items) {
-		List<Long> keys = new ArrayList<Long>(items.size());
+		List<Long> keys = new ArrayList<>(items.size());
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}
@@ -336,7 +324,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 	}
 	
 	public void assembleTest(List<QuestionItemShort> items, ZipOutputStream zout) {
-		List<Long> itemKeys = new ArrayList<Long>();
+		List<Long> itemKeys = new ArrayList<>();
 		for(QuestionItemShort item:items) {
 			itemKeys.add(item.getKey());
 		}
@@ -367,6 +355,11 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 		VFSContainer originalDir = qpoolFileStorage.getContainer(original.getDirectory());
 		VFSContainer copyDir = qpoolFileStorage.getContainer(copy.getDirectory());
 		VFSManager.copyContent(originalDir, copyDir);
+		
+		VFSLeaf itemLeaf = qpoolService.getRootLeaf(copy);
+		Item item = QTIEditHelper.readItemXml(itemLeaf);
+		item.setTitle(copy.getTitle());
+		QTIEditHelper.serialiazeItem(item, itemLeaf);
 	}
 
 	@Override
@@ -376,8 +369,7 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public Controller getPreviewController(UserRequest ureq, WindowControl wControl, QuestionItem item, boolean summary) {
-		QTI12PreviewController previewCtrl = new QTI12PreviewController(ureq, wControl, item, summary);
-		return previewCtrl;
+		return new QTI12PreviewController(ureq, wControl, item, summary);
 	}
 
 	@Override
@@ -387,8 +379,12 @@ public class QTIQPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public Controller getEditableController(UserRequest ureq, WindowControl wControl, QuestionItem item) {
-		QTI12EditorController previewCtrl = new QTI12EditorController(ureq, wControl, item);
-		return previewCtrl;
+		return new QTI12EditorController(ureq, wControl, item);
+	}
+
+	@Override
+	public Controller getReadOnlyController(UserRequest ureq, WindowControl wControl, QuestionItem item) {
+		return getPreviewController(ureq, wControl, item, false);
 	}
 	
 

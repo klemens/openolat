@@ -41,6 +41,7 @@ import org.olat.modules.lecture.LectureBlock;
 import org.olat.modules.lecture.LectureService;
 import org.olat.modules.lecture.Reason;
 import org.olat.modules.lecture.model.LectureBlockWithTeachers;
+import org.olat.modules.lecture.ui.component.LectureBlockStatusCellRenderer;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
 
@@ -58,14 +59,19 @@ public class LecturesBlocksEntryExport extends OpenXMLWorkbookResource {
 	private final RepositoryEntry entry;
 	private final Translator translator;
 	private List<LectureBlockWithTeachers> blocks;
+	private final boolean authorizedAbsenceEnabled;
+	private final boolean isAdministrativeUser;
 
 	private final UserManager userManager;
 	private final LectureService lectureService;
 	
-	public LecturesBlocksEntryExport(RepositoryEntry entry, Translator translator) {
+	public LecturesBlocksEntryExport(RepositoryEntry entry, boolean isAdministrativeUser, boolean authorizedAbsenceEnabled, Translator translator) {
 		super(label(entry));
 		this.entry = entry;
 		this.translator = translator;
+		this.isAdministrativeUser = isAdministrativeUser;
+		this.authorizedAbsenceEnabled = authorizedAbsenceEnabled;
+		
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		lectureService = CoreSpringFactory.getImpl(LectureService.class);
 		formatter = Formatter.getInstance(translator.getLocale());
@@ -91,7 +97,8 @@ public class LecturesBlocksEntryExport extends OpenXMLWorkbookResource {
 
 			for(LectureBlockWithTeachers block:blocks) {
 				OpenXMLWorksheet exportBlockSheet = workbook.nextWorksheet();
-				LectureBlockExport lectureBlockExport = new LectureBlockExport(block.getLectureBlock(), block.getTeachers(), true, translator);
+				LectureBlockExport lectureBlockExport = new LectureBlockExport(block.getLectureBlock(), block.getTeachers(),
+						isAdministrativeUser, authorizedAbsenceEnabled, translator);
 				lectureBlockExport.generate(exportBlockSheet);
 			}
 		} catch (IOException e) {
@@ -139,7 +146,12 @@ public class LecturesBlocksEntryExport extends OpenXMLWorkbookResource {
 				if(lectureBlock.getRollCallStatus() == null) {
 					pos++;
 				} else {
-					row.addCell(pos++, translator.translate(lectureBlock.getRollCallStatus().name()));
+					String status = LectureBlockStatusCellRenderer.getStatus(lectureBlock, translator);
+					if(status != null) {
+						row.addCell(pos++, status);
+					} else {
+						pos++;
+					}
 				}
 				row.addCell(pos++, formatter.formatDate(lectureBlock.getAutoClosedDate()));
 				
