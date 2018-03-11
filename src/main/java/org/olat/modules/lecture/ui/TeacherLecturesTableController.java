@@ -26,6 +26,7 @@ import javax.xml.transform.TransformerException;
 
 import org.apache.pdfbox.exceptions.COSVisitorException;
 import org.olat.NewControllerFactory;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -57,6 +58,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowC
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
+import org.olat.core.id.Roles;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.resource.OresHelper;
@@ -69,6 +71,7 @@ import org.olat.modules.lecture.model.LectureBlockRow;
 import org.olat.modules.lecture.model.RollCallSecurityCallbackImpl;
 import org.olat.modules.lecture.ui.TeacherOverviewDataModel.TeachCols;
 import org.olat.modules.lecture.ui.component.LectureBlockStatusCellRenderer;
+import org.olat.modules.lecture.ui.event.ReopenLectureBlockEvent;
 import org.olat.modules.lecture.ui.export.LectureBlockExport;
 import org.olat.modules.lecture.ui.export.LecturesBlockPDFExport;
 import org.olat.modules.lecture.ui.export.LecturesBlockSignaturePDFExport;
@@ -98,12 +101,17 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 	private final String emptyI18nKey;
 	private final boolean withRepositoryEntry, withTeachers;
 	
+	private final boolean isAdministrativeUser;
+	private final boolean authorizedAbsenceEnabled;
+	
 	@Autowired
 	private UserManager userManager;
 	@Autowired
 	private LectureModule lectureModule;
 	@Autowired
 	private LectureService lectureService;
+	@Autowired
+	private BaseSecurityModule securityModule;
 	
 	public TeacherLecturesTableController(UserRequest ureq, WindowControl wControl,
 			boolean admin, String emptyI18nKey, boolean sortAsc, String id,
@@ -115,6 +123,10 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 		this.emptyI18nKey = emptyI18nKey;
 		this.withTeachers = withTeachers;
 		this.withRepositoryEntry = withRepositoryEntry;
+		
+		Roles roles = ureq.getUserSession().getRoles();
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
+		authorizedAbsenceEnabled = lectureModule.isAuthorizedAbsenceEnabled();
 		initForm(ureq);
 	}
 
@@ -127,8 +139,8 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(withRepositoryEntry) {
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.externalRef, "details"));
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.entry, "details"));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.externalRef, "open.course"));
+			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.entry, "open.course"));
 		}
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.date, new DateFlexiCellRenderer(getLocale())));
 		columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(TeachCols.startTime, new TimeFlexiCellRenderer(getLocale())));
@@ -216,7 +228,11 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(source == rollCallCtrl) {
-			if(event == Event.DONE_EVENT || event == Event.CANCELLED_EVENT || event == Event.CHANGED_EVENT) {
+			if(event instanceof ReopenLectureBlockEvent) {
+				LectureBlock lectureBlock = rollCallCtrl.getLectureBlock();
+				toolbarPanel.popController(rollCallCtrl);
+				doSelectLectureBlock(ureq, lectureBlock);
+			} else if(event == Event.DONE_EVENT || event == Event.CANCELLED_EVENT || event == Event.CHANGED_EVENT) {
 				fireEvent(ureq, event);
 			}
 		} else if(toolsCalloutCtrl == source) {
@@ -244,7 +260,7 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 					doExportLectureBlock(ureq, row.getLectureBlock());
 				} else if("open.course".equals(cmd)) {
 					LectureBlockRow row = tableModel.getObject(se.getIndex());
-					doOpenCourse(ureq, row);
+					doOpenCourseLectures(ureq, row);
 				}
 			}
 		} else if(source instanceof FormLink) {
@@ -273,7 +289,7 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 	private void doExportLectureBlock(UserRequest ureq, LectureBlock row) {
 		LectureBlock lectureBlock = lectureService.getLectureBlock(row);
 		List<Identity> teachers = lectureService.getTeachers(lectureBlock);
-		LectureBlockExport export = new LectureBlockExport(lectureBlock, teachers, true, getTranslator());
+		LectureBlockExport export = new LectureBlockExport(lectureBlock, teachers, isAdministrativeUser, authorizedAbsenceEnabled, getTranslator());
 		ureq.getDispatchResult().setResultingMediaResource(export);
 	}
 	
@@ -282,7 +298,6 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 		List<Identity> participants = lectureService.getParticipants(lectureBlock);
 		List<LectureBlockRollCall> rollCalls = lectureService.getRollCalls(row);
 		try {
-			boolean authorizedAbsenceEnabled = lectureModule.isAuthorizedAbsenceEnabled();
 			LecturesBlockPDFExport export = new LecturesBlockPDFExport(lectureBlock, authorizedAbsenceEnabled, getTranslator());
 			export.setTeacher(userManager.getUserDisplayName(getIdentity()));
 			export.create(participants, rollCalls);
@@ -315,9 +330,9 @@ public class TeacherLecturesTableController extends FormBasicController implemen
 		toolbarPanel.pushController(reloadedBlock.getTitle(), rollCallCtrl);
 	}
 	
-	private void doOpenCourse(UserRequest ureq, LectureBlockRow row) {
+	private void doOpenCourseLectures(UserRequest ureq, LectureBlockRow row) {
 		Long repoKey = row.getLectureBlock().getEntry().getKey();
-		String businessPath = "[RepositoryEntry:" + repoKey + "]";
+		String businessPath = "[RepositoryEntry:" + repoKey + "][Lectures:0]";
 		NewControllerFactory.getInstance().launch(businessPath, ureq, getWindowControl());
 	}
 

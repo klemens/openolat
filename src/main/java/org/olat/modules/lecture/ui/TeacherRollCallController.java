@@ -26,10 +26,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.olat.basesecurity.BaseSecurityModule;
+import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FlexiTableElement;
+import org.olat.core.gui.components.form.flexible.elements.FlexiTableSortOptions;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -52,6 +54,7 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableCalloutWindowC
 import org.olat.core.gui.control.generic.closablewrapper.CloseableModalController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
+import org.olat.core.id.UserConstants;
 import org.olat.core.logging.activity.CoreLoggingResourceable;
 import org.olat.core.logging.activity.LearningResourceLoggingAction;
 import org.olat.core.logging.activity.OlatResourceableType;
@@ -68,6 +71,7 @@ import org.olat.modules.lecture.LectureService;
 import org.olat.modules.lecture.RollCallSecurityCallback;
 import org.olat.modules.lecture.ui.TeacherRollCallDataModel.RollCols;
 import org.olat.modules.lecture.ui.component.LectureBlockRollCallStatusItem;
+import org.olat.modules.lecture.ui.event.ReopenLectureBlockEvent;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -143,6 +147,10 @@ public class TeacherRollCallController extends FormBasicController {
 		initForm(ureq);
 		loadModel();
 	}
+	
+	public LectureBlock getLectureBlock() {
+		return lectureBlock;
+	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
@@ -153,7 +161,7 @@ public class TeacherRollCallController extends FormBasicController {
 			List<Identity> teachers = lectureService.getTeachers(lectureBlock);
 			for(Identity teacher:teachers) {
 				if(sb.length() > 0) sb.append(", ");
-				sb.append(StringHelper.escapeJavaScript(userManager.getUserDisplayName(teacher)));
+				sb.append(StringHelper.escapeHtml(userManager.getUserDisplayName(teacher)));
 			}
 			
 			Formatter formatter = Formatter.getInstance(getLocale());
@@ -188,9 +196,11 @@ public class TeacherRollCallController extends FormBasicController {
 		}
 		
 		// table
+		FlexiTableSortOptions options = new FlexiTableSortOptions();
 		FlexiTableColumnModel columnsModel = FlexiTableDataModelFactory.createFlexiTableColumnModel();
 		if(isAdministrativeUser) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RollCols.username));
+			options.setDefaultOrderBy(new SortKey(RollCols.username.sortKey(), true));
 		}
 		
 		int colPos = USER_PROPS_OFFSET;
@@ -203,22 +213,33 @@ public class TeacherRollCallController extends FormBasicController {
 			FlexiColumnModel col = new DefaultFlexiColumnModel(visible, userPropertyHandler.i18nColumnDescriptorLabelKey(), colPos, true, propName);
 			columnsModel.addFlexiColumnModel(col);
 			colPos++;
+			
+			if(!options.hasDefaultOrderBy()) {
+				options.setDefaultOrderBy(new SortKey(propName, true));
+			} else if(UserConstants.LASTNAME.equals(propName)) {
+				options.setDefaultOrderBy(new SortKey(propName, true));
+			}
 		}
 		
 		if(lectureBlock.isCompulsory()) {
 			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RollCols.status));
 			
 			for(int i=0; i<numOfLectures; i++) {
-				FlexiColumnModel col = new DefaultFlexiColumnModel("table.header.lecture." + (i+1), i + CHECKBOX_OFFSET, true, "lecture." + (i+1));
+				DefaultFlexiColumnModel col = new DefaultFlexiColumnModel("table.header.lecture." + (i+1), i + CHECKBOX_OFFSET, true, "lecture." + (i+1));
+				col.setAlwaysVisible(true);
 				columnsModel.addFlexiColumnModel(col);
 			}
 			
 			//all button
-			columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel("all",
+			DefaultFlexiColumnModel allCol = new DefaultFlexiColumnModel("all",
 					RollCols.all.ordinal(), "all",
-					new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("all"), "all", null, null, translate("all.desc")), null)));
+					new BooleanCellRenderer(new StaticFlexiCellRenderer(translate("all"), "all", null, null, translate("all.desc")), null));
+			allCol.setAlwaysVisible(true);
+			columnsModel.addFlexiColumnModel(allCol);
 			if(secCallback.canViewAuthorizedAbsences() || secCallback.canEditAuthorizedAbsences()) {
-				columnsModel.addFlexiColumnModel(new DefaultFlexiColumnModel(RollCols.authorizedAbsence));
+				DefaultFlexiColumnModel authorizedCol = new DefaultFlexiColumnModel(RollCols.authorizedAbsence);
+				authorizedCol.setAlwaysVisible(true);
+				columnsModel.addFlexiColumnModel(authorizedCol);
 			}
 		}
 		
@@ -227,6 +248,8 @@ public class TeacherRollCallController extends FormBasicController {
 		tableModel = new TeacherRollCallDataModel(columnsModel, secCallback, getLocale()); 
 		tableEl = uifactory.addTableElement(getWindowControl(), "table", tableModel, 20, false, getTranslator(), formLayout);
 		tableEl.setCustomizeColumns(true);
+		tableEl.setSortSettings(options);
+		tableEl.setAndLoadPersistedPreferences(ureq, "teacher-roll-call");
 		
 		//buttons
 		uifactory.addFormCancelButton("cancel", formLayout, ureq, getWindowControl());
@@ -284,6 +307,7 @@ public class TeacherRollCallController extends FormBasicController {
 			rows.add(forgeRow(participant, rollCall));
 		}
 		tableModel.setObjects(rows);
+		tableEl.reset(false, false, true);
 	}
 	
 	private TeacherRollCallRow forgeRow(Identity participant, LectureBlockRollCall rollCall) {
@@ -419,13 +443,16 @@ public class TeacherRollCallController extends FormBasicController {
 
 		for(int i=tableModel.getRowCount(); i-->0; ) {
 			TeacherRollCallRow row = tableModel.getObject(i);
-			row.getAuthorizedAbsence().clearError();
+			
+			if(row.getAuthorizedAbsence() != null) {
+				row.getAuthorizedAbsence().clearError();
+			}
 			
 			if(row.getRollCall() == null) {
 				//??? stop?
 			} else if(!absenceDefaultAuthorized) {
 				String reason = row.getRollCall().getAbsenceReason();
-				if(row.getAuthorizedAbsence().isAtLeastSelected(1) && !StringHelper.containsNonWhitespace(reason)) {
+				if(row.getAuthorizedAbsence() != null && row.getAuthorizedAbsence().isAtLeastSelected(1) && !StringHelper.containsNonWhitespace(reason)) {
 					row.getAuthorizedAbsence().setErrorKey("error.reason.mandatory", null);
 					allOk &= false;
 				}
@@ -564,7 +591,7 @@ public class TeacherRollCallController extends FormBasicController {
 					Integer.toString(index), lectureBlock, rollCall, lectureBlock.getEntry(), row.getIdentity(), getIdentity());
 		}
 		row.setRollCall(rollCall);
-		if(authorizedAbsenceEnabled) {
+		if(authorizedAbsenceEnabled && row.getAuthorizedAbsence() != null) {
 			if(rollCall.getAbsenceAuthorized() != null && rollCall.getAbsenceAuthorized().booleanValue()) {
 				row.getAuthorizedAbsence().select(onKeys[0], true);
 			} else {
@@ -651,10 +678,14 @@ public class TeacherRollCallController extends FormBasicController {
 	private void doReopen(UserRequest ureq) {
 		String before = lectureService.toAuditXml(lectureBlock);
 		lectureBlock.setRollCallStatus(LectureRollCallStatus.reopen);
+		if(lectureBlock.getStatus() == LectureBlockStatus.cancelled) {
+			lectureBlock.setStatus(LectureBlockStatus.active);
+		}
+		
 		lectureBlock = lectureService.save(lectureBlock, null);
 		secCallback.updateLectureBlock(lectureBlock);
 		updateUI();
-		fireEvent(ureq, Event.CHANGED_EVENT);
+		fireEvent(ureq, new ReopenLectureBlockEvent());
 		
 		String after = lectureService.toAuditXml(lectureBlock);
 		lectureService.auditLog(LectureBlockAuditLog.Action.reopenLectureBlock, before, after, null, lectureBlock, null, lectureBlock.getEntry(), null, getIdentity());

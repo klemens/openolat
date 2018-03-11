@@ -333,7 +333,7 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 		}
 		
 		calendarWrapper.setPrivateEventsVisible(chosenIdentity.equals(ureq.getIdentity()));
-		if (ureq.getUserSession().getRoles().isOLATAdmin() || chosenIdentity.equals(ureq.getIdentity())) {
+		if (chosenIdentity.equals(ureq.getIdentity())) {
 			calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_WRITE);
 		} else {
 			calendarWrapper.setAccess(KalendarRenderWrapper.ACCESS_READ_ONLY);
@@ -343,8 +343,9 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 		
 		OLATResourceable ores = OresHelper.createOLATResourceableType(CMD_CALENDAR);
 		WindowControl bwControl = addToHistory(ureq, ores, null);
+		OLATResourceable callerOres = OresHelper.createOLATResourceableInstance(chosenIdentity.getName(), chosenIdentity.getKey());
 		calendarController = new WeeklyCalendarController(ureq, bwControl, calendars,
-				WeeklyCalendarController.CALLER_PROFILE, false);
+				WeeklyCalendarController.CALLER_PROFILE, callerOres, false);
 		listenTo(calendarController);
 		return calendarController;
 	}
@@ -355,8 +356,7 @@ public class UserInfoMainController extends MainLayoutBasicController implements
 		String chosenUserFolderRelPath = FolderConfig.getUserHome(chosenIdentity.getName()) + "/public";
 
 		OlatRootFolderImpl rootFolder = new OlatRootFolderImpl(chosenUserFolderRelPath, null);
-		String rootFolderName = StringHelper.escapeHtml(firstLastName);
-		OlatNamedContainerImpl namedFolder = new OlatNamedContainerImpl(rootFolderName, rootFolder);
+		OlatNamedContainerImpl namedFolder = new OlatNamedContainerImpl(firstLastName, rootFolder);
 		
 		//decided in plenum to have read only view in the personal visiting card, even for admin
 		VFSSecurityCallback secCallback = new ReadOnlyCallback();

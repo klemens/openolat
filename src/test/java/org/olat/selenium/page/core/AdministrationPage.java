@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.junit.Assert;
 import org.olat.selenium.page.graphene.OOGraphene;
+import org.olat.selenium.page.lecture.LectureAdminSettingsPage;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
@@ -65,6 +66,13 @@ public class AdministrationPage {
 		return this;
 	}
 	
+	public AdministrationPage selectAssessment() {
+		By systemLinkby = By.xpath("//div[contains(@class,'o_tree')]//a[contains(@onclick,'eAssessmentParent')]");
+		browser.findElement(systemLinkby).click();
+		OOGraphene.waitBusy(browser);
+		return this;
+	}
+	
 	public AdministrationPage clearCache(String cacheName) {
 		selectSystemInfo();
 		
@@ -89,6 +97,15 @@ public class AdministrationPage {
 		yesLink.click();
 		OOGraphene.waitBusy(browser);
 		return this;
+	}
+	
+	public LectureAdminSettingsPage openLecturesSettings() {
+		selectModules();
+		
+		By lecturesBy = By.cssSelector(".o_sel_lectures span.o_tree_level_label_leaf>a");
+		browser.findElement(lecturesBy).click();
+		OOGraphene.waitBusy(browser);
+		return new LectureAdminSettingsPage(browser);
 	}
 	
 	public AdministrationPage openGroupSettings() {

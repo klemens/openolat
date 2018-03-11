@@ -26,9 +26,7 @@
 package org.olat.registration;
 
 import java.text.DateFormat;
-import java.util.Collections;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 
 import org.olat.basesecurity.BaseSecurity;
@@ -56,7 +54,6 @@ import org.olat.core.util.Util;
 import org.olat.core.util.i18n.I18nManager;
 import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.mail.MailBundle;
-import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.user.UserManager;
@@ -219,9 +216,8 @@ public class PwChangeController extends BasicController {
 				sendEmail(ureq, identity);
 			}
 		} else {
-			// no user exists, this is an error in the pwchange page
-			// REVIEW:pb:2009-11-23:gw, setter should not be necessary. -> check the error already in th emailOrUsernameCtr
-			emailOrUsernameCtr.setUserNotIdentifiedError();
+			logWarn("Failed to identify user in password change workflow: " + emailOrUsername, null);
+			stepSendEmailConfiration();
 		}
 	}
 	
@@ -250,13 +246,18 @@ public class PwChangeController extends BasicController {
 			getWindowControl().setWarning(translate("password.cantchange"));
 			return null;
 		}
+
 		Preferences prefs = identity.getUser().getPreferences();
 		Locale locale = i18nManager.getLocaleOrDefault(prefs.getLanguage());
 		ureq.getUserSession().setLocale(locale);
 		myContent.contextPut("locale", locale);
-		
 		Translator userTrans = Util.createPackageTranslator(PwChangeController.class, locale) ;
+
 		String emailAdress = identity.getUser().getProperty(UserConstants.EMAIL, locale); 
+		if (!StringHelper.containsNonWhitespace(emailAdress)) {
+			stepSendEmailConfiration();//for security reason, don't show an error, go simply to the next step
+			return null;
+		}
 		
 		// get remote address
 		String ip = ureq.getHttpReq().getRemoteAddr();
@@ -264,10 +265,8 @@ public class PwChangeController extends BasicController {
 		// mailer configuration
 		String serverpath = Settings.getServerContextPathURI();
 		
-		TemporaryKey tk = rm.loadTemporaryKeyByEmail(emailAdress);
-		if (tk == null) {
-			tk = rm.createTemporaryKeyByEmail(emailAdress, ip, RegistrationManager.PW_CHANGE);
-		}
+		TemporaryKey tk = rm.createAndDeleteOldTemporaryKey(identity.getKey(), emailAdress, ip, RegistrationManager.PW_CHANGE);
+
 		myContent.contextPut("pwKey", tk.getRegistrationKey());
 		StringBuilder body = new StringBuilder();
 		body.append("<style>")
@@ -290,14 +289,18 @@ public class PwChangeController extends BasicController {
 		MailerResult result = mailManager.sendExternMessage(bundle, null, false);
 		if(result.getReturnCode() == MailerResult.OK) {
 			getWindowControl().setInfo(translate("email.sent"));
-			// prepare next step
-			wic.setCurStep(2);
-			myContent.contextPut("text", translate("step2.pw.text"));
-			emailOrUsernameCtr.getInitialComponent().setVisible(false);
-		} else {
-			showError("email.notsent");
 		}
+		stepSendEmailConfiration();
 		return tk;
+	}
+	
+	/**
+	 * Activate the step 2
+	 */
+	private void stepSendEmailConfiration() {
+		wic.setCurStep(2);
+		myContent.contextPut("text", translate("step2.pw.text"));
+		emailOrUsernameCtr.getInitialComponent().setVisible(false);
 	}
 	
 	/**
@@ -310,13 +313,7 @@ public class PwChangeController extends BasicController {
 		Identity identity = securityManager.findIdentityByName(emailOrUsername);
 		if (identity == null) {
 			// Try fallback with email, maybe user used his email address instead
-			// only do this, if its really an email, may lead to multiple results else.
-			if (MailHelper.isValidEmailAddress(emailOrUsername)) {
-				List<Identity> identities = userManager.findIdentitiesByEmail(Collections.singletonList(emailOrUsername));
-				if(identities.size() == 1) {
-					identity = identities.get(0);
-				}
-			}
+			identity = userManager.findUniqueIdentityByEmail(emailOrUsername);
 		}
 		return identity;
 	}

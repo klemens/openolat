@@ -59,6 +59,8 @@ import org.olat.core.util.ValidationStatus;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.vfs.LocalFileImpl;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.ims.qti21.QTI21Constants;
+import org.olat.ims.qti21.QTI21Constants.HotspotLayouts;
 import org.olat.ims.qti21.model.IdentifierGenerator;
 import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.model.xml.interactions.HotspotAssessmentItemBuilder;
@@ -69,6 +71,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Shape;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.graphic.HotspotChoice;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
+import uk.ac.ed.ph.jqtiplus.value.Cardinality;
 
 /**
  * 
@@ -79,7 +82,6 @@ import uk.ac.ed.ph.jqtiplus.types.Identifier;
 public class HotspotEditorController extends FormBasicController {
 	
 	private static final String[] onKeys = new String[] { "on" };
-	
 	private static final Set<String> mimeTypes = new HashSet<>();
 	static {
 		mimeTypes.add("image/gif");
@@ -92,12 +94,15 @@ public class HotspotEditorController extends FormBasicController {
 	private RichTextElement textEl;
 	private FileElement backgroundEl;
 	private SingleSelection resizeEl;
+	private SingleSelection cardinalityEl;
 	private FormLayoutContainer hotspotsCont;
 	private MultipleSelectionElement responsiveEl;
 	private FormLink newCircleButton, newRectButton;
 	private MultipleSelectionElement correctHotspotsEl;
+	private SingleSelection layoutEl;
+	private MultipleSelectionElement shadowEl;
 	
-	private final boolean restrictedEdit;
+	private final boolean restrictedEdit, readOnly;
 	private final HotspotAssessmentItemBuilder itemBuilder;
 	
 	private File itemFile;
@@ -115,13 +120,14 @@ public class HotspotEditorController extends FormBasicController {
 	private ImageService imageService;
 	
 	public HotspotEditorController(UserRequest ureq, WindowControl wControl, HotspotAssessmentItemBuilder itemBuilder,
-			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit) {
+			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit, boolean readOnly) {
 		super(ureq, wControl, LAYOUT_DEFAULT_2_10);
 		setTranslator(Util.createPackageTranslator(AssessmentTestEditorController.class, getLocale()));
 		this.itemFile = itemFile;
 		this.itemBuilder = itemBuilder;
 		this.rootDirectory = rootDirectory;
 		this.rootContainer = rootContainer;
+		this.readOnly = readOnly;
 		this.restrictedEdit = restrictedEdit;
 		backgroundMapperUri = registerMapper(ureq, new BackgroundMapper(itemFile));
 		initForm(ureq);
@@ -134,6 +140,7 @@ public class HotspotEditorController extends FormBasicController {
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), formLayout);
 		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
+		titleEl.setEnabled(!readOnly);
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
 		VFSContainer itemContainer = (VFSContainer)rootContainer.resolve(relativePath);
@@ -142,16 +149,29 @@ public class HotspotEditorController extends FormBasicController {
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", question, 8, -1, itemContainer,
 				formLayout, ureq.getUserSession(), getWindowControl());
 		textEl.addActionListener(FormEvent.ONCLICK);
+		textEl.setEnabled(!readOnly);
+		
+		String[] cardinalityKeys = new String[] { Cardinality.SINGLE.name(), Cardinality.MULTIPLE.name() };
+		String[] cardinalityValues = new String[] { translate(Cardinality.SINGLE.name()), translate(Cardinality.MULTIPLE.name()) };
+		cardinalityEl = uifactory.addRadiosHorizontal("form.imd.cardinality", formLayout, cardinalityKeys, cardinalityValues);
+		cardinalityEl.setElementCssClass("o_sel_assessment_item_cardinality");
+		cardinalityEl.setEnabled(!restrictedEdit && !readOnly);
+		if(itemBuilder.isSingleChoice()) {
+			cardinalityEl.select(cardinalityKeys[0], true);
+		} else {
+			cardinalityEl.select(cardinalityKeys[1], true);
+		}
 		
 		responsiveEl = uifactory.addCheckboxesHorizontal("form.imd.responsive", formLayout, onKeys, new String[] {""});
 		responsiveEl.setHelpText(translate("form.imd.responsive.hint"));
+		responsiveEl.setEnabled(!restrictedEdit && !readOnly);
 		if(itemBuilder.isResponsive()) {
 			responsiveEl.select(onKeys[0], true);
 		}
 		
 		initialBackgroundImage = getCurrentBackground();
 		backgroundEl = uifactory.addFileElement(getWindowControl(), "form.imd.background", "form.imd.background", formLayout);
-		backgroundEl.setEnabled(!restrictedEdit);
+		backgroundEl.setEnabled(!restrictedEdit && !readOnly);
 		if(initialBackgroundImage != null) {
 			backgroundEl.setInitialFile(initialBackgroundImage);
 		}
@@ -163,6 +183,7 @@ public class HotspotEditorController extends FormBasicController {
 		String[] resizeValues = new String[] { translate("form.imd.background.resize.no") };
 		resizeEl = uifactory.addRadiosHorizontal("form.imd.background.resize", formLayout, resizeKeys, resizeValues);
 		resizeEl.setVisible(false);
+		resizeEl.setEnabled(!readOnly);
 		if(initialBackgroundImage != null) {
 			Size size = imageService.getSize(new LocalFileImpl(initialBackgroundImage), null);
 			optimizeResizeEl(size, false);
@@ -175,29 +196,61 @@ public class HotspotEditorController extends FormBasicController {
 		hotspotsCont.setLabel("new.spots", null);
 		hotspotsCont.setRootForm(mainForm);
 		hotspotsCont.contextPut("mapperUri", backgroundMapperUri);
-		hotspotsCont.contextPut("restrictedEdit", restrictedEdit);
+		hotspotsCont.contextPut("restrictedEdit", restrictedEdit || readOnly);
 		JSAndCSSFormItem js = new JSAndCSSFormItem("js", new String[] { "js/jquery/openolat/jquery.drawing.js" });
 		formLayout.add(js);
 		formLayout.add(hotspotsCont);
 		
 		newCircleButton = uifactory.addFormLink("new.circle", "new.circle", null, hotspotsCont, Link.BUTTON);
 		newCircleButton.setIconLeftCSS("o_icon o_icon-lg o_icon_circle");
-		newCircleButton.setVisible(!restrictedEdit);
+		newCircleButton.setVisible(!restrictedEdit && !readOnly);
 		newRectButton = uifactory.addFormLink("new.rectangle", "new.rectangle", null, hotspotsCont, Link.BUTTON);
 		newRectButton.setIconLeftCSS("o_icon o_icon-lg o_icon_rectangle");
-		newRectButton.setVisible(!restrictedEdit);
+		newRectButton.setVisible(!restrictedEdit && !readOnly);
 		
 		updateBackground();
 
 		String[] emptyKeys = new String[0];
 		correctHotspotsEl = uifactory.addCheckboxesHorizontal("form.imd.correct.spots", formLayout, emptyKeys, emptyKeys);
-		correctHotspotsEl.setEnabled(!restrictedEdit);
+		correctHotspotsEl.setElementCssClass("o_sel_assessment_item_correct_spots");
+		correctHotspotsEl.setEnabled(!restrictedEdit && !readOnly);
 		correctHotspotsEl.addActionListener(FormEvent.ONCHANGE);
 		rebuildWrappersAndCorrectSelection();
+		
+		HotspotLayouts[] layouts = HotspotLayouts.values();
+		String[] layoutKeys = new String[layouts.length];
+		String[] layoutValues = new String[layouts.length];
+		for(int i=layouts.length; i-->0; ) {
+			layoutKeys[i] = layouts[i].cssClass();
+			layoutValues[i] =  translate("hotspot.layout." + layouts[i].name());
+		}
+		layoutEl = uifactory.addDropdownSingleselect("hotspot.layout", "hotspot.layout", formLayout, layoutKeys, layoutValues, null);
+		layoutEl.addActionListener(FormEvent.ONCHANGE);
+		layoutEl.setEnabled(!readOnly);
+		boolean found = false;
+		for(int i=layoutKeys.length; i-->0; ) {
+			if(itemBuilder.hasHotspotInteractionClass(layoutKeys[i])) {
+				layoutEl.select(layoutKeys[i], true);
+				found = true;
+			}
+		}
+		if(!found) {
+			layoutEl.select(layoutKeys[0], true);
+		}
+
+		shadowEl = uifactory.addCheckboxesHorizontal("hotspot.layout.shadow", "hotspot.layout.shadow", formLayout,
+				onKeys, new String[] { "" });
+		shadowEl.setEnabled(!readOnly);
+		if(!itemBuilder.hasHotspotInteractionClass(QTI21Constants.CSS_HOTSPOT_DISABLE_SHADOW)) {
+			shadowEl.select(onKeys[0], true);
+		}
+		updateLayoutCssClass();
 
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
+		buttonsContainer.setElementCssClass("o_sel_hotspots_save");
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setVisible(!readOnly);
 		formLayout.add(buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
 	}
@@ -233,11 +286,17 @@ public class HotspotEditorController extends FormBasicController {
 		}
 
 		correctHotspotsEl.clearError();
-		if(!restrictedEdit) {
+		if(!restrictedEdit && !readOnly) {
 			if(correctHotspotsEl.getSelectedKeys().size() == 0) {
 				correctHotspotsEl.setErrorKey("error.need.correct.answer", null);
 				allOk &= false;
 			}
+		}
+		
+		cardinalityEl.clearError();
+		if(cardinalityEl.isSelected(0) && correctHotspotsEl.getSelectedKeys().size() > 1) {
+			cardinalityEl.setErrorKey("error.cardinality.answer", null);
+			allOk &= false;
 		}
 		
 		return allOk & super.validateFormLogic(ureq);
@@ -300,12 +359,14 @@ public class HotspotEditorController extends FormBasicController {
 			Collection<String> correctResponseIds = correctEl.getSelectedKeys();
 			doCorrectAnswers(correctResponseIds);
 			flc.setDirty(true);
+		} else if(layoutEl == source) {
+			updateLayoutCssClass();
 		}
 		super.formInnerEvent(ureq, source, event);
 	}
 	
 	private void doMoveHotspot(UserRequest ureq) {
-		if(restrictedEdit) return;
+		if(restrictedEdit || readOnly) return;
 		
 		String coords = ureq.getParameter("coords");
 		String hotspotId = ureq.getParameter("hotspot");
@@ -319,7 +380,7 @@ public class HotspotEditorController extends FormBasicController {
 	}
 	
 	private void doDeleteHotspot(UserRequest ureq) {
-		if(restrictedEdit) return;
+		if(restrictedEdit || readOnly) return;
 		
 		String hotspotId = ureq.getParameter("hotspot");
 		HotspotChoice choiceToDelete = itemBuilder.getHotspotChoice(hotspotId);
@@ -365,6 +426,19 @@ public class HotspotEditorController extends FormBasicController {
 		}
 	}
 	
+	private void updateLayoutCssClass() {
+		if(layoutEl.isOneSelected()) {
+			String selectedLayout = layoutEl.getSelectedKey();
+			if(StringHelper.containsNonWhitespace(selectedLayout)) {
+				hotspotsCont.contextPut("layoutCssClass","o_qti_" +  selectedLayout);
+			} else {
+				hotspotsCont.contextPut("layoutCssClass", "o_qti_hotspot-standard");
+			}
+		} else {
+			hotspotsCont.contextPut("layoutCssClass", "o_qti_hotspot-standard");
+		}
+	}
+	
 	private Size updateBackground() {
 		Size size = null;
 		File objectImg = null;
@@ -405,6 +479,8 @@ public class HotspotEditorController extends FormBasicController {
 	
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(readOnly) return;
+		
 		itemBuilder.setTitle(titleEl.getValue());
 		//set the question with the text entries
 		String questionText = textEl.getRawValue();
@@ -416,6 +492,11 @@ public class HotspotEditorController extends FormBasicController {
 			objectImg = backgroundImage;
 		} else if(initialBackgroundImage != null) {
 			objectImg = initialBackgroundImage;
+		}
+		
+		if(cardinalityEl.isOneSelected()) {
+			String selectedCardinality = cardinalityEl.getSelectedKey();
+			itemBuilder.setCardinality(Cardinality.valueOf(selectedCardinality));
 		}
 		
 		boolean updateHotspot = true;
@@ -450,6 +531,20 @@ public class HotspotEditorController extends FormBasicController {
 		
 		if(updateHotspot) {
 			updateHotspots(ureq);
+		}
+		
+		if(layoutEl.isOneSelected()) {
+			String selectedLayout = layoutEl.getSelectedKey();
+			for(HotspotLayouts layout:HotspotLayouts.values()) {
+				itemBuilder.removeHotspotInteractionClass(layout.cssClass());
+			}
+			itemBuilder.addHotspotInteractionClass(selectedLayout);
+		}
+		
+		if(shadowEl.isAtLeastSelected(1)) {
+			itemBuilder.removeHotspotInteractionClass(QTI21Constants.CSS_HOTSPOT_DISABLE_SHADOW);
+		} else {
+			itemBuilder.addHotspotInteractionClass(QTI21Constants.CSS_HOTSPOT_DISABLE_SHADOW);
 		}
 		
 		fireEvent(ureq, new AssessmentItemEvent(AssessmentItemEvent.ASSESSMENT_ITEM_CHANGED, itemBuilder.getAssessmentItem(), QTI21QuestionType.hotspot));

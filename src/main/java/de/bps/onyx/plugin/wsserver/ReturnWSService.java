@@ -54,6 +54,7 @@ import org.olat.ims.qti.QTIResultSet;
 import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 
+import de.bps.onyx.plugin.OnyxModule;
 import de.bps.onyx.plugin.OnyxResultManager;
 
 /**
@@ -97,6 +98,11 @@ public class ReturnWSService {
 	@WebMethod(operationName = "saveResult2")
 	public void saveResult(@WebParam(name = "uniqueId") String uniqueId, @WebParam(name = "resultFile") byte[] resultFile, @WebParam(name = "params") MapWrapper params)
 			throws Exception {
+		
+		if(!CoreSpringFactory.getImpl(OnyxModule.class).isEnabled()) {
+			log.warn("ReturnWSService unauthorized attempt, service disabled");
+			throw new RuntimeException("Onyx plugin disabled");
+		}
 		
 		File temp = null;
 		try {
@@ -221,7 +227,7 @@ public class ReturnWSService {
 									status = AssessmentEntryStatus.done;
 								}
 								ScoreEvaluation scoreEvaluation = new ScoreEvaluation(qtiResultSet.getScore(), qtiResultSet.getIsPassed(),
-										status, Boolean.TRUE, qtiResultSet.getFullyAssessed(), qtiResultSet.getAssessmentID());
+										status, Boolean.TRUE, qtiResultSet.getFullyAssessed(), null, null, qtiResultSet.getAssessmentID());
 								am.saveScoreEvaluation((AssessableCourseNode)courseNode, null, assessedIdentity, scoreEvaluation, userCourseEnvironment, false, Role.coach);
 
 								CoreSpringFactory.getImpl(AssessmentNotificationsHandler.class).markPublisherNews(assessedIdentity, resourceId);
@@ -292,6 +298,11 @@ public class ReturnWSService {
 
 	@WebMethod
 	public void saveResultLocal(@WebParam(name = "uniqueId") String uniqueId, @WebParam(name = "resultLocalFile") String resultLocalFile) {
+		if(!CoreSpringFactory.getImpl(OnyxModule.class).isEnabled()) {
+			log.warn("ReturnWSService unauthorized attempt, service disabled");
+			throw new RuntimeException("Onyx plugin disabled");
+		}
+		
 		QTIResultSet qtiResultSet = OnyxResultManager.getResultSet(Long.parseLong(uniqueId));
 
 		if (resultLocalFile == null) {

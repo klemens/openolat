@@ -31,10 +31,16 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.util.StringHelper;
+import org.olat.core.util.UserSession;
+import org.olat.modules.qpool.QPoolSecurityCallback;
+import org.olat.modules.qpool.QuestionPoolModule;
+import org.olat.modules.qpool.security.QPoolSecurityCallbackFactory;
 import org.olat.modules.qpool.ui.datasource.DefaultItemsSource;
 import org.olat.modules.qpool.ui.datasource.MarkedItemsSource;
 import org.olat.modules.qpool.ui.datasource.MyItemsSource;
 import org.olat.modules.qpool.ui.events.QItemViewEvent;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -44,19 +50,31 @@ import org.olat.modules.qpool.ui.events.QItemViewEvent;
  */
 public class SelectItemController extends BasicController {
 	
-	private final Link markedItemsLink, ownedItemsLink, myListsLink, mySharesLink;
+	private Link myCompetencesLink, mySharesLink, myListsLink;
+	private final Link markedItemsLink, ownedItemsLink;
 	private final SegmentViewComponent segmentView;
 	private final VelocityContainer mainVC;
 	private ItemListController ownedItemsCtrl;
 	private ItemListController markedItemsCtrl;
     private ItemListMyListsController myListsCtrl;
 	private ItemListMySharesController mySharesCtrl;
+	private ItemListMyCompetencesController myCompetencesCtrl;
 	private String restrictToFormat;
+	
+	private final QPoolSecurityCallback secCallback;
+	
+	@Autowired
+	private QuestionPoolModule qpoolModule;
+	@Autowired
+	private QPoolSecurityCallbackFactory qPoolSecurityCallbackFactory;
 	
 	public SelectItemController(UserRequest ureq, WindowControl wControl, String restrictToFormat) {
 		super(ureq, wControl);
 		this.restrictToFormat = restrictToFormat;
 		mainVC = createVelocityContainer("item_list_overview");
+		
+		UserSession usess = ureq.getUserSession();
+		secCallback = qPoolSecurityCallbackFactory.createQPoolSecurityCallback(usess.getRoles());
 		
 		int marked = updateMarkedItems(ureq);
 		if(marked <= 0) {
@@ -68,10 +86,23 @@ public class SelectItemController extends BasicController {
 		segmentView.addSegment(markedItemsLink, marked > 0);
 		ownedItemsLink = LinkFactory.createLink("menu.database.my", mainVC, this);
 		segmentView.addSegment(ownedItemsLink, marked <= 0);
-        myListsLink = LinkFactory.createLink("my.list", mainVC, this);
-        segmentView.addSegment(myListsLink, false);
-		mySharesLink = LinkFactory.createLink("my.share", mainVC, this);
-		segmentView.addSegment(mySharesLink, false);
+        
+		if(qpoolModule.isCollectionsEnabled()) {
+			myListsLink = LinkFactory.createLink("my.list", mainVC, this);
+        		segmentView.addSegment(myListsLink, false);
+		}
+        if(qpoolModule.isSharesEnabled() || qpoolModule.isPoolsEnabled()) {
+        		mySharesLink = LinkFactory.createLink("my.share", mainVC, this);
+			segmentView.addSegment(mySharesLink, false);
+        }
+		if(StringHelper.isLong(qpoolModule.getTaxonomyQPoolKey()) && qpoolModule.isReviewProcessEnabled()) {
+			myCompetencesCtrl = new ItemListMyCompetencesController(ureq, getWindowControl(), secCallback, restrictToFormat);
+			listenTo(myCompetencesCtrl);
+			if(myCompetencesCtrl.hasCompetences()) {
+				myCompetencesLink = LinkFactory.createLink("my.competences", mainVC, this);
+				segmentView.addSegment(myCompetencesLink, false);
+			}
+		}
 		putInitialPanel(mainVC);
 	}
 	
@@ -95,6 +126,8 @@ public class SelectItemController extends BasicController {
                     updateMyLists(ureq);
                 } else if (clickedLink == mySharesLink) {
 					updateMyShares(ureq);
+				} else if (clickedLink == myCompetencesLink) {
+					updateMyCompetences(ureq);
 				}
 			}
 		}
@@ -115,7 +148,7 @@ public class SelectItemController extends BasicController {
 			DefaultItemsSource source = new MarkedItemsSource(getIdentity(), ureq.getUserSession().getRoles(), "Fav");
 			source.getDefaultParams().setFavoritOnly(true);
 			source.getDefaultParams().setFormat(restrictToFormat);
-			markedItemsCtrl = new ItemListController(ureq, getWindowControl(), source);
+			markedItemsCtrl = new ItemListController(ureq, getWindowControl(), secCallback, source);
 			listenTo(markedItemsCtrl);
 		}
 		int numOfMarkedItems = markedItemsCtrl.updateList();
@@ -128,7 +161,7 @@ public class SelectItemController extends BasicController {
 			DefaultItemsSource source = new MyItemsSource(getIdentity(), ureq.getUserSession().getRoles(), "My"); 
 			source.getDefaultParams().setAuthor(getIdentity());
 			source.getDefaultParams().setFormat(restrictToFormat);
-			ownedItemsCtrl = new ItemListController(ureq, getWindowControl(), source);
+			ownedItemsCtrl = new ItemListController(ureq, getWindowControl(), secCallback, source);
 			listenTo(ownedItemsCtrl);
 		}
 		ownedItemsCtrl.updateList();
@@ -137,7 +170,7 @@ public class SelectItemController extends BasicController {
 
     private void updateMyLists(UserRequest ureq) {
         if(myListsCtrl == null) {
-            myListsCtrl = new ItemListMyListsController(ureq, getWindowControl(), restrictToFormat);
+            myListsCtrl = new ItemListMyListsController(ureq, getWindowControl(), secCallback, restrictToFormat);
             listenTo(myListsCtrl);
         }
         mainVC.put("itemList", myListsCtrl.getInitialComponent());
@@ -145,9 +178,17 @@ public class SelectItemController extends BasicController {
 
 	private void updateMyShares(UserRequest ureq) {
 		if(mySharesCtrl == null) {
-			mySharesCtrl = new ItemListMySharesController(ureq, getWindowControl(), restrictToFormat);
+			mySharesCtrl = new ItemListMySharesController(ureq, getWindowControl(), secCallback, restrictToFormat);
 			listenTo(mySharesCtrl);
 		}
 		mainVC.put("itemList", mySharesCtrl.getInitialComponent());
+	}
+	
+	private void updateMyCompetences(UserRequest ureq) {
+		if(myCompetencesCtrl == null) {
+			myCompetencesCtrl = new ItemListMyCompetencesController(ureq, getWindowControl(), secCallback, restrictToFormat);
+			listenTo(myCompetencesCtrl);
+		}
+		mainVC.put("itemList", myCompetencesCtrl.getInitialComponent());
 	}
 }

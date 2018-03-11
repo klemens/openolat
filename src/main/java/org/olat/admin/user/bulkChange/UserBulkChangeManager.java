@@ -133,6 +133,7 @@ public class UserBulkChangeManager implements InitializingBean {
 			//reload identity from cache, to prevent stale object
 			identity = securityManager.loadIdentityByKey(identity.getKey());
 			User user = identity.getUser();
+			String oldEmail = user.getEmail();
 			String errorDesc = "";
 			boolean updateError = false;
 			// change pwd
@@ -245,6 +246,7 @@ public class UserBulkChangeManager implements InitializingBean {
 				notUpdatedIdentities.add(errorOutput); 
 			} else {
 				userManager.updateUserFromIdentity(identity);
+				securityManager.deleteInvalidAuthenticationsByEmail(oldEmail);
 				changedIdentities.add(identity);
 				log.audit("User::" + addingIdentity.getName() + " successfully changed account data for user::" + identity.getName() + " in bulk change", null);
 			}
@@ -293,10 +295,13 @@ public class UserBulkChangeManager implements InitializingBean {
 				gender = userPropTrans.translate("form.name.gender.salutation." + internalGender);
 			}
 		}
+		
+		String email = identity.getUser().getProperty(UserConstants.EMAIL, null);
+			email = StringHelper.containsNonWhitespace(email)? email: "-";
 
 		String[] args = new String[] {
 				identity.getName(),//0: changed users username
-				identity.getUser().getProperty(UserConstants.EMAIL, null),// 1: changed users email address
+				email,// 1: changed users email address
 				userManager.getUserDisplayName(identity.getUser()),// 2: Name (first and last name) of user who changed the password
 				WebappHelper.getMailConfig("mailSupport"), //3: configured support email address
 				identity.getUser().getProperty(UserConstants.LASTNAME, null), //4 last name

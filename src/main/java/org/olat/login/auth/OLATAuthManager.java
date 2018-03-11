@@ -34,7 +34,6 @@ import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
-import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.logging.AssertException;
@@ -64,8 +63,6 @@ import org.olat.registration.TemporaryKey;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * Initial Date:  26.09.2007 <br>
@@ -131,7 +128,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		}
 
 		if (authentication == null) {
-			log.audit("Error authenticating user "+login+" via provider OLAT", OLATAuthenticationController.class.getName());
+			log.audit("Cannot authenticate user " + login + " via provider OLAT", OLATAuthenticationController.class.getName());
 			return null;
 		}
 		
@@ -148,7 +145,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 			}
 			return identity;
 		}
-		log.audit("Error authenticating user "+login+" via provider OLAT", OLATAuthenticationController.class.getName());
+		log.audit("Cannot authenticate user " + login + " via provider OLAT", OLATAuthenticationController.class.getName());
 		return null;
 	}
 
@@ -158,21 +155,21 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 	}
 
 	private Identity findIdentInChangingEmailWorkflow(String login){
-		XStream xml = XStreamHelper.createXStreamInstance();
-		
 		List<TemporaryKey> tk = registrationManager.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
 		if (tk != null) {
 			for (TemporaryKey temporaryKey : tk) {
 				@SuppressWarnings("unchecked")
-				Map<String, String> mails = (Map<String, String>)xml.fromXML(temporaryKey.getEmailAddress());
-				if (login.equals(mails.get("changedEMail"))) {
-					return securityManager.findIdentityByName(mails.get("currentEMail"));
+				Map<String, String> mails = (Map<String, String>)XStreamHelper.createXStreamInstance()
+					.fromXML(temporaryKey.getEmailAddress());
+				String currentEmail = mails.get("currentEMail");
+				String changedEmail = mails.get("changedEMail");
+				if (login.equals(changedEmail) && StringHelper.containsNonWhitespace(currentEmail)) {
+					return securityManager.findIdentityByName(currentEmail);
 				}
 			}
 		}
 		return null;		
 	}
-	
 	
 	/**
 	 * Change the password of an identity. if the given identity is a LDAP-User,
@@ -235,7 +232,7 @@ public class OLATAuthManager extends BasicManager implements AuthenticationSPI {
 		String changePwUrl = BusinessControlFactory.getInstance().getAsURIString(Collections.singletonList(ce), false);
 		String[] args = new String[] {
 				identity.getName(),//0: changed users username
-				identity.getUser().getProperty(UserConstants.EMAIL, locale),// 1: changed users email address
+				UserManager.getInstance().getUserDisplayEmail(identity, locale),// 1: changed users email address
 				userManager.getUserDisplayName(doer.getUser()),// 2: Name (first and last name) of user who changed the password
 				WebappHelper.getMailConfig("mailSupport"), //3: configured support email address
 				changePwUrl //4: direct link to change password workflow (e.g. https://xx.xx.xx/olat/url/changepw/0)

@@ -42,6 +42,7 @@ import org.olat.core.util.mail.MailPackage;
 import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.group.ui.main.MemberPermissionChangeEvent;
+import org.olat.user.UserManager;
 
 /**
  * 
@@ -106,7 +107,7 @@ public class RepositoryMailing {
 	 * @param actor
 	 * @return the generated MailTemplate
 	 */
-	private static MailTemplate createRemoveParticipantMailTemplate(RepositoryEntry re, Identity actor) {
+	private static MailTemplate createRemoveMailTemplate(RepositoryEntry re, Identity actor) {
 		String subjectKey = "notification.mail.removed.subject";
 		String bodyKey = "notification.mail.removed.body";
 		return createMailTemplate(re, actor, subjectKey, bodyKey);
@@ -118,12 +119,14 @@ public class RepositoryMailing {
 		switch(type) {
 			case addParticipant:
 				return createAddParticipantMailTemplate(re, ureqIdentity);
-			case removeParticipant:
-				return createRemoveParticipantMailTemplate(re, ureqIdentity);
 			case addTutor:
 				return createAddTutorMailTemplate(re, ureqIdentity);
 			case addOwner:
 				return createAddOwnerMailTemplate(re, ureqIdentity);
+			case removeParticipant:
+			case removeTutor:
+			case removeOwner:
+				return createRemoveMailTemplate(re, ureqIdentity);
 		}
 		return null;
 	}
@@ -176,7 +179,9 @@ public class RepositoryMailing {
 		addParticipant,
 		removeParticipant,
 		addTutor,
-		addOwner
+		removeTutor,
+		addOwner,
+		removeOwner
 	}
 	
 	private static MailTemplate createMailTemplate(RepositoryEntry re, Identity actor, String subjectKey, String bodyKey) {
@@ -185,19 +190,17 @@ public class RepositoryMailing {
 		final String redescription = (StringHelper.containsNonWhitespace(re.getDescription()) ? FilterFactory.getHtmlTagAndDescapingFilter().filter(re.getDescription()) : ""); 
 		final String reUrl = Settings.getServerContextPathURI() + "/url/RepositoryEntry/" + re.getKey();
 		// get some data about the actor and fetch the translated subject / body via i18n module
+		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
 		String[] bodyArgs = new String[] {
 				actor.getUser().getProperty(UserConstants.FIRSTNAME, null),
 				actor.getUser().getProperty(UserConstants.LASTNAME, null),
-				actor.getUser().getProperty(UserConstants.EMAIL, null),
-				actor.getUser().getProperty(UserConstants.EMAIL, null)// 2x for compatibility with old i18m properties
+				UserManager.getInstance().getUserDisplayEmail(actor, locale),
+				UserManager.getInstance().getUserDisplayEmail(actor, locale)// 2x for compatibility with old i18m properties
 			};
 		
-		Locale locale = I18nManager.getInstance().getLocaleOrDefault(actor.getUser().getPreferences().getLanguage());
 		Translator trans = Util.createPackageTranslator(RepositoryManager.class, locale);
 		String subject = trans.translate(subjectKey);
 		String body = trans.translate(bodyKey, bodyArgs);
-		
-		
 		
 		// create a mail template which all these data
 		MailTemplate mailTempl = new MailTemplate(subject, body, null) {
@@ -207,7 +210,7 @@ public class RepositoryMailing {
 				User user = identity.getUser();
 				context.put("firstname", user.getProperty(UserConstants.FIRSTNAME, null));
 				context.put("lastname", user.getProperty(UserConstants.LASTNAME, null));
-				context.put("login",  user.getProperty(UserConstants.EMAIL, null));
+				context.put("login", UserManager.getInstance().getUserDisplayEmail(user, locale));
 				// Put variables from greater context
 				context.put("coursename", reName);
 				context.put("coursedescription", redescription);

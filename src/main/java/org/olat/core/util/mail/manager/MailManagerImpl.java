@@ -603,7 +603,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 		File template = new File(baseFolder, "mail_template.html");
 		if(template.exists()) {
 			try(InputStream in = new FileInputStream(template)) {
-				return IOUtils.toString(in);
+				return IOUtils.toString(in, "UTF-8");
 			} catch (IOException e) {
 				log.error("", e);
 			}
@@ -622,7 +622,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 			File templateFile = new File(baseFolder, "mail_template.html");
 			StringReader reader = new StringReader(template);
 			out = new FileOutputStream(templateFile);
-			IOUtils.copy(reader, out);
+			IOUtils.copy(reader, out, "UTF-8");
 		} catch (IOException e) {
 			log.error("", e);
 		} finally {
@@ -633,7 +633,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	@Override
 	public String getDefaultMailTemplate() {
 		try(InputStream in = MailModule.class.getResourceAsStream("_content/mail_template.html")) {
-			return IOUtils.toString(in);
+			return IOUtils.toString(in, "UTF-8");
 		} catch (IOException e) {
 			log.error("Cannot read the default mail template", e);
 			return null;
@@ -859,6 +859,8 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	
 	private boolean wantRealMailToo(Identity id) {
 		if(id == null) return false;
+		boolean hasNoEmail = !StringHelper.containsNonWhitespace(id.getUser().getEmail());
+		if (hasNoEmail) return false;
 		String want = id.getUser().getPreferences().getReceiveRealMail();
 		if(want != null) {
 			return "true".equals(want);
@@ -1090,9 +1092,9 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 			}
 			if(bccLists != null && bccLists.size() > 0) {
 				for(ContactList bccList:bccLists) {
-					Map<String,Identity> emailToIdentityMap = bccList.getIdentiEmails();
-					for(Map.Entry<String,Identity> entry:emailToIdentityMap.entrySet()) {
-						if(match(entry.getKey(), invalidAddresses, true)) {
+					Map<Long, Identity> emailToIdentityMap = bccList.getIdentiEmails();
+					for(Map.Entry<Long,Identity> entry:emailToIdentityMap.entrySet()) {
+						if(match(entry.getValue().getUser().getEmail(), invalidAddresses, true)) {
 							result.addFailedIdentites(entry.getValue());
 						}
 					}
@@ -1294,6 +1296,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	}
 	
 	private Address createAddressWithName(String address, String name) throws UnsupportedEncodingException, AddressException {
+		if (!StringHelper.containsNonWhitespace(address)) return null;
 		InternetAddress add = new InternetAddress(address, name);
 		try {
 			add.validate();
@@ -1304,6 +1307,10 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	}
 	
 	private Address createFromAddress(String address, MailerResult result) throws AddressException {
+		if (!StringHelper.containsNonWhitespace(address)) {
+			address = WebappHelper.getMailConfig("mailFrom");
+		}
+		
 		try {
 			Address add = new InternetAddress(address);
 			return add;
@@ -1346,6 +1353,9 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 				if(!StringHelper.containsNonWhitespace(emailAddress)) {
 					emailAddress = recipient.getRecipient().getUser().getProperty(UserConstants.EMAIL, null);
 				}
+				if(!StringHelper.containsNonWhitespace(emailAddress)) {
+					return true;
+				}
 				try {
 					Address address = createAddress(emailAddress);
 					if(address != null) {
@@ -1374,6 +1384,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 				result.addFailedIdentites(recipient);
 			} else {
 				String emailAddress = recipient.getUser().getProperty(UserConstants.EMAIL, null);
+				if(!StringHelper.containsNonWhitespace(emailAddress)) return null;
 				Address address;
 				try {
 					address = createAddress(emailAddress);
@@ -1398,6 +1409,9 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	private Address createFromAddress(Identity recipient, MailerResult result) {
 		if(recipient != null) {
 			String emailAddress = recipient.getUser().getProperty(UserConstants.EMAIL, null);
+			if (emailAddress == null) {
+				emailAddress = WebappHelper.getMailConfig("mailFrom");
+			}
 			String name = recipient.getUser().getProperty(UserConstants.FIRSTNAME, null) + " " + recipient.getUser().getProperty(UserConstants.LASTNAME, null); 
 			Address address;
 			try {
@@ -1587,6 +1601,7 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 	public MimeMessage createMimeMessage(Address from, Address[] tos, Address[] ccs, Address[] bccs, String subject, String body,
 			List<File> attachments, MailerResult result) {
 		
+		if (from == null || ((tos == null || tos.length == 0) && ((ccs == null || ccs.length == 0)) && (bccs == null || bccs.length == 0))) return null;
 		try {
 			MimeMessage msg = createMessage(subject, from);
 			if(tos != null && tos.length > 0) {
@@ -1676,6 +1691,8 @@ public class MailManagerImpl implements MailManager, InitializingBean  {
 
 	@Override
 	public void sendMessage(MimeMessage msg, MailerResult result) {
+		if (msg == null) return;
+			
 		String smtpFrom = WebappHelper.getMailConfig("smtpFrom");
 		if(StringHelper.containsNonWhitespace(smtpFrom)) {
 			try {

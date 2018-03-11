@@ -62,8 +62,10 @@ import org.olat.group.BusinessGroup;
 import org.olat.group.DeletableGroupData;
 import org.olat.modules.lecture.LectureBlock;
 import org.olat.modules.lecture.LectureBlockAuditLog;
+import org.olat.modules.lecture.LectureBlockAuditLog.Action;
 import org.olat.modules.lecture.LectureBlockRef;
 import org.olat.modules.lecture.LectureBlockRollCall;
+import org.olat.modules.lecture.LectureBlockRollCallRef;
 import org.olat.modules.lecture.LectureBlockRollCallSearchParameters;
 import org.olat.modules.lecture.LectureBlockStatus;
 import org.olat.modules.lecture.LectureBlockToGroup;
@@ -279,6 +281,10 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 	public List<LectureBlockAuditLog> getAuditLog(IdentityRef assessedIdentity) {
 		return auditLogDao.getAuditLog(assessedIdentity);
 	}
+	@Override
+	public List<LectureBlockAuditLog> getAuditLog(RepositoryEntryRef entry, IdentityRef assessedIdentity, Action action) {
+		return auditLogDao.getAuditLog(entry, assessedIdentity, action);
+	}
 
 	@Override
 	public List<LectureBlockAuditLog> getAuditLog(RepositoryEntryRef entry) {
@@ -457,6 +463,12 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 			rollCall = lectureBlockRollCallDao.update(rollCall);
 		}
 		return rollCall;
+	}
+	
+	@Override
+	public LectureBlockRollCall getRollCall(LectureBlockRollCallRef rollCall) {
+		if(rollCall == null) return null;
+		return lectureBlockRollCallDao.loadByKey(rollCall.getKey());
 	}
 
 	@Override
@@ -647,18 +659,22 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 
 	@Override
 	public void sendReminders() {
-		boolean reminderEnabled = lectureModule.isRollCallReminderEnabled();
 		int reminderPeriod = lectureModule.getRollCallReminderPeriod();
-		if(reminderEnabled && reminderPeriod > 0) {
+		if(reminderPeriod > 0) {
 			Calendar cal = Calendar.getInstance();
 			cal.add(Calendar.DATE, -reminderPeriod);
 			Date endDate = cal.getTime();
-			
+
+			boolean reminderEnabled = lectureModule.isRollCallReminderEnabled();
 			List<LectureBlockToTeacher> toRemindList = lectureBlockReminderDao.getLectureBlockTeachersToReminder(endDate);
 			for(LectureBlockToTeacher toRemind:toRemindList) {
 				Identity teacher = toRemind.getTeacher();
 				LectureBlock lectureBlock = toRemind.getLectureBlock();
-				sendReminder(teacher, lectureBlock);
+				if(reminderEnabled) {
+					sendReminder(teacher, lectureBlock);
+				} else {
+					lectureBlockReminderDao.createReminder(lectureBlock, teacher, "disabled");
+				}
 			}
 		}
 	}

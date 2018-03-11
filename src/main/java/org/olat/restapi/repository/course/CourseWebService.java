@@ -24,6 +24,7 @@ import static org.olat.restapi.security.RestSecurityHelper.getUserRequest;
 import static org.olat.restapi.security.RestSecurityHelper.isAdmin;
 import static org.olat.restapi.security.RestSecurityHelper.isAuthor;
 import static org.olat.restapi.security.RestSecurityHelper.isAuthorEditor;
+import static org.olat.restapi.security.RestSecurityHelper.isInstitutionalResourceManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,7 +93,6 @@ import org.olat.resource.OLATResource;
 import org.olat.resource.OLATResourceManager;
 import org.olat.resource.accesscontrol.ACService;
 import org.olat.resource.accesscontrol.AccessResult;
-import org.olat.restapi.security.RestSecurityHelper;
 import org.olat.restapi.support.ObjectFactory;
 import org.olat.restapi.support.vo.CourseConfigVO;
 import org.olat.restapi.support.vo.CourseVO;
@@ -222,7 +222,7 @@ public class CourseWebService {
 		}
 
 		UserRequest ureq = getUserRequest(request);
-		if (!isAuthorEditor(course, request)) {
+		if (!isAuthorEditor(course, request) && !isInstitutionalResourceManager(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -275,35 +275,31 @@ public class CourseWebService {
 	@Path("file")
 	@Produces({ "application/zip", MediaType.APPLICATION_OCTET_STREAM })
 	public Response getRepoFileById(@Context HttpServletRequest request) {
-		if(!isAuthor(request)) {
-			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		}
-
 		RepositoryService rs = CoreSpringFactory.getImpl(RepositoryService.class);
 		RepositoryEntry re = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 		if (re == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
 		}
-
+		
 		RepositoryHandler typeToDownload = RepositoryHandlerFactory.getInstance().getRepositoryHandler(re);
 		if (typeToDownload == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		
+		Identity identity = getIdentity(request);
+		boolean canDownload = re.getCanDownload() && typeToDownload.supportsDownload();
+		if (isAdmin(request) || RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, re)) {
+			canDownload = true;
+		} else if(!isAuthor(request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+		if(!canDownload) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
 		OLATResource ores = OLATResourceManager.getInstance().findResourceable(re.getOlatResource());
 		if (ores == null) {
 			return Response.serverError().status(Status.NOT_FOUND).build();
-		}
-
-		Identity identity = getIdentity(request);
-		boolean isAuthor = RestSecurityHelper.isAuthor(request);
-		boolean isOwner = RepositoryManager.getInstance().isOwnerOfRepositoryEntry(identity, re);
-		if (!(isAuthor | isOwner)) {
-			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		}
-		boolean canDownload = re.getCanDownload() && typeToDownload.supportsDownload();
-		if (!canDownload) {
-			return Response.serverError().status(Status.NOT_ACCEPTABLE).build();
 		}
 
 		boolean isAlreadyLocked = typeToDownload.isLocked(ores);
@@ -343,7 +339,7 @@ public class CourseWebService {
 	public Response deleteCourse(@Context HttpServletRequest request) {
 		if(!isAuthor(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		} else if (!isAuthorEditor(course, request)) {
+		} else if (!isAuthorEditor(course, request) && !isInstitutionalResourceManager(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -383,7 +379,7 @@ public class CourseWebService {
 	public Response deleteCoursePermanently(@FormParam("newStatus") String newStatus, @Context HttpServletRequest request) {
 		if(!isAuthor(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		} else if (!isAuthorEditor(course, request)) {
+		} else if (!isAuthorEditor(course, request) && !isInstitutionalResourceManager(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -437,7 +433,7 @@ public class CourseWebService {
 	public Response getConfiguration(@Context HttpServletRequest request) {
 		if(!isAuthor(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
-		} else if (!isAuthorEditor(course, request)) {
+		} else if (!isAuthorEditor(course, request) && !isInstitutionalResourceManager(request)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		CourseConfigVO vo = ObjectFactory.getConfig(course);
@@ -520,7 +516,7 @@ public class CourseWebService {
 	@Path("runstructure")
 	@Produces(MediaType.APPLICATION_XML)
 	public Response findRunStructureById(@Context HttpServletRequest httpRequest, @Context Request request) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -548,7 +544,7 @@ public class CourseWebService {
 	@Path("editortreemodel")
 	@Produces(MediaType.APPLICATION_XML)
 	public Response findEditorTreeModelById(@Context HttpServletRequest httpRequest, @Context Request request) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		VFSItem editorModelItem = course.getCourseBaseContainer().resolve("editortreemodel.xml");
@@ -575,7 +571,7 @@ public class CourseWebService {
 	@Path("authors")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getAuthors(@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -605,7 +601,7 @@ public class CourseWebService {
 	@Path("tutors")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getTutors(@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -635,7 +631,7 @@ public class CourseWebService {
 	@Path("participants")
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getParticipants(@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -667,7 +663,7 @@ public class CourseWebService {
 	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response getAuthor(@PathParam("identityKey") Long identityKey,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -699,7 +695,7 @@ public class CourseWebService {
 	@Path("authors/{identityKey}")
 	public Response addAuthor(@PathParam("identityKey") Long identityKey,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
@@ -733,7 +729,7 @@ public class CourseWebService {
 	@Path("authors")
 	@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response addAuthors(UserVO[] authors, @Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
@@ -769,10 +765,9 @@ public class CourseWebService {
 	 */
 	@DELETE
 	@Path("authors/{identityKey}")
-	@Produces({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response removeAuthor(@PathParam("identityKey") Long identityKey,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -788,7 +783,7 @@ public class CourseWebService {
 		RepositoryManager rm = RepositoryManager.getInstance();
 		RepositoryEntry repositoryEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 		List<Identity> authors = Collections.singletonList(author);
-		rm.removeOwners(identity, authors, repositoryEntry);
+		rm.removeOwners(identity, authors, repositoryEntry, new MailPackage(false));
 		return Response.ok().build();
 	}
 	
@@ -805,7 +800,7 @@ public class CourseWebService {
 	@Path("tutors/{identityKey}")
 	public Response addCoach(@PathParam("identityKey") Long identityKey,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
@@ -832,7 +827,7 @@ public class CourseWebService {
 	@Path("tutors")
 	@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response addCoaches(UserVO[] coaches, @Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 		
@@ -849,6 +844,39 @@ public class CourseWebService {
 	}
 	
 	/**
+	 * Remove a coach from the course
+	 * @response.representation.200.doc The user was successfully removed as coach of the course
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The course or the user not found
+	 * @param identityKey The user identifier
+	 * @param httpRequest The HTTP request
+	 * @return It returns 200  if the user is removed as coach of the course
+	 */
+	@DELETE
+	@Path("tutors/{identityKey}")
+	public Response removeCoach(@PathParam("identityKey") Long identityKey,
+			@Context HttpServletRequest httpRequest) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+		
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		Identity coach = securityManager.loadIdentityByKey(identityKey, false);
+		if(coach == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		
+		Identity identity = getIdentity(httpRequest);
+		
+		//remove the user as coach of the course
+		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryEntry repositoryEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+		List<Identity> coaches = Collections.singletonList(coach);
+		rm.removeTutors(identity, coaches, repositoryEntry, new MailPackage(false));
+		return Response.ok().build();
+	}
+	
+	/**
 	 * Add an participant to the course
 	 * @response.representation.200.doc The user is a participant of the course
 	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
@@ -861,7 +889,7 @@ public class CourseWebService {
 	@Path("participants/{identityKey}")
 	public Response addParticipant(@PathParam("identityKey") Long identityKey,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
@@ -898,7 +926,7 @@ public class CourseWebService {
 	@Consumes({MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON})
 	public Response addParticipants(UserVO[] participants,
 			@Context HttpServletRequest httpRequest) {
-		if (!isAuthorEditor(course, httpRequest)) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
 			return Response.serverError().status(Status.UNAUTHORIZED).build();
 		}
 
@@ -911,6 +939,39 @@ public class CourseWebService {
 		RepositoryEntry repositoryEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
 		IdentitiesAddEvent iae = new IdentitiesAddEvent(participantList);
 		rm.addParticipants(identity, ureq.getUserSession().getRoles(), iae, repositoryEntry, new MailPackage(false));
+		return Response.ok().build();
+	}
+	
+	/**
+	 * Remove a participant from the course
+	 * @response.representation.200.doc The user was successfully removed as participant of the course
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @response.representation.404.doc The course or the user not found
+	 * @param identityKey The user identifier
+	 * @param httpRequest The HTTP request
+	 * @return It returns 200  if the user is removed as participant of the course
+	 */
+	@DELETE
+	@Path("participants/{identityKey}")
+	public Response removeParticipant(@PathParam("identityKey") Long identityKey,
+			@Context HttpServletRequest httpRequest) {
+		if (!isAuthorEditor(course, httpRequest) && !isInstitutionalResourceManager(httpRequest)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+		
+		BaseSecurity securityManager = BaseSecurityManager.getInstance();
+		Identity participant = securityManager.loadIdentityByKey(identityKey, false);
+		if(participant == null) {
+			return Response.serverError().status(Status.NOT_FOUND).build();
+		}
+		
+		Identity identity = getIdentity(httpRequest);
+		
+		//remove the user as participant of the course
+		RepositoryManager rm = RepositoryManager.getInstance();
+		RepositoryEntry repositoryEntry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+		List<Identity> participants = Collections.singletonList(participant);
+		rm.removeParticipants(identity, participants, repositoryEntry, new MailPackage(false), false);
 		return Response.ok().build();
 	}
 	

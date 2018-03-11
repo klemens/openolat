@@ -186,6 +186,14 @@ public class RepositoryEntryAuthorQueries {
 			  .append(" ))");
 		}
 		
+		if(params.getClosed() != null) {
+			if(params.getClosed().booleanValue()) {
+				sb.append(" and v.statusCode>0");
+			} else {
+				sb.append(" and v.statusCode=0");
+			}
+		}
+		
 		if(params.getResourceUsage() != null && params.getResourceUsage() != ResourceUsage.all) {
 			sb.append(" and res.resName!='CourseModule' and");	
 			if(params.getResourceUsage() == ResourceUsage.notUsed) {
@@ -278,7 +286,7 @@ public class RepositoryEntryAuthorQueries {
 			if(StringHelper.isLong(quickRefs)) {
 				try {
 					quickId = Long.parseLong(quickRefs);
-					sb.append(" or v.key=:quickVKey or res.resId=:quickVKey)");
+					sb.append(" or v.key=:quickVKey or res.resId=:quickVKey");
 				} catch (NumberFormatException e) {
 					//
 				}

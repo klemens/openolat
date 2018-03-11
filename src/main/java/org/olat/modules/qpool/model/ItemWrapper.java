@@ -22,7 +22,11 @@ package org.olat.modules.qpool.model;
 import java.math.BigDecimal;
 import java.util.Date;
 
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
+import org.olat.ims.qti.QTIConstants;
+import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemView;
 import org.olat.modules.qpool.QuestionStatus;
 
@@ -32,6 +36,8 @@ import org.olat.modules.qpool.QuestionStatus;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 public class ItemWrapper implements QuestionItemView {
+	
+	private static final OLog log = Tracing.createLoggerFor(ItemWrapper.class);
 
 	private Long key;
 	private Date creationDate;
@@ -40,12 +46,14 @@ public class ItemWrapper implements QuestionItemView {
 	private String identifier;
 	private String masterIdentifier;
 	private String title;
+	private String topic;
 	private String keywords;
 	private String coverage;
 	private String additionalInformations;
 	private String language;
 	
 	private String taxonomyLevel;
+	private String taxonomyPath;
 	private String educationalContextLevel;
 	private String educationalLearningTime;
 	
@@ -58,45 +66,21 @@ public class ItemWrapper implements QuestionItemView {
 	
 	private String itemVersion;
 	private String status;
+	private Date statusLastModified;
 
 	private String format;
 	
-	private boolean editable;
-	private boolean marked;
+	private boolean isAuthor;
+	private boolean isTeacher;
+	private boolean isManager;
+	private boolean isRater;
+	private boolean isEditableInPool;
+	private boolean isEditableInShare;
+	private boolean isMarked;
 	private Double rating;
+	private int numberOfRatings;
 	
-	public ItemWrapper(QuestionItemImpl item, boolean editable, boolean marked, Double rating) {
-		key = item.getKey();
-		creationDate = item.getCreationDate();
-		lastModified = item.getLastModified();
-		
-		identifier = item.getIdentifier();
-		masterIdentifier = item.getMasterIdentifier();
-		title = item.getTitle();
-		keywords = item.getKeywords();
-		coverage = item.getCoverage();
-		additionalInformations = item.getAdditionalInformations();
-		language = item.getLanguage();
-		
-		taxonomyLevel = item.getTaxonomyLevelName();
-		educationalContextLevel = item.getEducationalContextLevel();
-		educationalLearningTime = item.getEducationalLearningTime();
-		
-		itemType = item.getItemType();
-		difficulty = item.getDifficulty();
-		stdevDifficulty = item.getStdevDifficulty();
-		differentiation = item.getDifferentiation();
-		numOfAnswerAlternatives = item.getNumOfAnswerAlternatives();
-		usage = item.getUsage();
-		
-		itemVersion = item.getItemVersion();
-		status = item.getStatus();
-
-		format = item.getFormat();
-		
-		this.editable = editable;
-		this.marked = marked;
-		this.rating = rating;
+	private ItemWrapper() {
 	}
 
 	@Override
@@ -105,18 +89,63 @@ public class ItemWrapper implements QuestionItemView {
 	}
 
 	@Override
-	public boolean isEditable() {
-		return editable;
+	public boolean isAuthor() {
+		return isAuthor;
 	}
 
 	@Override
+	public boolean isTeacher() {
+		return isTeacher;
+	}
+
+	@Override
+	public boolean isReviewer() {
+		return isTeacher && !isAuthor && !isRater;
+	}
+
+	@Override
+	public boolean isManager() {
+		return isManager;
+	}
+	
+	@Override
+	public boolean isRater() {
+		return isRater;
+	}
+
+	@Override
+	public boolean isEditableInPool() {
+		return isEditableInPool;
+	}
+
+	@Override
+	public boolean isReviewableFormat() {
+		return !QTIConstants.QTI_12_FORMAT.equals(getFormat());
+	}
+
+	@Override
+	public boolean isEditableInShare() {
+		return isEditableInShare;
+	}
+
+	@Override
+	public boolean isEditable() {
+		return false;
+	}
+	
+	@Override
 	public boolean isMarked() {
-		return marked;
+		return isMarked;
 	}
 
 	@Override
 	public Double getRating() {
 		return rating;
+	}
+
+	@Override
+	public int getNumberOfRatings() {
+		return numberOfRatings;
 	}
 
 	@Override
@@ -145,6 +174,11 @@ public class ItemWrapper implements QuestionItemView {
 	}
 	
 	@Override
+	public String getTopic() {
+		return topic;
+	}
+	
+	@Override
 	public String getKeywords() {
 		return keywords;
 	}
@@ -164,8 +198,14 @@ public class ItemWrapper implements QuestionItemView {
 		return language;
 	}
 
+	@Override
 	public String getTaxonomyLevelName() {
 		return taxonomyLevel;
+	}
+
+	@Override
+	public String getTaxonomicPath() {
+		return taxonomyPath;
 	}
 
 	@Override
@@ -235,6 +275,11 @@ public class ItemWrapper implements QuestionItemView {
 		}
 		return null;
 	}
+	
+	@Override
+	public Date getQuestionStatusLastModified() {
+		return statusLastModified;
+	}
 
 	@Override
 	public String getItemVersion() {
@@ -262,7 +307,140 @@ public class ItemWrapper implements QuestionItemView {
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("itemRow[key=").append(getKey()).append(":")
-		  .append("name=").append(getTitle()).append("]");
+		  .append("name=").append(getTitle()).append(":")
+		  .append("isAuthor=").append(isAuthor()).append(":")
+		  .append("isTeacher=").append(isTeacher()).append(":")
+		  .append("isReviewer=").append(isReviewer()).append(":")
+		  .append("isManager=").append(isManager()).append(":")
+		  .append("isRater=").append(isRater()).append(":")
+		  .append("isEditableInPool=").append(isEditableInPool()).append(":")
+		  .append("isEditableInShare=").append(isEditableInShare()).append(":")
+		  .append("isMarked=").append(isMarked()).append(":")
+		  .append("rating=").append(getRating()).append("]");
 		return sb.toString();
 	}
+
+    public static ItemWrapperBuilder builder(QuestionItem item) {
+        return new ItemWrapperBuilder(item);
+    }
+	
+	public static class ItemWrapperBuilder {
+		
+		private final ItemWrapper itemWrapper;
+		
+		public ItemWrapperBuilder(QuestionItem item) {
+			itemWrapper = new ItemWrapper();
+			itemWrapper.key = item.getKey();
+			itemWrapper.creationDate = item.getCreationDate();
+			itemWrapper.lastModified = item.getLastModified();
+			
+			itemWrapper.identifier = item.getIdentifier();
+			itemWrapper.masterIdentifier = item.getMasterIdentifier();
+			itemWrapper.title = item.getTitle();
+			itemWrapper.topic = item.getTopic();
+			itemWrapper.keywords = item.getKeywords();
+			itemWrapper.coverage = item.getCoverage();
+			itemWrapper.additionalInformations = item.getAdditionalInformations();
+			itemWrapper.language = item.getLanguage();
+			
+			itemWrapper.taxonomyLevel = item.getTaxonomyLevelName();
+			itemWrapper.taxonomyPath = item.getTaxonomicPath();
+			itemWrapper.educationalContextLevel = item.getEducationalContextLevel();
+			itemWrapper.educationalLearningTime = item.getEducationalLearningTime();
+			
+			itemWrapper.itemType = item.getItemType();
+			itemWrapper.difficulty = item.getDifficulty();
+			itemWrapper.stdevDifficulty = item.getStdevDifficulty();
+			itemWrapper.differentiation = item.getDifferentiation();
+			itemWrapper.numOfAnswerAlternatives = item.getNumOfAnswerAlternatives();
+			itemWrapper.usage = item.getUsage();
+			
+			itemWrapper.itemVersion = item.getItemVersion();
+			itemWrapper.status = item.getQuestionStatus().name();
+			itemWrapper.statusLastModified = item.getQuestionStatusLastModified();
+
+			itemWrapper.format = item.getFormat();
+		}
+
+		public ItemWrapperBuilder setAuthor(boolean isAuthor) {
+			itemWrapper.isAuthor = isAuthor;
+			return this;
+		}
+
+		public ItemWrapperBuilder setAuthor(Number authorCount) {
+			itemWrapper.isAuthor = authorCount == null ? false : authorCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setTeacher(boolean isTeacher) {
+			itemWrapper.isTeacher = isTeacher;
+			return this;
+		}
+
+		public ItemWrapperBuilder setTeacher(Number teacherCount) {
+			itemWrapper.isTeacher = teacherCount == null ? false : teacherCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setManager(boolean isManager) {
+			itemWrapper.isManager = isManager;
+			return this;
+		}
+
+		public ItemWrapperBuilder setManager(Number managerCount) {
+			itemWrapper.isManager = managerCount == null ? false : managerCount.longValue() > 0;
+			return this;
+		}
+		
+		public ItemWrapperBuilder setRater(Number ratingsCount) {
+			itemWrapper.isRater = ratingsCount == null ? false : ratingsCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setEditableInPool(boolean isEditableInPool) {
+			itemWrapper.isEditableInPool = isEditableInPool;
+			return this;
+		}
+
+		public ItemWrapperBuilder setEditableInPool(Number editableInPoolCount) {
+			itemWrapper.isEditableInPool = editableInPoolCount == null ? false : editableInPoolCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setEditableInShare(boolean isEditableInShare) {
+			itemWrapper.isEditableInShare = isEditableInShare;
+			return this;
+		}
+
+		public ItemWrapperBuilder setEditableInShare(Number editableInShareCount) {
+			itemWrapper.isEditableInShare = editableInShareCount == null ? false : editableInShareCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setMarked(boolean isMarked) {
+			itemWrapper.isMarked = isMarked;
+			return this;
+		}
+
+		public ItemWrapperBuilder setMarked(Number markedCount) {
+			itemWrapper.isMarked = markedCount == null ? false : markedCount.longValue() > 0;
+			return this;
+		}
+
+		public ItemWrapperBuilder setRating(Double rating) {
+			itemWrapper.rating = rating;
+			return this;
+		}
+		
+		public ItemWrapperBuilder setNumberOfRatings(Number numberOfRatings) {
+			itemWrapper.numberOfRatings = numberOfRatings != null? numberOfRatings.intValue(): 0;
+			return this;
+		}
+		
+		public ItemWrapper create() {
+			log.debug("Question item wrapped:" + itemWrapper.toString());
+			return itemWrapper;
+		}
+	}
+
 }
