@@ -80,7 +80,7 @@ public class TaskInstanceManagerImpl extends TaskInstanceManager {
 
 	@Override
 	public TaskInstance loadTaskInstanceByID(long ID) {
-		return (TaskInstance) DBFactory.getInstance().loadObject(TaskInstanceImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(TaskInstanceImpl.class, ID);
 	}
 
 	@Override

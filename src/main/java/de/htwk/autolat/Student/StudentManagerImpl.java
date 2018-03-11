@@ -55,7 +55,7 @@ public class StudentManagerImpl extends StudentManager {
 
 	@Override
 	public Student loadStudentByID(long ID) {
-		return (Student)DBFactory.getInstance().loadObject(StudentImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(StudentImpl.class, ID);
 	}
 	
 	public void deleteLivingTaskInstanceByTaskInstance(TaskInstance taskInstance) {

@@ -49,7 +49,7 @@ public class TaskSolutionManagerImpl extends TaskSolutionManager {
 
 	@Override
 	public TaskSolution loadTaskSolutionByID(long ID) {
-		return (TaskSolution) DBFactory.getInstance().loadObject(TaskSolutionImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(TaskSolutionImpl.class, ID);
 	}
 
 	@Override

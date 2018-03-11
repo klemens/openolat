@@ -173,7 +173,7 @@ public class ServerConnectionManagerImpl extends ServerConnectionManager {
 	 */
 	@Override
 	public ServerConnection loadServerConnectionByID(long ID) {
-		return (ServerConnection)DBFactory.getInstance().loadObject(ServerConnectionImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(ServerConnectionImpl.class, ID);
 	}
 
 	/**
