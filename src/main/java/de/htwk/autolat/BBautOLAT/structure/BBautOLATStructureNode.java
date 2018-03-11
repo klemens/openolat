@@ -131,53 +131,10 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	@Override
 	public NodeRunConstructionResult createNodeRunConstructionResult(UserRequest ureq, WindowControl wControl,
 			final UserCourseEnvironment userCourseEnv, NodeEvaluation ne, String nodecmd) {
-		updateModuleConfigDefaults(false);
-		Controller cont;
-		String relPath = BBautOLATStructureNodeEditController.getFileName(getModuleConfiguration());
-		// null means default view
-		// we want a user chosen overview, so display the chosen file from the
-		// material folder, otherwise display the normal overview
-		if (relPath != null) {
-			// reuse the Run controller from the "Single Page" building block, since
-			// we need to do exactly the same task
-			Boolean allowRelativeLinks = getModuleConfiguration().getBooleanEntry(BBautOLATStructureNodeEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS);
-			OLATResourceable ores = OresHelper.createOLATResourceableInstance(CourseModule.class, userCourseEnv.getCourseEnvironment().getCourseResourceableId());
-			SinglePageController spCtr = new SinglePageController(ureq, wControl, userCourseEnv.getCourseEnvironment().getCourseFolderContainer(), relPath, allowRelativeLinks.booleanValue(), null, ores, null, false);
-			// check if user is allowed to edit the page in the run view
-			CourseGroupManager cgm = userCourseEnv.getCourseEnvironment().getCourseGroupManager();
-			boolean hasEditRights = (cgm.isIdentityCourseAdministrator(ureq.getIdentity()) || cgm.hasRight(ureq.getIdentity(),
-					CourseRights.RIGHT_COURSEEDITOR));
-			if (hasEditRights) {
-				spCtr.allowPageEditing();
-				// set the link tree model to internal for the HTML editor
-				CustomLinkTreeModel linkTreeModel = new CourseInternalLinkTreeModel(userCourseEnv.getCourseEnvironment().getRunStructure().getRootNode());
-				spCtr.setInternalLinkTreeModel(linkTreeModel);
-			}
-			spCtr.addLoggingResourceable(LoggingResourceable.wrap(this));	
-			// create clone wrapper layout, allow popping into second window
-			CloneLayoutControllerCreatorCallback clccc = new CloneLayoutControllerCreatorCallback() {
-				public ControllerCreator createLayoutControllerCreator(UserRequest ureq, final ControllerCreator contentControllerCreator) {
-					return BaseFullWebappPopupLayoutFactory.createAuthMinimalPopupLayout(ureq, new ControllerCreator() {
-						@SuppressWarnings("synthetic-access")
-						public Controller createController(UserRequest lureq, WindowControl lwControl) {
-							// wrapp in column layout, popup window needs a layout controller
-							Controller ctr = contentControllerCreator.createController(lureq, lwControl);
-							LayoutMain3ColsController layoutCtr = new LayoutMain3ColsController(lureq, lwControl, null, null, ctr.getInitialComponent(),
-									null);
-							layoutCtr.setCustomCSS(CourseFactory.getCustomCourseCss(lureq.getUserSession(), userCourseEnv.getCourseEnvironment()));
-							layoutCtr.addDisposableChildController(ctr);
-							return layoutCtr; 
-						}
-					});
-				}
-			};
-			cont	 = new CloneController(ureq, wControl, spCtr, clccc);
-		} else {
-			// evaluate the score accounting for this node. this uses the score accountings local
-			// cache hash map to reduce unnecessary calculations
-			ScoreEvaluation se = userCourseEnv.getScoreAccounting().evalCourseNode(this);
-			cont = new BBautOLATStructureNodeRunController(ureq, wControl, userCourseEnv, this, se, ne);
-		}
+		// evaluate the score accounting for this node. this uses the score accountings local
+		// cache hash map to reduce unnecessary calculations
+		ScoreEvaluation se = userCourseEnv.getScoreAccounting().evalCourseNode(this);
+		BBautOLATStructureNodeRunController cont = new BBautOLATStructureNodeRunController(ureq, wControl, userCourseEnv, this, se, ne);
 
 		// access the current calculated score, if there is one, so that it can be
 		// displayed in the ST-Runcontroller
@@ -496,33 +453,6 @@ public class BBautOLATStructureNode extends AbstractAccessableCourseNode impleme
 	@Override
 	public boolean hasDetails() {
 		return false;
-	}
-
-	/**
-	 * Update the module configuration to have all mandatory configuration flags
-	 * set to usefull default values
-	 * 
-	 * @param isNewNode true: an initial configuration is set; false: upgrading
-	 *          from previous node configuration version, set default to maintain
-	 *          previous behaviour
-	 */
-	@Override
-	public void updateModuleConfigDefaults(boolean isNewNode) {
-		ModuleConfiguration config = getModuleConfiguration();
-		if (isNewNode) {
-			// use defaults for new course building blocks
-			config.setBooleanEntry(BBautOLATStructureNodeEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS, Boolean.FALSE.booleanValue());
-			config.setConfigurationVersion(2);
-		} else if (config.getConfigurationVersion() < 2) {
-			// use values accoring to previous functionality
-			config.setBooleanEntry(BBautOLATStructureNodeEditController.CONFIG_KEY_ALLOW_RELATIVE_LINKS, Boolean.FALSE.booleanValue());
-			// previous version of score st node didn't have easy mode on score
-			// calculator, se to expert mode
-			if (getScoreCalculator() != null) {
-				getScoreCalculator().setExpertMode(true);
-			}
-			config.setConfigurationVersion(2);
-		}
 	}
 
 	/**

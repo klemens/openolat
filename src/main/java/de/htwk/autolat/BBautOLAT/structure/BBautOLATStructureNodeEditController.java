@@ -24,14 +24,10 @@ package de.htwk.autolat.BBautOLAT.structure;
 import java.util.Iterator;
 import java.util.List;
 
-import org.olat.commons.file.filechooser.FileChooseCreateEditController;
-import org.olat.commons.file.filechooser.LinkChooseCreateEditController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.form.Form;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
-import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.tabbedpane.TabbedPane;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.Controller;
@@ -39,7 +35,6 @@ import org.olat.core.gui.control.ControllerEventListener;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.ActivateableTabbableDefaultController;
-import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
@@ -49,117 +44,54 @@ import org.olat.course.condition.ConditionEditController;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.nodes.STCourseNode;
 import org.olat.course.nodes.st.EditScoreCalculationEasyForm;
-import org.olat.course.nodes.st.STCourseNodeDisplayConfigFormController;
 import org.olat.course.run.scoring.ScoreCalculator;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.tree.CourseEditorTreeModel;
-import org.olat.course.tree.CourseInternalLinkTreeModel;
-import org.olat.modules.ModuleConfiguration;
 
 /**
- * Description:<BR/> Edit controller for a course node of type structure <P/>
+ * Edit controller for the autolat structure node with support for
+ * changing accessability and score calculation
  * 
- * Initial Date: Oct 12, 2004
- * @author gnaegi
+ * The normal openolat structure node additionally supports specifying
+ * the displayed content (static or some sort of children overview).
+ * However, the autolat structure node always displays the score and
+ * highscore lists.
  */
 public class BBautOLATStructureNodeEditController extends ActivateableTabbableDefaultController implements ControllerEventListener {
 
 	private static final String PANE_TAB_ST_SCORECALCULATION = "pane.tab.st_scorecalculation";
-	private static final String PANE_TAB_ST_CONFIG = "pane.tab.st_config";
 	private static final String PANE_TAB_ACCESSIBILITY = "pane.tab.accessibility";
 	
-	/** configuration key for the filename */
-	public static final String CONFIG_KEY_FILE = "file";
-	/**
-	 * configuration key: should relative links like ../otherfolder/my.css be
-	 * allowed? *
-	 */
-	public static final String CONFIG_KEY_ALLOW_RELATIVE_LINKS = "allowRelativeLinks";
-	// key to store information on what to display in the run 
-	public static final String CONFIG_KEY_DISPLAY_TYPE = "display";
-	// display a custom file
-	public static final String CONFIG_VALUE_DISPLAY_FILE = "file";
-	// display a simple table on content
-	public static final String CONFIG_VALUE_DISPLAY_TOC = "toc";
-	// display a detailed peek view
-	public static final String CONFIG_VALUE_DISPLAY_PEEKVIEW = "peekview";
-	// key to display the enabled child node peek views
-	public static final String CONFIG_KEY_PEEKVIEW_CHILD_NODES = "peekviewChildNodes";
-	// key to store the number of columns
-	public static final String CONFIG_KEY_COLUMNS = "columns";	
-	//do not display peek view, delegate to first child CourseNode
-	public static final String CONFIG_VALUE_DISPLAY_DELEGATE = "delegate";
-	
-	private static final String[] paneKeys = { PANE_TAB_ST_SCORECALCULATION, PANE_TAB_ST_CONFIG, PANE_TAB_ACCESSIBILITY };
+	private static final String[] paneKeys = { PANE_TAB_ST_SCORECALCULATION, PANE_TAB_ACCESSIBILITY };
 	private BBautOLATStructureNode stNode;
 	private EditScoreCalculationExpertForm scoreExpertForm;
 	private EditScoreCalculationEasyForm scoreEasyForm;
 	private List<CourseNode> assessableChildren;
-	private BBautOLATSTDisplayConfigController nodeDisplayConfigFormController;
 	
-	private VelocityContainer score, configvc;
+	private VelocityContainer score;
 	private Link activateEasyModeButton;
 	private Link activateExpertModeButton;
 
-	private VFSContainer courseFolderContainer;
-	private String chosenFile;
-	private Boolean allowRelativeLinks;
-
-	private Panel fccePanel;
-	private FileChooseCreateEditController fccecontr;
 	private ConditionEditController accessibilityCondContr;
 
-	private boolean editorEnabled = false;
 	private UserCourseEnvironment euce;
 	private TabbedPane myTabbedPane;
-	private CourseEditorTreeModel editorModel;
 
-
-	/**
-	 * @param ureq
-	 * @param wControl
-	 * @param stNode
-	 * @param courseFolderPath
-	 * @param groupMgr
-	 * @param editorModel
-	 */
 	public BBautOLATStructureNodeEditController(UserRequest ureq, WindowControl wControl, BBautOLATStructureNode bBautOLATStructureNode, VFSContainer courseFolderContainer,
 			CourseGroupManager groupMgr, CourseEditorTreeModel editorModel, UserCourseEnvironment euce) {
 		super(ureq, wControl);
 
 		this.stNode = bBautOLATStructureNode;
-		this.courseFolderContainer = courseFolderContainer;
 		this.euce = euce;
-		this.editorModel = editorModel;
 
-		Translator fallback = new PackageTranslator(Util.getPackageName(Condition.class), ureq.getLocale());
-		Translator newTranslator = new PackageTranslator(Util.getPackageName(BBautOLATStructureNodeEditController.class), ureq.getLocale(), fallback);
-		setTranslator(newTranslator);
+		Translator translator = Util.createPackageTranslator(BBautOLATStructureNodeEditController.class, Condition.class, ureq.getLocale());
+		setTranslator(translator);
 				
 		score = this.createVelocityContainer("scoreedit");
 		activateEasyModeButton = LinkFactory.createButtonSmall("cmd.activate.easyMode", score, this);
 		activateExpertModeButton = LinkFactory.createButtonSmall("cmd.activate.expertMode", score, this);
 				
-		configvc = this.createVelocityContainer("config");
-
-		chosenFile = (String) bBautOLATStructureNode.getModuleConfiguration().get(CONFIG_KEY_FILE); // null
-		// means default view
-		if (chosenFile != null) editorEnabled = true;
-
-		allowRelativeLinks = bBautOLATStructureNode.getModuleConfiguration().getBooleanEntry(CONFIG_KEY_ALLOW_RELATIVE_LINKS); 
-		
-		nodeDisplayConfigFormController = new BBautOLATSTDisplayConfigController(ureq, wControl, stNode.getModuleConfiguration(),
-				editorModel.getCourseEditorNodeById(stNode.getIdent()));
-		listenTo(nodeDisplayConfigFormController);
-		configvc.put("nodeDisplayConfigFormController", nodeDisplayConfigFormController.getInitialComponent());
-
-		if (editorEnabled) {
-			configvc.contextPut("editorEnabled", Boolean.valueOf(editorEnabled));
-			addStartEditorToView(ureq);
-		}
-
 		// Find assessable children nodes
 		assessableChildren = AssessmentHelper.getAssessableNodes(editorModel, bBautOLATStructureNode);
 
@@ -219,6 +151,7 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 		score.contextPut("isExpertMode", Boolean.TRUE);
 	}
 
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == activateEasyModeButton) {
 			initScoreEasyForm(ureq);
@@ -248,11 +181,7 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 		return null;
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
-	 *      org.olat.core.gui.control.Controller, org.olat.core.gui.control.Event)
-	 */
-	
+	@Override
 	public void event(UserRequest ureq, Controller source, Event event) {
 		if (source == accessibilityCondContr) {
 			if (event == Event.CHANGED_EVENT) {
@@ -260,44 +189,7 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 				stNode.setPreConditionAccess(cond);
 				fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
 			}
-		} else if (event == FileChooseCreateEditController.FILE_CHANGED_EVENT) {
-			chosenFile = fccecontr.getChosenFile();
-			if (chosenFile != null) {
-				stNode.getModuleConfiguration().set(CONFIG_KEY_FILE, chosenFile);
-			} else {
-				stNode.getModuleConfiguration().remove(CONFIG_KEY_FILE);
-			}
-			fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
-		} else if (event == FileChooseCreateEditController.ALLOW_RELATIVE_LINKS_CHANGED_EVENT) {
-			allowRelativeLinks = fccecontr.getAllowRelativeLinks();
-			stNode.getModuleConfiguration().setBooleanEntry(CONFIG_KEY_ALLOW_RELATIVE_LINKS, allowRelativeLinks.booleanValue());
-			fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
-			
-		} 
-
-		else if (source == nodeDisplayConfigFormController) {
-			if (event == Event.DONE_EVENT) {
-				// update the module configuration
-				ModuleConfiguration moduleConfig = stNode.getModuleConfiguration();
-				nodeDisplayConfigFormController.updateModuleConfiguration(moduleConfig);
-				allowRelativeLinks = moduleConfig.getBooleanEntry(CONFIG_KEY_ALLOW_RELATIVE_LINKS);
-				// update some class vars
-				if (CONFIG_VALUE_DISPLAY_FILE.equals(moduleConfig.getStringValue(CONFIG_KEY_DISPLAY_TYPE))) {
-					editorEnabled = true;
-					configvc.contextPut("editorEnabled", Boolean.valueOf(editorEnabled));
-					stNode.getModuleConfiguration().set(CONFIG_KEY_FILE, chosenFile);
-					addStartEditorToView(ureq);
-				} else { // user generated overview
-					editorEnabled = false;
-					configvc.contextPut("editorEnabled", Boolean.valueOf(editorEnabled));
-					//fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
-					// Let other config values from old config setup remain in config,
-					// maybe used when user switches back to other config (OLAT-5610)
-				}
-				fireEvent(ureq, NodeEditController.NODECONFIG_CHANGED_EVENT);
-			}
-		}
-		else if (source == scoreEasyForm) {
+		} else if (source == scoreEasyForm) {
 			
 			if (event == Event.DONE_EVENT) {	
 				//show warning if the score might be wrong because of the invalid nodes used for calculation
@@ -348,45 +240,24 @@ public class BBautOLATStructureNodeEditController extends ActivateableTabbableDe
 		}
 	}
 
-	private void addStartEditorToView(UserRequest ureq) {
-		this.fccecontr = new LinkChooseCreateEditController(ureq, getWindowControl(), chosenFile, allowRelativeLinks, courseFolderContainer, "default", "HTML-Seite auswählen, editieren oder erstellen", new CourseInternalLinkTreeModel(editorModel) );
-		this.listenTo(fccecontr);
-
-		fccePanel = new Panel("filechoosecreateedit");
-		Component fcContent = fccecontr.getInitialComponent();
-		fccePanel.setContent(fcContent);
-		configvc.put(fccePanel.getComponentName(), fccePanel);
-	}
-
-	/**
-	 * @see org.olat.core.gui.control.generic.tabbable.TabbableDefaultController#addTabs(org.olat.core.gui.components.TabbedPane)
-	 */
+	@Override
 	public void addTabs(TabbedPane tabbedPane) {
 		myTabbedPane = tabbedPane;
 		tabbedPane.addTab(translate(PANE_TAB_ACCESSIBILITY), accessibilityCondContr.getWrappedDefaultAccessConditionVC(translate("condition.accessibility.title")));
-		tabbedPane.addTab(translate(PANE_TAB_ST_CONFIG), configvc);
 		tabbedPane.addTab(translate(PANE_TAB_ST_SCORECALCULATION), score);
 	}
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
-	 */
+	@Override
 	protected void doDispose() {
     //child controllers registered with listenTo() get disposed in BasicController
 	}
 
-	/**
-	 * @param mc The module confguration
-	 * @return The configured file name
-	 */
-	public static String getFileName(ModuleConfiguration mc) {
-		return (String) mc.get(CONFIG_KEY_FILE);
-	}
-
+	@Override
 	public String[] getPaneKeys() {
 		return paneKeys;
 	}
 
+	@Override
 	public TabbedPane getTabbedPane() {
 		return myTabbedPane;
 	}
