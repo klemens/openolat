@@ -20,10 +20,13 @@
 package org.olat.selenium.page.qti;
 
 import org.junit.Assert;
+import org.olat.ims.qti21.model.xml.ModalFeedbackCondition;
+import org.olat.ims.qti21.model.xml.ModalFeedbackCondition.Variable;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.support.ui.Select;
 
 /**
  * 
@@ -106,6 +109,61 @@ public class QTI21FeedbacksEditorPage {
 		
 		By emptyBy = By.cssSelector("div.o_sel_assessment_item_empty_feedback input[type='text']");
 		browser.findElement(emptyBy).sendKeys(feedback);
+		return this;
+	}
+	
+	public QTI21FeedbacksEditorPage addConditionalFeedback(int position, String title, String feedback) {
+		openAddFeedbacksMenu().addFeedback("o_sel_add_conditional");
+		
+		String prefix = "fieldset.o_sel_assessment_item_additional_" + position;
+		By titleBy = By.cssSelector(prefix + " div.o_sel_assessment_item_additional_feedback_title input[type='text']");
+		browser.findElement(titleBy).sendKeys(title);
+		
+		By emptyBy = By.cssSelector(prefix + " div.o_sel_assessment_item_additional_feedback input[type='text']");
+		browser.findElement(emptyBy).sendKeys(feedback);
+		return this;
+	}
+	
+	public QTI21FeedbacksEditorPage setCondition(int feedbackPosition, int conditionPosition,
+			ModalFeedbackCondition.Variable variable, ModalFeedbackCondition.Operator operator, String value) {
+
+		String conditionPrefix = "//fieldset[contains(@class,'o_sel_assessment_item_additional_" + feedbackPosition + "')]"
+				+ "//div[contains(@class,'o_condition_" + conditionPosition + "')]";
+		
+		By conditionBy = By.xpath(conditionPrefix);
+		OOGraphene.waitElement(conditionBy, browser);
+		
+		By variableBy = By.xpath(conditionPrefix + "//select[contains(@id,'o_fiovar_')]");
+		WebElement variableEl = browser.findElement(variableBy);
+		new Select(variableEl).selectByValue(variable.name());
+		OOGraphene.waitBusy(browser);
+		
+		By operatorBy = By.xpath(conditionPrefix + "//select[contains(@id,'o_fioope_')]");
+		WebElement operatorEl = browser.findElement(operatorBy);
+		new Select(operatorEl).selectByValue(operator.name());
+		
+		if(variable == Variable.attempts || variable == Variable.score) {
+			By valueBy = By.xpath(conditionPrefix + "//input[@type='text']");
+			WebElement valueEl = browser.findElement(valueBy);
+			valueEl.clear();
+			valueEl.sendKeys(value);
+		} else if(variable == Variable.response) {
+			By answerBy = By.xpath(conditionPrefix + "//select[contains(@id,'o_fioans_')]");
+			WebElement answerEl = browser.findElement(answerBy);
+			new Select(answerEl).selectByVisibleText(value);
+		}
+		return this;
+	}
+	
+	public QTI21FeedbacksEditorPage addCondition(int feedbackPosition, int conditionPosition) {
+		String conditionXpath = "//fieldset[contains(@class,'o_sel_assessment_item_additional_" + feedbackPosition + "')]"
+				+ "//div[contains(@class,'o_condition_" + conditionPosition + "')]"
+				+ "//a[contains(@class,'btn-default')][i[contains(@class,'o_icon_add')]]";
+		
+		By addConditionBy = By.xpath(conditionXpath);
+		OOGraphene.waitElement(addConditionBy, browser);
+		browser.findElement(addConditionBy).click();
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	

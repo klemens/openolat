@@ -17,6 +17,7 @@
 	<import resource="classpath:/org/olat/course/nodes/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/basiclti/_spring/basicLtiContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/card2brain/_spring/card2brainContext.xml"/>
+	<import resource="classpath:/org/olat/course/nodes/edubase/_spring/edubaseContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/info/_spring/infoMessageContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/gotomeeting/_spring/buildingblockContext.xml"/>
 	<import resource="classpath:/org/olat/course/nodes/openmeetings/_spring/buildingblockContext.xml"/>
@@ -69,7 +70,7 @@
 		<property name="i18nActionKey" value="admin.menu.title"/>
 		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
 		<property name="translationPackage" value="org.olat.course.certificate.ui"/>
-		<property name="parentTreeNodeIdentifier" value="modulesParent" /> 
+		<property name="parentTreeNodeIdentifier" value="eAssessmentParent" /> 
 		<property name="extensionPoints">
 			<list>	
 				<value>org.olat.admin.SystemAdminMainController</value>		

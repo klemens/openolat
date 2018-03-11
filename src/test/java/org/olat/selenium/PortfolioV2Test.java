@@ -25,14 +25,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.UUID;
 
-import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.page.InitialPage;
 import org.jboss.arquillian.graphene.page.Page;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.selenium.page.LoginPage;
@@ -59,7 +57,6 @@ import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.wiki.WikiPage;
-import org.olat.test.ArquillianDeployments;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
@@ -74,12 +71,7 @@ import org.openqa.selenium.WebDriver;
  *
  */
 @RunWith(Arquillian.class)
-public class PortfolioV2Test {
-	
-	@Deployment(testable = false)
-	public static WebArchive createDeployment() {
-		return ArquillianDeployments.createDeployment();
-	}
+public class PortfolioV2Test extends Deployments {
 
 	@Drone
 	private WebDriver browser;
@@ -420,7 +412,7 @@ public class PortfolioV2Test {
 	/**
 	 * Create a course with an assessment course element, setup
 	 * efficiency statement, add a user and assess her.
-	 * The user log in, search its efficency statemet, pick it
+	 * The user log in, search its efficiency statement, pick it
 	 * as a media for is portfolio and goes in the media center
 	 * to search it and select it.
 	 * 
@@ -751,6 +743,7 @@ public class PortfolioV2Test {
 			.openPortfolioV2();
 		portfolio
 			.openSharedWithMe()
+			.openSharedBindersWithMe()
 			.assertOnBinder(binderTitle)
 			.selectBinder(binderTitle)
 			.selectAssessment()

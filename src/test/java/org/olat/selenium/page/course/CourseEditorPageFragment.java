@@ -217,14 +217,14 @@ public class CourseEditorPageFragment {
 	public CourseEditorPageFragment createNode(String nodeAlias) {
 		OOGraphene.waitElement(createNodeButton, 5, browser);
 		browser.findElement(createNodeButton).click();
-
 		OOGraphene.waitModalDialog(browser);
-		By node = By.xpath("//div[@id='o_course_editor_choose_nodetype']//a[contains(@class,'o_sel_course_editor_node-" + nodeAlias + "')]");
+		
+		By nodeBy = By.xpath("//div[@id='o_course_editor_choose_nodetype']//a[contains(@class,'o_sel_course_editor_node-" + nodeAlias + "')]");
+		OOGraphene.waitElement(nodeBy, browser);
 		if("lti".equals(nodeAlias)) {
-			OOGraphene.clickAndWait(node, browser);
-			
+			OOGraphene.clickAndWait(nodeBy, browser);
 		} else {
-			browser.findElement(node).click();
+			browser.findElement(nodeBy).click();
 			OOGraphene.waitBusy(browser);
 		}
 		return this;

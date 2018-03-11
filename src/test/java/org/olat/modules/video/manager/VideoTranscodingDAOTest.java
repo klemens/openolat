@@ -71,9 +71,19 @@ public class VideoTranscodingDAOTest extends OlatTestCase {
 		// check for overall pending transcodings
 		List<VideoTranscoding> vTranscodingList2 = videoTranscodingDao.getVideoTranscodingsPendingAndInProgress();
 		Assert.assertNotNull(vTranscodingList2);
-		Assert.assertEquals(1, vTranscodingList2.size());
-		Assert.assertEquals(vTranscoding, vTranscodingList2.get(0));
+		Assert.assertTrue(vTranscodingList2.size() >= 1);
+		Assert.assertTrue(vTranscodingList2.contains(vTranscoding));
+	}
+	
+	@Test
+	public void getVideoTranscodingByKey() {
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		VideoTranscoding vTranscoding = videoTranscodingDao.createVideoTranscoding(resource, 1080, "mp4");
+		dbInstance.commitAndCloseSession();
 		
+		VideoTranscoding reloadedTranscoding = videoTranscodingDao.getVideoTranscoding(vTranscoding.getKey());
+		Assert.assertNotNull(reloadedTranscoding);
+		Assert.assertEquals(vTranscoding, reloadedTranscoding);
 	}
 	
 	@Test

@@ -38,6 +38,8 @@ import org.olat.modules.qpool.QPoolSPI;
 import org.olat.modules.qpool.QuestionPoolModule;
 import org.olat.modules.qpool.ui.events.QItemCreationCmdEvent;
 import org.olat.modules.qpool.ui.metadata.MetaUIFactory;
+import org.olat.modules.qpool.ui.tree.QPoolTaxonomyTreeBuilder;
+import org.olat.modules.taxonomy.TaxonomyLevel;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -52,23 +54,36 @@ public class NewItemOptionsController extends FormBasicController {
 
 	private TextElement titleEl;
 	private SingleSelection typeEl;
+	private SingleSelection taxonomyLevelEl;
+
 	private Map<String,QItemFactory> keyToFactoryMap = new HashMap<>();
+	private TaxonomyLevel selectedTaxonomyLevel;
 	
 	@Autowired
 	private QuestionPoolModule qpoolModule;
+	@Autowired
+	private QPoolTaxonomyTreeBuilder qpoolTaxonomyTreeBuilder;
 
-	public NewItemOptionsController(UserRequest ureq, WindowControl wControl) {	
+	public NewItemOptionsController(UserRequest ureq, WindowControl wControl, boolean ignoreCompetences) {	
+		this(ureq, wControl, null, ignoreCompetences);
+	}
+	
+	public NewItemOptionsController(UserRequest ureq, WindowControl wControl, TaxonomyLevel selectedTaxonomyLevel,
+			boolean ignoreCompetences) {
 		super(ureq, wControl);
+		this.selectedTaxonomyLevel = selectedTaxonomyLevel;
+		qpoolTaxonomyTreeBuilder.loadTaxonomyLevelsSelection(getIdentity(), true, ignoreCompetences);
 		
 		initForm(ureq);
 	}
 	
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		//subject
+		//title
 		titleEl = uifactory.addTextElement("general.title", "general.title", 128, "", formLayout);
+
 		//type
-		List<QItemFactory> factories = new ArrayList<QItemFactory>();
+		List<QItemFactory> factories = new ArrayList<>();
 		for(QPoolSPI spi:qpoolModule.getQuestionPoolProviders()) {
 			for(QItemFactory factory:spi.getItemfactories()) {
 				factories.add(factory);
@@ -87,7 +102,19 @@ public class NewItemOptionsController extends FormBasicController {
 		}
 
 		typeEl = uifactory.addDropdownSingleselect("question.type", "menu.admin.types", formLayout, typeKeys, valueKeys, null);
-
+		
+		//subject
+		taxonomyLevelEl = uifactory.addDropdownSingleselect("process.start.review.taxonomy.level", formLayout,
+				qpoolTaxonomyTreeBuilder.getSelectableKeys(), qpoolTaxonomyTreeBuilder.getSelectableValues(), null);
+		if(selectedTaxonomyLevel != null) {
+			String selectedTaxonomyLevelKey = String.valueOf(selectedTaxonomyLevel.getKey());
+			for(String taxonomyKey: qpoolTaxonomyTreeBuilder.getSelectableKeys()) {
+				if(taxonomyKey.equals(selectedTaxonomyLevelKey)) {
+					taxonomyLevelEl.select(taxonomyKey, true);
+				}
+			}
+		}
+		
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonLayout.setRootForm(mainForm);
 		formLayout.add(buttonLayout);
@@ -119,11 +146,14 @@ public class NewItemOptionsController extends FormBasicController {
 		String typeKey = typeEl.getSelectedKey();
 		QItemFactory factory = keyToFactoryMap.get(typeKey);
 		String title = titleEl.getValue();
-		fireEvent(ureq, new QItemCreationCmdEvent(title, factory));
+		String selectedKey = taxonomyLevelEl.getSelectedKey();
+		TaxonomyLevel taxonomyLevel = qpoolTaxonomyTreeBuilder.getTaxonomyLevel(selectedKey);
+		fireEvent(ureq, new QItemCreationCmdEvent(title, taxonomyLevel, factory));
 	}
 
 	@Override
 	protected void formCancelled(UserRequest ureq) {
 		fireEvent(ureq, Event.CANCELLED_EVENT);
 	}
+	
 }

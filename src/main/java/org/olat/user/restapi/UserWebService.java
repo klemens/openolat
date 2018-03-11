@@ -153,7 +153,7 @@ public class UserWebService {
 			@QueryParam("statusVisibleLimit") String statusVisibleLimit,
 			@Context UriInfo uriInfo, @Context HttpServletRequest httpRequest) {
 
-		// User lookup allowd for authors, usermanagers and admins. For
+		// User lookup allowed for authors, usermanagers and admins. For
 		// usernamanger and up are considered "administrative" when it comes to
 		// lookup of the user properties
 		boolean isAdministrativeUser = isUserManager(httpRequest);
@@ -776,8 +776,10 @@ public class UserWebService {
 					retrievedIdentity = baseSecurity.setExternalId(retrievedIdentity, user.getExternalId());
 					retrievedUser = retrievedIdentity.getUser();
 				}
+				String oldEmail = retrievedUser.getEmail();
 				post(retrievedUser, user, getLocale(request));
 				UserManager.getInstance().updateUser(retrievedUser);
+				BaseSecurityManager.getInstance().deleteInvalidAuthenticationsByEmail(oldEmail);
 				return Response.ok(get(retrievedIdentity, true, true)).build();
 			}
 			
@@ -790,12 +792,12 @@ public class UserWebService {
 			return Response.serverError().status(Status.INTERNAL_SERVER_ERROR).build();
 		}
 	}
-	
+
 	private List<ErrorVO> validateUser(User user, UserVO userVo, HttpServletRequest request) {
 		UserManager um = UserManager.getInstance();
 		
 		Locale locale = getLocale(request);
-		List<ErrorVO> errors = new ArrayList<ErrorVO>();
+		List<ErrorVO> errors = new ArrayList<>();
 		List<UserPropertyHandler> propertyHandlers = um.getUserPropertyHandlersFor(PROPERTY_HANDLER_IDENTIFIER, false);
 		validateProperty(user, UserConstants.FIRSTNAME, userVo.getFirstName(), propertyHandlers, errors, um, locale);
 		validateProperty(user, UserConstants.LASTNAME, userVo.getLastName(), propertyHandlers, errors, um, locale);
@@ -841,16 +843,13 @@ public class UserWebService {
 			String translation = translator.translate(error.getErrorKey(), error.getArgs());
 			errors.add(new ErrorVO(pack, error.getErrorKey(), translation));
 			return false;
-		} else if((userPropertyHandler.getName().equals(UserConstants.INSTITUTIONALEMAIL) || userPropertyHandler.getName().equals(UserConstants.EMAIL))
-				&& StringHelper.containsNonWhitespace(value)) {
-			
-			List<Identity> identities = UserManager.getInstance().findIdentitiesByEmail(Collections.singletonList(value));
-			if((user == null && identities.size() > 0)
-					||  identities.size() > 1
-					|| (user != null && identities.size() == 1 && !user.equals(identities.get(0).getUser()))) {
+		} else if((userPropertyHandler.getName().equals(UserConstants.INSTITUTIONALEMAIL) && StringHelper.containsNonWhitespace(value)) 
+				|| userPropertyHandler.getName().equals(UserConstants.EMAIL)) {
+			if (!UserManager.getInstance().isEmailAllowed(value, user)) {
 				String pack = userPropertyHandler.getClass().getPackage().getName();
 				Translator translator = new PackageTranslator(pack, locale);
-				String translation = translator.translate("form.name." + userPropertyHandler.getName() + ".error.exists");
+				String translation = translator.translate("form.name." + userPropertyHandler.getName() + ".error.exists", new String[] { value });
+				translation += " (" + value + ")";
 				errors.add(new ErrorVO("org.olat.user.propertyhandlers:new.form.name." + userPropertyHandler.getName() + ".exists", translation));
 			}
 		}

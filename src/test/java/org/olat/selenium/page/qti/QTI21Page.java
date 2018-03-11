@@ -133,6 +133,13 @@ public class QTI21Page {
 		elements.get(0).click();
 		return this;
 	}
+	
+	public QTI21Page answerHottext(int index) {
+		OOGraphene.waitElement(By.className("hottextInteraction"), browser);
+		By checkBy = By.xpath("//div[contains(@class,'hottextInteraction')]//p/span[@class='hottext'][" + index + "]/input[@type='checkbox']");
+		browser.findElement(checkBy).click();
+		return this;
+	}
 
 	public QTI21Page answerCorrectKPrim(String... choices) {
 		for(String choice:choices) {
@@ -160,8 +167,29 @@ public class QTI21Page {
 		return this;
 	}
 	
+	/**
+	 * Fill the gap entry based on its response id.
+	 * 
+	 * @param text The answer
+	 * @param responseId The identifier of the text entry
+	 * @return Itself
+	 */
 	public QTI21Page answerGapText(String text, String responseId) {
 		By gapBy = By.xpath("//span[contains(@class,'textEntryInteraction')]/input[@type='text'][contains(@name,'" + responseId + "')]");
+		WebElement gapEl = browser.findElement(gapBy);
+		gapEl.clear();
+		gapEl.sendKeys(text);
+		return this;
+	}
+	
+	/**
+	 * 
+	 * @param text The answer
+	 * @param placeholder The placeholder to found the right gap
+	 * @return Itself
+	 */
+	public QTI21Page answerGapTextWithPlaceholder(String text, String placeholder) {
+		By gapBy = By.xpath("//span[contains(@class,'textEntryInteraction')]/input[@type='text'][@placeholder='" + placeholder + "']");
 		WebElement gapEl = browser.findElement(gapBy);
 		gapEl.clear();
 		gapEl.sendKeys(text);
@@ -231,17 +259,22 @@ public class QTI21Page {
 		return this;
 	}
 	
+	/**
+	 * Draw a line of the house.
+	 * @return Itself
+	 */
 	public QTI21Page answerDrawing() {
-		By drawingBy = By.className("drawingInteraction");
+		By drawingBy = By.xpath("//div[contains(@class,'drawingInteraction')]//canvas[@id='tmp_canvas']");
 		WebElement drawingEl = browser.findElement(drawingBy);
 		
 		new Actions(browser)
 			.moveToElement(drawingEl, 30, 30)
 			.clickAndHold()
-			.moveByOffset(100, 200)
+			.moveByOffset(260, 100)
 			.release()
 			.build()
 			.perform();
+		
 		OOGraphene.waitingALittleBit();
 		return this;
 	}
@@ -253,6 +286,14 @@ public class QTI21Page {
 		return this;
 	}
 	
+	public QTI21Page saveAnswerMoveAndScrollTop() {
+		By saveAnswerBy = By.cssSelector("button.o_sel_assessment_item_submit");
+		OOGraphene.click(saveAnswerBy, browser);
+		OOGraphene.waitBusy(browser);
+		OOGraphene.scrollTop(browser);
+		return this;
+	}
+	
 	public QTI21Page nextAnswer() {
 		By nextAnswerBy = By.cssSelector("button.o_sel_next_question");
 		browser.findElement(nextAnswerBy).click();
@@ -260,9 +301,32 @@ public class QTI21Page {
 		return this;
 	}
 	
+	/**
+	 * Check if the feedback with the specified title is visible.
+	 * 
+	 * @param title Title of the feedback
+	 * @return Itself
+	 */
 	public QTI21Page assertFeedback(String title) {
 		By feedbackBy = By.xpath("//div[contains(@class,'modalFeedback')]/h4[contains(text(),'" + title + "')]");
 		OOGraphene.waitElement(feedbackBy, 5, browser);
+		return this;
+	}
+	
+	public QTI21Page assertNoFeedback(String title) {
+		By feedbackBy = By.xpath("//div[contains(@class,'modalFeedback')]/h4[contains(text(),'" + title + "')]");
+		OOGraphene.waitElementDisappears(feedbackBy, 5, browser);
+		return this;
+	}
+	
+	/**
+	 * Check that there are no feedbacks visible.
+	 * 
+	 * @return Itself
+	 */
+	public QTI21Page assertNoFeedback() {
+		By feedbackBy = By.xpath("//div[contains(@class,'modalFeedback')]/h4");
+		OOGraphene.waitElementDisappears(feedbackBy, 5, browser);
 		return this;
 	}
 	

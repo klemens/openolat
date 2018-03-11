@@ -23,8 +23,7 @@ import java.util.List;
 
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.stack.BreadcrumbPanel;
-import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -32,7 +31,7 @@ import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.modules.qpool.QuestionItem;
+import org.olat.modules.qpool.QPoolSecurityCallback;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.ui.events.QPoolEvent;
@@ -46,19 +45,22 @@ import org.olat.modules.qpool.ui.events.QPoolEvent;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class QuestionsController extends BasicController implements Activateable2, BreadcrumbPanelAware {
+public class QuestionsController extends BasicController implements Activateable2 {
 	
 	private QuestionListController listCtrl;
-	private BreadcrumbPanel stackPanel;
+	private final TooledStackedPanel stackPanel;
 
 	private QuestionItemsSource dataSource;
 	
-	public QuestionsController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source, String key) {
+	public QuestionsController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			QuestionItemsSource source, QPoolSecurityCallback securityCallback, String key,
+			boolean searchAllTaxonomyLevels) {
 		super(ureq, wControl);
 		
+		this.stackPanel = stackPanel;
 		this.dataSource = source;
 
-		listCtrl = new QuestionListController(ureq, wControl, source, key);
+		listCtrl = new QuestionListController(ureq, wControl, stackPanel, source, securityCallback, key, searchAllTaxonomyLevels);
 		listenTo(listCtrl);
 
 		putInitialPanel(listCtrl.getInitialComponent());
@@ -82,21 +84,16 @@ public class QuestionsController extends BasicController implements Activateable
 
 	public void updateSource(QuestionItemsSource source) {
 		this.dataSource = source;
-		listCtrl.updateSource(source);
+		updateSource();
 	}
 	
 	public void updateSource() {
 		listCtrl.updateSource(dataSource);
+		listCtrl.updateStatusFilter();
 	}
 	
 	public QuestionItemShort getQuestionAt(int index) {
 		return listCtrl.getQuestionItemAt(index);
-	}
-
-	@Override
-	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
-		listCtrl.setBreadcrumbPanel(stackPanel);
-		this.stackPanel = stackPanel;
 	}
 
 	@Override
@@ -116,10 +113,6 @@ public class QuestionsController extends BasicController implements Activateable
 			}
 		}
 		super.event(ureq, source, event);
-	}
-	
-	protected void doSelect(UserRequest ureq, QuestionItem item, boolean editable) {
-		listCtrl.doSelect(ureq, item, editable);
 	}
 	
 	private void postDelete(UserRequest ureq) {

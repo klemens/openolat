@@ -47,6 +47,7 @@ import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.resource.accesscontrol.provider.auto.IdentifierKey;
 import org.olat.shibboleth.util.AttributeTranslator;
+import org.olat.user.UserModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -68,9 +69,6 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 	 * Path identifier for shibboleth registration workflows.
 	 */
 	static final String PATH_REGISTER_SHIBBOLETH = "shibregister";
-
-	private static final List<String> MANDATORY_USER_PROPERTIES
-			= java.util.Arrays.asList(UserConstants.EMAIL, UserConstants.FIRSTNAME, UserConstants.LASTNAME);
 
 	@Value("${shibboleth.enable}")
 	private boolean enableShibbolethLogins = false;
@@ -125,6 +123,9 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 	private String acAutoSplitter;
 
 	@Autowired
+	private UserModule userModule;
+	
+	@Autowired
 	public ShibbolethModule(CoordinatorManager coordinatorManager) {
 		super(coordinatorManager);
 	}
@@ -173,9 +174,11 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 		List<String> keyStrings = Arrays.asList(raw.split(AUTHOR_CONTAINS_SPLIT_VALUE));
 		for (String keyString : keyStrings) {
 			try {
-				keys.add(IdentifierKey.valueOf(keyString));
+				if (StringHelper.containsNonWhitespace(keyString)) {
+					keys.add(IdentifierKey.valueOf(keyString));
+				}
 			} catch (Exception e) {
-				log.warn("The value '" + keyString + "' for the property 'shib.ac.auto.identifiers' is not valid.");
+				log.warn("The value '" + keyString + "' for the property 'method.auto.shib.identifiers' is not valid.");
 			}
 		}
 		return keys;
@@ -192,7 +195,7 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 	}
 
 	private void ensureMandatoryPropertesAreInUserMapping() {
-		MANDATORY_USER_PROPERTIES.forEach(userPropertyName -> addToUserMappingWithDefault(userPropertyName));
+		getMandatoryUserProperties().forEach(userPropertyName -> addToUserMappingWithDefault(userPropertyName));
 	}
 
 	private void addToUserMappingWithDefault(String userProperty) {
@@ -203,7 +206,7 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 	}
 
 	private void ensureMandatoryPropertiesAreNeverDeleted() {
-		MANDATORY_USER_PROPERTIES.forEach(userPropertyName -> addToDeleteIfNullFalse(userPropertyName));
+		getMandatoryUserProperties().forEach(userPropertyName -> addToDeleteIfNullFalse(userPropertyName));
 	}
 
 	private void addToDeleteIfNullFalse(String userPropertyName) {
@@ -386,6 +389,16 @@ public class ShibbolethModule extends AbstractSpringModule implements ConfigOnOf
 		if (StringHelper.containsNonWhitespace(attributeName)) {
 			attributeNames.add(attributeName);
 		}		
+	}
+	
+	public Collection<String> getMandatoryUserProperties() {
+		Set<String> mandatoryUserProperties = new HashSet<>();
+		mandatoryUserProperties.add(UserConstants.FIRSTNAME);
+		mandatoryUserProperties.add(UserConstants.LASTNAME);
+		if (userModule.isEmailMandatory()) {
+			mandatoryUserProperties.add(UserConstants.EMAIL);
+		}
+		return mandatoryUserProperties;
 	}
 	
 

@@ -19,7 +19,6 @@
  */
 package org.olat.modules.qpool.ui.metadata;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -27,14 +26,13 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.modules.qpool.QPoolService;
+import org.olat.core.util.prefs.Preferences;
+import org.olat.modules.qpool.MetadataSecurityCallback;
+import org.olat.modules.qpool.QPoolSecurityCallback;
 import org.olat.modules.qpool.QuestionItem;
-import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.modules.qpool.ui.QuestionsController;
 import org.olat.modules.qpool.ui.events.QItemEdited;
-import org.olat.modules.qpool.ui.events.QPoolEvent;
 
 /**
  * 
@@ -44,63 +42,79 @@ import org.olat.modules.qpool.ui.events.QPoolEvent;
  */
 public class MetadatasController extends BasicController {
 
+	private static final String GUIPREFS_SEPARATOR = "::";
+	private static final String GUIPREF_KEY_OPEN_PANEL = "open.panel";
+
 	private final VelocityContainer mainVC;
-	private final SharingController sharingCtrl;
-	private final GeneralMetadataController generalCtrl;
-	private final EducationalMetadataController educationalCtrl;
-	private final QuestionMetadataController questionCtrl;
-	private final LifecycleMetadataController lifecycleCtrl;
-	private final TechnicalMetadataController technicalCtrl;
-	private final RightsMetadataController rightsCtrl;
-	
 	private GeneralMetadataEditController generalEditCtrl;
-	private EducationalMetadataEditController educationalEditCtrl;
 	private QuestionMetadataEditController questionEditCtrl;
-	private LifecycleMetadataEditController lifecycleEditCtrl;
-	private TechnicalMetadataEditController technicalEditCtrl;
 	private RightsMetadataEditController rightsEditCtrl;
+	private TechnicalMetadataEditController technicalEditCtrl;
+	private RatingMetadataController ratingMetadataCtrl;
+	private PoolsMetadataController poolsCtrl;
+	private SharesMetadataController sharesController;
 	
 	private QuestionItem item;
-	private final boolean canEdit;
-	private final QPoolService qpoolService;
 	
-	public MetadatasController(UserRequest ureq, WindowControl wControl, QuestionItem item, boolean canEdit) {
+	public MetadatasController(UserRequest ureq, WindowControl wControl, QPoolSecurityCallback qPoolSecurityCallback,
+			QuestionItem item, MetadataSecurityCallback metadataScurityCallback, boolean ignoreCompetences) {
 		super(ureq, wControl);
 		setTranslator(Util.createPackageTranslator(QuestionsController.class, getLocale(), getTranslator()));
 		
 		this.item = item;
-		this.canEdit = canEdit;
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
-
-		generalCtrl = new GeneralMetadataController(ureq, wControl, item, canEdit);
-		listenTo(generalCtrl);
-		educationalCtrl = new EducationalMetadataController(ureq, wControl, item, canEdit);
-		listenTo(educationalCtrl);
-		questionCtrl = new QuestionMetadataController(ureq, wControl, item, canEdit);
-		listenTo(questionCtrl);
-		lifecycleCtrl = new LifecycleMetadataController(ureq, wControl, item, canEdit);
-		listenTo(lifecycleCtrl);
-		technicalCtrl = new TechnicalMetadataController(ureq, wControl, item, canEdit);
-		listenTo(technicalCtrl);
-		rightsCtrl = new RightsMetadataController(ureq, wControl, item, canEdit);
-		listenTo(rightsCtrl);
-		sharingCtrl = new SharingController(ureq, wControl, item);
-		listenTo(sharingCtrl);
 
 		mainVC = createVelocityContainer("item_metadatas");
-		mainVC.put("details_general", generalCtrl.getInitialComponent());
-		mainVC.put("details_educational", educationalCtrl.getInitialComponent());
-		mainVC.put("details_question", questionCtrl.getInitialComponent());
-		mainVC.put("details_lifecycle", lifecycleCtrl.getInitialComponent());
-		mainVC.put("details_technical", technicalCtrl.getInitialComponent());
-		mainVC.put("details_rights", rightsCtrl.getInitialComponent());
-		mainVC.put("details_sharing", sharingCtrl.getInitialComponent());
+		generalEditCtrl = new GeneralMetadataEditController(ureq, wControl, item, metadataScurityCallback, ignoreCompetences);
+		listenTo(generalEditCtrl);
+		mainVC.put("details_general", generalEditCtrl.getInitialComponent());
+
+		questionEditCtrl = new QuestionMetadataEditController(ureq, wControl, item, metadataScurityCallback);
+		listenTo(questionEditCtrl);
+		mainVC.put("details_question", questionEditCtrl.getInitialComponent());
+		
+		rightsEditCtrl = new RightsMetadataEditController(ureq, wControl, item, metadataScurityCallback);
+		listenTo(rightsEditCtrl);
+		mainVC.put("details_rights", rightsEditCtrl.getInitialComponent());
+
+		technicalEditCtrl = new TechnicalMetadataEditController(ureq, wControl, item, metadataScurityCallback);
+		listenTo(technicalEditCtrl);
+		mainVC.put("details_technical", technicalEditCtrl.getInitialComponent());
+
+		if (metadataScurityCallback.canViewReviews()) {
+			ratingMetadataCtrl = new RatingMetadataController(ureq, wControl, item);
+			mainVC.put("details_ratings", ratingMetadataCtrl.getInitialComponent());
+		}
+		
+		if (qPoolSecurityCallback.canUsePools()) {
+			poolsCtrl = new PoolsMetadataController(ureq, wControl, item);
+			listenTo(poolsCtrl);
+			mainVC.put("details_pools", poolsCtrl.getInitialComponent());
+		}
+		
+		if (qPoolSecurityCallback.canUseGroups()) {
+			sharesController = new SharesMetadataController(ureq, wControl, item);
+			listenTo(sharesController);
+			mainVC.put("details_shares", sharesController.getInitialComponent());
+		}
+
 		putInitialPanel(mainVC);
+		openPanel(ureq);
 	}
 
 	@Override
 	protected void doDispose() {
-		//
+		removeAsListenerAndDispose(generalEditCtrl);
+		removeAsListenerAndDispose(questionEditCtrl);
+		removeAsListenerAndDispose(rightsEditCtrl);
+		removeAsListenerAndDispose(technicalEditCtrl);
+		removeAsListenerAndDispose(poolsCtrl);
+		removeAsListenerAndDispose(sharesController);
+		generalEditCtrl = null;
+		questionEditCtrl = null;
+		rightsEditCtrl = null;
+		technicalEditCtrl = null;
+		poolsCtrl = null;
+		sharesController = null;
 	}
 	
 	public QuestionItem getItem() {
@@ -109,165 +123,68 @@ public class MetadatasController extends BasicController {
 	
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		//
+		if("show".equals(event.getCommand())) {
+			saveOpenPanel(ureq, ureq.getParameter("panel"));
+		}
 	}
 
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
-		if(QPoolEvent.EDIT.endsWith(event.getCommand())) {
-			if(!canEdit) return;
-			if(source == generalCtrl) {
-				doEditGeneralMetadata(ureq);
-			} else if(source == educationalCtrl) {
-				doEditEducationalMetadata(ureq);
-			} else if(source == questionCtrl) {
-				doEditQuestionMetadata(ureq);
-			} else if(source == lifecycleCtrl) {
-				doEditLifecycleMetadata(ureq);
-			} else if(source == technicalCtrl) {
-				doEditTechnicalMetadata(ureq);
-			} else if(source == rightsCtrl) {
-				doEditRightsMetadata(ureq);
-			}
-		} else if(event instanceof QItemEdited) {
-			QItemEdited editEvent = (QItemEdited)event;
-			if (source == generalEditCtrl) {
-				doGeneralMetadataFinishEditing();
-			} else if (source == educationalEditCtrl) {
-				doEducationalMetadataFinishEditing();
-			}	else if(source == questionEditCtrl) {
-				doQuestionMetadataFinishEditing();
-			} else if(source == lifecycleEditCtrl) {
-				doLifecycleMetadataFinishEditing();
-			} else if(source == technicalEditCtrl) {
-				doTechnicalMetadataFinishEditing();
-			} else if(source == rightsEditCtrl) {
-				doRightsMetadataFinishEditing();
-			}
-			reloadData(editEvent.getItem());
-			fireEvent(ureq, editEvent);
-		} else if(event == Event.CANCELLED_EVENT) {
-			if (source == generalEditCtrl) {
-				doGeneralMetadataFinishEditing();
-			} else if (source == educationalEditCtrl) {
-				doEducationalMetadataFinishEditing();
-			} else if(source == questionEditCtrl) {
-				doQuestionMetadataFinishEditing();
-			} else if(source == lifecycleEditCtrl) {
-				doLifecycleMetadataFinishEditing();
-			} else if(source == technicalEditCtrl) {
-				doTechnicalMetadataFinishEditing();
-			} else if(source == rightsEditCtrl) {
-				doRightsMetadataFinishEditing();
-			}
+		if(event instanceof QItemEdited) {
+			fireEvent(ureq, event);
 		}
-	}
-	
-	private void doEditGeneralMetadata(UserRequest ureq) {
-		generalEditCtrl = new GeneralMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(generalEditCtrl);
-		mainVC.put("details_general", generalEditCtrl.getInitialComponent());
-	}
-	
-	private void doGeneralMetadataFinishEditing() {
-		removeAsListenerAndDispose(generalEditCtrl);
-		generalEditCtrl = null;
-		mainVC.put("details_general", generalCtrl.getInitialComponent());
-	}
-	
-	private void doEditEducationalMetadata(UserRequest ureq) {
-		removeAsListenerAndDispose(educationalEditCtrl);
-		educationalEditCtrl= new EducationalMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(educationalEditCtrl);
-		mainVC.put("details_educational", educationalEditCtrl.getInitialComponent());
-	}
-	
-	private void doEducationalMetadataFinishEditing() {
-		removeAsListenerAndDispose(educationalEditCtrl);
-		educationalEditCtrl = null;
-		mainVC.put("details_educational", educationalCtrl.getInitialComponent());
-	}
-	
-	private void doEditQuestionMetadata(UserRequest ureq) {
-		removeAsListenerAndDispose(questionEditCtrl);
-		questionEditCtrl= new QuestionMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(questionEditCtrl);
-		mainVC.put("details_question", questionEditCtrl.getInitialComponent());
-	}
-	
-	private void doQuestionMetadataFinishEditing() {
-		removeAsListenerAndDispose(questionEditCtrl);
-		questionEditCtrl = null;
-		mainVC.put("details_question", questionCtrl.getInitialComponent());
-	}
-	
-	private void doEditLifecycleMetadata(UserRequest ureq) {
-		lifecycleEditCtrl= new LifecycleMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(lifecycleEditCtrl);
-		mainVC.put("details_lifecycle", lifecycleEditCtrl.getInitialComponent());
-	}
-	
-	private void doLifecycleMetadataFinishEditing() {
-		removeAsListenerAndDispose(lifecycleEditCtrl);
-		lifecycleEditCtrl = null;
-		mainVC.put("details_lifecycle", lifecycleCtrl.getInitialComponent());
-	}
-	
-	private void doEditTechnicalMetadata(UserRequest ureq) {
-		technicalEditCtrl= new TechnicalMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(technicalEditCtrl);
-		mainVC.put("details_technical", technicalEditCtrl.getInitialComponent());
-	}
-	
-	private void doTechnicalMetadataFinishEditing() {
-		removeAsListenerAndDispose(technicalEditCtrl);
-		technicalEditCtrl = null;
-		mainVC.put("details_technical", technicalCtrl.getInitialComponent());
-	}
-	
-	private void doEditRightsMetadata(UserRequest ureq) {
-		rightsEditCtrl= new RightsMetadataEditController(ureq, getWindowControl(), item);
-		listenTo(rightsEditCtrl);
-		mainVC.put("details_rights", rightsEditCtrl.getInitialComponent());
-	}
-	
-	private void doRightsMetadataFinishEditing() {
-		removeAsListenerAndDispose(rightsEditCtrl);
-		rightsEditCtrl = null;
-		mainVC.put("details_rights", rightsCtrl.getInitialComponent());
+		openPanel(ureq);
 	}
 	
 	public void updateShares() {
-		sharingCtrl.setItem(getItem());
-	}
-	
-	public QuestionItem updateVersionNumber() {
-		if(item instanceof QuestionItemImpl && StringHelper.containsNonWhitespace(item.getItemVersion())) {
-			String version = item.getItemVersion();
-			int lastPoint = version.lastIndexOf('.');
-			if(lastPoint > 1 && lastPoint < version.length() - 1) {
-				String prefix = version.substring(0, lastPoint);
-				String suffix = version.substring(lastPoint + 1);
-				if(StringHelper.isLong(suffix)) {
-					long lastDigit = Long.parseLong(suffix);
-					String newVersion = prefix + "." + (++lastDigit);
-					QuestionItemImpl itemImpl = (QuestionItemImpl)item;
-					itemImpl.setItemVersion(newVersion);
-					QuestionItem mergedItem = qpoolService.updateItem(item);
-					reloadData(mergedItem);
-				}	
-			}
+		if (poolsCtrl != null) {
+			poolsCtrl.setItem(getItem());
 		}
-		return item;
+		if (sharesController != null) {
+			sharesController.setItem(getItem());
+		}
 	}
 	
-	private void reloadData(QuestionItem reloadedItem) {
-		this.item = reloadedItem;
-		generalCtrl.setItem(reloadedItem);
-		educationalCtrl.setItem(reloadedItem);
-		questionCtrl.setItem(reloadedItem);
-		lifecycleCtrl.setItem(reloadedItem);
-		rightsCtrl.setItem(reloadedItem);
-		technicalCtrl.setItem(reloadedItem);
+	public void setItem(QuestionItem item, MetadataSecurityCallback metadataSecurityCallback) {
+		this.item = item;
+		generalEditCtrl.setItem(item, metadataSecurityCallback);
+		questionEditCtrl.setItem(item, metadataSecurityCallback);
+		rightsEditCtrl.setItem(item, metadataSecurityCallback);
+		technicalEditCtrl.setItem(item, metadataSecurityCallback);
+		if (ratingMetadataCtrl != null) {
+			ratingMetadataCtrl.setItem(item);
+		}
+		updateShares();
 	}
+	
+	private void saveOpenPanel(UserRequest ureq, String panelId) {
+		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
+		if (guiPrefs != null) {
+			guiPrefs.putAndSave(MetadatasController.class, GUIPREF_KEY_OPEN_PANEL, panelToGuiPref(panelId));
+		}
+	}
+
+	private String panelToGuiPref(String panelId) {
+		return Long.toString(getIdentity().getKey()) + GUIPREFS_SEPARATOR +  panelId;
+	}
+	
+	private void openPanel(UserRequest ureq) {
+		Preferences guiPrefs = ureq.getUserSession().getGuiPreferences();
+		String guiPref = (String) guiPrefs.get(MetadatasController.class, GUIPREF_KEY_OPEN_PANEL);
+		String openPanel = guiPref != null? guiPrefToPanel(guiPref): "general";
+		mainVC.contextRemove("in-general");
+		mainVC.contextRemove("in-question");
+		mainVC.contextRemove("in-rights");
+		mainVC.contextRemove("in-technical");
+		mainVC.contextRemove("in-ratings");
+		mainVC.contextRemove("in-pools");
+		mainVC.contextRemove("in-shares");
+		mainVC.contextPut("in-" + openPanel, "in");
+	}
+	
+	private String guiPrefToPanel(String guiPref) {
+		int from = Long.toString(getIdentity().getKey()).length() + GUIPREFS_SEPARATOR.length();
+		return guiPref.substring(from);
+	}
+	
 }

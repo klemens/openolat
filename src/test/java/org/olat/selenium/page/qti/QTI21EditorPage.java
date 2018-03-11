@@ -137,6 +137,26 @@ public class QTI21EditorPage {
 		return new QTI21LobEditorPage(browser);
 	}
 	
+	public QTI21HotspotEditorPage addHotspot() {
+		addQuestion(QTI21QuestionType.hotspot);
+		return new QTI21HotspotEditorPage(browser);
+	}
+	
+	public QTI21GapEntriesEditorPage addFib() {
+		addQuestion(QTI21QuestionType.fib);
+		return new QTI21GapEntriesEditorPage(browser);
+	}
+	
+	public QTI21GapEntriesEditorPage addNumerical() {
+		addQuestion(QTI21QuestionType.numerical);
+		return new QTI21GapEntriesEditorPage(browser);
+	}
+	
+	public QTI21HottextEditorPage addHottext() {
+		addQuestion(QTI21QuestionType.hottext);
+		return new QTI21HottextEditorPage(browser);
+	}
+	
 	private QTI21EditorPage addQuestion(QTI21QuestionType type) {
 		openElementsMenu();
 		

@@ -1,0 +1,6 @@
+<div class="clearfix">$r.render("subscription")</div>
+#if($r.available("index"))
+	$r.render("index")
+#else
+	<div class="o_warning">$r.translate("warning.taxonomy.index.emtpy")</div>
+#end

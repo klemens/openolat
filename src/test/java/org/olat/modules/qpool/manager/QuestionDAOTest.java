@@ -42,11 +42,14 @@ import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.QuestionItemView;
 import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.QuestionType;
-import org.olat.modules.qpool.TaxonomyLevel;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QLicense;
 import org.olat.modules.qpool.model.QuestionItemImpl;
+import org.olat.modules.taxonomy.Taxonomy;
+import org.olat.modules.taxonomy.TaxonomyLevel;
+import org.olat.modules.taxonomy.manager.TaxonomyDAO;
+import org.olat.modules.taxonomy.manager.TaxonomyLevelDAO;
 import org.olat.resource.OLATResource;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.OlatTestCase;
@@ -76,6 +79,9 @@ public class QuestionDAOTest extends OlatTestCase {
 	private QItemQueriesDAO qItemQueriesDao;
 	@Autowired
 	private QEducationalContextDAO qEduContextDao;
+	
+	@Autowired
+	private TaxonomyDAO taxonomyDao;
 	@Autowired
 	private TaxonomyLevelDAO taxonomyLevelDao;
 	
@@ -90,6 +96,7 @@ public class QuestionDAOTest extends OlatTestCase {
 		Assert.assertNotNull(item.getLastModified());
 		Assert.assertNotNull(item.getType());
 		Assert.assertNotNull(item.getQuestionStatus());
+		Assert.assertNotNull(item.getQuestionStatusLastModified());
 		Assert.assertEquals("Stars", item.getTitle());
 		dbInstance.commitAndCloseSession();
 	}
@@ -112,7 +119,8 @@ public class QuestionDAOTest extends OlatTestCase {
 	@Test
 	public void copyQuestion() {
 		// create an item and fill it
-		TaxonomyLevel taxonomyLevel = taxonomyLevelDao.createAndPersist(null, "Tax. to copy");
+		Taxonomy taxonomy = taxonomyDao.createTaxonomy("ID-QP", "QPool taxonomy", null, null);
+		TaxonomyLevel taxonomyLevel = taxonomyLevelDao.createTaxonomyLevel("QP-L-1", "QLevel 1", "For testing only", null, null, null, null, taxonomy);
 		QEducationalContext eduContext = qEduContextDao.create("primary.school", true);
 		QLicense mitLicense = qLicenseDao.create("mit-" + UUID.randomUUID().toString(), null, true);
 		QItemType fibType = qItemTypeDao.loadByType(QuestionType.FIB.name());
@@ -128,6 +136,7 @@ public class QuestionDAOTest extends OlatTestCase {
 		
 		//general
 		original.setTitle("Original");
+		original.setTopic("Topic");
 		original.setDescription("Original description");
 		original.setKeywords("original copy to");
 		original.setCoverage("New coverage");
@@ -166,7 +175,8 @@ public class QuestionDAOTest extends OlatTestCase {
 		Assert.assertFalse(clone.getIdentifier().equals(original.getIdentifier()));
 		Assert.assertEquals(original.getIdentifier(), clone.getMasterIdentifier());
 		Assert.assertNotNull(clone.getTitle());
-		Assert.assertFalse(clone.getTitle().equals(original.getTitle()));
+		Assert.assertEquals("(Copy) " + original.getTitle(), clone.getTitle());
+		Assert.assertEquals(original.getTopic(), clone.getTopic());
 		Assert.assertEquals(original.getDescription(), clone.getDescription());
 		Assert.assertEquals(original.getKeywords(), clone.getKeywords());
 		Assert.assertEquals(original.getCoverage(), clone.getCoverage());
@@ -190,6 +200,7 @@ public class QuestionDAOTest extends OlatTestCase {
 		Assert.assertEquals(original.getAssessmentType(), clone.getAssessmentType());
 		//lifecycle
 		Assert.assertEquals(QuestionStatus.draft.name(), clone.getStatus());
+		Assert.assertNotNull(clone.getQuestionStatusLastModified());
 		Assert.assertEquals(original.getItemVersion(), clone.getItemVersion());
 		//rights
 		Assert.assertEquals(original.getLicense(), clone.getLicense());
@@ -215,6 +226,26 @@ public class QuestionDAOTest extends OlatTestCase {
 		Assert.assertTrue(items.size() >= 1);
 		Assert.assertTrue(items.contains(item));	
 	}
+	
+	@Test
+	public void getItemsWithOneAuthor() {
+		QItemType fibType = qItemTypeDao.loadByType(QuestionType.FIB.name());
+		Identity id = JunitTestHelper.createAndPersistIdentityAsUser("QOwn-all-" + UUID.randomUUID().toString());
+		QuestionItem item1 = questionDao.createAndPersist(id, "NGC all", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, fibType);
+		QuestionItem item2 = questionDao.createAndPersist(id, "NGC all", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, fibType);
+		QuestionItem item3 = questionDao.createAndPersist(id, "NGC all", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, fibType);
+		Identity id2 = JunitTestHelper.createAndPersistIdentityAsUser("QOwn-all-" + UUID.randomUUID().toString());
+		questionDao.addAuthors(Collections.singletonList(id2), item3);
+		dbInstance.commitAndCloseSession();
+		
+		List<QuestionItem> itemsWithOneAuthor = questionDao.getItemsWithOneAuthor(id);
+		
+		Assert.assertNotNull(itemsWithOneAuthor);
+		Assert.assertTrue(itemsWithOneAuthor.size() == 2);
+		Assert.assertTrue(itemsWithOneAuthor.contains(item1));	
+		Assert.assertTrue(itemsWithOneAuthor.contains(item2));	
+	}
+
 
 	@Test
 	public void getNumOfQuestions() {
@@ -228,6 +259,30 @@ public class QuestionDAOTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 	}
 	
+	@Test
+	public void resetAllStatesToDraft() {
+		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());
+		QuestionItemImpl item1 = questionDao.createAndPersist(null, "RES DRAFT 1", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
+		item1.setQuestionStatus(QuestionStatus.endOfLife);
+		questionDao.loadForUpdate(item1);
+		QuestionItemImpl item2 = questionDao.createAndPersist(null, "RES DRAFT 2", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
+		item2.setQuestionStatus(QuestionStatus.review);
+		questionDao.loadForUpdate(item2);
+		QuestionItemImpl item3 = questionDao.createAndPersist(null, "RES DRAFT 3", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
+		item3.setQuestionStatus(QuestionStatus.revised);
+		questionDao.loadForUpdate(item3);
+		questionDao.createAndPersist(null, "RES DRAFT 4", QTIConstants.QTI_12_FORMAT, Locale.ENGLISH.getLanguage(), null, null, null, mcType);
+		dbInstance.commitAndCloseSession();
+		
+		questionDao.resetAllStatesToDraft();
+		dbInstance.commitAndCloseSession();
+		
+		List<QuestionItemFull> allItems = questionDao.getAllItems(0,  -1);
+		for (QuestionItem item: allItems) {
+			Assert.assertEquals(QuestionStatus.draft, item.getQuestionStatus());
+		}
+	}
+
 	@Test
 	public void getFavoritItemKeys() {
 		QItemType mcType = qItemTypeDao.loadByType(QuestionType.MC.name());

@@ -308,7 +308,8 @@ public class MembersListDisplayRunController extends BasicController {
 			RepositoryEntry entry = courseEnv.getCourseGroupManager().getCourseEntry();
 			courseLink.append(Settings.getServerContextPathURI())
 				.append("/url/RepositoryEntry/").append(entry.getKey());
-			return translate("email.body.template", new String[]{courseName, courseLink.toString()});		
+			// the ext-ref and location are not in default mail template, but used by some instances
+			return translate("email.body.template", new String[]{courseName, courseLink.toString(), entry.getExternalRef(), entry.getLocation()});		
 		}
 	}
 	
@@ -325,8 +326,8 @@ public class MembersListDisplayRunController extends BasicController {
 			@Override
 			public Controller createController(UserRequest lureq, WindowControl lwControl) {
 				lwControl.getWindowBackOffice().getChiefController().addBodyCssClass("o_cmembers_print");
-				return new MembersPrintController(lureq, lwControl, getTranslator(), ownerList, coachList,
-						participantList, waitingtList, showOwners, showCoaches, showParticipants, showWaiting, 
+				return new MembersPrintController(lureq, lwControl, getTranslator(), owners, coaches,
+						participants, waiting, showOwners, showCoaches, showParticipants, showWaiting, 
 						courseEnv != null ? courseEnv.getCourseTitle() : businessGroup.getName());
 			}					
 		};

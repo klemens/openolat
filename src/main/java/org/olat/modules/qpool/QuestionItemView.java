@@ -27,12 +27,30 @@ package org.olat.modules.qpool;
  *
  */
 public interface QuestionItemView extends QuestionItemShort {
+
+	public boolean isAuthor();
+
+	public boolean isReviewer();
+	
+	public boolean isTeacher();
+	
+	public boolean isManager();
+	
+	public boolean isRater();
+
+	public boolean isEditableInPool();
+
+	public boolean isEditableInShare();
 	
 	public boolean isEditable();
+	
+	public boolean isReviewableFormat();
 	
 	public boolean isMarked();
 	
 	public Double getRating();
+	
+	public int getNumberOfRatings();
 	
 	//general
 	public String getCoverage();
@@ -47,12 +65,14 @@ public interface QuestionItemView extends QuestionItemShort {
 		key,
 		identifier,
 		title,
+		topic,
 		creationDate,
 		lastModified,
 		keywords,
 		coverage,
 		additionalInformations,
 		taxonomyLevel,
+		taxonomyPath,
 		difficulty,
 		stdevDifficulty,
 		differentiation,
@@ -61,7 +81,10 @@ public interface QuestionItemView extends QuestionItemShort {
 		itemType,
 		format,
 		rating,
+		numberOfRatings,
 		itemVersion,
-		status
+		status,
+		statusLastModified
 	}
+
 }

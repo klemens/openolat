@@ -46,7 +46,8 @@ import org.olat.core.id.Persistable;
 import org.olat.core.util.StringHelper;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionStatus;
-import org.olat.modules.qpool.TaxonomyLevel;
+import org.olat.modules.taxonomy.TaxonomyLevel;
+import org.olat.modules.taxonomy.model.TaxonomyLevelImpl;
 
 /**
  * 
@@ -82,6 +83,8 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	private String masterIdentifier;
 	@Column(name="q_title", nullable=false, insertable=true, updatable=true)
 	private String title;
+	@Column(name="q_topic", nullable=true, insertable=true, updatable=true)
+	private String topic;
 	@Column(name="q_description", nullable=true, insertable=true, updatable=true)
 	private String description;
 	@Column(name="q_keywords", nullable=true, insertable=true, updatable=true)
@@ -95,7 +98,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	
 	//classification
 	@ManyToOne(targetEntity=TaxonomyLevelImpl.class)
-	@JoinColumn(name="fk_taxonomy_level", nullable=true, insertable=true, updatable=true)
+	@JoinColumn(name="fk_taxonomy_level_v2", nullable=true, insertable=true, updatable=true)
 	private TaxonomyLevel taxonomyLevel;
 	
 	//educational
@@ -127,11 +130,16 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	private String itemVersion;
 	@Column(name="q_status", nullable=false, insertable=true, updatable=true)
 	private String status;
+	@Temporal(TemporalType.TIMESTAMP)
+	@Column(name="q_status_last_modified", nullable=true, insertable=true, updatable=true)
+	private Date statusLastModified;
 
 	//rights
 	@ManyToOne(targetEntity=QLicense.class,fetch=FetchType.LAZY,optional=true)
 	@JoinColumn(name="fk_license", nullable=true, insertable=true, updatable=true)
 	private QLicense license;
+	@Column(name="q_creator", nullable=true, insertable=true, updatable=true)
+	private String creator;
 
 	//technics
 	@Column(name="q_editor", nullable=true, insertable=true, updatable=true)
@@ -166,11 +174,13 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	public void setKey(Long key) {
 		this.key = key;
 	}
-	
+
+	@Override
 	public String getResourceableTypeName() {
 		return "QuestionItem";
 	}
 
+	@Override
 	public Long getResourceableId() {
 		return getKey();
 	}
@@ -203,6 +213,15 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	}
 
 	@Override
+	public String getTopic() {
+		return topic;
+	}
+
+	public void setTopic(String topic) {
+		this.topic = topic;
+	}
+
+	@Override
 	public String getDescription() {
 		return description;
 	}
@@ -211,6 +230,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.description = description;
 	}
 
+	@Override
 	public String getCoverage() {
 		return coverage;
 	}
@@ -219,6 +239,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.coverage = coverage;
 	}
 
+	@Override
 	public String getAdditionalInformations() {
 		return additionalInformations;
 	}
@@ -227,6 +248,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.additionalInformations = additionalInformations;
 	}
 
+	@Override
 	public TaxonomyLevel getTaxonomyLevel() {
 		return taxonomyLevel;
 	}
@@ -239,11 +261,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	@Override
 	public String getTaxonomicPath() {
 		if(taxonomyLevel != null) {
-			String path = taxonomyLevel.getMaterializedPathNames();
-			if(StringHelper.containsNonWhitespace(path)) {
-				return path + "/" + taxonomyLevel.getField();
-			} 
-			return "/" + taxonomyLevel.getField();
+			return taxonomyLevel.getMaterializedPathIdentifiers();
 		}
 		return null;
 	}
@@ -251,7 +269,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	@Override
 	public String getTaxonomyLevelName() {
 		if(taxonomyLevel != null) {
-			return taxonomyLevel.getField();
+			return taxonomyLevel.getDisplayName();
 		}
 		return null;
 	}
@@ -335,14 +353,8 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	public void setAssessmentType(String assessmentType) {
 		this.assessmentType = assessmentType;
 	}
-	
-	
-	
-	
-	
-	
-	
 
+	@Override
 	public Date getCreationDate() {
 		return creationDate;
 	}
@@ -404,8 +416,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.status = status;
 	}
 
-
-
+	@Override
 	public String getKeywords() {
 		return keywords;
 	}
@@ -414,7 +425,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.keywords = keywords;
 	}
 
-
+	@Override
 	@Transient
 	public QuestionStatus getQuestionStatus() {
 		if(StringHelper.containsNonWhitespace(status)) {
@@ -422,7 +433,21 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		}
 		return null;
 	}
+	
+	public void setQuestionStatus(QuestionStatus status) {
+		setStatus(status.name());
+	}
 
+	@Override
+	public Date getQuestionStatusLastModified() {
+		return statusLastModified;
+	}
+
+	public void setQuestionStatusLastModified(Date statusLastModified) {
+		this.statusLastModified = statusLastModified;
+	}
+
+	@Override
 	public QLicense getLicense() {
 		return license;
 	}
@@ -439,7 +464,16 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.ownerGroup = ownerGroup;
 	}
 
+	@Override
+	public String getCreator() {
+		return creator;
+	}
 
+	public void setCreator(String creator) {
+		this.creator = creator;
+	}
+
+	@Override
 	public String getEditor() {
 		return editor;
 	}
@@ -448,6 +482,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.editor = editor;
 	}
 
+	@Override
 	public String getEditorVersion() {
 		return editorVersion;
 	}
@@ -456,6 +491,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.editorVersion = editorVersion;
 	}
 
+	@Override
 	public String getItemVersion() {
 		return itemVersion;
 	}
@@ -464,6 +500,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.itemVersion = itemVersion;
 	}
 
+	@Override
 	public String getDirectory() {
 		return directory;
 	}
@@ -472,6 +509,7 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 		this.directory = directory;
 	}
 
+	@Override
 	public String getRootFilename() {
 		return rootFilename;
 	}
@@ -505,8 +543,11 @@ public class QuestionItemImpl implements QuestionItemFull, CreateInfo, ModifiedI
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("question[key=").append(this.key)
-			.append("]").append(super.toString());
+		sb.append("question[");
+		sb.append("key=").append(this.key);
+		sb.append(", title=").append(title);
+		sb.append("] ").append(super.toString());
 		return sb.toString();
 	}
+
 }
