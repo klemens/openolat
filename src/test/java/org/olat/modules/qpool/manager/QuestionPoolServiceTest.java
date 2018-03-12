@@ -83,7 +83,7 @@ public class QuestionPoolServiceTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//delete the items
-		List<QuestionItemShort> toDelete = new ArrayList<QuestionItemShort>();
+		List<QuestionItemShort> toDelete = new ArrayList<>();
 		toDelete.add(item1);
 		toDelete.add(item2);
 		qpoolService.deleteItems(toDelete);
@@ -106,7 +106,7 @@ public class QuestionPoolServiceTest extends OlatTestCase {
 		dbInstance.commit();
 		
 		//load the items of the collection
-		List<QuestionItemShort> items = new ArrayList<QuestionItemShort>();
+		List<QuestionItemShort> items = new ArrayList<>();
 		items.add(item1);
 		items.add(item2);
 		QuestionItemCollection newColl = qpoolService.createCollection(id, "My private collection", items);
@@ -122,7 +122,7 @@ public class QuestionPoolServiceTest extends OlatTestCase {
 		ResultInfos<QuestionItemView> itemsOfCollection = qpoolService.getItemsOfCollection(newColl, params, 0, -1);
 		Assert.assertNotNull(itemsOfCollection);
 		Assert.assertEquals(2, itemsOfCollection.getObjects().size());
-		List<Long> itemKeys = new ArrayList<Long>();
+		List<Long> itemKeys = new ArrayList<>();
 		for(QuestionItemView item:itemsOfCollection.getObjects()) {
 			itemKeys.add(item.getKey());
 		}
@@ -151,6 +151,5 @@ public class QuestionPoolServiceTest extends OlatTestCase {
 
 		qpoolService.importItems(owner, Locale.ENGLISH, "mchc_asmimr_101.xml", itemFile);
 	}
-	
 	
 }

@@ -1,6 +1,9 @@
 package de.unileipzig.xman.studyPath;
 import java.util.List;
 import java.util.Vector;
+
+import javax.persistence.NoResultException;
+
 import java.io.*;
 
 import org.olat.core.commons.persistence.DBFactory;
@@ -96,10 +99,13 @@ public class StudyPathManager {
 	 * @return the studyPath with the given name or null, if no studyPaths were found
 	 */
 	public StudyPath findStudyPath(String name) {
-		String query = "from de.unileipzig.xman.studyPath.StudyPathImpl as spi where spi.name = '" + name + "'";
-		List<StudyPath> studyPathList = DBFactory.getInstance().find(query);
-		if ( studyPathList.size() == 1 ) return (StudyPath) studyPathList.get(0);
-		else {
+		String query = "from de.unileipzig.xman.studyPath.StudyPathImpl as spi where spi.name = :name";
+		try {
+			return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(query, StudyPath.class)
+				.setParameter("name", name)
+				.getSingleResult();
+		} catch(NoResultException e) {
 			log.info("No studyPath with name " + name + " could be found!");
 			return null;
 		}
@@ -110,8 +116,9 @@ public class StudyPathManager {
 	 * @return
 	 */
 	public List<StudyPath> findAllStudyPaths() {
-		List<StudyPath> res = (List<StudyPath>) DBFactory.getInstance().find("from de.unileipzig.xman.studyPath.StudyPathImpl");
-		return res;
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery("from de.unileipzig.xman.studyPath.StudyPathImpl", StudyPath.class)
+			.getResultList();
 	}
 	
 	/**
@@ -119,8 +126,8 @@ public class StudyPathManager {
 	 * @return An array of all Studypaths
 	 */
 	public List<String> getAllStudyPathsAsString() {
-		List<String> res = (List<String>) DBFactory.getInstance().find("select name from de.unileipzig.xman.studyPath.StudyPathImpl");
-		
-		return res;
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery("select name from de.unileipzig.xman.studyPath.StudyPathImpl", String.class)
+			.getResultList();
 	}
 }

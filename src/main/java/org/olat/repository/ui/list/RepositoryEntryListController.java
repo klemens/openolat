@@ -472,6 +472,7 @@ public class RepositoryEntryListController extends FormBasicController
 		searchParams.setAuthor(se.getAuthor());
 		searchParams.setText(se.getDisplayname());
 		searchParams.setMembershipMandatory(se.isMembershipMandatory());
+		searchParams.setClosed(se.getClosed());
 		tableEl.reset(true, true, true);
 		
 		RepositoryEntryListState state = new RepositoryEntryListState();
@@ -629,9 +630,7 @@ public class RepositoryEntryListController extends FormBasicController
 			if(guestOnly) {
 				Double averageRating = row.getAverageRating();
 				float averageRatingValue = averageRating == null ? 0f : averageRating.floatValue();
-				
-				RatingFormItem ratingCmp
-					= new RatingFormItem("rat_" + row.getKey(), averageRatingValue, 5, false);
+				RatingFormItem ratingCmp = uifactory.addRatingItem("rat_" + row.getKey(), null,  averageRatingValue, 5, false, null);
 				row.setRatingFormItem(ratingCmp);
 				ratingCmp.setUserObject(row);
 			} else {

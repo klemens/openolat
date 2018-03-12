@@ -92,12 +92,8 @@ import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionItemShort;
-import org.olat.modules.qpool.manager.QEducationalContextDAO;
-import org.olat.modules.qpool.manager.QItemTypeDAO;
-import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
-import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.DefaultExportFormat;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.repository.RepositoryEntry;
@@ -134,17 +130,9 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	@Autowired
 	private QPoolFileStorage qpoolFileStorage;
 	@Autowired
-	private QLicenseDAO qLicenseDao;
-	@Autowired
-	private QItemTypeDAO qItemTypeDao;
-	@Autowired
 	private QuestionItemDAO questionItemDao;
-	@Autowired
-	private QEducationalContextDAO qEduContextDao;
-	@Autowired
-	private TaxonomyLevelDAO taxonomyLevelDao;
 	
-	private static final List<ExportFormatOptions> formats = new ArrayList<ExportFormatOptions>(4);
+	private static final List<ExportFormatOptions> formats = new ArrayList<>(4);
 	static {
 		formats.add(DefaultExportFormat.ZIP_EXPORT_FORMAT);
 		formats.add(DefaultExportFormat.DOCX_EXPORT_FORMAT);
@@ -194,7 +182,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public List<QItemFactory> getItemfactories() {
-		List<QItemFactory> factories = new ArrayList<QItemFactory>();
+		List<QItemFactory> factories = new ArrayList<>();
 		for(QTI21QuestionType type:QTI21QuestionType.values()) {
 			if(type.hasEditor()) {
 				factories.add(new QTI21AssessmentItemFactory(type));
@@ -234,8 +222,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public List<QuestionItem> importItems(Identity owner, Locale defaultLocale, String filename, File file) {
-		QTI21ImportProcessor processor = new QTI21ImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, qtiService);
+		QTI21ImportProcessor processor = new QTI21ImportProcessor(owner, defaultLocale);
 		return processor.process(file);
 	}
 	
@@ -290,6 +277,18 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 		VFSContainer originalDir = qpoolFileStorage.getContainer(original.getDirectory());
 		VFSContainer copyDir = qpoolFileStorage.getContainer(copy.getDirectory());
 		VFSManager.copyContent(originalDir, copyDir);
+		
+		File file = qpoolService.getRootFile(copy);
+		File resourceDirectory = qpoolService.getRootDirectory(copy);
+		URI assessmentItemUri = file.toURI();
+		File itemFile = qpoolService.getRootFile(copy);
+		
+		ResolvedAssessmentItem resolvedAssessmentItem = qtiService
+				.loadAndResolveAssessmentItem(assessmentItemUri, resourceDirectory);
+		AssessmentItem assessmentItem = resolvedAssessmentItem.getRootNodeLookup().extractIfSuccessful();
+		assessmentItem.setTitle(copy.getTitle());
+		
+		qtiService.persistAssessmentObject(itemFile, assessmentItem);
 	}
 
 	@Override
@@ -333,9 +332,14 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 
 	@Override
 	public Controller getEditableController(UserRequest ureq, WindowControl wControl, QuestionItem qitem) {
-		Controller editorCtrl = new QTI21EditorController(ureq, wControl, qitem);
-		return editorCtrl;
+		return new QTI21EditorController(ureq, wControl, qitem, false);
 	}
+
+	@Override
+	public Controller getReadOnlyController(UserRequest ureq, WindowControl wControl, QuestionItem item) {
+		return new QTI21EditorController(ureq, wControl, item, true);
+	}
+	
 
 	public QuestionItem createItem(Identity identity, QTI21QuestionType type, String title, Locale locale) {
 		AssessmentItemBuilder itemBuilder = null;
@@ -363,8 +367,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 		AssessmentItemMetadata itemMetadata = new AssessmentItemMetadata();
 		itemMetadata.setQuestionType(type);
 		
-		QTI21ImportProcessor processor = new QTI21ImportProcessor(identity, locale, 
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, qtiService);
+		QTI21ImportProcessor processor = new QTI21ImportProcessor(identity, locale);
 		QuestionItemImpl qitem = processor.processItem(assessmentItem, "", null, "OpenOLAT", Settings.getVersion(), itemMetadata);
 
 		VFSContainer baseDir = qpoolFileStorage.getContainer(qitem.getDirectory());
@@ -380,8 +383,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	}
 	
 	public QuestionItemImpl importExcelItem(Identity owner, AssessmentItemAndMetadata itemAndMetadata, Locale defaultLocale) {
-		QTI21ImportProcessor processor =  new QTI21ImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, qtiService);
+		QTI21ImportProcessor processor =  new QTI21ImportProcessor(owner, defaultLocale);
 		
 		String editor = itemAndMetadata.getEditor();
 		String editorVersion = itemAndMetadata.getEditorVersion();
@@ -419,8 +421,7 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	 */
 	public QuestionItem importAssessmentItemRef(Identity owner, AssessmentItem assessmentItem,
 			File itemFile, ManifestMetadataBuilder clonedMetadataBuilder, Locale defaultLocale) {
-		QTI21ImportProcessor processor =  new QTI21ImportProcessor(owner, defaultLocale,
-				questionItemDao, qItemTypeDao, qEduContextDao, taxonomyLevelDao, qLicenseDao, qpoolFileStorage, qtiService);
+		QTI21ImportProcessor processor =  new QTI21ImportProcessor(owner, defaultLocale);
 		
 		AssessmentItemMetadata metadata = new AssessmentItemMetadata(clonedMetadataBuilder);
 
@@ -472,6 +473,10 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 		return qitem;
 	}
 	
+	public QuestionItemFull getFullQuestionItem(QuestionItemShort qitem) {
+		return questionItemDao.loadById(qitem.getKey());
+	}
+	
 	/**
 	 * Export to QTI editor an item from the pool. The ident of the item
 	 * is always regenerated as an UUID.
@@ -479,10 +484,9 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	 * @param editorContainer
 	 * @return
 	 */
-	public AssessmentItem exportToQTIEditor(QuestionItemShort qitem, Locale locale, File editorContainer) throws IOException {
+	public AssessmentItem exportToQTIEditor(QuestionItemFull qitem, Locale locale, File editorContainer) throws IOException {
 		QTI21ExportProcessor processor = new QTI21ExportProcessor(qtiService, qpoolFileStorage, locale);
-		QuestionItemFull fullItem = questionItemDao.loadById(qitem.getKey());
-		ResolvedAssessmentItem resolvedAssessmentItem = processor.exportToQTIEditor(fullItem, editorContainer);
+		ResolvedAssessmentItem resolvedAssessmentItem = processor.exportToQTIEditor(qitem, editorContainer);
 		if(resolvedAssessmentItem != null) {
 			AssessmentItem assessmentItem = resolvedAssessmentItem.getItemLookup().extractAssumingSuccessful();
 			assessmentItem.setIdentifier(QTI21QuestionType.generateNewIdentifier(assessmentItem.getIdentifier()));
@@ -539,12 +543,11 @@ public class QTI21QPoolServiceProvider implements QPoolSPI {
 	}
 	
 	private List<Long> toKeys(List<? extends QuestionItemShort> items) {
-		List<Long> keys = new ArrayList<Long>(items.size());
+		List<Long> keys = new ArrayList<>(items.size());
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}
 		return keys;
 	}
-	
 
 }

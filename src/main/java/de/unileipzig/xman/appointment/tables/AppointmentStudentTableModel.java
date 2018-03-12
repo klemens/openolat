@@ -53,7 +53,7 @@ public class AppointmentStudentTableModel extends DefaultTableDataModel<Appointm
 		userProtocols = ProtocolManager.getInstance().findAllProtocolsByIdentityAndExam(esf.getIdentity(), exam);
 		subscribedToExam = ProtocolManager.getInstance().isIdentitySubscribedToExam(esf.getIdentity(), exam);
 		
-		setObjects(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()));
+		setObjects(AppointmentManager.getInstance().findAllAppointmentsByExam(exam));
 	}
 
 	@Override

@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.velocity.VelocityContext;
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
@@ -204,8 +205,10 @@ public class UserImportController extends BasicController {
 		Identity identity;
 		if(updateUsers != null && updateUsers.booleanValue()) {
 			identity = userToUpdate.getIdentity(true);
+			String oldEmail = loadEmail(identity);
 			if(um.updateUserFromIdentity(identity)) {
 				report.incrementUpdatedUser();
+				securityManager.deleteInvalidAuthenticationsByEmail(oldEmail);
 			}
 		} else {
 			identity = userToUpdate.getIdentity();
@@ -236,6 +239,15 @@ public class UserImportController extends BasicController {
 			}
 		}
 		return userToUpdate.getIdentity();
+	}
+
+	private String loadEmail(Identity updatedIdentity) {
+		String email = null;
+		Identity oldIdentity = BaseSecurityManager.getInstance().loadIdentityByKey(updatedIdentity.getKey());
+		if (oldIdentity != null) {
+			email = oldIdentity.getUser().getEmail();
+		}
+		return email;
 	}
 
 	@Override
@@ -363,12 +375,12 @@ public class UserImportController extends BasicController {
 	private MailTemplate createMailTemplateForNewIdentity(Identity identity, TransientIdentity transientIdentity) {
 		// get some data about the actor and fetch the translated subject / body via i18n module
 		String[] bodyArgs = new String[] {
-				identity.getName(),												//{0}
-				identity.getUser().getProperty(UserConstants.FIRSTNAME, null),	//{1}
-				identity.getUser().getProperty(UserConstants.LASTNAME, null),	//{2}
-				identity.getUser().getProperty(UserConstants.EMAIL, null),		//{3}
-				Settings.getServerContextPathURI(),								//{4}
-				transientIdentity.getPassword()									//{5}
+				identity.getName(),														//{0}
+				identity.getUser().getProperty(UserConstants.FIRSTNAME, null),			//{1}
+				identity.getUser().getProperty(UserConstants.LASTNAME, null),			//{2}
+				UserManager.getInstance().getUserDisplayEmail(identity, getLocale()),	//{3}
+				Settings.getServerContextPathURI(),										//{4}
+				transientIdentity.getPassword()											//{5}
 		};
 		Locale locale = I18nManager.getInstance().getLocaleOrDefault(identity.getUser().getPreferences().getLanguage());
 		Translator translator = Util.createPackageTranslator(UserImportController.class, locale);

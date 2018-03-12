@@ -20,6 +20,7 @@
 package org.olat.course.nodes;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -30,6 +31,7 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.services.notifications.NotificationsManager;
@@ -61,7 +63,7 @@ import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.archiver.ScoreAccountingHelper;
 import org.olat.course.assessment.AssessmentManager;
-import org.olat.course.assessment.bulk.BulkAssessmentToolController;
+import org.olat.course.assessment.ui.tool.AssessmentCourseNodeController;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -75,23 +77,24 @@ import org.olat.course.nodes.gta.Task;
 import org.olat.course.nodes.gta.TaskHelper;
 import org.olat.course.nodes.gta.TaskList;
 import org.olat.course.nodes.gta.model.TaskDefinition;
-import org.olat.course.nodes.gta.ui.BulkDownloadToolController;
 import org.olat.course.nodes.gta.ui.GTAAssessmentDetailsController;
 import org.olat.course.nodes.gta.ui.GTACoachedGroupListController;
 import org.olat.course.nodes.gta.ui.GTAEditController;
-import org.olat.course.nodes.gta.ui.GTAGroupAssessmentToolController;
+import org.olat.course.nodes.gta.ui.GTAIdentityListCourseNodeController;
 import org.olat.course.nodes.gta.ui.GTARunController;
-import org.olat.course.run.environment.CourseEnvironment;
 import org.olat.course.run.navigation.NodeRunConstructionResult;
 import org.olat.course.run.scoring.AssessmentEvaluation;
 import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
+import org.olat.group.BusinessGroupService;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
-import org.olat.modules.assessment.AssessmentToolOptions;
 import org.olat.modules.assessment.Role;
+import org.olat.modules.assessment.model.AssessmentRunStatus;
+import org.olat.modules.assessment.ui.AssessmentToolContainer;
+import org.olat.modules.assessment.ui.AssessmentToolSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.user.UserManager;
 
@@ -540,9 +543,9 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 			String courseTitle = course.getCourseTitle();
 			String fileName = ExportUtil.createFileNameWithTimeStamp(courseTitle, "xlsx");
 			List<AssessableCourseNode> nodes = Collections.<AssessableCourseNode>singletonList(this);
-			try {
+			try(OutputStream out = new ShieldOutputStream(exportStream)) {
 				exportStream.putNextEntry(new ZipEntry(dirName + "/" + fileName));
-				ScoreAccountingHelper.createCourseResultsOverviewXMLTable(users, nodes, course, locale, new ShieldOutputStream(exportStream));
+				ScoreAccountingHelper.createCourseResultsOverviewXMLTable(users, nodes, course, locale, out);
 				exportStream.closeEntry();
 			} catch (Exception e) {
 				log.error("", e);
@@ -592,10 +595,12 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 		ModuleConfiguration config = getModuleConfiguration();
 		GTAManager gtaManager = CoreSpringFactory.getImpl(GTAManager.class);
 		
+		String name = assessedIdentity.getUser().getLastName()
+				+ "_" + assessedIdentity.getUser().getFirstName()
+				+ "_" + assessedIdentity.getName();
+		
 		int flow = 0;//for beautiful ordering
-		String userDirName = dirName + "/"
-				+ StringHelper.transformDisplayNameToFileSystemName(assessedIdentity.getName())
-				+ "_" + assessedIdentity.getKey();
+		String userDirName = dirName + "/" + StringHelper.transformDisplayNameToFileSystemName(name);
 		
 		Task task = gtaManager.getTask(assessedIdentity, taskList);
 		if(task != null && task.getTaskName() != null && config.getBooleanSafe(GTASK_ASSIGNMENT)) {
@@ -629,6 +634,19 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 				File correctionDirectory = gtaManager.getRevisedDocumentsCorrectionsDirectory(course.getCourseEnvironment(), this, i, assessedIdentity);
 				String correctionDirName = userDirName + "/" + (++flow) + "_corrections_" + i;
 				ZipUtil.addDirectoryToZip(correctionDirectory.toPath(), correctionDirName, exportStream);
+			}
+		}
+		
+		//assessment documents
+		if(config.getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_INDIVIDUAL_ASSESSMENT_DOCS, false)) {
+			List<File> assessmentDocuments = course.getCourseEnvironment()
+					.getAssessmentManager().getIndividualAssessmentDocuments(this, assessedIdentity);
+			if(assessmentDocuments != null && !assessmentDocuments.isEmpty()) {
+				String assessmentDir = userDirName + "/"  + (++flow) + "_assessment/";
+				for(File document:assessmentDocuments) {
+					String path = assessmentDir + document.getName(); 
+					ZipUtil.addFileToZip(path, document, exportStream);
+				}
 			}
 		}
 	}
@@ -674,6 +692,27 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 				File correctionDirectory = gtaManager.getRevisedDocumentsCorrectionsDirectory(course.getCourseEnvironment(), this, i, businessGroup);
 				String correctionDirName = groupDirName + "/" + (++flow) + "_corrections_" + i;
 				ZipUtil.addDirectoryToZip(correctionDirectory.toPath(), correctionDirName, exportStream);
+			}
+		}
+		
+		//assessment documents for all participants of the group
+		if(config.getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_INDIVIDUAL_ASSESSMENT_DOCS, false)) {
+			List<Identity> assessedIdentities = CoreSpringFactory.getImpl(BusinessGroupService.class)
+					.getMembers(businessGroup, GroupRoles.participant.name());
+			String assessmentDirName = groupDirName + "/"  + (++flow) + "_assessment";
+			for(Identity assessedIdentity:assessedIdentities) {
+				List<File> assessmentDocuments = course.getCourseEnvironment()
+						.getAssessmentManager().getIndividualAssessmentDocuments(this, assessedIdentity);
+				if(assessmentDocuments != null && !assessmentDocuments.isEmpty()) {
+					String name = assessedIdentity.getUser().getLastName()
+							+ "_" + assessedIdentity.getUser().getFirstName()
+							+ "_" + assessedIdentity.getName();
+					String userDirName = assessmentDirName + "/" + StringHelper.transformDisplayNameToFileSystemName(name);
+					for(File document:assessmentDocuments) {
+						String path = userDirName + "/" + document.getName(); 
+						ZipUtil.addFileToZip(path, document, exportStream);
+					}
+				}
 			}
 		}
 	}
@@ -793,6 +832,22 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 				|| config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION)
 				|| config.getBooleanSafe(GTASK_REVISION_PERIOD);
 	}
+	
+	@Override
+	public boolean hasCompletion() {
+		return false;
+	}
+
+	@Override
+	public Double getUserCurrentRunCompletion(UserCourseEnvironment userCourseEnvironment) {
+		throw new OLATRuntimeException(GTACourseNode.class, "No completion available in task nodes", null);
+	}
+	
+	@Override
+	public void updateCurrentCompletion(UserCourseEnvironment userCourseEnvironment, Identity identity,
+			Double currentCompletion, AssessmentRunStatus status, Role doneBy) {
+		throw new OLATRuntimeException(GTACourseNode.class, "Completion variable can't be updated in task nodes", null);
+	}
 
 	@Override
 	public boolean isEditableConfigured() {
@@ -869,35 +924,11 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 	}
 
 	@Override
-	public List<Controller> createAssessmentTools(UserRequest ureq, WindowControl wControl,
-			TooledStackedPanel stackPanel, UserCourseEnvironment coachCourseEnv, AssessmentToolOptions options) {
-		
-		ModuleConfiguration config =  getModuleConfiguration();
-		CourseEnvironment courseEnv = coachCourseEnv.getCourseEnvironment();
-		List<Controller> tools = new ArrayList<>(2);
-		if(GTAType.group.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))
-			&& (config.getBooleanSafe(GTASK_ASSIGNMENT)
-				|| config.getBooleanSafe(GTASK_SUBMIT)
-				|| config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION)
-				|| config.getBooleanSafe(GTASK_REVISION_PERIOD))) {
-			
-			if(options.getGroup() != null && !coachCourseEnv.isCourseReadOnly()) {
-				tools.add(new GTAGroupAssessmentToolController(ureq, wControl, courseEnv, options.getGroup(), this));
-			}
-			tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
-		} else if(GTAType.individual.name().equals(config.getStringValue(GTACourseNode.GTASK_TYPE))) {
-			if(!coachCourseEnv.isCourseReadOnly() && (config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION) || config.getBooleanSafe(GTASK_GRADING))){
-				tools.add(new BulkAssessmentToolController(ureq, wControl, courseEnv, this));
-			}
-			
-			if(config.getBooleanSafe(GTASK_ASSIGNMENT)
-					|| config.getBooleanSafe(GTASK_SUBMIT)
-					|| config.getBooleanSafe(GTASK_REVIEW_AND_CORRECTION)
-					|| config.getBooleanSafe(GTASK_REVISION_PERIOD)) {
-				tools.add(new BulkDownloadToolController(ureq, wControl, courseEnv, options, this));
-			}
-		}
-		return tools;
+	public AssessmentCourseNodeController getIdentityListController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			RepositoryEntry courseEntry, BusinessGroup group, UserCourseEnvironment coachCourseEnv,
+			AssessmentToolContainer toolContainer, AssessmentToolSecurityCallback assessmentCallback) {
+		return new GTAIdentityListCourseNodeController(ureq, wControl, stackPanel,
+				courseEntry, group, this, coachCourseEnv, toolContainer, assessmentCallback);
 	}
 
 	@Override
@@ -990,7 +1021,7 @@ public class GTACourseNode extends AbstractAccessableCourseNode implements Persi
 	public void incrementUserAttempts(UserCourseEnvironment userCourseEnv, Role by) {
 		AssessmentManager am = userCourseEnv.getCourseEnvironment().getAssessmentManager();
 		Identity assessedIdentity = userCourseEnv.getIdentityEnvironment().getIdentity();
-		am.updateLastModifications(this, assessedIdentity, userCourseEnv, by);
+		am.incrementNodeAttempts(this, assessedIdentity, userCourseEnv, by);
 	}
 
 	@Override

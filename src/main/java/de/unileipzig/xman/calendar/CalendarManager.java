@@ -75,7 +75,7 @@ public class CalendarManager {
 		if ( proto.getAppointment() != null ) {
 		
 			KalendarEvent kEvent = new KalendarEvent(exam.getKey().toString(), 
-					ExamDBManager.getInstance().getExamName(exam), proto.getAppointment().getDate(), proto.getAppointment().getDuration());
+					exam.getName(), proto.getAppointment().getDate(), proto.getAppointment().getDuration());
 			
 			kEvent.setLocation(proto.getAppointment().getPlace());
 			kEvent.setEnd(new Date(proto.getAppointment().getDate().getTime() + (proto.getAppointment().getDuration() * 60 * 1000)));

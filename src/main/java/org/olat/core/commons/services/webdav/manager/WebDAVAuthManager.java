@@ -25,16 +25,20 @@ import java.util.List;
 
 import org.olat.basesecurity.Authentication;
 import org.olat.basesecurity.BaseSecurity;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.services.webdav.WebDAVModule;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.AssertException;
+import org.olat.core.logging.DBRuntimeException;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
 import org.olat.core.util.Encoder;
 import org.olat.core.util.Encoder.Algorithm;
+import org.olat.core.util.StringHelper;
 import org.olat.login.LoginModule;
 import org.olat.login.auth.AuthenticationSPI;
 import org.olat.login.auth.OLATAuthManager;
+import org.olat.user.UserModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -61,6 +65,8 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 	private static final OLog log = Tracing.createLoggerFor(WebDAVAuthManager.class);
 
 	@Autowired
+	private DB dbInstance;
+	@Autowired
 	private LoginModule loginModule;
 	@Autowired
 	private WebDAVModule webDAVModule;
@@ -68,14 +74,18 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 	private BaseSecurity securityManager;
 	@Autowired
 	private OLATAuthManager olatAuthenticationSpi;
+	@Autowired
+	private UserModule userModule;
 	
 	public Identity digestAuthentication(String httpMethod, DigestAuthentication digestAuth) {
 		String username = digestAuth.getUsername();
 		
 		List<String> providers = new ArrayList<>(3);
 		providers.add(PROVIDER_HA1);
-		providers.add(PROVIDER_HA1_EMAIL);
-		providers.add(PROVIDER_HA1_INSTITUTIONAL_EMAIL);
+		if (userModule.isEmailUnique()) {
+			providers.add(PROVIDER_HA1_EMAIL);
+			providers.add(PROVIDER_HA1_INSTITUTIONAL_EMAIL);
+		}
 		
 		List<Authentication> authentications = securityManager.findAuthenticationByAuthusername(username, providers);
 		if(authentications != null && authentications.size() > 0) {
@@ -107,8 +117,10 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 	public Identity authenticate(Identity identity, String login, String password) {
 		List<String> providers = new ArrayList<>(3);
 		providers.add(PROVIDER_WEBDAV);
-		providers.add(PROVIDER_WEBDAV_EMAIL);
-		providers.add(PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL);
+		if (userModule.isEmailUnique()) {
+			providers.add(PROVIDER_HA1_EMAIL);
+			providers.add(PROVIDER_HA1_INSTITUTIONAL_EMAIL);
+		}
 		
 		List<Authentication> authentications = null;
 		if (identity != null) {
@@ -173,11 +185,15 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 	
 	private void updateWebdavPassword(Identity doer, Identity identity, String password, List<Authentication> authentications) {
 		updateWebDAVPassword(doer, identity, identity.getName(), password, PROVIDER_WEBDAV, authentications);
-		if(identity.getUser().getEmail() != null) {
+		if(StringHelper.containsNonWhitespace(identity.getUser().getEmail())) {
 			updateWebDAVPassword(doer, identity, identity.getUser().getEmail(), password, PROVIDER_WEBDAV_EMAIL, authentications);
+		} else {
+			removePassword(PROVIDER_WEBDAV_EMAIL, authentications);
 		}
-		if(identity.getUser().getInstitutionalEmail() != null) {
-			updateWebDAVPassword(doer, identity, identity.getUser().getEmail(), password, PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL, authentications);
+		if(StringHelper.containsNonWhitespace(identity.getUser().getInstitutionalEmail())) {
+			updateWebDAVPassword(doer, identity, identity.getUser().getInstitutionalEmail(), password, PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL, authentications);
+		} else {
+			removePassword(PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL, authentications);
 		}
 
 		for(Authentication authentication:authentications) {
@@ -191,12 +207,24 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 			String provider, List<Authentication> authentications) {
 		Authentication authentication = getAndRemoveAuthentication(provider, authentications);
 		if (authentication == null) { // create new authentication for provider OLAT
-			Identity reloadedIdentity = securityManager.loadIdentityByKey(identity.getKey());
-			securityManager.createAndPersistAuthentication(reloadedIdentity, provider, authUsername, password, loginModule.getDefaultHashAlgorithm());
-			log.audit(doer.getName() + " created new WebDAV authentication for identity: " + identity.getKey() + " (" + authUsername + ")");
+			try {
+				dbInstance.commit();
+				Identity reloadedIdentity = securityManager.loadIdentityByKey(identity.getKey());
+				securityManager.createAndPersistAuthentication(reloadedIdentity, provider, authUsername, password, loginModule.getDefaultHashAlgorithm());
+				log.audit(doer.getName() + " created new WebDAV authentication for identity: " + identity.getKey() + " (" + authUsername + ")");
+			} catch (DBRuntimeException e) {
+				log.error("Cannot create webdav password with provider " + provider + " for identity:" + identity, e);
+				dbInstance.commit();
+			}
 		} else {
-			securityManager.updateCredentials(authentication, password, loginModule.getDefaultHashAlgorithm());
-			log.audit(doer.getName() + " set new WebDAV password for identity: " + identity.getKey() + " (" + authUsername + ")");
+			try {
+				dbInstance.commit();
+				securityManager.updateCredentials(authentication, password, loginModule.getDefaultHashAlgorithm());
+				log.audit(doer.getName() + " set new WebDAV password for identity: " + identity.getKey() + " (" + authUsername + ")");
+			} catch (Exception e) {
+				log.error("Cannot update webdav password with provider " + provider + " for identity:" + identity, e);
+				dbInstance.commit();
+			}
 		}
 	}
 	
@@ -219,11 +247,18 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 	private void updateDigestPasswords(Identity doer, Identity identity, String newPwd,
 			List<Authentication> authentications) {
 		updateDigestPassword(doer, identity, identity.getName(), newPwd, PROVIDER_HA1, authentications);
-		if(identity.getUser().getEmail() != null) {
-			updateDigestPassword(doer, identity, identity.getUser().getEmail(), newPwd, PROVIDER_HA1_EMAIL, authentications);
-		}
-		if(identity.getUser().getInstitutionalEmail() != null) {
-			updateDigestPassword(doer, identity, identity.getUser().getEmail(), newPwd, PROVIDER_HA1_INSTITUTIONAL_EMAIL, authentications);
+		
+		if (userModule.isEmailUnique()) {
+			if(StringHelper.containsNonWhitespace(identity.getUser().getEmail())) {
+				updateDigestPassword(doer, identity, identity.getUser().getEmail(), newPwd, PROVIDER_HA1_EMAIL, authentications);
+			} else {
+				removePassword(PROVIDER_HA1_EMAIL, authentications);
+			}
+			if(StringHelper.containsNonWhitespace(identity.getUser().getInstitutionalEmail())) {
+				updateDigestPassword(doer, identity, identity.getUser().getInstitutionalEmail(), newPwd, PROVIDER_HA1_INSTITUTIONAL_EMAIL, authentications);
+			} else {
+				removePassword(PROVIDER_HA1_INSTITUTIONAL_EMAIL, authentications);
+			}
 		}
 		
 		for(Authentication authentication:authentications) {
@@ -238,18 +273,36 @@ public class WebDAVAuthManager implements AuthenticationSPI {
 		String digestToken = authUsername + ":" + WebDAVManagerImpl.BASIC_AUTH_REALM + ":" + password;
 		Authentication authHa1 = getAndRemoveAuthentication(provider, authentications);
 		if (authHa1 == null) { // create new authentication for provider OLAT
-			Identity reloadedIdentity = securityManager.loadIdentityByKey(identity.getKey());
-			securityManager.createAndPersistAuthentication(reloadedIdentity, provider, authUsername, digestToken, Encoder.Algorithm.md5_noSalt);
-			log.audit(doer.getName() + " created new WebDAV (HA1) authentication for identity: " + identity.getKey() + " (" + authUsername + ")");
+			try {
+				dbInstance.commit();
+				Identity reloadedIdentity = securityManager.loadIdentityByKey(identity.getKey());
+				securityManager.createAndPersistAuthentication(reloadedIdentity, provider, authUsername, digestToken, Encoder.Algorithm.md5_noSalt);
+				log.audit(doer.getName() + " created new WebDAV (HA1) authentication for identity: " + identity.getKey() + " (" + authUsername + ")");
+			} catch(DBRuntimeException e) {
+				log.error("Cannot create digest password with provider " + provider + " for identity:" + identity, e);
+				dbInstance.commit();
+			}
 		} else {
 			String md5DigestToken = Encoder.encrypt(digestToken, null, Encoder.Algorithm.md5_noSalt);
 			if (!md5DigestToken.equals(authHa1.getCredential()) || !authHa1.getAuthusername().equals(authUsername)) {
-				authHa1.setCredential(md5DigestToken);
-				authHa1.setAuthusername(authUsername);
-				securityManager.updateAuthentication(authHa1);
-				log.audit(doer.getName() + " set new WebDAV (HA1) password for identity: " + identity.getKey() + " (" + authUsername + ")");
+				try {
+					authHa1.setCredential(md5DigestToken);
+					authHa1.setAuthusername(authUsername);
+					securityManager.updateAuthentication(authHa1);
+					log.audit(doer.getName() + " set new WebDAV (HA1) password for identity: " + identity.getKey() + " (" + authUsername + ")");
+				} catch (DBRuntimeException e) {
+					log.error("Cannot update digest password with provider " + provider + " for identity:" + identity, e);
+					dbInstance.commit();
+				}
 			}
 		}
+	}
+	
+	private void removePassword(String provider, List<Authentication> authentications) {
+		Authentication authentication = getAndRemoveAuthentication(provider, authentications);
+		if(authentication != null) {
+			securityManager.deleteAuthentication(authentication);
+		}	
 	}
 	
 	private Authentication getAndRemoveAuthentication(String provider, List<Authentication> authentications) {

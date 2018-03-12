@@ -60,17 +60,18 @@ public class HottextEditorController extends FormBasicController {
 	private final File itemFile;
 	private final File rootDirectory;
 	private final VFSContainer rootContainer;
-	private final boolean restrictedEdit;
+	private final boolean restrictedEdit, readOnly;
 	private final HottextAssessmentItemBuilder itemBuilder;
 	
 	public HottextEditorController(UserRequest ureq, WindowControl wControl, HottextAssessmentItemBuilder itemBuilder,
-			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit) {
+			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit, boolean readOnly) {
 		super(ureq, wControl, LAYOUT_DEFAULT_2_10);
 		setTranslator(Util.createPackageTranslator(AssessmentTestEditorController.class, getLocale()));
 		this.itemFile = itemFile;
 		this.itemBuilder = itemBuilder;
 		this.rootDirectory = rootDirectory;
 		this.rootContainer = rootContainer;
+		this.readOnly = readOnly;
 		this.restrictedEdit = restrictedEdit;
 		initForm(ureq);
 	}
@@ -81,6 +82,7 @@ public class HottextEditorController extends FormBasicController {
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), formLayout);
 		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
+		titleEl.setEnabled(!readOnly);
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
 		VFSContainer itemContainer = (VFSContainer)rootContainer.resolve(relativePath);
@@ -88,15 +90,18 @@ public class HottextEditorController extends FormBasicController {
 		String question = itemBuilder.getQuestion();
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", question, 16, -1, itemContainer,
 				formLayout, ureq.getUserSession(),  getWindowControl());
+		textEl.setElementCssClass("o_sel_assessment_item_hottext_text");
 		textEl.addActionListener(FormEvent.ONCLICK);
 		RichTextConfiguration richTextConfig = textEl.getEditorConfiguration();
 		richTextConfig.enableQTITools(false, false, true);
 		richTextConfig.setAdditionalConfiguration(new CorrectAnswersConfiguration());
-		richTextConfig.setReadOnly(restrictedEdit);
+		richTextConfig.setReadOnly(restrictedEdit || readOnly);
 		
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
+		buttonsContainer.setElementCssClass("o_sel_hottext_save");
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setVisible(!readOnly);
 		formLayout.add(buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
 	}
@@ -148,12 +153,15 @@ public class HottextEditorController extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(readOnly) return;
 		//title
 		itemBuilder.setTitle(titleEl.getValue());
-		//set the question with the text entries
-		String questionText = textEl.getRawValue();
-		itemBuilder.setQuestion(questionText);
-
+		
+		if(!restrictedEdit) {
+			//set the question with the text entries
+			String questionText = textEl.getRawValue();
+			itemBuilder.setQuestion(questionText);
+		}
 		fireEvent(ureq, new AssessmentItemEvent(AssessmentItemEvent.ASSESSMENT_ITEM_CHANGED, itemBuilder.getAssessmentItem(), QTI21QuestionType.hottext));
 	}
 	

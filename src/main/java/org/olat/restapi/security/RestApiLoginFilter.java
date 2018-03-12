@@ -148,7 +148,6 @@ public class RestApiLoginFilter implements Filter {
 				} catch (Exception ex) {
 					log.error("", ex);
 				}
-
 			} finally {
 				ThreadLocalUserActivityLoggerInstaller.resetUserActivityLogger();
 				I18nManager.remove18nInfoFromThread();

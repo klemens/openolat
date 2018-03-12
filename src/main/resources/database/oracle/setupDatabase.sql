@@ -109,6 +109,7 @@ CREATE TABLE o_temporarykey (
   ip varchar2(255 char) NOT NULL,
   mailsent number NOT NULL,
   action varchar2(255 char) NOT NULL,
+  fk_identity_id number(20),
   PRIMARY KEY (reglist_id)
 );
 
@@ -1215,6 +1216,8 @@ create table o_as_entry (
    a_user_visibility number default 1,
    a_assessment_id number(20) default null,
    a_completion float,
+   a_current_run_completion decimal,
+   a_current_run_status varchar2(16 char),
    a_comment clob,
    a_coach_comment clob,
    a_num_assessment_docs number(20) default 0 not null,
@@ -1483,6 +1486,9 @@ create table o_qti_assessmenttest_session (
    q_score decimal default null,
    q_manual_score decimal default null,
    q_passed number default null,
+   q_num_questions number(20),
+   q_num_answered_questions number(20),
+   q_extra_time number(20),
    q_storage varchar2(1024 char),
    fk_reference_entry number(20) not null,
    fk_entry number(20),
@@ -1705,6 +1711,18 @@ create table o_pf_binder_user_infos (
    primary key (id)
 );
 
+create table o_pf_page_user_infos (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  p_mark number default 0,
+  p_status varchar2(16 char) default 'incoming' not null,
+  p_recentlaunchdate date not null,
+  fk_identity_id number(20) not null,
+  fk_page_id number(20) not null,
+  primary key (id)
+);
+
 create table o_eva_form_session (
    id number(20) GENERATED ALWAYS AS IDENTITY,
    creationdate date not null,
@@ -1756,6 +1774,7 @@ create table o_qp_item (
    q_identifier varchar2(36 char) not null,
    q_master_identifier varchar2(36 char),
    q_title varchar2(1024 char) not null,
+   q_topic varchar2(1024 char),
    q_description varchar2(2048 char),
    q_keywords varchar2(1024 char),
    q_coverage varchar2(1024 char),
@@ -1776,13 +1795,28 @@ create table o_qp_item (
    q_editor varchar2(256 char),
    q_editor_version varchar2(256 char),
    q_format varchar2(32 char) not null,
+   q_creator varchar2(1024 char),
    creationdate date not null,
    lastmodified date not null,
+   q_status_last_modified date not null,
    q_dir varchar2(32 char),
    q_root_filename varchar2(255 char),
    fk_taxonomy_level number(20),
+   fk_taxonomy_level_v2 number(20),
    fk_ownergroup number(20) not null,
    primary key (id)
+);
+
+create table o_qp_item_audit_log (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  q_action varchar2(64 char),
+  q_val_before CLOB,
+  q_val_after CLOB,
+  q_message CLOB,
+  fk_author_id number(20),
+  fk_item_id number(20),
+  primary key (id)
 );
 
 create table o_qp_pool_2_item (
@@ -1925,6 +1959,16 @@ create table o_gta_task_revision_date (
   g_rev_loop number(20) not null,
   g_date date not null,
   fk_task number(20) not null,
+  primary key (id)
+);
+
+create table o_gta_mark (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  fk_tasklist_id number(20) not null,
+  fk_marker_identity_id number(20) not null,
+  fk_participant_identity_id number(20) not null,
   primary key (id)
 );
 
@@ -2169,6 +2213,115 @@ create table o_lecture_block_audit_log (
   fk_entry number(20),
   fk_identity number(20),
   fk_author number(20),
+  primary key (id)
+);
+
+-- taxonomy
+create table o_tax_taxonomy (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  t_identifier varchar2(64 char),
+  t_displayname varchar2(255 char) not null,
+  t_description CLOB,
+  t_external_id varchar2(64 char),
+  t_managed_flags varchar2(255 char),
+  t_directory_path varchar2(255 char),
+  t_directory_lost_found_path varchar2(255 char),
+  fk_group number(20) not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_level_type (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  t_identifier varchar2(64 char),
+  t_displayname varchar2(255 char) not null,
+  t_description CLOB,
+  t_external_id varchar2(64 char),
+  t_managed_flags varchar2(255 char),
+  t_css_class varchar2(64 char),
+  t_visible number default 1,
+  t_library_docs number default 1,
+  t_library_manage number default 1,
+  t_library_teach_read number default 1,
+  t_library_teach_readlevels number(20) default 0 not null,
+  t_library_teach_write number default 0,
+  t_library_have_read number default 1,
+  t_library_target_read number default 1,
+  fk_taxonomy number(20) not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_type_to_type (
+  id number(20) generated always as identity,
+  fk_type number(20) not null,
+  fk_allowed_sub_type number(20) not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_level (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  t_identifier varchar2(64 char),
+  t_displayname varchar2(255 char) not null,
+  t_description CLOB,
+  t_external_id varchar2(64 char),
+  t_sort_order number(20),
+  t_directory_path varchar2(255 char),
+  t_m_path_keys varchar2(255 char),
+  t_m_path_identifiers varchar2(1024 char),
+  t_enabled number default 1,
+  t_managed_flags varchar2(255 char),
+  fk_taxonomy number(20) not null,
+  fk_parent number(20),
+  fk_type number(20),
+  primary key (id)
+);
+
+create table o_tax_taxonomy_competence (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  t_type varchar2(16),
+  t_achievement decimal default null,
+  t_reliability decimal default null,
+  t_expiration_date date,
+  t_external_id varchar2(64 char),
+  t_source_text varchar2(255 char),
+  t_source_url varchar2(255 char),
+  fk_level number(20) not null,
+  fk_identity number(20) not null,
+  primary key (id)
+);
+
+create table o_tax_competence_audit_log (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  t_action varchar2(32 char),
+  t_val_before CLOB,
+  t_val_after CLOB,
+  t_message CLOB,
+  fk_taxonomy number(20),
+  fk_taxonomy_competence number(20),
+  fk_identity number(20),
+  fk_author number(20),
+  primary key (id)
+);
+
+-- dialog elements
+create table o_dialog_element (
+  id number(20) generated always as identity,
+  creationdate date not null,
+  lastmodified date not null,
+  d_filename varchar2(2048 char),
+  d_filesize number(20),
+  d_subident varchar2(64 char) not null,
+  fk_author number(20),
+  fk_entry number(20) not null,
+  fk_forum number(20) not null,
   primary key (id)
 );
 
@@ -2479,6 +2632,7 @@ create index userrating_id_idx on o_userrating (resid);
 create index userrating_name_idx on o_userrating (resname);
 create index userrating_subpath_idx on o_userrating (ressubpath);
 create index userrating_rating_idx on o_userrating (rating);
+create index userrating_rating_res_idx on o_userrating (resid, resname, creator_id, rating);
 
 -- comment
 alter table o_usercomment add constraint FK92B6864A18251F0 foreign key (parent_key) references o_usercomment (comment_id);
@@ -2598,6 +2752,9 @@ create index propvalue_idx on o_userproperty (propvalue);
 alter table o_user add constraint user_to_ident_idx foreign key (fk_identity) references o_bs_identity(id);
 create index idx_user_to_ident_idx on o_user (fk_identity);
 alter table o_user add constraint idx_un_user_to_ident_idx UNIQUE (fk_identity);
+
+-- temporary key
+create index idx_tempkey_identity_idx on o_temporarykey (fk_identity_id);
 
 -- pub sub
 create index name_idx2 on o_noti_pub (resname, resid, subident);
@@ -2739,6 +2896,9 @@ create index idx_gta_list_to_repo_entry_idx on o_gta_task_list (fk_entry);
 
 alter table o_gta_task_revision_date add constraint gtaskrev_to_task_idx foreign key (fk_task) references o_gta_task (id);
 create index idx_gtaskrev_to_task_idx on o_gta_task_revision_date (fk_task);
+
+alter table o_gta_mark add constraint gtamark_tasklist_idx foreign key (fk_tasklist_id) references o_gta_task_list (id);
+create index idx_gtamark_tasklist_idx on o_gta_mark (fk_tasklist_id);
 
 -- reminders
 alter table o_rem_reminder add constraint rem_reminder_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
@@ -3037,6 +3197,11 @@ create index idx_binder_user_to_ident_idx on o_pf_binder_user_infos (fk_identity
 alter table o_pf_binder_user_infos add constraint binder_user_binder_idx foreign key (fk_binder) references o_pf_binder (id);
 create index idx_binder_user_binder_idx on o_pf_binder_user_infos (fk_binder);
 
+alter table o_pf_page_user_infos add constraint user_pfpage_idx foreign key (fk_identity_id) references o_bs_identity (id);
+create index idx_user_pfpage_idx on o_pf_page_user_infos (fk_identity_id);
+alter table o_pf_page_user_infos add constraint page_pfpage_idx foreign key (fk_page_id) references o_pf_page (id);
+create index idx_page_pfpage_idx on o_pf_page_user_infos (fk_page_id);
+
 -- evaluation form
 alter table o_eva_form_session add constraint eva_session_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
 create index idx_eva_session_to_ident_idx on o_eva_form_session (fk_identity);
@@ -3073,8 +3238,8 @@ alter table o_qp_collection_2_item add unique (fk_collection_id, fk_item_id);
 create index idx_coll2item_coll_idx on o_qp_collection_2_item (fk_collection_id);
 create index idx_coll2item_item_idx on o_qp_collection_2_item (fk_item_id);
 
-alter table o_qp_item add constraint idx_qp_pool_2_field_id foreign key (fk_taxonomy_level) references o_qp_taxonomy_level(id);
-create index idx_item_taxon_idx on o_qp_item (fk_taxonomy_level);
+alter table o_qp_item add constraint idx_qp_pool_2_tax_id foreign key (fk_taxonomy_level_v2) references o_tax_taxonomy_level(id);
+create index idx_item_taxlon_idx on o_qp_item (fk_taxonomy_level_v2);
 alter table o_qp_item add constraint idx_qp_item_owner_id foreign key (fk_ownergroup) references o_bs_secgroup(id);
 create index idx_item_ownergrp_idx on o_qp_item (fk_ownergroup);
 alter table o_qp_item add constraint idx_qp_item_edu_ctxt_id foreign key (fk_edu_context) references o_qp_edu_context(id);
@@ -3089,6 +3254,7 @@ create index idx_taxon_parent_idx on o_qp_taxonomy_level (fk_parent_field);
 create index idx_taxon_mat_pathon on o_qp_taxonomy_level (q_mat_path_ids);
 
 alter table o_qp_item_type add constraint cst_unique_item_type unique (q_type);
+create index idx_item_audit_item_idx on o_qp_item_audit_log (fk_item_id);
 
 -- lti outcome
 alter table o_lti_outcome add constraint idx_lti_outcome_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
@@ -3131,6 +3297,31 @@ create index idx_item_ident_author_idx on o_feed_item (fk_identity_author_id);
 alter table o_feed_item add constraint feed_item_to_ident_modified_fk foreign key (fk_identity_modified_id) references o_bs_identity (id);
 create index idx_item_ident_modified_idx on o_feed_item (fk_identity_modified_id);
 
+-- taxonomy
+alter table o_tax_taxonomy add constraint tax_to_group_idx foreign key (fk_group) references o_bs_group (id);
+create index idx_tax_to_group_idx on o_tax_taxonomy (fk_group);
+
+alter table o_tax_taxonomy_level_type add constraint tax_type_to_taxonomy_idx foreign key (fk_taxonomy) references o_tax_taxonomy (id);
+create index idx_tax_type_to_taxonomy_idx on o_tax_taxonomy_level_type (fk_taxonomy);
+
+alter table o_tax_taxonomy_type_to_type add constraint tax_type_to_type_idx foreign key (fk_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_type_to_type_idx on o_tax_taxonomy_type_to_type (fk_type);
+alter table o_tax_taxonomy_type_to_type add constraint tax_type_to_sub_type_idx foreign key (fk_allowed_sub_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_type_to_sub_type_idx on o_tax_taxonomy_type_to_type (fk_allowed_sub_type);
+
+alter table o_tax_taxonomy_level add constraint tax_level_to_taxonomy_idx foreign key (fk_taxonomy) references o_tax_taxonomy (id);
+create index idx_tax_level_to_taxonomy_idx on o_tax_taxonomy_level (fk_taxonomy);
+alter table o_tax_taxonomy_level add constraint tax_level_to_tax_level_idx foreign key (fk_parent) references o_tax_taxonomy_level (id);
+create index idx_tax_level_to_tax_level_idx on o_tax_taxonomy_level (fk_parent);
+alter table o_tax_taxonomy_level add constraint tax_level_to_type_idx foreign key (fk_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_level_to_type_idx on o_tax_taxonomy_level (fk_type);
+create index idx_tax_level_path_key_idx on o_tax_taxonomy_level (t_m_path_keys);
+
+alter table o_tax_taxonomy_competence add constraint tax_comp_to_tax_level_idx foreign key (fk_level) references o_tax_taxonomy_level (id);
+create index idx_tax_comp_to_tax_level_idx on o_tax_taxonomy_competence (fk_level);
+alter table o_tax_taxonomy_competence add constraint tax_level_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_tax_level_to_ident_idx on o_tax_taxonomy_competence (fk_identity);
+
 -- lectures
 alter table o_lecture_block add constraint lec_block_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
 create index idx_lec_block_entry_idx on o_lecture_block(fk_entry);
@@ -3163,6 +3354,15 @@ alter table o_lecture_entry_config add constraint lec_entry_config_entry_idx for
 
 create index idx_lec_audit_entry_idx on o_lecture_block_audit_log(fk_entry);
 create index idx_lec_audit_ident_idx on o_lecture_block_audit_log(fk_identity);
+
+-- dialog elements
+alter table o_dialog_element add constraint dial_el_author_idx foreign key (fk_author) references o_bs_identity (id);
+create index idx_dial_el_author_idx on o_dialog_element (fk_author);
+alter table o_dialog_element add constraint dial_el_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_dial_el_entry_idx on o_dialog_element (fk_entry);
+alter table o_dialog_element add constraint dial_el_forum_idx foreign key (fk_forum) references o_forum (forum_id);
+create index idx_dial_el_forum_idx on o_dialog_element (fk_forum);
+create index idx_dial_el_subident_idx on o_dialog_element (d_subident);
 
 -- o_logging_table
 create index log_target_resid_idx on o_loggingtable(targetresid);

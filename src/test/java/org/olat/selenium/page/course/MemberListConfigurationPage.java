@@ -62,6 +62,7 @@ public class MemberListConfigurationPage {
 		WebElement checkboxEl = browser.findElement(checkboxBy);
 		WebElement labelEl = browser.findElement(labelBy);
 		OOGraphene.check(labelEl, checkboxEl, visible);
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 	
@@ -76,6 +77,7 @@ public class MemberListConfigurationPage {
 	public MemberListConfigurationPage save() {
 		By configBy = By.cssSelector("fieldset.o_sel_cmembers_settings button.btn-primary");
 		OOGraphene.click(configBy, browser);
+		OOGraphene.waitBusy(browser);
 		return this;
 	}
 

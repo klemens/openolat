@@ -90,6 +90,7 @@ public class AssessmentForm extends FormBasicController {
 	private FileElement uploadDocsEl;
 	private FormSubmit submitButton;
 	private FormLink saveAndDoneLink, reopenLink;
+	private List<DocumentWrapper> assessmentDocuments;
 	
 	private DialogBoxController confirmDeleteDocCtrl;
 	
@@ -188,13 +189,23 @@ public class AssessmentForm extends FormBasicController {
 	}
 
 	public boolean isUserCommentDirty () {
-		return hasComment && !userComment.getValue().equals(userCommentValue);
+		if(!hasComment) {
+			return false;
+		}
+		
+		if(!StringHelper.containsNonWhitespace(userComment.getValue()) && !StringHelper.containsNonWhitespace(userCommentValue)) {
+			return false;
+		}
+		return !userComment.getValue().equals(userCommentValue);
 	}
 	public TextElement getUserComment() {
 		return userComment;
 	}
 	
 	public boolean isCoachCommentDirty () {
+		if(!StringHelper.containsNonWhitespace(coachComment.getValue()) && !StringHelper.containsNonWhitespace(coachCommentValue)) {
+			return false;
+		}
 		return !coachComment.getValue().equals(coachCommentValue);
 	}
 	
@@ -208,7 +219,7 @@ public class AssessmentForm extends FormBasicController {
 			if(DialogBoxUIFactory.isOkEvent(event) || DialogBoxUIFactory.isYesEvent(event)) {
 				File documentToDelete = (File)confirmDeleteDocCtrl.getUserObject();
 				doDeleteAssessmentDocument(documentToDelete);
-				updateAssessmentDocs();
+				reloadAssessmentDocs();
 			}
 		}
 		super.event(ureq, source, event);
@@ -228,7 +239,7 @@ public class AssessmentForm extends FormBasicController {
 			if(uploadDocsEl.getUploadFile() != null && StringHelper.containsNonWhitespace(uploadDocsEl.getUploadFileName())) {
 				assessableCourseNode.addIndividualAssessmentDocument(uploadDocsEl.getUploadFile(), uploadDocsEl.getUploadFileName(),
 						assessedUserCourseEnv, getIdentity());
-				updateAssessmentDocs();
+				reloadAssessmentDocs();
 				uploadDocsEl.reset();
 			}
 		} else if(source instanceof FormLink) {
@@ -314,8 +325,8 @@ public class AssessmentForm extends FormBasicController {
 		ScoreEvaluation scoreEval = assessedUserCourseEnv.getScoreAccounting().evalCourseNode(assessableCourseNode);
 		if (scoreEval != null) {
 			ScoreEvaluation reopenedEval = new ScoreEvaluation(scoreEval.getScore(), scoreEval.getPassed(),
-					AssessmentEntryStatus.inReview, scoreEval.getUserVisible(),
-					scoreEval.getFullyAssessed(), scoreEval.getAssessmentID());
+					AssessmentEntryStatus.inReview, scoreEval.getUserVisible(), scoreEval.getFullyAssessed(),
+					scoreEval.getCurrentRunCompletion(), scoreEval.getCurrentRunStatus(), scoreEval.getAssessmentID());
 			assessableCourseNode.updateUserScoreEvaluation(reopenedEval, assessedUserCourseEnv, getIdentity(), false, Role.coach);
 			updateStatus(reopenedEval);
 		}
@@ -365,9 +376,9 @@ public class AssessmentForm extends FormBasicController {
 		// Update score,passed properties in db
 		ScoreEvaluation scoreEval;
 		if(setAsDone) {
-			scoreEval = new ScoreEvaluation(updatedScore, updatedPassed, AssessmentEntryStatus.done, visibility, true, null);
+			scoreEval = new ScoreEvaluation(updatedScore, updatedPassed, AssessmentEntryStatus.done, visibility, true, null, null, null);
 		} else {
-			scoreEval = new ScoreEvaluation(updatedScore, updatedPassed, null, visibility, null, null);
+			scoreEval = new ScoreEvaluation(updatedScore, updatedPassed, null, visibility, null, null, null, null);
 		}
 		assessableCourseNode.updateUserScoreEvaluation(scoreEval, assessedUserCourseEnv, getIdentity(), false, Role.coach);
 
@@ -418,11 +429,11 @@ public class AssessmentForm extends FormBasicController {
 			userComment.setValue(userCommentValue);
 		}
 		
+		reloadAssessmentDocs();
 		updateStatus(scoreEval);
-		updateAssessmentDocs();
 	}
 	
-	private void updateAssessmentDocs() {
+	private void reloadAssessmentDocs() {
 		if(docsLayoutCont == null) return;
 		
 		List<File> documents = assessableCourseNode.getIndividualAssessmentDocuments(assessedUserCourseEnv);
@@ -437,6 +448,7 @@ public class AssessmentForm extends FormBasicController {
 			wrapper.setDeleteButton(deleteButton);
 		}
 		docsLayoutCont.contextPut("documents", wrappers);
+		assessmentDocuments = wrappers;
 	}
 	
 	private void updateStatus(ScoreEvaluation scoreEval) {
@@ -461,6 +473,16 @@ public class AssessmentForm extends FormBasicController {
 			
 		if (hasAttempts) {
 			attempts.setEnabled(!closed && !coachCourseEnv.isCourseReadOnly());
+		}
+		
+		if(assessmentDocuments != null) {
+			for(DocumentWrapper assessmentDoc:assessmentDocuments) {
+				FormLink deleteButton = assessmentDoc.getDeleteButton();
+				if(deleteButton != null) {
+					deleteButton.setEnabled(!closed && !coachCourseEnv.isCourseReadOnly());
+					deleteButton.setVisible(!closed && !coachCourseEnv.isCourseReadOnly());
+				}
+			}
 		}
 		
 		submitButton.setVisible(!coachCourseEnv.isCourseReadOnly());
@@ -588,8 +610,8 @@ public class AssessmentForm extends FormBasicController {
 
 		uifactory.addFormCancelButton("cancel", buttonGroupLayout, ureq, getWindowControl());
 
+		reloadAssessmentDocs();
 		updateStatus(scoreEval);
-		updateAssessmentDocs();
 	}
 
 	@Override

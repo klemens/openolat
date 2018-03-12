@@ -1,13 +1,10 @@
 package de.unileipzig.xman.protocol;
 
 import java.text.DateFormat;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
-import java.util.Vector;
 
 import org.olat.core.commons.persistence.DBFactory;
-import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.UserConstants;
@@ -81,18 +78,7 @@ public class ProtocolManager {
 	 * @return the specified Protocol or null if there is no Protocol with this id
 	 */
 	public Protocol findProtocolByID(Long id) {
-		return DBFactory.getInstance().loadObject(ProtocolImpl.class, id);
-	}
-	
-	/**
-	 * 
-	 * @param identity
-	 * @param app
-	 * @return true if there is a protocol with the given identity/appointment combination, false else.
-	 */
-	public boolean isIdentitySubscribedToAppointment(Identity identity, Appointment appointment) {
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.appointment = " + appointment.getKey() + " and proto.identity = " + identity.getKey();
-		return !findAllProtocolsByQuery(query).isEmpty();
+		return DBFactory.getInstance().getCurrentEntityManager().find(ProtocolImpl.class, id);
 	}
 	
 	/**
@@ -102,82 +88,23 @@ public class ProtocolManager {
 	 * @return true if there is a protocol with the given identity/exam combination, false else.
 	 */
 	public boolean isIdentitySubscribedToExam(Identity identity, Exam exam) {
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey() + " and proto.identity = " + identity.getKey();
-		return !findAllProtocolsByQuery(query).isEmpty();
+		return !findAllProtocolsByIdentityAndExam(identity, exam).isEmpty();
 	}
-	
-	/**
-	 * 
-	 * @param exam
-	 * @return
-	 */
+
 	public List<Protocol> findAllProtocolsByExam(Exam exam) {
-		
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey();
-		return this.findAllProtocolsByQuery(query);
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = :exam";
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery(query, Protocol.class)
+			.setParameter("exam", exam)
+			.getResultList();
 	}
-	
-	/**
-	 * 
-	 * @param exam
-	 * @param earmarked
-	 * @return
-	 */
-	public List<Protocol> findAllProtocolsByExam(Exam exam, boolean earmarked) {
-		
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey() + " and proto.earmarked = " + earmarked;
-		return this.findAllProtocolsByQuery(query);
-	}
-	
-	/**
-	 * 
-	 * @param app
-	 * @return
-	 */
+
 	public List<Protocol> findAllProtocolsByAppointment(Appointment app) {
-		
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.appointment = " + app.getKey();
-		return this.findAllProtocolsByQuery(query);
-	}
-	
-	/**
-	 * finds all protocols by a given examId
-	 * @param examId the id of the exam
-	 * @return the list of protocols which belong to the examId
-	 */
-	private List<Protocol> findAllProtocolsByQuery(String query) {
-		
-		List<Protocol> protocols = new Vector<Protocol>();
-		List protoList = DBFactory.getInstance().find(query);
-		for( Object o : protoList ) {
-			Protocol prot = (Protocol) o;
-			protocols.add(prot);
-			
-		}
-		return protocols;
-	}
-	
-	/**
-	 * finds all protocols by a given identity
-	 * @param identity - identity of the user
-	 * @return the list of protocols which belong to the given identity
-	 */
-	public List<Protocol> findAllProtocolsByIdentity(Identity identity) {
-		
-		List<Protocol> protocols = new Vector<Protocol>();
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = :identity";
-		
-		DBQuery dbquery = DBFactory.getInstance().createQuery(query);
-		dbquery.setEntity("identity", identity);
-		List searchList = dbquery.list();
-		
-		for( Object o : searchList ) {
-			Protocol prot = (Protocol) o;
-			protocols.add(prot);
-			
-		}
-		return protocols;
-		
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.appointment = :appointment";
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery(query, Protocol.class)
+			.setParameter("appointment", app)
+			.getResultList();
 	}
 	
 	/**
@@ -186,8 +113,12 @@ public class ProtocolManager {
 	 * @return
 	 */
 	public List<Protocol> findAllProtocolsByIdentityAndExam(Identity identity, Exam exam) {
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.exam = " + exam.getKey() + " and proto.identity = " + identity.getKey();
-		return findAllProtocolsByQuery(query);
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = :identity and proto.exam = :exam";
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery(query, Protocol.class)
+			.setParameter("identity", identity)
+			.setParameter("exam", exam)
+			.getResultList();
 	}
 	
 	/**
@@ -197,19 +128,21 @@ public class ProtocolManager {
 	 * @return the list of protocols which belong to the exam and the identity
 	 */
 	public Protocol findProtocolByIdentityAndExam(Identity identity, Exam exam) {
-		
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = " + identity.getKey() + " and proto.exam = " + exam.getKey();
-		List protoList = DBFactory.getInstance().find(query);
-		if ( protoList.size() != 0 ) return (Protocol)protoList.get(0);
-		else return null;
+		// TODO: only used in unused calendar, remove?
+		return findAllProtocolsByIdentityAndExam(identity, exam)
+			.stream()
+			.findFirst()
+			.orElse(null);
 	}
 	
 	
 	public Protocol findProtocolByIdentityAndAppointment(Identity identity, Appointment app) {
-		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = " + identity.getKey() + " and proto.appointment = " + app.getKey();
-		List protoList = DBFactory.getInstance().find(query);
-		if ( protoList.size() != 0 ) return (Protocol)protoList.get(0);
-		else return null;
+		String query = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.identity = :identity and proto.appointment = :appointment";
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery(query, Protocol.class)
+			.setParameter("identity", identity)
+			.setParameter("appointment", app)
+			.getSingleResult();
 	}
 	
 	/**
@@ -220,23 +153,6 @@ public class ProtocolManager {
 	public void deleteProtocol(Protocol proto) {
 		
 		if ( proto != null ) DBFactory.getInstance().deleteObject(proto);
-	}
-	
-
-	/**
-	 * changes the earmarked status of a protocol loaded from the db
-	 * @param protoId the id of the protocol
-	 * @param earmarked the required status of earmarked
-	 */
-	public void setProtocolEarmarkedFeature(Long protoId, boolean earmarked) {
-		
-		String protoQuery = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.key = " + protoId;
-		List searchList = DBFactory.getInstance().find(protoQuery);
-		DBFactory.getInstance().commit();
-		if ( searchList.size() == 1 ) {
-			((Protocol) searchList.get(0)).setEarmarked(earmarked);
-			ProtocolManager.getInstance().updateProtocol(((Protocol) searchList.get(0)));
-		}
 	}
 
 	private Protocol createNewProtocol(Appointment appointment, ElectronicStudentFile esf, boolean earmark, String comment) {

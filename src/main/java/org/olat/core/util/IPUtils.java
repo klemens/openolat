@@ -19,13 +19,14 @@
  */
 package org.olat.core.util;
 
-
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 
 /**
  * 
  * Thanks: https://gist.github.com/madan712/6651967
  * 
- * It's based of the InetAddresses clas from guava too and
+ * It's based of the InetAddresses class from guava too and
  * prevent a DNS lookup of java.net.InetAddress
  * 
  * Initial date: 18.12.2014<br>
@@ -33,6 +34,8 @@ package org.olat.core.util;
  *
  */
 public class IPUtils {
+	
+	private static final OLog log = Tracing.createLoggerFor(IPUtils.class);
 	
 	public static long ipToLong(byte[] octets) {
 		long result = 0;
@@ -45,7 +48,8 @@ public class IPUtils {
 	
 	public static boolean isValidRange(String ipWithMask, String address) {
 		boolean allOk = false;
-		int maskIndex = ipWithMask.indexOf("/");
+		ipWithMask = ipWithMask.trim();
+		int maskIndex = ipWithMask.indexOf('/');
 		if(maskIndex > 0) {
 			long bits = Long.parseLong(ipWithMask.substring(maskIndex + 1));
 			long subnet = ipToLong(textToNumericFormatV4(ipWithMask.substring(0, maskIndex)));
@@ -68,12 +72,15 @@ public class IPUtils {
 	 */
 	public static boolean isValidRange(String ipStart, String ipEnd, String ipToCheck) {
 		try {
+			ipStart = ipStart.trim();
+			ipEnd = ipEnd.trim();
+			ipToCheck = ipToCheck.trim();
 			long ipLo = ipToLong(textToNumericFormatV4(ipStart));
 			long ipHi = ipToLong(textToNumericFormatV4(ipEnd));
 			long ipToTest = ipToLong(textToNumericFormatV4(ipToCheck));
 			return (ipToTest >= ipLo && ipToTest <= ipHi);
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			return false;
 		}
 	}

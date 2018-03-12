@@ -135,10 +135,10 @@ public class ExamStudentController extends BasicController implements ExamContro
 				// Email Remove
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 				MailManager.getInstance().sendEmail(
-					translate("Mail.Remove.Subject",new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+					translate("Mail.Remove.Subject",new String[] { exam.getName() }),
 					translate("Mail.Remove.Body",
 						new String[] {
-							ExamDBManager.getInstance().getExamName(exam),
+							exam.getName(),
 							protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),
 							DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, getLocale()).format(protocol.getAppointment().getDate()),
 							protocol.getAppointment().getPlace(),
@@ -197,8 +197,11 @@ public class ExamStudentController extends BasicController implements ExamContro
                 Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
                 esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
                 
-				// register student to the chosen appointment
-                if(!appointment.getOccupied()) {
+				if(!exam.getIsOral() && ProtocolManager.getInstance().isIdentitySubscribedToExam(esf.getIdentity(), exam)) {
+					// This can happen if the student is registered manually while trying to register
+					showInfo("ExamStudentController.info.alreadyRegistered");
+				} else if(!appointment.getOccupied()) {
+					// register student to the chosen appointment
 					if(exam.getEarmarkedEnabled()) {
 						ProtocolManager.getInstance().earmarkStudent(appointment, esf, comment);
 					} else {

@@ -142,6 +142,9 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	private List<String> conditionalQueries;
 	private Set<Integer> enabledColumnIndex = new HashSet<>();
 	
+	private FlexiTreeTableNode rootCrumb;
+	private List<FlexiTreeTableNode> crumbs;
+	
 	private Map<String,FormItem> components = new HashMap<>();
 	
 	public FlexiTableElementImpl(WindowControl wControl, String name, Translator translator, FlexiTableDataModel<?> tableModel) {
@@ -211,8 +214,6 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		if(component != null) {
 			component.setDirty(true);
 		}
-		
-
 	}
 	
 	public FlexiTableRendererType[] getAvailableRendererTypes() {
@@ -746,6 +747,14 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		this.selectedObj = selectedObj;
 	}
 
+	public FlexiTreeTableNode getRootCrumb() {
+		return rootCrumb;
+	}
+
+	public void setRootCrumb(FlexiTreeTableNode rootCrumb) {
+		this.rootCrumb = rootCrumb;
+	}
+
 	@Override
 	public int getDefaultPageSize() {
 		return defaultPageSize;
@@ -831,6 +840,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		String removeFilter = form.getRequestParameter("rm-filter");
 		String resetQuickSearch = form.getRequestParameter("reset-search");
 		String removeExtendedFilter = form.getRequestParameter("rm-extended-filter");
+		String treeTableFocus = form.getRequestParameter("tt-focus");
+		String treeTableOpen = form.getRequestParameter("tt-open");
+		String treeTableClose = form.getRequestParameter("tt-close");
+		String crumb = form.getRequestParameter("tt-crumb");
 		if("undefined".equals(dispatchuri)) {
 			evalSearchRequest(ureq);
 		} else if(StringHelper.containsNonWhitespace(checkbox)) {
@@ -875,6 +888,14 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			doFilter(filter);
 		} else if(StringHelper.containsNonWhitespace(removeFilter)) {
 			doFilter(null);
+		} else if(StringHelper.isLong(treeTableFocus)) {
+			doFocus(Integer.parseInt(treeTableFocus));
+		} else if(StringHelper.isLong(treeTableOpen)) {
+			doOpen(Integer.parseInt(treeTableOpen));
+		} else if(StringHelper.isLong(treeTableClose)) {
+			doClose(Integer.parseInt(treeTableClose));
+		} else if(StringHelper.containsNonWhitespace(crumb)) {
+			doCrumb(crumb);
 		} else if(exportButton != null
 				&& exportButton.getFormDispatchId().equals(dispatchuri)) {
 			doExport(ureq);
@@ -1065,10 +1086,28 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 				filter.setSelected(false);
 			}
 		} else if(multiFilterSelection) {
+			boolean showAll = false;
 			for(FlexiTableFilter filter:filters) {
-				if(filter.getFilter().equals(filterKey)) {
-					filter.setSelected(!filter.isSelected());
+				if(filter.getFilter().equals(filterKey) && filter.isShowAll()) {
+					showAll = !filter.isSelected();//Show all is currently not selected, but the event will toggle it
 				}
+			}
+			
+			if(showAll) {
+				for(FlexiTableFilter filter:filters) {
+					filter.setSelected(filter.isShowAll());
+				}
+			} else {
+				for(FlexiTableFilter filter:filters) {
+					if(filter.isShowAll()) {
+						filter.setSelected(false);
+					} else if(filter.getFilter().equals(filterKey)) {
+						filter.setSelected(!filter.isSelected());
+					}
+				}
+			}
+
+			for(FlexiTableFilter filter:filters) {
 				if(filter.isSelected()) {
 					selectedFilters.add(filter);
 				}
@@ -1126,6 +1165,51 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 
 		getRootForm().fireFormEvent(ureq, new FlexiTableSearchEvent(FlexiTableSearchEvent.EXTENDED_FILTER, this,
 				getSearchText(), getSelectedFilters(), getSelectedExtendedFilters(), getConditionalQueries(), FormEvent.ONCLICK));
+	}
+	
+	private void doFocus(int row) {
+		if(dataModel instanceof FlexiTreeTableDataModel) {
+			FlexiTreeTableNode node = ((FlexiTreeTableDataModel<?>)dataModel).getObject(row);
+			crumbs = new ArrayList<>();
+			for(FlexiTreeTableNode parent=node; parent != null; parent=parent.getParent()) {
+				crumbs.add(parent);
+			}
+			Collections.reverse(crumbs);
+			((FlexiTreeTableDataModel<?>)dataModel).focus(row);
+			reset(true, true, true);
+		}
+	}
+	
+	private void doOpen(int row) {
+		if(dataModel instanceof FlexiTreeTableDataModel) {
+			((FlexiTreeTableDataModel<?>)dataModel).open(row);
+			reset(true, true, true);
+		}
+	}
+	
+	private void doClose(int row) {
+		if(dataModel instanceof FlexiTreeTableDataModel) {
+			((FlexiTreeTableDataModel<?>)dataModel).close(row);
+			reset(true, true, true);
+		}
+	}
+	
+	private void doCrumb(String index) {
+		FlexiTreeTableNode crumb = null;
+		if("tt-root-crumb".equals(index)) {
+			crumb = rootCrumb;
+			crumbs = null;
+		} else if(StringHelper.isLong(index)) {
+			int pos = Integer.parseInt(index);
+			if(crumbs != null && pos >= 0 && pos < crumbs.size()) {
+				crumb = crumbs.get(pos);
+				crumbs = crumbs.subList(0, pos + 1);
+			}
+		}
+		if(dataModel instanceof FlexiTreeTableDataModel) {
+			((FlexiTreeTableDataModel<?>)dataModel).popBreadcrumb(crumb);
+			reset(true, true, true);
+		}
 	}
 	
 	private void doExport(UserRequest ureq) {
@@ -1447,7 +1531,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 		if(condQueries == null || condQueries.isEmpty()) {
 			conditionalQueries = null;
 		} else {
-			conditionalQueries = new ArrayList<String>(condQueries);
+			conditionalQueries = new ArrayList<>(condQueries);
 		}
 		
 		if(dataSource != null) {
@@ -1615,6 +1699,10 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 					((SortableFlexiTableDataModel<?>)dataModel).sort(orderBy[0]);
 				}
 			}
+			
+			if(dataModel instanceof FlexiTreeTableDataModel) {
+				crumbs = ((FlexiTreeTableDataModel<?>)dataModel).reloadBreadcrumbs(crumbs);
+			}
 		}
 
 		component.setDirty(true);
@@ -1644,6 +1732,7 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 			item.setRootForm(getRootForm());
 	}
 
+	@Override
 	protected FlexiTableComponent getFormItemComponent() {
 		return component;
 	}
@@ -1671,6 +1760,14 @@ public class FlexiTableElementImpl extends FormItemImpl implements FlexiTableEle
 	
 	public FlexiTableDataModel<?> getTableDataModel() {
 		return dataModel;
+	}
+	
+	public FlexiTreeTableDataModel<?> getTreeTableDataModel() {
+		return dataModel instanceof FlexiTreeTableDataModel ? (FlexiTreeTableDataModel<?>)dataModel : null;
+	}
+	
+	public List<FlexiTreeTableNode> getCrumbs() {
+		return crumbs == null ? Collections.emptyList() : crumbs;
 	}
 	
 	public FlexiTableDataSource<?> getTableDataSource() {

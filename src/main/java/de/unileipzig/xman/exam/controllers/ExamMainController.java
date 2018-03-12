@@ -252,7 +252,7 @@ public class ExamMainController extends MainLayoutBasicController implements Act
 				return;
 			}
 
-			boolean hasAppointments = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0;
+			boolean hasAppointments = AppointmentManager.getInstance().findAllAppointmentsByExam(exam).size() > 0;
 
 			String newType = event.getCommand();
 			if(newType.equals("oral")) {

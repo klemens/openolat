@@ -237,7 +237,7 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 		FormLayoutContainer container = FormLayoutContainer.createCustomFormLayout(name, getTranslator(), page);
 		container.contextPut("userPropertyHandlers", userPropertyAvatarHandlers);
 		// add lookup table so the avatar properties can be read out from the member object that contains the full list of attributes
-		Map<String, Integer> handlerLookupMap = new HashMap<String, Integer>();
+		Map<String, Integer> handlerLookupMap = new HashMap<>();
 		for(int i=userPropertyHandlers.size(); i-->0; ) {
 			UserPropertyHandler handler = userPropertyHandlers.get(i);
 			handlerLookupMap.put(handler.getName(), i);
@@ -254,9 +254,16 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 	}
 	
 	protected List<Member> createMemberLinks(List<Identity> identities, Set<Long> duplicateCatcher, FormLayoutContainer formLayout, boolean withEmail) {
-		List<Member> members = new ArrayList<>();
+		if(duplicateCatcher == null) {
+			duplicateCatcher = new HashSet<>();
+		}
+		
+		List<Member> members = new ArrayList<>(identities.size());
 		for(Identity identity:identities) {
-			if(duplicateCatcher != null && duplicateCatcher.contains(identity.getKey())) continue;
+			if(duplicateCatcher.contains(identity.getKey())) {
+				continue;
+			}
+			duplicateCatcher.add(identity.getKey());
 			
 			Member member = createMember(identity);
 			members.add(member);
@@ -284,10 +291,6 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 				chatLink.setElementCssClass("o_chat");
 				formLayout.add(chatLink.getComponent().getComponentName(), chatLink);
 				member.setChatLink(chatLink);
-			}
-			
-			if(duplicateCatcher != null) {
-				duplicateCatcher.add(identity.getKey());
 			}
 		}
 		
@@ -360,8 +363,6 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		//
 	}
-	
-	
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
@@ -460,7 +461,7 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 	}
 
 	private void doSendEmailToMember(ContactList contactList, UserRequest ureq) {
-		if (contactList.getEmailsAsStrings().size() > 0) {
+		if (contactList.hasAddresses()) {
 			removeAsListenerAndDispose(cmc);
 			removeAsListenerAndDispose(emailController);
 			
@@ -493,7 +494,8 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 			RepositoryEntry entry = courseEnv.getCourseGroupManager().getCourseEntry();
 			courseLink.append(Settings.getServerContextPathURI())
 				.append("/url/RepositoryEntry/").append(entry.getKey());
-			return translate("email.body.template", new String[]{courseName, courseLink.toString()});		
+			// the ext-ref and location are not in default mail template, but used by some instances
+			return translate("email.body.template", new String[]{courseName, courseLink.toString(), entry.getExternalRef(), entry.getLocation()});		
 		}
 	}
 	
@@ -509,8 +511,8 @@ public class MembersAvatarDisplayRunController extends FormBasicController {
 			@Override
 			public Controller createController(UserRequest lureq, WindowControl lwControl) {
 				lwControl.getWindowBackOffice().getChiefController().addBodyCssClass("o_cmembers_print");
-				return new MembersPrintController(lureq, lwControl, getTranslator(), ownerList, coachList,
-						participantList, waitingtList, showOwners, showCoaches, showParticipants, showWaiting, 
+				return new MembersPrintController(lureq, lwControl, getTranslator(), owners, coaches,
+						participants, waiting, showOwners, showCoaches, showParticipants, showWaiting, 
 						courseEnv != null ? courseEnv.getCourseTitle() : businessGroup.getName());
 			}					
 		};

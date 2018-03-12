@@ -68,7 +68,9 @@ public class CoachParticipantsTableModel extends DefaultFlexiTableDataModel<Coac
 	
 	@Override
 	public Object getValueAt(CoachedIdentityRow row, int col) {
-		if(col == CGCols.username.ordinal()) {
+		if(col == CGCols.mark.ordinal()) {
+			return row.getMarkLink();
+		} else if(col == CGCols.username.ordinal()) {
 			return row.getIdentity().getIdentityName();
 		} else if(col == CGCols.taskStatus.ordinal()) {
 			return row.getTaskStatus();
@@ -76,6 +78,14 @@ public class CoachParticipantsTableModel extends DefaultFlexiTableDataModel<Coac
 			return row.getTaskName();
 		} else if(col == CGCols.submissionDate.ordinal()) {
 			return SubmissionDateCellRenderer.cascading(row);
+		} else if(col == CGCols.userVisibility.ordinal()) {
+			return row.getUserVisibility();
+		} else if(col == CGCols.score.ordinal()) {
+			return row.getScore();
+		} else if(col == CGCols.passed.ordinal()) {
+			return row.getPassed();
+		} else if(col == CGCols.numOfSubmissionDocs.ordinal()) {
+			return row.getNumOfSubmissionDocs();
 		} else if(col >= GTACoachedGroupGradingController.USER_PROPS_OFFSET) {
 			int propIndex = col - GTACoachedGroupGradingController.USER_PROPS_OFFSET;
 			return row.getIdentity().getIdentityProp(propIndex);
@@ -84,10 +94,15 @@ public class CoachParticipantsTableModel extends DefaultFlexiTableDataModel<Coac
 	}
 	
 	public enum CGCols {
+		mark("table.header.mark"),
 		username("username"),
 		taskName("table.header.group.taskName"),
 		taskStatus("table.header.group.step"),
-		submissionDate("table.header.submissionDate");
+		submissionDate("table.header.submissionDate"),
+		userVisibility("table.header.userVisibility"),
+		score("table.header.score"),
+		passed("table.header.passed"),
+		numOfSubmissionDocs("table.header.num.submissionDocs");
 		
 		private final String i18nKey;
 		

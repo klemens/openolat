@@ -693,7 +693,7 @@ public class RepositoryManager {
 		//fetch the values
 		updatedRe.getStatistics().getLaunchCounter();
 		if(updatedRe.getLifecycle() != null) {
-			updatedRe.getLifecycle().getKey();
+			updatedRe.getLifecycle().getCreationDate();
 		}
 
 		dbInstance.commit();
@@ -710,7 +710,7 @@ public class RepositoryManager {
 		RepositoryEntry updatedRe = dbInstance.getCurrentEntityManager().merge(reloadedRe);
 		updatedRe.getStatistics().getLaunchCounter();
 		if(updatedRe.getLifecycle() != null) {
-			updatedRe.getLifecycle().getKey();
+			updatedRe.getLifecycle().getCreationDate();
 		}
 		dbInstance.commit();
 		return updatedRe;
@@ -840,7 +840,7 @@ public class RepositoryManager {
 		//fetch the values
 		updatedRe.getStatistics().getLaunchCounter();
 		if(updatedRe.getLifecycle() != null) {
-			updatedRe.getLifecycle().getKey();
+			updatedRe.getLifecycle().getCreationDate();
 		}
 
 		dbInstance.commit();
@@ -1561,11 +1561,11 @@ public class RepositoryManager {
 	 * @param re
 	 * @param logger
 	 */
-	public void removeOwners(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re){
+	public void removeOwners(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re, MailPackage mailing) {
 		List<RepositoryEntryMembershipModifiedEvent> deferredEvents = new ArrayList<>();
 
 		for (Identity identity : removeIdentities) {
-			removeOwner(ureqIdentity, identity, re);
+			removeOwner(ureqIdentity, identity, re, mailing);
 			deferredEvents.add(RepositoryEntryMembershipModifiedEvent.removed(identity, re));
 		}
 
@@ -1581,9 +1581,10 @@ public class RepositoryManager {
 		}
 	}
 
-	private void removeOwner(Identity ureqIdentity, Identity identity, RepositoryEntry re) {
+	private void removeOwner(Identity ureqIdentity, Identity identity, RepositoryEntry re, MailPackage mailing) {
 		repositoryEntryRelationDao.removeRole(identity, re, GroupRoles.owner.name());
 
+		RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeTutor, mailing);
 
 		ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
 		ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
@@ -1687,19 +1688,21 @@ public class RepositoryManager {
 	 * @param re
 	 * @param logger
 	 */
-	public void removeTutors(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re) {
+	public void removeTutors(Identity ureqIdentity, List<Identity> removeIdentities, RepositoryEntry re, MailPackage mailing) {
 		List<RepositoryEntryMembershipModifiedEvent> deferredEvents = new ArrayList<>();
 		for (Identity identity : removeIdentities) {
-			removeTutor(ureqIdentity, identity, re);
+			removeTutor(ureqIdentity, identity, re, mailing);
 			deferredEvents.add(RepositoryEntryMembershipModifiedEvent.removed(identity, re));
 		}
 		dbInstance.commit();
 		sendDeferredEvents(deferredEvents, re);
 	}
 
-	private void removeTutor(Identity ureqIdentity, Identity identity, RepositoryEntry re) {
+	private void removeTutor(Identity ureqIdentity, Identity identity, RepositoryEntry re, MailPackage mailing) {
 		repositoryEntryRelationDao.removeRole(identity, re, GroupRoles.coach.name());
 
+		RepositoryMailing.sendEmail(ureqIdentity, identity, re, RepositoryMailing.Type.removeTutor, mailing);
+		
 		ActionType actionType = ThreadLocalUserActivityLogger.getStickyActionType();
 		ThreadLocalUserActivityLogger.setStickyActionType(ActionType.admin);
 		try{
@@ -2034,14 +2037,12 @@ public class RepositoryManager {
 	}
 
 	public List<RepositoryEntryLight> getParticipantRepositoryEntry(IdentityRef identity, int maxResults, RepositoryEntryOrder... orderby) {
-		StringBuilder sb = new StringBuilder(200);
+		StringBuilder sb = new StringBuilder(512);
 		sb.append("select v from repoentrylight as v ")
 		  .append(" inner join fetch v.olatResource as res ")
-		  .append(" where exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership  ")
-		  .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=:identityKey ")
+		  .append(" where exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership")
+		  .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=:identityKey")
 		  .append("      and membership.role='").append(GroupRoles.participant.name()).append("')")
-		  .append("  )")
-		  .append(" )")
 		  .append(" and (v.access>=3 or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))");
 		appendOrderBy(sb, "v", orderby);
 
@@ -2055,14 +2056,12 @@ public class RepositoryManager {
 	}
 
 	public List<RepositoryEntryLight> getTutorRepositoryEntry(IdentityRef identity, int maxResults, RepositoryEntryOrder... orderby) {
-		StringBuilder sb = new StringBuilder(200);
+		StringBuilder sb = new StringBuilder(512);
 		sb.append("select v from repoentrylight as v ")
 		  .append(" inner join fetch v.olatResource as res ")
-		  .append(" where exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership  ")
-		  .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=:identityKey ")
+		  .append(" where exists (select rel from repoentrytogroup as rel, bgroup as baseGroup, bgroupmember as membership")
+		  .append("    where rel.entry=v and rel.group=baseGroup and membership.group=baseGroup and membership.identity.key=:identityKey")
 		  .append("      and membership.role='").append(GroupRoles.coach.name()).append("')")
-		  .append("  )")
-		  .append(" )")
 		  .append("  and (v.access>=3 or (v.access=").append(RepositoryEntry.ACC_OWNERS).append(" and v.membersOnly=true))");
 		appendOrderBy(sb, "v", orderby);
 
@@ -2325,7 +2324,7 @@ public class RepositoryManager {
 			if(changes.getRepoOwner().booleanValue()) {
 				addOwners(ureqIdentity, new IdentitiesAddEvent(changes.getMember()), re, mailing);
 			} else {
-				removeOwner(ureqIdentity, changes.getMember(), re);
+				removeOwner(ureqIdentity, changes.getMember(), re, mailing);
 				deferredEvents.add(RepositoryEntryMembershipModifiedEvent.removed(changes.getMember(), re));
 			}
 		}
@@ -2334,7 +2333,7 @@ public class RepositoryManager {
 			if(changes.getRepoTutor().booleanValue()) {
 				addTutors(ureqIdentity, ureqRoles, new IdentitiesAddEvent(changes.getMember()), re, mailing);
 			} else {
-				removeTutor(ureqIdentity, changes.getMember(), re);
+				removeTutor(ureqIdentity, changes.getMember(), re, mailing);
 				deferredEvents.add(RepositoryEntryMembershipModifiedEvent.removed(changes.getMember(), re));
 			}
 		}

@@ -49,7 +49,7 @@ public class AppointmentLecturerOralTableModel extends DefaultTableDataModel<App
 	}
 	
 	public void update() {
-		setObjects(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()));
+		setObjects(AppointmentManager.getInstance().findAllAppointmentsByExam(exam));
 		
 		examProtocols = ProtocolManager.getInstance().findAllProtocolsByExam(exam);
 	}

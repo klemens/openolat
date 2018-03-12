@@ -111,7 +111,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 	}
 	
 	private void init(UserRequest ureq) {
-		List<Appointment> apps = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
+		List<Appointment> apps = AppointmentManager.getInstance().findAllAppointmentsByExam(exam);
 		if(apps.size() == 1) {
 			mainVC.contextPut("showProtocolTable", true);
 			
@@ -543,7 +543,7 @@ public class ExamLecturerWrittenController extends BasicController implements Ex
 			updateProtocolTable();
 		} else if(source == userAddButton) {
 			// Guaranteed to work because we checked exactly that in constructor
-			userSearchControllerAppointmentHolder = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).get(0);
+			userSearchControllerAppointmentHolder = AppointmentManager.getInstance().findAllAppointmentsByExam(exam).get(0);
 			
 			removeAsListenerAndDispose(userSearchController);
 			userSearchController = new UserSearchController(ureq, getWindowControl(), false, false, false);

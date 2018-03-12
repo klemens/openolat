@@ -20,37 +20,37 @@
 package org.olat.modules.qpool.ui.metadata;
 
 import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.bigDToString;
-import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.getQItemTypeKeyValues;
 import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.toBigDecimal;
 import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.toInt;
 import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.validateBigDecimal;
-import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.validateSelection;
 import static org.olat.modules.qpool.ui.metadata.MetaUIFactory.validateInteger;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
 
-import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.UserRequest;
+import org.olat.core.gui.components.AbstractComponent;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
-import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
+import org.olat.core.gui.components.form.flexible.elements.IntegerElement;
+import org.olat.core.gui.components.form.flexible.elements.StaticTextElement;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
-import org.olat.ims.qti.QTIConstants;
-import org.olat.ims.qti21.QTI21Constants;
+import org.olat.modules.qpool.MetadataSecurityCallback;
 import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
+import org.olat.modules.qpool.QuestionItemAuditLog.Action;
+import org.olat.modules.qpool.QuestionItemAuditLogBuilder;
+import org.olat.modules.qpool.manager.MetadataConverterHelper;
+import org.olat.modules.qpool.model.LOMDuration;
+import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.modules.qpool.ui.QuestionsController;
 import org.olat.modules.qpool.ui.events.QItemEdited;
-import org.olat.modules.qpool.ui.metadata.MetaUIFactory.KeyValues;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * 
@@ -60,35 +60,76 @@ import org.olat.modules.qpool.ui.metadata.MetaUIFactory.KeyValues;
  */
 public class QuestionMetadataEditController extends FormBasicController {
 
-	private SingleSelection typeEl, assessmentTypeEl;
-	private TextElement difficultyEl, stdevDifficultyEl, differentiationEl, numAnswerAltEl;
+	private StaticTextElement typeEl;
+	private IntegerElement learningTimeDayElement;
+	private IntegerElement learningTimeHourElement;
+	private IntegerElement learningTimeMinuteElement;
+	private IntegerElement learningTimeSecondElement;
+	private FormLayoutContainer learningTimeContainer;
+	private TextElement difficultyEl;
+	private TextElement stdevDifficultyEl;
+	private TextElement differentiationEl;
+	private TextElement numAnswerAltEl;
+	private TextElement usageEl;
+	private FormLayoutContainer buttonsCont;
 	
 	private QuestionItem item;
-	private final QPoolService qpoolService;
+	
+	@Autowired
+	private QPoolService qpoolService;
 
-	public QuestionMetadataEditController(UserRequest ureq, WindowControl wControl, QuestionItem item) {
-		super(ureq, wControl);
+	public QuestionMetadataEditController(UserRequest ureq, WindowControl wControl, QuestionItem item,
+			MetadataSecurityCallback securityCallback) {
+		super(ureq, wControl, LAYOUT_VERTICAL);
 		setTranslator(Util.createPackageTranslator(QuestionsController.class, getLocale(), getTranslator()));
 		
 		this.item = item;
-		qpoolService = CoreSpringFactory.getImpl(QPoolService.class);
+		
 		initForm(ureq);
+		setItem(item, securityCallback);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
-		setFormTitle("question");
-
-		KeyValues typeKeys = getQItemTypeKeyValues(getTranslator(), qpoolService);
-		typeEl = uifactory.addDropdownSingleselect("question.type", "question.type", formLayout, typeKeys.getKeys(), typeKeys.getValues(), null);
-		if(item.getType() != null) {
-			typeEl.select(item.getType().getType(), true);
+		typeEl = uifactory.addStaticTextElement("question.type", "", formLayout);
+		QItemType type = item.getType();
+		if(type == null || type.getType() == null) {
+			typeEl.setValue("");
+		} else {
+			String translation = translate("item.type." + type.getType().toLowerCase());
+			if(translation.length() > 128) {
+				translation = type.getType();
+			}
+			typeEl.setValue(translation);
 		}
-		// don't let users modify our internal formats - no automatic magic conversion possible
-		List<String> formatList = new ArrayList<>();
-		formatList.add(QTIConstants.QTI_12_FORMAT);
-		formatList.add(QTI21Constants.QTI_21_FORMAT);
-		typeEl.setEnabled(!formatList.contains(item.getFormat()));
+		
+		String page = velocity_root + "/learning_time.html";
+		learningTimeContainer = FormLayoutContainer.createCustomFormLayout("learningTime", getTranslator(), page);
+		((AbstractComponent)learningTimeContainer.getComponent()).setDomReplacementWrapperRequired(false);
+		learningTimeContainer.setRootForm(mainForm);
+		learningTimeContainer.setLabel("educational.learningTime", null);
+		formLayout.add(learningTimeContainer);
+		
+		LOMDuration duration = MetadataConverterHelper.convertDuration(item.getEducationalLearningTime());
+		learningTimeDayElement = uifactory.addIntegerElement("learningTime.day", "", duration.getDay(), learningTimeContainer);
+		((AbstractComponent)learningTimeDayElement.getComponent()).setDomReplacementWrapperRequired(false);
+		learningTimeDayElement.setDisplaySize(3);
+		learningTimeDayElement.setMandatory(true);
+		
+		learningTimeHourElement = uifactory.addIntegerElement("learningTime.hour", "", duration.getHour(), learningTimeContainer);
+		((AbstractComponent)learningTimeHourElement.getComponent()).setDomReplacementWrapperRequired(false);
+		learningTimeHourElement.setDisplaySize(3);
+		learningTimeHourElement.setMandatory(true);
+		
+		learningTimeMinuteElement = uifactory.addIntegerElement("learningTime.minute", "", duration.getMinute(), learningTimeContainer);
+		((AbstractComponent)learningTimeMinuteElement.getComponent()).setDomReplacementWrapperRequired(false);
+		learningTimeMinuteElement.setDisplaySize(3);
+		learningTimeMinuteElement.setMandatory(true);
+		
+		learningTimeSecondElement = uifactory.addIntegerElement("learningTime.second", "", duration.getSeconds(), learningTimeContainer);
+		((AbstractComponent)learningTimeSecondElement.getComponent()).setDomReplacementWrapperRequired(false);
+		learningTimeSecondElement.setDisplaySize(3);
+		learningTimeSecondElement.setMandatory(true);
 		
 		String difficulty = bigDToString(item.getDifficulty());
 		difficultyEl = uifactory.addTextElement("question.difficulty", "question.difficulty", 24, difficulty, formLayout);
@@ -99,33 +140,49 @@ public class QuestionMetadataEditController extends FormBasicController {
 		stdevDifficultyEl = uifactory.addTextElement("question.stdevDifficulty", "question.stdevDifficulty", 24, stdevDifficulty, formLayout);
 		stdevDifficultyEl.setExampleKey("question.stdevDifficulty.example", null);
 		stdevDifficultyEl.setDisplaySize(4);
+		
 		String differentiation = bigDToString(item.getDifferentiation());
 		differentiationEl = uifactory.addTextElement("question.differentiation", "question.differentiation", 24, differentiation, formLayout);
 		differentiationEl.setExampleKey("question.differentiation.example", null);
 		differentiationEl.setDisplaySize(4);
+		
 		String numAnswerAlt = item.getNumOfAnswerAlternatives() < 0 ? "" : Integer.toString(item.getNumOfAnswerAlternatives());
 		numAnswerAltEl = uifactory.addTextElement("question.numOfAnswerAlternatives", "question.numOfAnswerAlternatives", 24, numAnswerAlt, formLayout);
 		numAnswerAltEl.setDisplaySize(4);
 		
-		uifactory.addStaticTextElement("question.usage", Integer.toString(item.getUsage()), formLayout);
-		String[] assessmentTypeKeys = new String[]{ "summative", "formative", "both"};
-		String[] assessmentTypeValues = new String[]{
-			translate("question.assessmentType.summative"), translate("question.assessmentType.formative"),
-			translate("question.assessmentType.both"),	
-		};
-		assessmentTypeEl = uifactory.addDropdownSingleselect("question.assessmentType", "question.assessmentType", formLayout,
-				assessmentTypeKeys, assessmentTypeValues, null);
-		if(StringHelper.containsNonWhitespace(item.getAssessmentType())) {
-			assessmentTypeEl.select(item.getAssessmentType(), true);
-		}
+		String numUsage = item.getUsage() < 0 ? "" : Integer.toString(item.getUsage());
+		usageEl = uifactory.addTextElement("question.usage", "question.usage", 24, numUsage, formLayout);
+		usageEl.setDisplaySize(4);
 
-		FormLayoutContainer buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
+		buttonsCont = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsCont.setRootForm(mainForm);
 		formLayout.add(buttonsCont);
 		uifactory.addFormSubmitButton("ok", "ok", buttonsCont);
 		uifactory.addFormCancelButton("cancel", buttonsCont, ureq, getWindowControl());
 	}
 	
+	private void setReadOnly(MetadataSecurityCallback securityCallback) {
+		boolean canEditMetadata = securityCallback.canEditMetadata();
+		learningTimeDayElement.setEnabled(canEditMetadata);
+		learningTimeHourElement.setEnabled(canEditMetadata);
+		learningTimeMinuteElement.setEnabled(canEditMetadata);
+		learningTimeSecondElement.setEnabled(canEditMetadata);
+		learningTimeContainer.setEnabled(canEditMetadata);
+		difficultyEl.setEnabled(canEditMetadata);
+		stdevDifficultyEl.setEnabled(canEditMetadata);
+		differentiationEl.setEnabled(canEditMetadata);
+		numAnswerAltEl.setEnabled(canEditMetadata);
+		usageEl.setEnabled(canEditMetadata);
+		buttonsCont.setVisible(canEditMetadata);
+	}
+
+	public void setItem(QuestionItem item, MetadataSecurityCallback securityCallback) {
+		this.item = item;
+		if (securityCallback != null) {
+			setReadOnly(securityCallback);
+		}
+	}
+
 	@Override
 	protected void doDispose() {
 		//
@@ -134,12 +191,10 @@ public class QuestionMetadataEditController extends FormBasicController {
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
 		boolean allOk = true;
-		allOk &= validateSelection(typeEl, true);
 		allOk &= validateBigDecimal(difficultyEl, 0.0d, 1.0d, true);
 		allOk &= validateBigDecimal(stdevDifficultyEl, 0.0d, 1.0d, true);
 		allOk &= validateBigDecimal(differentiationEl, -1.0d, 1.0d, true);
 		allOk &= validateInteger(numAnswerAltEl, 0, Integer.MAX_VALUE, true);
-		allOk &= validateSelection(assessmentTypeEl, true);
 		return allOk && super.validateFormLogic(ureq);
 	}
 	
@@ -152,24 +207,37 @@ public class QuestionMetadataEditController extends FormBasicController {
 	protected void formOK(UserRequest ureq) {
 		if(item instanceof QuestionItemImpl) {
 			QuestionItemImpl itemImpl = (QuestionItemImpl)item;
-			if(typeEl.isOneSelected()) {
-				String typeKey = typeEl.getSelectedKey();
-				itemImpl.setType(qpoolService.getItemType(typeKey));
-			}
+			QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+					Action.UPDATE_QUESTION_ITEM_METADATA);
+			builder.withBefore(itemImpl);
+
+			int day = learningTimeDayElement.getIntValue();
+			int hour = learningTimeHourElement.getIntValue();
+			int minute = learningTimeMinuteElement.getIntValue();
+			int seconds = learningTimeSecondElement.getIntValue();
+			String timeStr = MetadataConverterHelper.convertDuration(day, hour, minute, seconds);
+			itemImpl.setEducationalLearningTime(timeStr);
 			
 			BigDecimal difficulty = toBigDecimal(difficultyEl.getValue());
 			itemImpl.setDifficulty(difficulty);
+			
 			BigDecimal stdevDifficulty = toBigDecimal(stdevDifficultyEl.getValue());
 			itemImpl.setStdevDifficulty(stdevDifficulty);
+			
 			BigDecimal differentiation = toBigDecimal(differentiationEl.getValue());
 			itemImpl.setDifferentiation(differentiation);
+			
 			int numOfAnswerAlternatives = toInt(numAnswerAltEl.getValue());
 			itemImpl.setNumOfAnswerAlternatives(numOfAnswerAlternatives);
 			
-			String assessmentType = assessmentTypeEl.isOneSelected() ? assessmentTypeEl.getSelectedKey() : null;
-			itemImpl.setAssessmentType(assessmentType);
+			int numUsage = toInt(usageEl.getValue());
+			itemImpl.setUsage(numUsage);
+
+			item = qpoolService.updateItem(itemImpl);
+			builder.withAfter(item);
+			qpoolService.persist(builder.create());
+			fireEvent(ureq, new QItemEdited(item));
 		}
-		item = qpoolService.updateItem(item);
-		fireEvent(ureq, new QItemEdited(item));
 	}
+
 }

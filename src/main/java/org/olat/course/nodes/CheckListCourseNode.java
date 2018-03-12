@@ -34,6 +34,7 @@ import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.BreadcrumbPanel;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.messages.MessageUIFactory;
@@ -55,6 +56,8 @@ import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentManager;
+import org.olat.course.assessment.ui.tool.AssessmentCourseNodeController;
+import org.olat.course.assessment.ui.tool.IdentityListCourseNodeController;
 import org.olat.course.auditing.UserNodeAuditManager;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -66,6 +69,7 @@ import org.olat.course.nodes.cl.model.Checkbox;
 import org.olat.course.nodes.cl.model.CheckboxList;
 import org.olat.course.nodes.cl.ui.AssessedIdentityCheckListController;
 import org.olat.course.nodes.cl.ui.CheckListEditController;
+import org.olat.course.nodes.cl.ui.CheckListExcelExport;
 import org.olat.course.nodes.cl.ui.CheckListRunController;
 import org.olat.course.nodes.cl.ui.CheckListRunForCoachController;
 import org.olat.course.properties.CoursePropertyManager;
@@ -75,9 +79,13 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.NodeEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
+import org.olat.group.BusinessGroup;
 import org.olat.modules.ModuleConfiguration;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.Role;
+import org.olat.modules.assessment.model.AssessmentRunStatus;
+import org.olat.modules.assessment.ui.AssessmentToolContainer;
+import org.olat.modules.assessment.ui.AssessmentToolSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 
 /**
@@ -196,6 +204,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	/**
 	 * @see org.olat.course.nodes.CourseNode#isConfigValid()
 	 */
+	@Override
 	public StatusDescription isConfigValid() {
 		if (oneClickStatusCache != null) {
 			return oneClickStatusCache[0];
@@ -336,7 +345,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	
 	@Override
 	public boolean hasIndividualAsssessmentDocuments() {
-		return true;
+		return getModuleConfiguration().getBooleanSafe(MSCourseNode.CONFIG_KEY_HAS_INDIVIDUAL_ASSESSMENT_DOCS, false);
 	}
 
 	/**
@@ -440,7 +449,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 */
 	@Override
 	public Integer getUserAttempts(UserCourseEnvironment userCourseEnvironment) {
-		throw new OLATRuntimeException(CheckListCourseNode.class, "No attempts available in ST nodes", null);
+		throw new OLATRuntimeException(CheckListCourseNode.class, "No attempts available in check list nodes", null);
 	}
 
 	/**
@@ -470,6 +479,22 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	}
 	
 	@Override
+	public boolean hasCompletion() {
+		return false;
+	}
+
+	@Override
+	public Double getUserCurrentRunCompletion(UserCourseEnvironment userCourseEnvironment) {
+		throw new OLATRuntimeException(CheckListCourseNode.class, "No completion available in check list nodes", null);
+	}
+	
+	@Override
+	public void updateCurrentCompletion(UserCourseEnvironment userCourseEnvironment, Identity identity,
+			Double currentCompletion, AssessmentRunStatus status, Role doneBy) {
+		throw new OLATRuntimeException(CheckListCourseNode.class, "Completion variable can't be updated in check list nodes", null);
+	}
+	
+	@Override
 	public void updateLastModifications(UserCourseEnvironment userCourseEnvironment, Identity identity, Role by) {
 		AssessmentManager am = userCourseEnvironment.getCourseEnvironment().getAssessmentManager();
 		Identity assessedIdentity = userCourseEnvironment.getIdentityEnvironment().getIdentity();
@@ -489,17 +514,27 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		OLATResourceable courseOres = OresHelper.createOLATResourceableInstance("CourseModule", resId);
 		return new AssessedIdentityCheckListController(ureq, wControl, assessedIdentity, courseOres, coachCourseEnv, assessedUserCourseEnv, this, false, false);
 	}
-
+	
+	@Override
+	public AssessmentCourseNodeController getIdentityListController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			RepositoryEntry courseEntry, BusinessGroup group, UserCourseEnvironment coachCourseEnv,
+			AssessmentToolContainer toolContainer, AssessmentToolSecurityCallback assessmentCallback) {
+		return new IdentityListCourseNodeController(ureq, wControl, stackPanel,
+				courseEntry, group, this, coachCourseEnv, toolContainer, assessmentCallback);
+	}
+	
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListView(org.olat.course.run.userview.UserCourseEnvironment)
 	 */
+	@Override
 	public String getDetailsListView(UserCourseEnvironment userCourseEnvironment) {
-		return "checklist";
+		return null;
 	}
 
 	/**
 	 * @see org.olat.course.nodes.AssessableCourseNode#getDetailsListViewHeaderKey()
 	 */
+	@Override
 	public String getDetailsListViewHeaderKey() {
 		return null;
 	}
@@ -512,6 +547,9 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		return true;
 	}
 
+	/**
+	 * Make an archive of all datas.
+	 */
 	@Override
 	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options,
 			ZipOutputStream exportStream, String charset) {
@@ -524,7 +562,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		CheckboxList list = (CheckboxList)config.get(CONFIG_KEY_CHECKBOX);
 		CheckboxManager checkboxManager = CoreSpringFactory.getImpl(CheckboxManager.class);
 		if(list != null && list.getList() != null) {
-			Set<String> usedNames = new HashSet<String>();
+			Set<String> usedNames = new HashSet<>();
 			
 			for(Checkbox checkbox:list.getList()) {
 				VFSContainer dir = checkboxManager.getFileContainer(course.getCourseEnvironment(), this);
@@ -538,6 +576,34 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 							usedNames.add(checkbox.getTitle());
 						}
 						ZipUtil.addToZip(item, path, exportStream);
+					}
+				}
+			}
+		}
+
+		String filename = dirName + "/" + StringHelper.transformDisplayNameToFileSystemName(getShortName());
+		new CheckListExcelExport(this, course, locale).exportAll(filename, exportStream);
+		
+		//assessment documents
+		if(hasIndividualAsssessmentDocuments()) {
+			List<AssessmentEntry> assessmentEntries = course.getCourseEnvironment()
+					.getAssessmentManager().getAssessmentEntries(this);
+			if(assessmentEntries != null && !assessmentEntries.isEmpty()) {
+				String assessmentDirName = dirName + "/Assessment_documents";
+				for(AssessmentEntry assessmentEntry:assessmentEntries) {
+					Identity assessedIdentity = assessmentEntry.getIdentity();
+					List<File> assessmentDocuments = course.getCourseEnvironment()
+							.getAssessmentManager().getIndividualAssessmentDocuments(this, assessedIdentity);
+					
+					String name = assessedIdentity.getUser().getLastName()
+							+ "_" + assessedIdentity.getUser().getFirstName()
+							+ "_" + assessedIdentity.getName();
+					String userDirName = assessmentDirName + "/" + StringHelper.transformDisplayNameToFileSystemName(name);
+					if(assessmentDocuments != null && !assessmentDocuments.isEmpty()) {
+						for(File document:assessmentDocuments) {
+							String path = userDirName + "/" + document.getName(); 
+							ZipUtil.addFileToZip(path, document, exportStream);
+						}
 					}
 				}
 			}
@@ -598,6 +664,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 	 */
 	public void updateScoreEvaluation(Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity, Role by) {
 		ModuleConfiguration config = getModuleConfiguration();
+		Boolean scoreField = (Boolean)config.get(MSCourseNode.CONFIG_KEY_HAS_SCORE_FIELD);
 		Boolean sum = (Boolean)config.get(CheckListCourseNode.CONFIG_KEY_PASSED_SUM_CHECKBOX);
 		Float cutValue = (Float)config.get(MSCourseNode.CONFIG_KEY_PASSED_CUT_VALUE);
 		Float maxScore = (Float)config.get(MSCourseNode.CONFIG_KEY_SCORE_MAX);
@@ -607,7 +674,9 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		} else if(sum != null && sum.booleanValue()) {
 			doUpdateAssessmentBySum(identity, assessedUserCourseEnv, assessedIdentity, by);
 		} else if(manualCorrection != null && manualCorrection.booleanValue()) {
-			doUpdateManualAssessment(maxScore, identity, assessedUserCourseEnv, assessedIdentity, by);
+			doUpdateScoreOnly(maxScore, identity, assessedUserCourseEnv, assessedIdentity, by);
+		} else if(scoreField != null && scoreField.booleanValue()) {
+			doUpdateScoreOnly(maxScore, identity, assessedUserCourseEnv, assessedIdentity, by);
 		} else {
 			AssessmentManager am = assessedUserCourseEnv.getCourseEnvironment().getAssessmentManager();
 			am.updateLastModifications(this, assessedIdentity, assessedUserCourseEnv, by);
@@ -665,7 +734,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 		am.saveScoreEvaluation(this, identity, assessedIdentity, sceval, assessedUserCourseEnv, false, by);
 	}
 	
-	private void doUpdateManualAssessment(Float maxScore, Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity, Role by) {
+	private void doUpdateScoreOnly(Float maxScore, Identity identity, UserCourseEnvironment assessedUserCourseEnv, Identity assessedIdentity, Role by) {
 		OLATResourceable courseOres = OresHelper
 				.createOLATResourceableInstance("CourseModule", assessedUserCourseEnv.getCourseEnvironment().getCourseResourceableId());
 		
@@ -753,6 +822,7 @@ public class CheckListCourseNode extends AbstractAccessableCourseNode implements
 				DBFactory.getInstance().commitAndCloseSession();
 			}
 		}
+		DBFactory.getInstance().commitAndCloseSession();
 		super.updateOnPublish(locale, course, publisher, publishEvents);
 	}
 	

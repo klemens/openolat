@@ -299,6 +299,16 @@ public class BinderSecurityCallbackFactory {
 		public boolean canDeleteBinder(Binder binder) {
 			return false;
 		}
+		
+		@Override
+		public boolean canBookmark() {
+			return true;
+		}
+
+		@Override
+		public boolean canPageUserInfosStatus() {
+			return true;
+		}
 	}
 	
 	private static class BinderSecurityCallbackImpl implements BinderSecurityCallback {
@@ -510,7 +520,7 @@ public class BinderSecurityCallbackFactory {
 				return !task && PageStatus.isClosed(page);
 			}
 			
-			if(rights != null && PageStatus.isClosed(page)) {
+			if(rights != null && PageStatus.isClosed(page) && page.getPageStatus() != PageStatus.published) {
 				for(AccessRights right:rights) {
 					if(PortfolioRoles.coach.equals(right.getRole())
 							&& right.matchElementAndAncestors(page)) {
@@ -751,6 +761,16 @@ public class BinderSecurityCallbackFactory {
 		}
 
 		@Override
+		public boolean canBookmark() {
+			return !owner;
+		}
+
+		@Override
+		public boolean canPageUserInfosStatus() {
+			return !owner;
+		}
+
+		@Override
 		public Role getRole() {
 			return owner ? Role.user : Role.coach;
 		}
@@ -920,6 +940,16 @@ public class BinderSecurityCallbackFactory {
 
 		@Override
 		public boolean canViewAssessment() {
+			return false;
+		}
+
+		@Override
+		public boolean canBookmark() {
+			return false;
+		}
+
+		@Override
+		public boolean canPageUserInfosStatus() {
 			return false;
 		}
 
