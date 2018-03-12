@@ -125,7 +125,7 @@ public class ExamLecturerOralController extends BasicController implements ExamC
 	}
 	
 	private void init(UserRequest ureq) {
-		if(AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
+		if(AppointmentManager.getInstance().findAllAppointmentsByExam(exam).size() > 0) {
 			mainVC.contextPut("showAppointmentTable", true);
 			
 			refreshTableButton = LinkFactory.createButton("ExamLecturerWrittenController.refreshTable", mainVC, this);

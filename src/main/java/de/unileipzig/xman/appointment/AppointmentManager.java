@@ -3,13 +3,15 @@ package de.unileipzig.xman.appointment;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
+import java.util.stream.Collectors;
+
+import javax.persistence.EntityManager;
 
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.logging.Tracing;
 
 import de.unileipzig.xman.appointment.AppointmentImpl;
 import de.unileipzig.xman.exam.Exam;
-import de.unileipzig.xman.exam.ExamDBManager;
 import de.unileipzig.xman.protocol.Protocol;
 
 /**
@@ -75,9 +77,8 @@ public class AppointmentManager {
 	 * @param exam the exam which will be delete
 	 */
 	public void deleteAllAppointmentsByExam(Exam exam) {
-		
 		if ( exam != null ) {
-			List<Appointment> appList = AppointmentManager.getInstance().findAllAvailableAppointmentsByExamId(exam.getKey());
+			List<Appointment> appList = AppointmentManager.getInstance().findAllAvailableAppointmentsByExam(exam);
 			for ( Appointment app : appList ) {
 				AppointmentManager.getInstance().deleteAppointment(app);
 			}
@@ -99,7 +100,7 @@ public class AppointmentManager {
 	 * @return the specified appointment or null if there is no appointment with this id
 	 */
 	public Appointment findAppointmentByID(Long id) {
-		return DBFactory.getInstance().loadObject(AppointmentImpl.class, id);
+		return DBFactory.getInstance().getCurrentEntityManager().find(AppointmentImpl.class, id);
 	}
 	
 	/**
@@ -107,31 +108,12 @@ public class AppointmentManager {
 	 * @param examId the id of the exam
 	 * @return all appointments which belong to the exam(Id), or empty list of there were no appointments
 	 */
-	public List<Appointment> findAllAppointmentsByExamId(Long examId) {
-		
-		List<Appointment> appointments = new Vector<Appointment>();
-		String query = "from de.unileipzig.xman.appointment.AppointmentImpl as app where app.exam =" + examId;
-		List searchList = DBFactory.getInstance().find(query);
-		for( Object o : searchList ) {
-			appointments.add((Appointment) o);
-		}
-		return appointments;
-	}
-	
-	/**
-	 * finds all appointments for a given user id
-	 * @param userId the id of the user
-	 * @return a list of all appointments in which the student is registered, or null if there were no appointments
-	 */
-	public List<Appointment> findAllAppointmentsByStudent(Long userId) {
-		
-		List<Appointment> appList = new Vector<Appointment>();
-		String protoQuery = "from de.unileipzig.xman.protocol.ProtocolImpl as proto where proto.user =" + userId;
-		List<Protocol> protoList = DBFactory.getInstance().find(protoQuery);
-		for ( Protocol proto : protoList ) {
-			appList.add((Appointment)DBFactory.getInstance().loadObject(AppointmentImpl.class , proto.getAppointment().getKey()));
-		}
-		return appList;
+	public List<Appointment> findAllAppointmentsByExam(Exam exam) {
+		String query = "from de.unileipzig.xman.appointment.AppointmentImpl as app where app.exam = :exam";
+		return DBFactory.getInstance().getCurrentEntityManager()
+			.createQuery(query, Appointment.class)
+			.setParameter("exam", exam)
+			.getResultList();
 	}
 	
 	/**
@@ -139,9 +121,8 @@ public class AppointmentManager {
 	 * @param examId the id of the exam
 	 * @return a list of available appointments, or null if there were no appointments 
 	 */
-	public List<Appointment> findAllAvailableAppointmentsByExamId(Long examId) {
-		
-		List<Appointment> tempList = AppointmentManager.getInstance().findAllAppointmentsByExamId(examId);
+	public List<Appointment> findAllAvailableAppointmentsByExam(Exam exam) {
+		List<Appointment> tempList = AppointmentManager.getInstance().findAllAppointmentsByExam(exam);
 		List<Appointment> appList = new Vector<Appointment>();
 		for ( Appointment app : tempList ) {
 			if ( !app.getOccupied() ) {

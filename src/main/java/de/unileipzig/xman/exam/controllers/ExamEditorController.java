@@ -184,7 +184,7 @@ public class ExamEditorController extends BasicController {
 		boolean enableAppLink = true;
 		if (!exam.getIsOral()) {
 			if (AppointmentManager.getInstance()
-					.findAllAppointmentsByExamId(exam.getKey()).size() != 0) {
+					.findAllAppointmentsByExam(exam).size() != 0) {
 				enableAppLink = false;
 			}
 		}
@@ -198,7 +198,7 @@ public class ExamEditorController extends BasicController {
 		appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.edit", "appTable.edit");
 		if (exam.getIsOral())
 			appTableCtr.addMultiSelectAction("ExamEditorController.appointmentTable.del", "appTable.del");
-		List<Appointment> appList = AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey());
+		List<Appointment> appList = AppointmentManager.getInstance().findAllAppointmentsByExam(exam);
 		appTableMdl = new AppointmentTableModel(getTranslator(), appList, exam.getIsOral());
 		appTableMdl.setTable(appTableCtr);
 		appTableCtr.setTableDataModel(appTableMdl);
@@ -364,7 +364,7 @@ public class ExamEditorController extends BasicController {
 					}
 
 					appTableMdl.setObjects(AppointmentManager.getInstance()
-							.findAllAppointmentsByExamId(exam.getKey()));
+							.findAllAppointmentsByExam(exam));
 					appTableCtr.modelChanged();
 				}
 			}
@@ -424,7 +424,7 @@ public class ExamEditorController extends BasicController {
 							createAppForm.getPause());
 				}
 				appTableMdl.setObjects(AppointmentManager.getInstance()
-						.findAllAppointmentsByExamId(exam.getKey()));
+						.findAllAppointmentsByExam(exam));
 				appTableCtr.modelChanged();
 			}
 		} else if (source == editAppForm) {
@@ -438,7 +438,7 @@ public class ExamEditorController extends BasicController {
 				app.setDuration(editAppForm.getDuration());
 				AppointmentManager.getInstance().updateAppointment(app);
 				appTableMdl.setObjects(AppointmentManager.getInstance()
-						.findAllAppointmentsByExamId(exam.getKey()));
+						.findAllAppointmentsByExam(exam));
 				appTableCtr.modelChanged();
 				List<Protocol> protoList = ProtocolManager.getInstance()
 						.findAllProtocolsByAppointment(app);

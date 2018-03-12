@@ -3,6 +3,8 @@ package de.unileipzig.xman.exam;
 import java.util.Date;
 import java.util.List;
 
+import javax.persistence.NoResultException;
+
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.logging.OLog;
@@ -87,14 +89,13 @@ public class ExamDBManager {
 	 * @return the exam with the given id or null, if no exam was found
 	 */
 	public Exam findExamByID(Long id) {
-		
-		String query = "from de.unileipzig.xman.exam.ExamImpl as b where b.key = " + id;
-		List examList = DBFactory.getInstance().find(query);
-		if ( examList.size() > 0 ) return (Exam)examList.get(0);
-		else {
+		Exam exam = DBFactory.getInstance().getCurrentEntityManager().find(ExamImpl.class, id);
+
+		if(exam == null) {
 			log.info("No exam with id " + id + " could be found!");
-			return null;
 		}
+
+		return exam;
 	}
 	
 	/**
@@ -102,12 +103,19 @@ public class ExamDBManager {
 	 * @return the name of the given exam
 	 */
 	public String getExamName(Exam exam) {
-		
-		String query = "from org.olat.repository.RepositoryEntry as rep where rep.olatResource = "
-			+ "(select key from org.olat.resource.OLATResourceImpl as res where res.resId = " + exam.getKey() + ")";
-		List<RepositoryEntry> list = DBFactory.getInstance().find(query);
-		if ( list.size() == 1 ) return list.get(0).getDisplayname();
-		return "n/a";
+		// TODO: delete? exam.getName()?
+
+		try {
+			String query = "from org.olat.repository.RepositoryEntry as rep where rep.olatResource = "
+					+ "(select key from org.olat.resource.OLATResourceImpl as res where res.resId = :examId)";
+			return DBFactory.getInstance().getCurrentEntityManager()
+				.createQuery(query, RepositoryEntry.class)
+				.setParameter("examId", exam.getKey())
+				.getSingleResult()
+				.getDisplayname();
+		} catch(NoResultException e) {
+			return "n/a";
+		}
 	}
 	
 	/**

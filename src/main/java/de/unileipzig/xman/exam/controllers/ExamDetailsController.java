@@ -76,7 +76,7 @@ public class ExamDetailsController extends BasicController implements ExamContro
 		}
 
 		// only show publication warnings if requested and at least one appointment exists
-		if(showWarnings && AppointmentManager.getInstance().findAllAppointmentsByExamId(exam.getKey()).size() > 0) {
+		if(showWarnings && AppointmentManager.getInstance().findAllAppointmentsByExam(exam).size() > 0) {
 			RepositoryEntry re = ExamDBManager.getInstance().findRepositoryEntryOfExam(exam);
 
 			// private warning
