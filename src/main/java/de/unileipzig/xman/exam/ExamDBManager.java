@@ -97,27 +97,7 @@ public class ExamDBManager {
 
 		return exam;
 	}
-	
-	/**
-	 * @param exam
-	 * @return the name of the given exam
-	 */
-	public String getExamName(Exam exam) {
-		// TODO: delete? exam.getName()?
 
-		try {
-			String query = "from org.olat.repository.RepositoryEntry as rep where rep.olatResource = "
-					+ "(select key from org.olat.resource.OLATResourceImpl as res where res.resId = :examId)";
-			return DBFactory.getInstance().getCurrentEntityManager()
-				.createQuery(query, RepositoryEntry.class)
-				.setParameter("examId", exam.getKey())
-				.getSingleResult()
-				.getDisplayname();
-		} catch(NoResultException e) {
-			return "n/a";
-		}
-	}
-	
 	/**
 	 * @param exam
 	 * @return the RepositoryEntry of the given exam 

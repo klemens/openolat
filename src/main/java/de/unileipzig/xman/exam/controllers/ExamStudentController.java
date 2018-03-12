@@ -135,10 +135,10 @@ public class ExamStudentController extends BasicController implements ExamContro
 				// Email Remove
 				BusinessControlFactory bcf = BusinessControlFactory.getInstance();
 				MailManager.getInstance().sendEmail(
-					translate("Mail.Remove.Subject",new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+					translate("Mail.Remove.Subject",new String[] { exam.getName() }),
 					translate("Mail.Remove.Body",
 						new String[] {
-							ExamDBManager.getInstance().getExamName(exam),
+							exam.getName(),
 							protocol.getIdentity().getUser().getProperty(UserConstants.LASTNAME, null) + ", " + protocol.getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null),
 							DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, getLocale()).format(protocol.getAppointment().getDate()),
 							protocol.getAppointment().getPlace(),

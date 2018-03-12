@@ -337,10 +337,10 @@ public class ExamEditorController extends BasicController {
 							
 							// Email DeleteAppointment
 							MailManager.getInstance().sendEmail(
-								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Subject", new String[] { exam.getName() }),
 								tmpTranslator.translate("ExamEditorController.DeleteAppointment.Body",
 									new String[] {
-										ExamDBManager.getInstance().getExamName(exam),
+										exam.getName(),
 										getName(p.getIdentity()),
 										DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(tempApp.getDate()),
 										tempApp.getPlace(),
@@ -449,10 +449,10 @@ public class ExamEditorController extends BasicController {
 
 					// Email UpdateAppointment
 					MailManager.getInstance().sendEmail(
-						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Subject", new String[] { ExamDBManager.getInstance().getExamName(exam) }),
+						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Subject", new String[] { exam.getName() }),
 						tmpTranslator.translate("ExamEditorController.UpdateAppointment.Body",
 							new String[] {
-								ExamDBManager.getInstance().getExamName(exam),
+								exam.getName(),
 								getName(p.getIdentity()),
 								DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT, tmpTranslator.getLocale()).format(p.getAppointment().getDate()),
 								p.getAppointment().getPlace(),
