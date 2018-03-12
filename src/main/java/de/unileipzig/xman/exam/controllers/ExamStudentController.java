@@ -197,8 +197,11 @@ public class ExamStudentController extends BasicController implements ExamContro
                 Appointment appointment = AppointmentManager.getInstance().findAppointmentByID(examStudentRegistrationDetailsControler.getAppointment().getKey());
                 esf = ElectronicStudentFileManager.getInstance().retrieveESFByIdentity(esf.getIdentity());
                 
-				// register student to the chosen appointment
-                if(!appointment.getOccupied()) {
+				if(!exam.getIsOral() && ProtocolManager.getInstance().isIdentitySubscribedToExam(esf.getIdentity(), exam)) {
+					// This can happen if the student is registered manually while trying to register
+					showInfo("ExamStudentController.info.alreadyRegistered");
+				} else if(!appointment.getOccupied()) {
+					// register student to the chosen appointment
 					if(exam.getEarmarkedEnabled()) {
 						ProtocolManager.getInstance().earmarkStudent(appointment, esf, comment);
 					} else {
