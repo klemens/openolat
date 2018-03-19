@@ -53,11 +53,12 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 	private static final String CMD_IMAGEBROWSER = "image";
 	private static final String CMD_FLASHPLAYERBROWSER = "flashplayer";
 	private static final String CMD_FILEBROWSER = "file";
+	private static final String CMD_MEDIABROWSER = "media";
 	private static final ComponentRenderer RENDERER = new RichTextElementRenderer();
 
 	private final RichTextElementImpl element;
-	private int cols;
-	private int rows;
+	private int cols, rows;
+	private TextMode currentTextMode;
 
 	/**
 	 * Constructor for a text area element
@@ -105,6 +106,14 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 		this.rows = rows;
 	}
 
+	protected TextMode getCurrentTextMode() {
+		return currentTextMode;
+	}
+
+	protected void setCurrentTextMode(TextMode currentTextMode) {
+		this.currentTextMode = currentTextMode;
+	}
+
 	@Override
 	public void validate(UserRequest ureq, ValidationResult vr) {
 		super.validate(ureq, vr);
@@ -118,7 +127,8 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 		// element we make an exception since we have the media and link chooser
 		// events that must be dispatched by this code.		
 		String moduleUri = ureq.getModuleURI();
-		if (CMD_FILEBROWSER.equals(moduleUri) || CMD_IMAGEBROWSER.equals(moduleUri) || CMD_FLASHPLAYERBROWSER.equals(moduleUri)) {
+		if (CMD_FILEBROWSER.equals(moduleUri) || CMD_IMAGEBROWSER.equals(moduleUri)
+				|| CMD_FLASHPLAYERBROWSER.equals(moduleUri) || CMD_MEDIABROWSER.equals(moduleUri)) {
 			// Get currently edited relative file path
 			String fileName = getRichTextElementImpl().getEditorConfiguration().getLinkBrowserRelativeFilePath();
 			createFileSelectorPopupWindow(ureq, moduleUri, fileName);
@@ -136,6 +146,7 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 		// Get allowed suffixes from configuration and requested media browser type from event
 		final RichTextConfiguration config = element.getEditorConfiguration();
 		final boolean allowCustomMediaFactory = config.isAllowCustomMediaFactory();
+		final boolean uriValidation = config.isFilenameUriValidation();
 		final String[] suffixes;
 		if(type.equals(CMD_FILEBROWSER)) {
 			suffixes = null;
@@ -162,10 +173,10 @@ class RichTextElementComponent extends FormBaseComponentImpl {
 				CustomLinkTreeModel linkBrowserCustomTreeModel = config.getLinkBrowserCustomLinkTreeModel();
 				if (type.equals(CMD_FILEBROWSER)) {
 					// when in file mode we include the internal links to the selection
-					myLinkChooserController = new LinkChooserController(lureq, lwControl, baseContainer, uploadRelPath, absolutePath, suffixes, fileName, linkBrowserCustomTreeModel, allowCustomMediaFactory);			
+					myLinkChooserController = new LinkChooserController(lureq, lwControl, baseContainer, uploadRelPath, absolutePath, suffixes, uriValidation, fileName, linkBrowserCustomTreeModel, allowCustomMediaFactory);			
 				} else {
 					// in media or image mode, internal links make no sense here
-					myLinkChooserController = new LinkChooserController(lureq, lwControl, baseContainer, uploadRelPath, absolutePath, suffixes, fileName, null, allowCustomMediaFactory);						
+					myLinkChooserController = new LinkChooserController(lureq, lwControl, baseContainer, uploadRelPath, absolutePath, suffixes, uriValidation, fileName, null, allowCustomMediaFactory);						
 				}
 				return new LayoutMain3ColsController(lureq, lwControl, myLinkChooserController);
 			}

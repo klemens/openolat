@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.Callable;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -37,6 +38,7 @@ import org.olat.core.id.Roles;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.course.certificate.Certificate;
 import org.olat.course.certificate.CertificateLight;
+import org.olat.course.certificate.CertificateStatus;
 import org.olat.course.certificate.CertificateTemplate;
 import org.olat.course.certificate.CertificatesManager;
 import org.olat.course.certificate.model.CertificateImpl;
@@ -93,7 +95,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 	@Test
 	public void createCertificate() throws URISyntaxException {
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-1");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		
 		CertificateInfos certificateInfos = new CertificateInfos(identity, null, null);
@@ -102,12 +104,11 @@ public class CertificatesManagerTest extends OlatTestCase {
 		Assert.assertNotNull(certificate.getKey());
 		Assert.assertNotNull(certificate.getUuid());
 		Assert.assertEquals(entry.getOlatResource().getKey(), certificate.getArchivedResourceKey());
-		
-		//need to sleep
-		sleep(2000);
-		
 		//check if the pdf exists / flush cache, reload the entry with the updated path
 		dbInstance.commitAndCloseSession();
+
+		waitCertificate(certificate.getKey());
+
 		Certificate reloadCertificate = certificatesManager.getCertificateById(certificate.getKey());
 		VFSLeaf certificateFile = certificatesManager.getCertificateLeaf(reloadCertificate);
 		Assert.assertNotNull(certificateFile);
@@ -117,7 +118,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 	@Test
 	public void loadCertificate() {
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-1");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		
 		CertificateInfos certificateInfos = new CertificateInfos(identity, 5.0f, Boolean.TRUE);
@@ -157,7 +158,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 	@Test
 	public void loadLastCertificate() {
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-1");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		
 		CertificateInfos certificateInfos = new CertificateInfos(identity, 5.0f, Boolean.TRUE);
@@ -187,7 +188,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 		Identity coach = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-3");
 		Identity participant1 = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-4");
 		Identity participant2 = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-4");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(owner);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(owner);
 		repositoryEntryRelationDao.addRole(coach, entry, GroupRoles.coach.name());
 		repositoryEntryRelationDao.addRole(participant1, entry, GroupRoles.participant.name());
 		repositoryEntryRelationDao.addRole(participant2, entry, GroupRoles.participant.name());
@@ -227,7 +228,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 		Identity coach = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-6");
 		Identity participant1 = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-7");
 		Identity participant2 = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-8");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(owner);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(owner);
 		BusinessGroup group = businessGroupService.createBusinessGroup(null, "certified-group", "Group with certification", null, null, false, false, entry);
 	    businessGroupRelationDao.addRole(coach, group, GroupRoles.coach.name());
 	    businessGroupRelationDao.addRole(participant1, group, GroupRoles.participant.name());
@@ -243,9 +244,14 @@ public class CertificatesManagerTest extends OlatTestCase {
 		Assert.assertNotNull(certificate2);
 		dbInstance.commitAndCloseSession();
 		
-		
+		waitCertificate(certificate1.getKey());
+		waitCertificate(certificate2.getKey());
+
+		dbInstance.commitAndCloseSession();
+		sleep(2000);
+
 		Calendar lastestNews = Calendar.getInstance();
-		lastestNews.add(Calendar.HOUR_OF_DAY, -1);
+		lastestNews.add(Calendar.DATE, -1);
 		
 		//check the notifications of the coach
 		List<Certificate> coachNotifications = certificatesManager.getCertificatesForNotifications(coach, entry, lastestNews.getTime());
@@ -262,7 +268,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 	@Test
 	public void uploadCertificate() throws URISyntaxException {
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-1");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		
 		Calendar cal = Calendar.getInstance();
@@ -357,7 +363,7 @@ public class CertificatesManagerTest extends OlatTestCase {
 	public void deleteCourse()  throws URISyntaxException  {
 		//create a course with a certificate
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-del-2");
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		Long resourceKey = entry.getOlatResource().getKey();
 		
@@ -396,8 +402,8 @@ public class CertificatesManagerTest extends OlatTestCase {
 	public void deleteCourse_paranoiaCheck()  throws URISyntaxException  {
 		//create a course with a certificate
 		Identity identity = JunitTestHelper.createAndPersistIdentityAsRndUser("cer-del-3");
-		RepositoryEntry entryToDelete = JunitTestHelper.deployDemoCourse(identity);
-		RepositoryEntry entry = JunitTestHelper.deployDemoCourse(identity);
+		RepositoryEntry entryToDelete = JunitTestHelper.deployBasicCourse(identity);
+		RepositoryEntry entry = JunitTestHelper.deployBasicCourse(identity);
 		dbInstance.commitAndCloseSession();
 		Long resourceKeyToDelete = entryToDelete.getOlatResource().getKey();
 		Long resourceKey = entry.getOlatResource().getKey();
@@ -436,5 +442,17 @@ public class CertificatesManagerTest extends OlatTestCase {
 		Assert.assertNotNull(reloadedCertificate.getArchivedResourceKey());
 		Assert.assertEquals(resourceKey, reloadedCertificate.getArchivedResourceKey());
 		Assert.assertEquals(entry.getOlatResource(), ((CertificateImpl)reloadedCertificate).getOlatResource());
+	}
+	
+	
+	private void waitCertificate(Long certificateKey) {
+		//wait until the certificate is created
+		waitForCondition(new Callable<Boolean>() {
+			@Override
+			public Boolean call() throws Exception {
+				Certificate reloadedCertificate = certificatesManager.getCertificateById(certificateKey);
+				return CertificateStatus.ok.equals(reloadedCertificate.getStatus());
+			}
+		}, 30000);
 	}
 }

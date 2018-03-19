@@ -35,6 +35,8 @@ import org.olat.core.commons.controllers.linkchooser.CustomLinkTreeModel;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.ComponentEventListener;
+import org.olat.core.gui.components.dropdown.DropdownItem;
+import org.olat.core.gui.components.form.flexible.elements.AutoCompleter;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.DownloadLink;
 import org.olat.core.gui.components.form.flexible.elements.FileElement;
@@ -58,6 +60,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormItemImpl;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleExampleText;
 import org.olat.core.gui.components.form.flexible.impl.components.SimpleFormErrorText;
+import org.olat.core.gui.components.form.flexible.impl.elements.AutoCompleterImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.DownloadLinkImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FileElementImpl;
 import org.olat.core.gui.components.form.flexible.impl.elements.FormCancel;
@@ -84,6 +87,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableElementImpl;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.progressbar.ProgressBarItem;
+import org.olat.core.gui.components.rating.RatingFormItem;
 import org.olat.core.gui.components.tree.MenuTreeItem;
 import org.olat.core.gui.components.tree.TreeModel;
 import org.olat.core.gui.control.WindowBackOffice;
@@ -383,6 +387,9 @@ public class FormUIFactory {
 		return ss;
 	}
 
+	public SingleSelection addDropdownSingleselect(final String name, FormItemContainer formLayout, final String[] theKeys, final String[] theValues) {
+		return addDropdownSingleselect(name, name, name, formLayout, theKeys, theValues, null);
+	}
 
 	/**
 	 * Add a drop down menu (also called pulldown menu), with a label's i18n key being the same as the <code>name<code>.
@@ -426,7 +433,7 @@ public class FormUIFactory {
 	 * @return
 	 */
 	public SingleSelection addDropdownSingleselect(final String id, final String name, final String i18nLabel, FormItemContainer formLayout, final String[] theKeys, final String[] theValues, final String[] theCssClasses) {
-		SingleSelection ss = new SelectboxSelectionImpl(id, name);
+		SingleSelection ss = new SelectboxSelectionImpl(id, name, formLayout.getTranslator().getLocale());
 		ss.setKeysAndValues(theKeys, theValues, theCssClasses);
 		setLabelIfNotNull(i18nLabel, ss);
 		formLayout.add(ss);
@@ -542,6 +549,10 @@ public class FormUIFactory {
 		return fiWrapper;
 	}
 	
+	public TextElement addTextElement(final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		return addTextElement(i18nLabel, i18nLabel, maxLen, initialValue, formLayout);
+	}
 	
 	/**
 	 * 
@@ -609,6 +620,23 @@ public class FormUIFactory {
 		te.setNotLongerThanCheck(maxLen, "text.element.error.notlongerthan");
 		setLabelIfNotNull(i18nLabel, te);
 		te.setMaxLength(maxLen);
+		formLayout.add(te);
+		return te;
+	}
+	
+	public AutoCompleter addTextElementWithAutoCompleter(String name, final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		return addTextElementWithAutoCompleter(null, name, i18nLabel, maxLen, initialValue, formLayout);
+	}
+	
+	public AutoCompleter addTextElementWithAutoCompleter(String id, String name, final String i18nLabel, final int maxLen, String initialValue,
+			FormItemContainer formLayout) {
+		String val = initialValue == null ? "" : initialValue;
+		AutoCompleterImpl te = new AutoCompleterImpl(id, name);
+		te.setNotLongerThanCheck(maxLen, "text.element.error.notlongerthan");
+		setLabelIfNotNull(i18nLabel, te);
+		te.setMaxLength(maxLen);
+		te.setValue(val);
 		formLayout.add(te);
 		return te;
 	}
@@ -691,7 +719,8 @@ public class FormUIFactory {
 		RichTextElement rte = new RichTextElementImpl(name, initialHTMLValue, rows, cols, formLayout.getRootForm(), formLayout.getTranslator().getLocale());
 		setLabelIfNotNull(i18nLabel, rte);
 		// Now configure editor
-		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());			
+		rte.getEditorConfiguration().setConfigProfileFormEditorMinimalistic(wControl.getWindowBackOffice().getWindow().getGuiTheme());		
+		rte.getEditorConfiguration().setPathInStatusBar(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -767,7 +796,7 @@ public class FormUIFactory {
 	/**
 	 * 
 	 * This is a version with olat media only. The tiny media is disabled because we need to catch the object
-	 * tag use by QTI and interpret it as a olat video.
+	 * tag use by QTI and interpret it as a olat video. It enable the strict uri validation for file names.
 	 * 
 	 * @param name
 	 * @param i18nLabel
@@ -791,6 +820,8 @@ public class FormUIFactory {
 		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
 		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
 		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
+		rte.getEditorConfiguration().setFigCaption(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -807,6 +838,8 @@ public class FormUIFactory {
 		rte.getEditorConfiguration().setInvalidElements(RichTextConfiguration.INVALID_ELEMENTS_FORM_FULL_VALUE_UNSAVE_WITH_SCRIPT);
 		rte.getEditorConfiguration().setExtendedValidElements("script[src|type|defer]");
 		rte.getEditorConfiguration().disableTinyMedia();
+		rte.getEditorConfiguration().setFilenameUriValidation(true);
+		rte.getEditorConfiguration().setFigCaption(false);
 		// Add to form and finish
 		formLayout.add(rte);
 		return rte;
@@ -1213,5 +1246,27 @@ public class FormUIFactory {
 		setLabelIfNotNull(i18nLabel, slider);
 		formLayout.add(slider);
 		return slider;
+	}
+	
+	
+	public DropdownItem addDropdownMenu(String name, String i18nLabel, FormItemContainer formLayout, Translator translator) {
+		DropdownItem dropdown = new DropdownItem(name, name, translator);
+		dropdown.setEmbbeded(true);
+		dropdown.setButton(true);
+		setLabelIfNotNull(i18nLabel, dropdown);
+		formLayout.add(dropdown);
+		return dropdown;
+	}
+	
+	public RatingFormItem addRatingItem(String name, String i18nLabel, float initialRating, int maxRating, boolean allowUserInput, FormItemContainer formLayout) {
+		RatingFormItem ratingCmp = new RatingFormItem(name, initialRating, maxRating, allowUserInput);
+		setLabelIfNotNull(i18nLabel, ratingCmp);
+		if(i18nLabel != null) {
+			ratingCmp.showLabel(true);
+		}
+		if(formLayout != null) {
+			formLayout.add(ratingCmp);
+		}
+		return ratingCmp;
 	}
 }

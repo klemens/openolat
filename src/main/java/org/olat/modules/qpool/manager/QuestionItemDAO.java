@@ -43,10 +43,11 @@ import org.olat.modules.qpool.QuestionItem2Resource;
 import org.olat.modules.qpool.QuestionItemFull;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.QuestionStatus;
-import org.olat.modules.qpool.TaxonomyLevel;
 import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QuestionItemImpl;
 import org.olat.modules.qpool.model.ResourceShareImpl;
+import org.olat.modules.taxonomy.TaxonomyLevel;
+import org.olat.modules.taxonomy.TaxonomyLevelRef;
 import org.olat.resource.OLATResource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -71,12 +72,14 @@ public class QuestionItemDAO {
 	public QuestionItemImpl create(String title, String format, String dir, String rootFilename) {
 		QuestionItemImpl item = new QuestionItemImpl();
 		
+		Date now = new Date();
 		String uuid = UUID.randomUUID().toString();
 		item.setIdentifier(uuid);
-		item.setCreationDate(new Date());
-		item.setLastModified(new Date());
+		item.setCreationDate(now);
+		item.setLastModified(now);
 		item.setTitle(title);
 		item.setStatus(QuestionStatus.draft.name());
+		item.setQuestionStatusLastModified(now);
 		item.setUsage(0);
 		item.setNumOfAnswerAlternatives(0);
 		item.setFormat(format);
@@ -89,9 +92,9 @@ public class QuestionItemDAO {
 		return item;
 	}
 
-	public QuestionItemImpl createAndPersist(Identity owner, String subject, String format, String language,
+	public QuestionItemImpl createAndPersist(Identity owner, String title, String format, String language,
 			TaxonomyLevel taxonLevel, String dir, String rootFilename, QItemType type) {
-		QuestionItemImpl item = create(subject, format, dir, rootFilename);
+		QuestionItemImpl item = create(title, format, dir, rootFilename);
 		if(type != null) {
 			item.setType(type);
 		}
@@ -119,8 +122,8 @@ public class QuestionItemDAO {
 	 * @return A copy of the question.
 	 */
 	public QuestionItemImpl copy(QuestionItemImpl original) {
-		String subject = "(Copy) " + original.getTitle();
-		QuestionItemImpl copy = create(subject, original.getFormat(), null, original.getRootFilename());
+		String title = "(Copy) " + original.getTitle();
+		QuestionItemImpl copy = create(title, original.getFormat(), null, original.getRootFilename());
 		
 		//general
 		copy.setMasterIdentifier(original.getIdentifier());
@@ -132,6 +135,7 @@ public class QuestionItemDAO {
 		
 		//classification
 		copy.setTaxonomyLevel(original.getTaxonomyLevel());
+		copy.setTopic(original.getTopic());
 		
 		//educational
 		copy.setEducationalContext(original.getEducationalContext());
@@ -222,14 +226,69 @@ public class QuestionItemDAO {
 		return query.getResultList();
 	}
 	
-	public void delete(List<QuestionItemShort> items) {
+	public List<QuestionItemShort> getItems(TaxonomyLevelRef taxonomyLevel) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select item from questionitem item")
+		  .append(" where item.taxonomyLevel.key=:taxonomyLevelKey");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), QuestionItemShort.class)
+				.setParameter("taxonomyLevelKey", taxonomyLevel.getKey())
+				.getResultList();
+	}
+	
+	public List<QuestionItem> getItemsWithOneAuthor(Identity author) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select item from questionitem item");
+		sb.append(" where exists (").append("select sgmi.key from ");
+		sb.append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmi");
+		sb.append("   where sgmi.identity.key=:identityKey and sgmi.securityGroup=item.ownerGroup");
+		sb.append(" )");
+		sb.append(" and 1 = (").append("select count(sgmi.key) from ");
+		sb.append(SecurityGroupMembershipImpl.class.getName()).append(" as sgmi");
+		sb.append("   where sgmi.securityGroup=item.ownerGroup");
+		sb.append(" )");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), QuestionItem.class)
+				.setParameter("identityKey", author.getKey())
+				.getResultList();
+	}
+	
+	public void delete(List<? extends QuestionItemShort> items) {
 		EntityManager em = dbInstance.getCurrentEntityManager();
 		for(QuestionItemShort item:items) {
-			QuestionItem refItem = em.getReference(QuestionItemImpl.class, item.getKey());
-			em.remove(refItem);
+			QuestionItem refItem = loadLazyReferenceId(item.getKey());
+			if(refItem != null) {
+				em.remove(refItem);
+			}
 		}
 	}
 	
+	/**
+	 * The method only load the question item and doesn't fetch
+	 * anything.
+	 * 
+	 * @param key The primary key of the item
+	 * @return The question item or null if not found
+	 */
+	private QuestionItem loadLazyReferenceId(Long key) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select item from questionitem item")
+		  .append(" where item.key=:key");
+		List<QuestionItem> items = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), QuestionItem.class)
+				.setParameter("key", key)
+				.getResultList();
+		return items == null || items.isEmpty() ? null : items.get(0);
+	}
+	
+	/**
+	 * The method loads the question item and fetch
+	 * the taxonomy level, license, item type and
+	 * educational context.
+	 * 
+	 * @param key The primary key of the item
+	 * @return The question item or null if not found
+	 */
 	public QuestionItemImpl loadById(Long key) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select item from questionitem item")
@@ -247,6 +306,28 @@ public class QuestionItemDAO {
 			return null;
 		}
 		return items.get(0);
+	}
+	
+	/**
+	 * The method loads the question items and fetch
+	 * the taxonomy level, license, item type and
+	 * educational context.
+	 * 
+	 * @param key The identifier of the item as defined in its metadata
+	 * @return The question items with the corresponding identifier
+	 */
+	public List<QuestionItem> loadByIdentifier(String identifier) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select item from questionitem item")
+		  .append(" left join fetch item.taxonomyLevel taxonomyLevel")
+		  .append(" left join fetch item.license license")
+		  .append(" left join fetch item.type itemType")
+		  .append(" left join fetch item.educationalContext educationalContext")
+		  .append(" where item.identifier=:identifier");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), QuestionItem.class)
+				.setParameter("identifier", identifier)
+				.getResultList();
 	}
 	
 	public List<QuestionItemFull> loadByIds(Collection<Long> key) {
@@ -283,6 +364,14 @@ public class QuestionItemDAO {
 				.getSingleResult().intValue();
 	}
 	
+	public void resetAllStatesToDraft() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("update questionitem item set item.status='").append(QuestionStatus.draft.toString()).append("'");
+		dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString())
+				.executeUpdate();
+	}
+
 	public List<Long> getFavoritKeys(Identity identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select distinct(mark.resId) from ").append(MarkImpl.class.getName()).append(" mark ")
@@ -395,8 +484,8 @@ public class QuestionItemDAO {
 				.getResultList();
 	}
 	
-	public int removeFromShares(List<QuestionItemShort> items) {
-		List<Long> keys = new ArrayList<Long>();
+	public int removeFromShares(List<? extends QuestionItemShort> items) {
+		List<Long> keys = new ArrayList<>();
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}
@@ -409,7 +498,7 @@ public class QuestionItemDAO {
 	}
 	
 	public int removeFromShare(List<QuestionItemShort> items, OLATResource resource) {
-		List<Long> keys = new ArrayList<Long>();
+		List<Long> keys = new ArrayList<>();
 		for(QuestionItemShort item:items) {
 			keys.add(item.getKey());
 		}

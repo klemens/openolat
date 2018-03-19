@@ -24,6 +24,7 @@ import java.util.Date;
 
 import org.olat.core.commons.services.mark.Mark;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.modules.qpool.QuestionItemSecurityCallback;
 import org.olat.modules.qpool.QuestionItemView;
 import org.olat.modules.qpool.QuestionStatus;
 
@@ -35,11 +36,13 @@ import org.olat.modules.qpool.QuestionStatus;
 public class ItemRow implements QuestionItemView {
 
 	private final QuestionItemView delegate;
+	private final QuestionItemSecurityCallback securityCallback;
 	
 	private FormLink markLink;
-	
-	public ItemRow(QuestionItemView item) {
-		this.delegate = item;
+
+	public ItemRow(QuestionItemView delegate, QuestionItemSecurityCallback securityCallback) {
+		this.delegate = delegate;
+		this.securityCallback = securityCallback;
 	}
 
 	@Override
@@ -48,8 +51,48 @@ public class ItemRow implements QuestionItemView {
 	}
 
 	@Override
+	public boolean isAuthor() {
+		return delegate.isAuthor();
+	}
+	
+	@Override
+	public boolean isTeacher() {
+		return delegate.isTeacher();
+	}
+
+	@Override
+	public boolean isReviewer() {
+		return delegate.isReviewer();
+	}
+
+	@Override
+	public boolean isManager() {
+		return delegate.isManager();
+	}
+
+	@Override
+	public boolean isRater() {
+		return delegate.isRater();
+	}
+
+	@Override
+	public boolean isEditableInPool() {
+		return delegate.isEditableInPool();
+	}
+
+	@Override
+	public boolean isEditableInShare() {
+		return delegate.isEditableInShare();
+	}
+	
+	@Override
 	public boolean isEditable() {
-		return delegate.isEditable();
+		return securityCallback.canEditQuestion();
+	}
+
+	@Override
+	public boolean isReviewableFormat() {
+		return delegate.isReviewableFormat();
 	}
 
 	@Override
@@ -62,6 +105,11 @@ public class ItemRow implements QuestionItemView {
 		return delegate.getRating();
 	}
 
+	@Override
+	public int getNumberOfRatings() {
+		return delegate.getNumberOfRatings();
+	}
+	
 	@Override
 	public String getResourceableTypeName() {
 		return delegate.getResourceableTypeName();
@@ -88,6 +136,11 @@ public class ItemRow implements QuestionItemView {
 	}
 	
 	@Override
+	public String getTopic() {
+		return delegate.getTopic();
+	}
+	
+	@Override
 	public String getKeywords() {
 		return delegate.getKeywords();
 	}
@@ -107,8 +160,14 @@ public class ItemRow implements QuestionItemView {
 		return delegate.getLanguage();
 	}
 
+	@Override
 	public String getTaxonomyLevelName() {
 		return delegate.getTaxonomyLevelName();
+	}
+
+	@Override
+	public String getTaxonomicPath() {
+		return delegate.getTaxonomicPath();
 	}
 
 	@Override
@@ -177,6 +236,11 @@ public class ItemRow implements QuestionItemView {
 	}
 
 	@Override
+	public Date getQuestionStatusLastModified() {
+		return delegate.getQuestionStatusLastModified();
+	}
+
+	@Override
 	public String getItemVersion() {
 		return delegate.getItemVersion();
 	}
@@ -193,6 +257,10 @@ public class ItemRow implements QuestionItemView {
 		if(markLink != null) {
 			markLink.setIconLeftCSS("o_icon o_icon-lg " +  (mark ? Mark.MARK_CSS_ICON : Mark.MARK_ADD_CSS_ICON));
 		}
+	}
+
+	public QuestionItemSecurityCallback getSecurityCallback() {
+		return this.securityCallback;
 	}
 
 	@Override
@@ -219,4 +287,5 @@ public class ItemRow implements QuestionItemView {
 		  .append("name=").append(delegate.getTitle()).append("]");
 		return sb.toString();
 	}
+
 }

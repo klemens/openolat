@@ -375,9 +375,10 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * @see org.olat.core.gui.control.DefaultController#event(org.olat.core.gui.UserRequest,
 	 *      org.olat.core.gui.components.Component, org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if (source == eventVC) {
-			if (event.getCommand().equals(NEW_URI_EVENT)) {
+			if (NEW_URI_EVENT.equals(event.getCommand())) {
 				// This event gets triggered from the iframe content by calling a js function outside 
 				// Get new uri from JS method and fire to parents
 				String newUri = ureq.getModuleURI();
@@ -433,6 +434,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 	 * this event gets fired from the TextMarkerController when the user swiches on/off textmarking
 	 * @see org.olat.core.util.event.GenericEventListener#event(org.olat.core.gui.control.Event)
 	 */
+	@Override
 	public void event(Event event) {
 		if (event instanceof MultiUserEvent) {
 			if (event.getCommand().equals("glossaryOn")) {
@@ -440,8 +442,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			} else if (event.getCommand().equals("glossaryOff")) {
 				contentMapper.setEnableTextmarking(false);
 			}
-		}
-		else if (event.equals(Window.BEFORE_INLINE_RENDERING)){
+		} else if (event.equals(Window.BEFORE_INLINE_RENDERING)){
 			// Set the custom CSS URL that is used by the current tab or site if
 			// available. The reason why we do this here and not in the constructor is
 			// that during the constructing phase this property is not yet set on the
@@ -449,7 +450,7 @@ public class IFrameDisplayController extends BasicController implements GenericE
 			Window myWindow = getWindowControl().getWindowBackOffice().getWindow();
 			CustomCSS currentCustomCSS = myWindow.getCustomCSS();
 			if (currentCustomCSS != null) {
-				contentMapper.setCustomCssURL(currentCustomCSS.getCSSURLIFrame());
+				contentMapper.setCustomCssDelegate(myWindow);
 			}
 			// done, remove us as listener
 			getWindowControl().getWindowBackOffice().removeCycleListener(this);

@@ -40,8 +40,6 @@ import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.modules.bc.components.FolderComponent;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.services.notifications.SubscriptionContext;
-import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
@@ -245,21 +243,6 @@ public class PFManager {
 			uploadFileToReturnBox(uploadFile, fileName, courseEnv, pfNode, identity);			
 		}
 	}
-
-	
-	/**
-	 * Export media resource as folder download.
-	 *
-	 * @param ureq
-	 * @param identities
-	 * @param pfNode 
-	 * @param courseEnv 
-	 */
-	public MediaResource exportMediaResource (UserRequest ureq, List<Identity> identities, PFCourseNode pfNode, CourseEnvironment courseEnv) {
-		MediaResource resource = new FileSystemExport (identities, pfNode, courseEnv, ureq.getLocale());
-		ureq.getDispatchResult().setResultingMediaResource(resource);
-		return resource;
-	}
 	
 	/**
 	 * Calculate callback dependent on ModuleConfiguration.
@@ -408,7 +391,9 @@ public class PFManager {
 		SubscriptionContext nodefolderSubContext = CourseModule.createSubscriptionContext(courseEnv, pfNode);
 		RepositoryEntry re = courseEnv.getCourseGroupManager().getCourseEntry();
 		List<Identity> participants =  repositoryEntryRelationDao.getMembers(re, 
-				RepositoryEntryRelationType.both, GroupRoles.participant.name());		
+				RepositoryEntryRelationType.both, GroupRoles.participant.name());
+		participants = new ArrayList<>(new HashSet<>(participants));
+		
 		String path = courseEnv.getCourseBaseContainer().getRelPath() + "/" + FILENAME_PARTICIPANTFOLDER;
 		VFSContainer courseElementBaseContainer = new OlatRootFolderImpl(path, null);
 		VirtualContainer namedCourseFolder = new VirtualContainer(translator.translate("participant.folder"));
@@ -530,7 +515,9 @@ public class PFManager {
 		Set<Identity> identitySet = new HashSet<>();
 		RepositoryEntry re = courseEnv.getCourseGroupManager().getCourseEntry();
 		if(admin) {
-			return repositoryEntryRelationDao.getMembers(re, RepositoryEntryRelationType.both, GroupRoles.participant.name());
+			List<Identity> participants = repositoryEntryRelationDao.getMembers(re, RepositoryEntryRelationType.both, GroupRoles.participant.name());
+			// deduplicate list (participants from groups and direct course membership)
+			identitySet.addAll(participants);
 		} else {
 			if(repositoryService.hasRole(id, re, GroupRoles.coach.name())) {
 				List<Identity> identities = repositoryService.getMembers(re, GroupRoles.participant.name());

@@ -105,6 +105,7 @@ public class AssignmentDAO {
 		assignment.setOnlyAutoEvaluation(templateReference.isOnlyAutoEvaluation());
 		assignment.setReviewerSeeAutoEvaluation(templateReference.isReviewerSeeAutoEvaluation());
 		assignment.setAnonymousExternalEvaluation(templateReference.isAnonymousExternalEvaluation());
+		assignment.setStorage(templateReference.getStorage());
 		assignment.setFormEntry(templateReference.getFormEntry());
 
 		((SectionImpl)section).getAssignments().size();
@@ -338,6 +339,15 @@ public class AssignmentDAO {
 		return dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString())
 				.setParameter("assignmentKey", assignment.getKey())
+				.executeUpdate();
+	}
+	
+	public int deleteAssignmentBySection(Section section) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("delete pfassignment assignment where assignment.section.key=:sectionKey");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString())
+				.setParameter("sectionKey", section.getKey())
 				.executeUpdate();
 	}
 

@@ -130,6 +130,8 @@ public class UserImpl implements Persistable, User {
 	private String telPrivate;
 	@Column(name="u_telmobile", nullable=true, insertable=true, updatable=true)
 	private String telMobile;
+	@Column(name="u_smstelmobile", nullable=true, insertable=true, updatable=true)
+	private String smsTelMobile;
 	@Column(name="u_skype", nullable=true, insertable=true, updatable=true)
 	private String skype;
 	@Column(name="u_msn", nullable=true, insertable=true, updatable=true)
@@ -316,6 +318,7 @@ public class UserImpl implements Persistable, User {
 		this.firstName = firstName;
 	}
 
+	@Override
 	public String getLastName() {
 		return lastName;
 	}
@@ -324,12 +327,22 @@ public class UserImpl implements Persistable, User {
 		this.lastName = lastName;
 	}
 
+	@Override
 	public String getEmail() {
 		return email;
 	}
 
 	public void setEmail(String email) {
 		this.email = email;
+	}
+	
+	@Override
+	public String getInstitutionalEmail() {
+		return institutionalEmail;
+	}
+	
+	public void setInstitutionalEmail(String institutionalEmail) {
+		this.institutionalEmail = institutionalEmail;
 	}
 	
 	public boolean isWebdav() {
@@ -369,6 +382,7 @@ public class UserImpl implements Persistable, User {
 			case "gender": return gender;
 			case "telPrivate": return telPrivate;
 			case "telMobile": return telMobile;
+			case "smsTelMobile": return smsTelMobile;
 			case "telOffice": return telOffice;
 			case "skype": return skype;
 			case "msn": return msn;
@@ -444,6 +458,7 @@ public class UserImpl implements Persistable, User {
 			case "gender": gender = value; break;
 			case "telPrivate": telPrivate = value; break;
 			case "telMobile": telMobile = value; break;
+			case "smsTelMobile": smsTelMobile = value; break;
 			case "telOffice": telOffice = value; break;
 			case "skype": skype = value; break;
 			case "msn": msn = value; break;

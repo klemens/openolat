@@ -40,7 +40,6 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.ContactList;
 import org.olat.core.util.mail.ContactMessage;
 import org.olat.core.util.mail.MailBundle;
@@ -50,7 +49,6 @@ import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailLoggingAction;
 import org.olat.core.util.mail.MailManager;
 import org.olat.core.util.mail.MailerResult;
-import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -96,11 +94,10 @@ public class ContactFormController extends BasicController {
 	private ContactForm cntctForm;
 	private DialogBoxController noUsersErrorCtr;
 	private List<String> myButtons;
+	private Object userObject;
 	
 	@Autowired
 	private MailManager mailService;
-	@Autowired
-	private UserManager userManager;
 	
 	/**
 	 * 
@@ -130,17 +127,47 @@ public class ContactFormController extends BasicController {
 		init(ureq, hasAtLeastOneAddress, cmsg.getDisabledIdentities());
 	}
 	
+	public Object getUserObject() {
+		return userObject;
+	}
+
+	public void setUserObject(Object userObject) {
+		this.userObject = userObject;
+	}
+	
+	public void setContactFormTitle(String translatedTitle) {
+		if(cntctForm != null) {
+			cntctForm.setFormTranslatedTitle(translatedTitle);
+		}
+	}
+
 	private boolean hasAtLeastOneAddress(List<ContactList> recipList) {
 		boolean hasAtLeastOneAddress = false;
 		if (recipList != null && recipList.size() > 0 ) {
 			for (ContactList cl: recipList) {
-				if (!hasAtLeastOneAddress && cl != null && cl.getEmailsAsStrings().size() > 0) {
+				if (!hasAtLeastOneAddress && cl != null && cl.hasAddresses()) {
 					hasAtLeastOneAddress = true;
 				}
-				if (cl.getEmailsAsStrings().size() > 0) cntctForm.addEmailTo(cl);
+				if (cl.hasAddresses()) {
+					cntctForm.addEmailTo(cl);
+				}
 			}
 		}
 		return hasAtLeastOneAddress;
+	}
+	
+	public String getSubject() {
+		if(cntctForm != null) {
+			return cntctForm.getSubject();
+		}
+		return null;
+	}
+	
+	public String getBody() {
+		if(cntctForm != null) {
+			return cntctForm.getBody();
+		}
+		return null;
 	}
 
 	/**
@@ -242,7 +269,7 @@ public class ContactFormController extends BasicController {
 					ThreadLocalUserActivityLogger.log(MailLoggingAction.MAIL_SENT, getClass());
 					fireEvent(ureq, Event.DONE_EVENT);
 				} else {
-					showError(result);
+					showError(ureq, result);
 					fireEvent(ureq, Event.FAILED_EVENT);
 				}
 			}
@@ -253,26 +280,18 @@ public class ContactFormController extends BasicController {
 		cntctForm.setDisplayOnly(true);
 	}
 	
-	private void showError(MailerResult result) {
+	private void showError(UserRequest ureq, MailerResult result) {
+		StringBuilder errors = new StringBuilder(1024);
+		StringBuilder warnings = new StringBuilder(1024);
+		MailHelper.appendErrorsAndWarnings(result, errors, warnings, ureq.getUserSession().getRoles().isOLATAdmin(), getLocale());
+
 		StringBuilder error = new StringBuilder(1024);
 		error.append(translate("error.msg.send.nok"));
-		if(result != null && (result.getFailedIdentites().size() > 0 || result.getInvalidAddresses().size() > 0)) {
-			error.append("<br />");
-
-			StringBuilder ids = new StringBuilder(1024);
-			for(Identity identity:result.getFailedIdentites()) {
-				if(ids.length() > 0) ids.append(", ");
-				
-				String fullname = userManager.getUserDisplayName(identity);
-				if(StringHelper.containsNonWhitespace(fullname)) {
-					ids.append(fullname);
-				}
-			}
-			for(String invalidAddress:result.getInvalidAddresses()) {
-				if(ids.length() > 0) ids.append(", ");
-				ids.append(invalidAddress);
-			}
-			error.append(translate("error.msg.send.invalid.rcps", new String[]{ ids.toString() }));
+		if(errors.length() > 0) {
+			error.append("<br>").append(errors);
+		}
+		if(warnings.length() > 0) {
+			warnings.append("<br>").append(warnings);
 		}
 		getWindowControl().setError(error.toString());
 	}

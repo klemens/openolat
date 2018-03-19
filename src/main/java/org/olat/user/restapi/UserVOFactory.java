@@ -37,6 +37,8 @@ import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.UserConstants;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Formatter;
 import org.olat.core.util.StringHelper;
@@ -59,6 +61,8 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
  * @author srosse, stephane.rosse@frentix.com
  */
 public class UserVOFactory {
+	
+	private static final OLog log = Tracing.createLoggerFor(UserVOFactory.class);
 	
 	public static final String[] keys = new String[] { "male", "female", "-" };
 	
@@ -100,15 +104,15 @@ public class UserVOFactory {
 					byte[] data64 = Base64.encodeBase64(datas);
 					userVO.setPortrait(new String(data64, "UTF8"));
 				} catch (IOException e) {
-					e.printStackTrace();
+					log.error("", e);
 				}
 			}
 		}
 		
-		HomePageConfig hpc = isAdmin ? null : HomePageConfigManagerImpl.getInstance().loadConfigFor(identity.getName());
 		
 		if(allProperties) {
 			UserManager um = UserManager.getInstance();
+			HomePageConfig hpc = isAdmin ? null : HomePageConfigManagerImpl.getInstance().loadConfigFor(identity.getName());
 			List<UserPropertyHandler> propertyHandlers = um.getUserPropertyHandlersFor(UserWebService.PROPERTY_HANDLER_IDENTIFIER, false);
 			for (UserPropertyHandler propertyHandler : propertyHandlers) {
 				String propName = propertyHandler.getName();

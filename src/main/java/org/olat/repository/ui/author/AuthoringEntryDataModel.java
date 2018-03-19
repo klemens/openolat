@@ -19,6 +19,9 @@
  */
 package org.olat.repository.ui.author;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.DefaultFlexiTableDataSourceModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
@@ -45,6 +48,26 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 	@Override
 	public DefaultFlexiTableDataSourceModel<AuthoringEntryRow> createCopyWithEmptyList() {
 		return new AuthoringEntryDataModel(getSourceDelegate(), getTableColumnModel());
+	}
+	
+	public boolean isAuthoringEntryRowLoaded(List<Long> repoEntryKeys) {
+		if(repoEntryKeys == null || repoEntryKeys.isEmpty()) return false;
+		for(Long repoEntryKey:repoEntryKeys) {
+			if(isAuthoringEntryRowLoaded(repoEntryKey)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	public boolean isAuthoringEntryRowLoaded(Long repoEntryKey) {
+		List<AuthoringEntryRow> copyOfObjects = new ArrayList<>(getObjects());
+		for(AuthoringEntryRow row:copyOfObjects) {
+			if(row != null && row.getKey().equals(repoEntryKey)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
@@ -85,6 +108,12 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 			case deletedBy: return item.getDeletedByFullName();
 			case deletionDate: return item.getDeletionDate();
 			case mark: return item.getMarkLink();
+			case references: {
+				if(item.getNumOfReferences() <= 0) {
+					return null;
+				}
+				return item.getReferencesLink();
+			}	
 			case detailsSupported: {
 				RepositoryHandler handler = handlerFactory.getRepositoryHandler(item.getResourceType());
 				return (handler != null) ? Boolean.TRUE : Boolean.FALSE;
@@ -125,6 +154,7 @@ class AuthoringEntryDataModel extends DefaultFlexiTableDataSourceModel<Authoring
 		access("table.header.access"),
 		creationDate("table.header.date"),
 		lastUsage("table.header.lastusage"),
+		references("table.header.references"),
 		deletedBy("table.header.deletedby"),
 		deletionDate("table.header.deletiondate"),
 		mark("table.header.mark"),

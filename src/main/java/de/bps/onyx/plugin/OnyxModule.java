@@ -234,6 +234,7 @@ public class OnyxModule extends AbstractSpringModule implements ConfigOnOff {
 			} else {
 				eval.setValid(false);
 			}
+			PathUtils.closeSubsequentFS(fPath);
 		} catch(NoSuchFileException nsfe) {
 			eval.setValid(false);
 		} catch (IOException | IllegalArgumentException e) {
@@ -361,7 +362,7 @@ public class OnyxModule extends AbstractSpringModule implements ConfigOnOff {
 				status = AssessmentEntryStatus.done;
 			}
 			return new ScoreEvaluation(currentResultSet.getScore(), currentResultSet.getIsPassed(),
-					status, currentResultSet.getFullyAssessed(), currentResultSet.getAssessmentID());
+					status, Boolean.TRUE, currentResultSet.getFullyAssessed(), null, null, currentResultSet.getAssessmentID());
 			// </OLATCE-374>
 		}
 		return null;

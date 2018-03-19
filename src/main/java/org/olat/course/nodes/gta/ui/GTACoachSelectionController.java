@@ -1,4 +1,5 @@
 /**
+
  * <a href="http://www.openolat.org">
  * OpenOLAT - Online Learning and Training</a><br>
  * <p>
@@ -19,8 +20,10 @@
  */
 package org.olat.course.nodes.gta.ui;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.core.commons.services.notifications.PublisherData;
@@ -28,6 +31,7 @@ import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.commons.services.notifications.ui.ContextualSubscriptionController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.download.DisplayOrDownloadComponent;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.velocity.VelocityContainer;
@@ -35,11 +39,19 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
+import org.olat.core.gui.control.generic.dtabs.Activateable2;
 import org.olat.core.id.Identity;
+import org.olat.core.id.context.BusinessControlFactory;
+import org.olat.core.id.context.ContextEntry;
+import org.olat.core.id.context.StateEntry;
+import org.olat.core.util.resource.OresHelper;
+import org.olat.course.archiver.ArchiveResource;
 import org.olat.course.groupsandrights.CourseGroupManager;
+import org.olat.course.nodes.ArchiveOptions;
 import org.olat.course.nodes.GTACourseNode;
 import org.olat.course.nodes.gta.GTAManager;
 import org.olat.course.nodes.gta.GTAType;
+import org.olat.course.nodes.gta.ui.component.DownloadDocumentMapper;
 import org.olat.course.nodes.gta.ui.events.SelectBusinessGroupEvent;
 import org.olat.course.nodes.gta.ui.events.SelectIdentityEvent;
 import org.olat.course.run.environment.CourseEnvironment;
@@ -47,6 +59,8 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.repository.RepositoryEntry;
+import org.olat.resource.OLATResource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -55,21 +69,26 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class GTACoachSelectionController extends BasicController {
+public class GTACoachSelectionController extends BasicController implements Activateable2 {
 
 	private GTACoachController coachingCtrl;
 	private GTACoachedGroupListController groupListCtrl;
 	private GTACoachedParticipantListController participantListCtrl;
 	
-	private final Link backLink;
+	private final Link backLink, downloadButton;
 	private final VelocityContainer mainVC;
+
+	private final String solutionMapperUri;
+	private final DisplayOrDownloadComponent solutionDownloadCmp;
 	
 	private final GTACourseNode gtaNode;
 	private final CourseEnvironment courseEnv;
 	private final UserCourseEnvironment coachCourseEnv;
+	private final boolean markedOnly;
 	
-	protected final PublisherData publisherData;
-	protected final SubscriptionContext subsContext;
+	protected PublisherData publisherData;
+	protected SubscriptionContext subsContext;
+	
 	
 	@Autowired
 	private GTAManager gtaManager;
@@ -77,21 +96,32 @@ public class GTACoachSelectionController extends BasicController {
 	private BaseSecurity securityManager;
 	
 	public GTACoachSelectionController(UserRequest ureq, WindowControl wControl,
-			UserCourseEnvironment coachCourseEnv, GTACourseNode gtaNode) {
+			UserCourseEnvironment coachCourseEnv, GTACourseNode gtaNode, boolean markedOnly) {
 		super(ureq, wControl);
 		this.gtaNode = gtaNode;
 		this.coachCourseEnv = coachCourseEnv;
 		this.courseEnv = coachCourseEnv.getCourseEnvironment();
+		this.markedOnly = markedOnly;
 		
 		mainVC = createVelocityContainer("coach_selection");
 		backLink = LinkFactory.createLinkBack(mainVC, this);
 		
-		publisherData = gtaManager.getPublisherData(courseEnv, gtaNode);
-		subsContext = gtaManager.getSubscriptionContext(courseEnv, gtaNode);
-		if (subsContext != null) {
-			ContextualSubscriptionController contextualSubscriptionCtr = new ContextualSubscriptionController(ureq, getWindowControl(), subsContext, publisherData);
-			listenTo(contextualSubscriptionCtr);
-			mainVC.put("contextualSubscription", contextualSubscriptionCtr.getInitialComponent());
+		File solutionsDir = gtaManager.getSolutionsDirectory(courseEnv, gtaNode);
+		solutionMapperUri = registerMapper(ureq, new DownloadDocumentMapper(solutionsDir));
+		solutionDownloadCmp = new DisplayOrDownloadComponent("download", null);
+		mainVC.put("solutionDownload", solutionDownloadCmp);
+		
+		downloadButton = LinkFactory.createButton("bulk.download.title", mainVC, this);
+		downloadButton.setTranslator(getTranslator());
+		
+		if (!markedOnly) {
+			publisherData = gtaManager.getPublisherData(courseEnv, gtaNode);
+			subsContext = gtaManager.getSubscriptionContext(courseEnv, gtaNode);
+			if (subsContext != null) {
+				ContextualSubscriptionController contextualSubscriptionCtr = new ContextualSubscriptionController(ureq, getWindowControl(), subsContext, publisherData);
+				listenTo(contextualSubscriptionCtr);
+				mainVC.put("contextualSubscription", contextualSubscriptionCtr.getInitialComponent());
+			}
 		}
 		
 		ModuleConfiguration config = gtaNode.getModuleConfiguration();
@@ -116,7 +146,7 @@ public class GTACoachSelectionController extends BasicController {
 				mainVC.put("list", groupListCtrl.getInitialComponent());
 			}	
 		} else {
-			participantListCtrl = new GTACoachedParticipantListController(ureq, getWindowControl(), coachCourseEnv, gtaNode);
+			participantListCtrl = new GTACoachedParticipantListController(ureq, getWindowControl(), coachCourseEnv, gtaNode, markedOnly);
 			listenTo(participantListCtrl);
 			mainVC.put("list", participantListCtrl.getInitialComponent());
 		}
@@ -127,6 +157,33 @@ public class GTACoachSelectionController extends BasicController {
 	@Override
 	protected void doDispose() {
 		//
+	}
+
+	@Override
+	public void activate(UserRequest ureq, List<ContextEntry> entries, StateEntry state) {
+		if(entries == null || entries.isEmpty()) return;
+		
+		String type = entries.get(0).getOLATResourceable().getResourceableTypeName();
+		Long key = entries.get(0).getOLATResourceable().getResourceableId();
+		if("Identity".equalsIgnoreCase(type)) {
+			if(participantListCtrl != null && participantListCtrl.hasIdentityKey(key)) {
+				Identity selectedIdentity = securityManager.loadIdentityByKey(key);
+				List<ContextEntry> subEntries = entries.subList(1, entries.size());
+				doSelectParticipant(ureq, selectedIdentity).activate(ureq, subEntries, entries.get(0).getTransientState());
+			}
+		} else if("BusinessGroup".equalsIgnoreCase(type)) {
+			if(groupListCtrl != null) {
+				BusinessGroup group = groupListCtrl.getBusinessGroup(key);
+				if(group != null) {
+					List<ContextEntry> subEntries = entries.subList(1, entries.size());
+					doSelectBusinessGroup(ureq, group).activate(ureq, subEntries, entries.get(0).getTransientState());
+				}
+			}
+		} else if("Solution".equals(type) && entries.size() > 1) {
+			String path = BusinessControlFactory.getInstance().getPath(entries.get(1));
+			String url = solutionMapperUri + "/" + path;
+			solutionDownloadCmp.triggerFileDownload(url);
+		}
 	}
 
 	@Override
@@ -153,11 +210,22 @@ public class GTACoachSelectionController extends BasicController {
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(backLink == source) {
-			back();
+			back(ureq);
+		} else if(downloadButton == source) {
+			doBulkDownload(ureq);
 		}
 	}
 	
-	private void back() {
+	public void reload(UserRequest ureq) {
+		if (participantListCtrl != null) {
+			participantListCtrl.updateModel(ureq);
+		}
+		if (groupListCtrl != null) {
+			groupListCtrl.updateModel();
+		}
+	}
+	
+	private void back(UserRequest ureq) {
 		if(coachingCtrl != null) {
 			mainVC.remove(coachingCtrl.getInitialComponent());
 			removeAsListenerAndDispose(coachingCtrl);
@@ -165,25 +233,56 @@ public class GTACoachSelectionController extends BasicController {
 		}
 		backLink.setVisible(false);
 		if (participantListCtrl != null) {
-			participantListCtrl.updateModel();			
-		} 
+			participantListCtrl.updateModel(ureq);			
+		}
 		if (groupListCtrl != null) {
 			groupListCtrl.updateModel();
-			
 		}
 	}
 	
-	private void doSelectBusinessGroup(UserRequest ureq, BusinessGroup group) {
-		removeAsListenerAndDispose(coachingCtrl);
-		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, coachCourseEnv, group, true, true, false);
-		listenTo(coachingCtrl);
-		mainVC.put("selection", coachingCtrl.getInitialComponent());
+	private void doBulkDownload(UserRequest ureq) {
+		if (participantListCtrl != null) {
+			ArchiveOptions asOptions = new ArchiveOptions();
+			asOptions.setIdentities(getIdentitesForBulkDownload(ureq));
+			OLATResource ores = courseEnv.getCourseGroupManager().getCourseResource();
+			ArchiveResource resource = new ArchiveResource(gtaNode, ores, asOptions, getLocale());
+			ureq.getDispatchResult().setResultingMediaResource(resource);
+		} else if (groupListCtrl != null) {
+			OLATResource ores = courseEnv.getCourseGroupManager().getCourseResource();
+			GroupBulkDownloadResource resource = new GroupBulkDownloadResource(gtaNode, ores, groupListCtrl.getCoachedGroups(), getLocale());
+			ureq.getDispatchResult().setResultingMediaResource(resource);
+		}
+	}
+
+	private List<Identity> getIdentitesForBulkDownload(UserRequest ureq) {
+		List<Identity> identities = participantListCtrl.getAssessableIdentities();
+		if (markedOnly) {
+			RepositoryEntry entry = courseEnv.getCourseGroupManager().getCourseEntry();
+			List<Identity> markedIdentities =
+					gtaManager.getMarks(entry, gtaNode, ureq.getIdentity()).stream()
+							.map(mark -> mark.getParticipant())
+							.collect(Collectors.toList());
+			identities.retainAll(markedIdentities);
+		}
+		return identities;
 	}
 	
-	private void doSelectParticipant(UserRequest ureq, Identity identity) {
+	private Activateable2 doSelectBusinessGroup(UserRequest ureq, BusinessGroup group) {
 		removeAsListenerAndDispose(coachingCtrl);
-		coachingCtrl = new GTACoachController(ureq, getWindowControl(), courseEnv, gtaNode, coachCourseEnv, identity, true, true, false);
+		
+		WindowControl swControl = addToHistory(ureq, OresHelper.clone(group), null);
+		coachingCtrl = new GTACoachController(ureq, swControl, courseEnv, gtaNode, coachCourseEnv, group, true, true, false, false);
 		listenTo(coachingCtrl);
 		mainVC.put("selection", coachingCtrl.getInitialComponent());
+		return coachingCtrl;
+	}
+	
+	private Activateable2 doSelectParticipant(UserRequest ureq, Identity identity) {
+		removeAsListenerAndDispose(coachingCtrl);
+		WindowControl swControl = addToHistory(ureq, OresHelper.createOLATResourceableInstance("Identity", identity.getKey()), null);
+		coachingCtrl = new GTACoachController(ureq, swControl, courseEnv, gtaNode, coachCourseEnv, identity, true, true, false, false);
+		listenTo(coachingCtrl);
+		mainVC.put("selection", coachingCtrl.getInitialComponent());
+		return coachingCtrl;
 	}
 }

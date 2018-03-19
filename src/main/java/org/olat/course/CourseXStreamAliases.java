@@ -43,6 +43,7 @@ import org.olat.course.nodes.BlogCourseNode;
 import org.olat.course.nodes.COCourseNode;
 import org.olat.course.nodes.CPCourseNode;
 import org.olat.course.nodes.CalCourseNode;
+import org.olat.course.nodes.Card2BrainCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.DialogCourseNode;
 import org.olat.course.nodes.ENCourseNode;
@@ -64,6 +65,7 @@ import org.olat.course.nodes.ViteroCourseNode;
 import org.olat.course.nodes.WikiCourseNode;
 import org.olat.course.tree.CourseEditorTreeModel;
 import org.olat.course.tree.CourseEditorTreeNode;
+import org.olat.modules.edubase.model.BookSectionImpl;
 
 import com.thoughtworks.xstream.XStream;
 
@@ -92,6 +94,7 @@ public class CourseXStreamAliases {
 	static {
 		//write XStream
 		writeXstream.alias("com.frentix.olat.course.nodes.ViteroCourseNode", ViteroCourseNode.class);
+		writeXstream.alias("BookSection", BookSectionImpl.class);
 		//end write XStream
 		
 		////////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,10 +110,12 @@ public class CourseXStreamAliases {
 		readXstream.alias("BCCourseNode", BCCourseNode.class);
 		readXstream.alias("BlogCourseNode", BlogCourseNode.class);
 		readXstream.alias("CalCourseNode", CalCourseNode.class);
+		readXstream.alias("Card2BrainCourseNode", Card2BrainCourseNode.class);
 		readXstream.alias("COCourseNode", COCourseNode.class);
 		readXstream.alias("CourseNode", CourseNode.class);
 		readXstream.alias("CPCourseNode", CPCourseNode.class);
 		readXstream.alias("DialogCourseNode", DialogCourseNode.class);
+		readXstream.alias("BookSection", BookSectionImpl.class);
 		readXstream.alias("ENCourseNode", ENCourseNode.class);
 		readXstream.alias("FOCourseNode", FOCourseNode.class);
 		readXstream.alias("InfoCourseNode", InfoCourseNode.class);

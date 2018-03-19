@@ -36,6 +36,7 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
+import org.olat.core.id.UserConstants;
 import org.olat.user.UserManager;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,9 @@ public class UserShortDescription extends BasicController {
 	
 	private static final String usageIdentifyer = UserShortDescription.class.getCanonicalName();
 
+	private final VelocityContainer mainVC;
+	private final boolean isAdministrativeUser;
+	
 	@Autowired
 	private UserManager userManager;
 	@Autowired
@@ -64,22 +68,45 @@ public class UserShortDescription extends BasicController {
 		String usernameLabel = translate("table.user.login");
 		//use the PropertyHandlerTranslator for the velocityContainer
 		setTranslator(userManager.getPropertyHandlerTranslator(getTranslator()));
-		VelocityContainer velocityContainer = createVelocityContainer("userShortDescription");
-				
+		mainVC = createVelocityContainer("userShortDescription");
+		mainVC.setDomReplacementWrapperRequired(false); // we provide our own DOM replacement ID
+		
 		Roles roles = ureq.getUserSession().getRoles();
-		boolean isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);
-		//(roles.isAuthor() || roles.isGroupManager() || roles.isUserManager() || roles.isOLATAdmin());		
+		isAdministrativeUser = securityModule.isUserAllowedAdminProps(roles);	
+		boolean alreadyDefinedUsername = false;
 		List<UserPropertyHandler> userPropertyHandlers = userManager.getUserPropertyHandlersFor(usageIdentifyer, isAdministrativeUser);
-		velocityContainer.contextPut("userPropertyHandlers", userPropertyHandlers);
-		velocityContainer.contextPut("user", identity.getUser());			
-		velocityContainer.contextPut("identityKey", identity.getKey());			
-		
-		if(getIdentity().equals(identity) || isAdministrativeUser) {
-			velocityContainer.contextPut("username", identity.getName());
+		for(UserPropertyHandler userPropertyHandler:userPropertyHandlers) {
+			if(UserConstants.USERNAME.equals(userPropertyHandler.getName())) {
+				alreadyDefinedUsername = true;
+			}
 		}
-		velocityContainer.contextPut("usernameLabel", usernameLabel);
 		
-		putInitialPanel(velocityContainer);
+		mainVC.contextPut("userPropertyHandlers", userPropertyHandlers);
+		mainVC.contextPut("user", identity.getUser());			
+		mainVC.contextPut("identityKey", identity.getKey());
+		mainVC.contextPut("usernamePosition", "top");		
+		if(!alreadyDefinedUsername && (getIdentity().equals(identity) || isAdministrativeUser)) {
+			mainVC.contextPut("username", identity.getName());
+		}
+		mainVC.contextPut("usernameLabel", usernameLabel);
+		
+		putInitialPanel(mainVC);
+	}
+	
+	/**
+	 * Set the position of the username / identity key if you
+	 * have the permission to see them.
+	 */
+	public void setUsernameAtTop() {
+		mainVC.contextPut("usernamePosition", "top");
+	}
+	
+	/**
+	 * Set the position of the username / identity key if you
+	 * have the permission to see them.
+	 */
+	public void setUsernameAtBottom() {
+		mainVC.contextPut("usernamePosition", "bottom");
 	}
 
 	@Override

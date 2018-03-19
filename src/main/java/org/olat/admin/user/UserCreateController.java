@@ -60,6 +60,7 @@ import org.olat.core.util.i18n.I18nModule;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.user.ChangePasswordForm;
 import org.olat.user.UserManager;
+import org.olat.user.UserModule;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -74,7 +75,6 @@ public class UserCreateController extends BasicController  {
 
 	private NewUserForm createUserForm;
 	
-
 	/**
 	 * @param ureq
 	 * @param wControl
@@ -115,9 +115,7 @@ public class UserCreateController extends BasicController  {
 		}
 	}	
 
-	/**
-	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
-	 */
+	@Override
 	protected void doDispose() {
 		// nothing to do
 	}
@@ -155,6 +153,8 @@ class NewUserForm extends FormBasicController {
 	private SelectionElement authCheckbox;
 	
 	@Autowired
+	private UserModule userModule;
+	@Autowired
 	private BaseSecurity securityManager;
 
 	/**
@@ -175,6 +175,7 @@ class NewUserForm extends FormBasicController {
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {						
 		setFormTitle("title.newuser");
 		setFormDescription("new.form.please.enter");
+		setFormContextHelp("User management");
 		formLayout.setElementCssClass("o_sel_id_create");
 		
 		usernameTextElement = uifactory.addTextElement(LOGINNAME, "username", 128, "", formLayout);
@@ -191,6 +192,9 @@ class NewUserForm extends FormBasicController {
 			// special case to handle email field
 			if(userPropertyHandler.getName().equals(UserConstants.EMAIL)) {
 				emailTextElement = (TextElement) formItem;
+				if (!userModule.isEmailMandatory()) {
+					formItem.setMandatory(false);
+				}
 			}
 
 			formItem.setElementCssClass("o_sel_id_" + userPropertyHandler.getName().toLowerCase());
@@ -222,12 +226,14 @@ class NewUserForm extends FormBasicController {
 			psw1TextElement.setDisplaySize(30);
 			psw1TextElement.setVisible(showPasswordFields);
 			psw1TextElement.setElementCssClass("o_sel_id_password1");
+			psw1TextElement.setAutocomplete("new-password");
 
 			psw2TextElement = uifactory.addPasswordElement(PASSWORD_NEW2, "new.form.password.new2", 255, "", formLayout);
 			psw2TextElement.setMandatory(true);
 			psw2TextElement.setDisplaySize(30);		
 			psw2TextElement.setVisible(showPasswordFields);
 			psw2TextElement.setElementCssClass("o_sel_id_password2");
+			psw2TextElement.setAutocomplete("new-password");
 		}
 		
 		uifactory.addFormSubmitButton("save", "submit.save", formLayout);
@@ -266,20 +272,12 @@ class NewUserForm extends FormBasicController {
 			}
 			formItem.clearError();
 		}
-		// special test on email address: validate if email is already used
-		if (emailTextElement != null) {			
-			String email = emailTextElement.getValue();
-			// Check if email is not already taken
-			UserManager um = UserManager.getInstance();
 
-			// TODO:fj offer a method in basesecurity to threadsafely generate a new
-			// user!!!
-			Identity exists = um.findIdentityByEmail(email);
-			if (exists != null) {
-				// Oups, email already taken, display error
-				emailTextElement.setErrorKey("new.error.email.choosen", new String[] {});
-				return false;
-			}
+		// special test on email address: validate if email is already used
+		String email = emailTextElement.getValue();
+		if (!UserManager.getInstance().isEmailAllowed(email)) {
+			emailTextElement.setErrorKey("new.error.email.choosen", new String[] {});
+			return false;
 		}
 
 		// validate if new password does match the syntactical password requirements

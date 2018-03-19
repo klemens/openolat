@@ -117,7 +117,7 @@ public class FullCalendarComponentRenderer extends DefaultComponentRenderer {
 		  .append("	  eventSources:[");
 		int count = 0;
 		for(KalendarRenderWrapper calWrapper: fcC.getCalendars()) {
-			if(calWrapper.isVisible()) {
+			if(fcC.isCalendarVisible(calWrapper)) {
 				String calId = calWrapper.getKalendar().getCalendarID();
 				String color = calWrapper.getCssClass();
 				if(StringHelper.containsNonWhitespace(color) && color.startsWith("o_cal_")) {
@@ -143,6 +143,10 @@ public class FullCalendarComponentRenderer extends DefaultComponentRenderer {
 		  .append("	  eventDrop: function(calEvent, dayDelta, minuteDelta, allDay, revertFunc, jsEvent, ui, view) {\n")
 		  .append(FormJSHelper.generateXHRFnCallVariables(rootForm, formId, 1))
 		  .append("     o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, true, false, false, 'evMove',calEvent.id,'dayDelta',dayDelta,'minuteDelta',minuteDelta,'allDay',allDay);\n")
+		  .append("	  },\n")
+		  .append("	  eventResize: function(calEvent, dayDelta, minuteDelta, allDay, revertFunc, jsEvent, ui, view) {\n")
+		  .append(FormJSHelper.generateXHRFnCallVariables(rootForm, formId, 1))
+		  .append("     o_ffXHREvent(formNam, dispIdField, dispId, eventIdField, eventInt, true, false, false, 'evResize',calEvent.id,'dayDelta',dayDelta,'minuteDelta',minuteDelta,'allDay',allDay);\n")
 		  .append("	  },\n")
 		  .append("   select: function(startDate, endDate, allDay, jsEvent, view) {\n")
 		  .append(FormJSHelper.generateXHRFnCallVariables(rootForm, formId, 1))

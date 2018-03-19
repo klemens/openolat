@@ -40,6 +40,7 @@ import org.olat.group.manager.BusinessGroupRelationDAO;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.manager.AssessmentEntryDAO;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.assessment.model.AssessmentMembersStatistics;
 import org.olat.modules.assessment.ui.AssessmentToolSecurityCallback;
 import org.olat.repository.RepositoryEntry;
 import org.olat.restapi.repository.course.CoursesWebService;
@@ -96,10 +97,10 @@ public class AssessmentToolManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 		
 		// some datas
-		assessmentEntryDao.createAssessmentEntry(assessedIdentity1, null, entry, subIdent, refEntry, 3.0f, Boolean.FALSE);
-		assessmentEntryDao.createAssessmentEntry(assessedIdentity2, null, entry, subIdent, refEntry, 5.0f, Boolean.TRUE);
-		assessmentEntryDao.createAssessmentEntry(assessedIdentity3, null, entry, subIdent, refEntry, 8.0f, Boolean.TRUE);
-		assessmentEntryDao.createAssessmentEntry(assessedIdentity4, null, entry, subIdent, refEntry, 9.0f, Boolean.TRUE);
+		assessmentEntryDao.createAssessmentEntry(assessedIdentity1, null, entry, subIdent, refEntry, 3.0f, Boolean.FALSE, null, null);
+		assessmentEntryDao.createAssessmentEntry(assessedIdentity2, null, entry, subIdent, refEntry, 5.0f, Boolean.TRUE, null, null);
+		assessmentEntryDao.createAssessmentEntry(assessedIdentity3, null, entry, subIdent, refEntry, 8.0f, Boolean.TRUE, null, null);
+		assessmentEntryDao.createAssessmentEntry(assessedIdentity4, null, entry, subIdent, refEntry, 9.0f, Boolean.TRUE, null, null);
 		assessmentEntryDao.createAssessmentEntry(null, UUID.randomUUID().toString(), entry, subIdent, refEntry);
 		dbInstance.commitAndCloseSession();
 		
@@ -122,6 +123,12 @@ public class AssessmentToolManagerTest extends OlatTestCase {
 		//number of assessed identities
 		int numOfAssessedIdentities = assessmentToolManager.getNumberOfAssessedIdentities(coach, params);
 		Assert.assertEquals(2, numOfAssessedIdentities);
+		
+		//check only the queries
+		AssessmentMembersStatistics participantStatistics = assessmentToolManager.getNumberOfParticipants(coach, params);
+		Assert.assertNotNull(participantStatistics);
+		int numOfInitialLanches = assessmentToolManager.getNumberOfInitialLaunches(coach, params);
+		Assert.assertEquals(0, numOfInitialLanches);//not launched, only simulated
 
 		List<IdentityShort> assessedShortIdentities = assessmentToolManager.getShortAssessedIdentities(coach, params, 120);
 		Assert.assertNotNull(assessedShortIdentities);

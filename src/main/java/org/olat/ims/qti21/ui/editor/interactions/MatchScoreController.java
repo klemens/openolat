@@ -1,4 +1,5 @@
 /**
+
  * <a href="http://www.openolat.org">
  * OpenOLAT - Online Learning and Training</a><br>
  * <p>
@@ -19,6 +20,8 @@
  */
 package org.olat.ims.qti21.ui.editor.interactions;
 
+import java.io.File;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +37,8 @@ import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.util.CodeHelper;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.Util;
 import org.olat.course.assessment.AssessmentHelper;
 import org.olat.ims.qti21.model.xml.AssessmentHtmlBuilder;
@@ -41,6 +46,8 @@ import org.olat.ims.qti21.model.xml.AssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.ScoreBuilder;
 import org.olat.ims.qti21.model.xml.interactions.MatchAssessmentItemBuilder;
 import org.olat.ims.qti21.model.xml.interactions.SimpleChoiceAssessmentItemBuilder.ScoreEvaluation;
+import org.olat.ims.qti21.ui.ResourcesMapper;
+import org.olat.ims.qti21.ui.components.FlowFormItem;
 import org.olat.ims.qti21.ui.editor.AssessmentTestEditorController;
 import org.olat.ims.qti21.ui.editor.SyncAssessmentItem;
 import org.olat.ims.qti21.ui.editor.events.AssessmentItemEvent;
@@ -70,15 +77,24 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 	
 	private MatchAssessmentItemBuilder itemBuilder;
 	
+	private int count = 0;
+	private final String mapperUri;
+	private final File itemFileRef;
 	private List<MatchWrapper> sourceWrappers = new ArrayList<>();
 	private List<MatchWrapper> targetWrappers = new ArrayList<>();
 	private Map<DirectedPairValue, MatchScoreWrapper> scoreWrappers = new HashMap<>();
 	
 	public MatchScoreController(UserRequest ureq, WindowControl wControl, MatchAssessmentItemBuilder itemBuilder,
-			AssessmentItemRef itemRef, boolean restrictedEdit) {
-		super(ureq, wControl, itemRef, restrictedEdit);
+			AssessmentItemRef itemRef, File itemFileRef, boolean restrictedEdit, boolean readOnly) {
+		super(ureq, wControl, itemRef, restrictedEdit, readOnly);
 		setTranslator(Util.createPackageTranslator(AssessmentTestEditorController.class, getLocale()));
 		this.itemBuilder = itemBuilder;
+		this.itemFileRef = itemFileRef;
+		
+		URI assessmentObjectUri = itemFileRef.toURI();
+		mapperUri = registerCacheableMapper(null, "MatchScoreController::" + CodeHelper.getRAMUniqueID(),
+				new ResourcesMapper(assessmentObjectUri));
+		
 		initForm(ureq);
 	}
 
@@ -86,15 +102,18 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		super.initForm(formLayout, listener, ureq);
 		setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_score");
-		
-		minScoreEl = uifactory.addTextElement("min.score", "min.score", 8, "0.0", formLayout);
-		minScoreEl.setEnabled(false);
-		minScoreEl.setEnabled(!restrictedEdit);
+
+		ScoreBuilder minScore = itemBuilder.getMinScoreBuilder();
+		String minValue = minScore == null ? "" : (minScore.getScore() == null ? "" : minScore.getScore().toString());
+		minScoreEl = uifactory.addTextElement("min.score", "min.score", 8, minValue, formLayout);
+		minScoreEl.setElementCssClass("o_sel_assessment_item_min_score");
+		minScoreEl.setEnabled(!restrictedEdit && !readOnly);
 		
 		ScoreBuilder maxScore = itemBuilder.getMaxScoreBuilder();
 		String maxValue = maxScore == null ? "" : (maxScore.getScore() == null ? "" : maxScore.getScore().toString());
 		maxScoreEl = uifactory.addTextElement("max.score", "max.score", 8, maxValue, formLayout);
-		maxScoreEl.setEnabled(!restrictedEdit);
+		maxScoreEl.setElementCssClass("o_sel_assessment_item_max_score");
+		maxScoreEl.setEnabled(!restrictedEdit && !readOnly);
 		
 		String[] modeValues = new String[]{
 				translate("form.score.assessment.all.correct"),
@@ -102,7 +121,7 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 		};
 		assessmentModeEl = uifactory.addRadiosHorizontal("assessment.mode", "form.score.assessment.mode", formLayout, modeKeys, modeValues);
 		assessmentModeEl.addActionListener(FormEvent.ONCHANGE);
-		assessmentModeEl.setEnabled(!restrictedEdit);
+		assessmentModeEl.setEnabled(!restrictedEdit && !readOnly);
 		if(itemBuilder.getScoreEvaluationMode() == ScoreEvaluation.perAnswer) {
 			assessmentModeEl.select(ScoreEvaluation.perAnswer.name(), true);
 		} else {
@@ -128,6 +147,7 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setVisible(!readOnly);
 		formLayout.add(buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
 	}
@@ -174,12 +194,12 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 		DirectedPairValue dKey = new DirectedPairValue(sourceIdentifier, targetIdentifier);
 		if(!scoreWrappers.containsKey(dKey)) {
 			String key = sourceIdentifier.toString() + "-" + targetIdentifier.toString();
-			TextElement textEl = uifactory.addTextElement(key, null, 4, "", scoreCont);
+			TextElement textEl = uifactory.addTextElement(key, null, 8, "", scoreCont);
 			MatchScoreWrapper scoreWrapper = new MatchScoreWrapper(sourceIdentifier, targetIdentifier, textEl);
 			textEl.setDomReplacementWrapperRequired(false);
-			textEl.setDisplaySize(4);
+			textEl.setDisplaySize(5);
 			textEl.setUserObject(scoreWrapper);
-			textEl.setEnabled(!restrictedEdit);
+			textEl.setEnabled(!restrictedEdit && !readOnly);
 			
 			Double score = itemBuilder.getScore(sourceIdentifier, targetIdentifier);
 			if(score == null) {
@@ -196,12 +216,26 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 	@Override
 	protected boolean validateFormLogic(UserRequest ureq) {
 		boolean allOk = true;
-		allOk &= validateDouble(maxScoreEl);
+		allOk &= validateMinMaxScores(minScoreEl, maxScoreEl);
 
 		if(assessmentModeEl.isOneSelected() && assessmentModeEl.isSelected(1)) {
-			/*for(HotspotChoiceWrapper wrapper:wrappers) {
-				allOk &= validateDouble(wrapper.getPointsEl());
-			}*/
+			for(Map.Entry<DirectedPairValue, MatchScoreWrapper> entry:scoreWrappers.entrySet()) {
+				MatchScoreWrapper scoreWrapper = entry.getValue();
+				TextElement scoreEl = scoreWrapper.getScoreEl();
+				String val = scoreEl.getValue();
+				scoreEl.clearError();
+				if(StringHelper.containsNonWhitespace(val)) {
+					try {
+						Double.parseDouble(val);
+					} catch (NumberFormatException e) {
+						scoreEl.setErrorKey("error.double", null);
+						allOk &= false;
+					}
+				} else {
+					scoreEl.setErrorKey("form.legende.mandatory", null);
+					allOk &= false;
+				}
+			}
 		}
 		
 		return allOk & super.validateFormLogic(ureq);
@@ -217,11 +251,15 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(restrictedEdit || readOnly) return;
+		
 		super.formOK(ureq);
 		String maxScoreValue = maxScoreEl.getValue();
 		Double maxScore = Double.parseDouble(maxScoreValue);
 		itemBuilder.setMaxScore(maxScore);
-		itemBuilder.setMinScore(new Double(0d));
+		String minScoreValue = minScoreEl.getValue();
+		Double minScore = Double.parseDouble(minScoreValue);
+		itemBuilder.setMinScore(minScore);
 		
 		if(assessmentModeEl.isOneSelected() && assessmentModeEl.isSelected(1)) {
 			itemBuilder.setScoreEvaluationMode(ScoreEvaluation.perAnswer);
@@ -249,27 +287,31 @@ public class MatchScoreController extends AssessmentItemRefEditorController impl
 	}
 	
 	private MatchWrapper createMatchWrapper(SimpleAssociableChoice choice) {
-		return new MatchWrapper(choice.getIdentifier(), choice);
+		FlowFormItem summaryEl = new FlowFormItem("summary_" + count++, itemFileRef);
+		summaryEl.setFlowStatics(choice.getFlowStatics());
+		summaryEl.setMapperUri(mapperUri);
+		scoreCont.add(summaryEl);
+		return new MatchWrapper(choice.getIdentifier(), choice, summaryEl);
 	}
 	
 	public static class MatchWrapper {
 
 		private final Identifier choiceIdentifier;
-		private final SimpleAssociableChoice choice;
-		private String summary;
+		private SimpleAssociableChoice choice;
+		private final FlowFormItem summaryEl;
 		
-		public MatchWrapper(Identifier choiceIdentifier, SimpleAssociableChoice choice) {
+		public MatchWrapper(Identifier choiceIdentifier, SimpleAssociableChoice choice, FlowFormItem summaryEl) {
 			this.choiceIdentifier = choiceIdentifier;
 			this.choice = choice;
-			if(choice != null) {
-				summary = new AssessmentHtmlBuilder().flowStaticString(choice.getFlowStatics());
-			} else {
-				summary = "";
-			}
+			this.summaryEl = summaryEl;
 		}
 		
 		public String getSummary() {
-			return summary;
+			return new AssessmentHtmlBuilder().flowStaticString(choice.getFlowStatics());
+		}
+		
+		public FlowFormItem getSummaryEl() {
+			return summaryEl;
 		}
 
 		public Identifier getChoiceIdentifier() {

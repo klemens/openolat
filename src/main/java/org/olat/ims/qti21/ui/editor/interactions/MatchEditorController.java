@@ -43,6 +43,7 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.model.QTI21QuestionType;
 import org.olat.ims.qti21.model.xml.interactions.MatchAssessmentItemBuilder;
 import org.olat.ims.qti21.ui.editor.AssessmentTestEditorController;
@@ -62,27 +63,43 @@ public class MatchEditorController extends FormBasicController {
 
 	private static final String[] yesnoKeys = new String[]{ "y", "n"};
 	private static final String[] singleMultiKeys = new String[]{ "single", "multi"};
+	private static final String[] layoutKeys = new String[] {
+			QTI21Constants.CSS_MATCH_SOURCE_LEFT, QTI21Constants.CSS_MATCH_SOURCE_TOP,
+			QTI21Constants.CSS_MATCH_SOURCE_RIGHT, QTI21Constants.CSS_MATCH_SOURCE_BOTTOM
+		};
 	
 	private TextElement titleEl;
 	private RichTextElement textEl;
 	private FormLayoutContainer answersCont;
 	private FormLink addColumnButton, addRowButton;
-	private SingleSelection shuffleEl, singleMultiEl;
+	private SingleSelection shuffleEl, singleMultiEl, layoutEl;
 	
 	private int count = 0;
 	private VFSContainer itemContainer;
 	
-	private final boolean restrictedEdit;
+	private final boolean restrictedEdit, readOnly;
 	private MatchAssessmentItemBuilder itemBuilder;
 	private final List<MatchWrapper> sourceWrappers = new ArrayList<>();
 	private final List<MatchWrapper> targetWrappers = new ArrayList<>();
 	private final Map<String,List<String>> temporaryAssociations = new HashMap<>();
 	
+	/**
+	 * 
+	 * @param ureq The user request
+	 * @param wControl The parent window control
+	 * @param itemBuilder The assessment item builder for match (matrix or drag and drop)
+	 * @param rootDirectory	The directory for images...
+	 * @param rootContainer The directory for images...
+	 * @param itemFile The assessment item file
+	 * @param matrix
+	 * @param restrictedEdit
+	 */
 	public MatchEditorController(UserRequest ureq, WindowControl wControl, MatchAssessmentItemBuilder itemBuilder,
-			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit) {
+			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit, boolean readOnly) {
 		super(ureq, wControl, "simple_choices_editor");
 		setTranslator(Util.createPackageTranslator(AssessmentTestEditorController.class, getLocale()));
 		this.itemBuilder = itemBuilder;
+		this.readOnly = readOnly;
 		this.restrictedEdit = restrictedEdit;
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
@@ -94,22 +111,29 @@ public class MatchEditorController extends FormBasicController {
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		FormLayoutContainer metadata = FormLayoutContainer.createDefaultFormLayout("metadata", getTranslator());
-		metadata.setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_fragetypen_match");
+		if (itemBuilder.getQuestionType() == QTI21QuestionType.matchdraganddrop) {
+			metadata.setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_fragetypen_draganddrop");
+		} else {
+			metadata.setFormContextHelp("Test editor QTI 2.1 in detail#details_testeditor_fragetypen_match");
+		}
 		metadata.setRootForm(mainForm);
 		formLayout.add(metadata);
 		formLayout.add("metadata", metadata);
 		
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), metadata);
+		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
+		titleEl.setEnabled(!readOnly);
 
 		String description = itemBuilder.getQuestion();
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", description, 8, -1, itemContainer,
 				metadata, ureq.getUserSession(), getWindowControl());
+		textEl.setEnabled(!readOnly);
 		
 		//shuffle
 		String[] yesnoValues = new String[]{ translate("yes"), translate("no") };
 		shuffleEl = uifactory.addRadiosHorizontal("shuffle", "form.imd.shuffle", metadata, yesnoKeys, yesnoValues);
-		shuffleEl.setEnabled(!restrictedEdit);
+		shuffleEl.setEnabled(!restrictedEdit && !readOnly);
 		if (itemBuilder.isShuffle()) {
 			shuffleEl.select("y", true);
 		} else {
@@ -119,18 +143,40 @@ public class MatchEditorController extends FormBasicController {
 		//single choice / multiple choice
 		String[] singleMultiValues = new String[]{ translate("form.imd.match.single.choice"), translate("form.imd.match.multiple.choice") };
 		singleMultiEl = uifactory.addRadiosHorizontal("singleMulti", "form.imd.match.single.multiple", metadata, singleMultiKeys, singleMultiValues);
-		singleMultiEl.setEnabled(!restrictedEdit);
+		singleMultiEl.setElementCssClass("o_sel_match_single");
+		singleMultiEl.setEnabled(!restrictedEdit && !readOnly);
 		singleMultiEl.addActionListener(FormEvent.ONCHANGE);
 		if (itemBuilder.isMultipleChoice()) {
 			singleMultiEl.select(singleMultiKeys[1], true);
 		} else {
 			singleMultiEl.select(singleMultiKeys[0], true);
 		}
+		
+		if(itemBuilder.getQuestionType() == QTI21QuestionType.matchdraganddrop) {
+			String[] layoutValues = new String[]{
+					translate("form.imd.layout.left"), translate("form.imd.layout.top"),
+					translate("form.imd.layout.right"), translate("form.imd.layout.bottom")
+				};
+			layoutEl = uifactory.addRadiosHorizontal("layout", "form.imd.layout", metadata, layoutKeys, layoutValues);
+			layoutEl.setElementCssClass("o_sel_match_layout");
+			layoutEl.setEnabled(!restrictedEdit && !readOnly);
+			boolean found = false;
+			for(String layoutKey:layoutKeys) {
+				if(itemBuilder.hasMatchInteractionClass(layoutKey)) {
+					layoutEl.select(layoutKey, true);
+					found = true;
+				}
+			}
+			if(!found) {
+				layoutEl.select(layoutKeys[0], true);
+			}
+		}
 
 		//responses
 		String page = velocity_root + "/match_choices.html";
 		answersCont = FormLayoutContainer.createCustomFormLayout("answers", getTranslator(), page);
 		answersCont.setRootForm(mainForm);
+		answersCont.contextPut("showHeaders", (itemBuilder.getQuestionType() == QTI21QuestionType.matchdraganddrop));
 		formLayout.add(answersCont);
 		formLayout.add("answers", answersCont);
 
@@ -148,7 +194,7 @@ public class MatchEditorController extends FormBasicController {
 		}
 		answersCont.contextPut("sourceChoices", sourceWrappers);
 		answersCont.contextPut("targetChoices", targetWrappers);
-		answersCont.contextPut("restrictedEdit", restrictedEdit);
+		answersCont.contextPut("restrictedEdit", restrictedEdit || readOnly);
 		answersCont.contextPut("responseIdentifier", itemBuilder.getResponseIdentifier());
 		int maxAssociations = itemBuilder.getMatchInteraction().getMaxAssociations();
 		answersCont.contextPut("interactionMaxAssociations", maxAssociations);
@@ -156,11 +202,15 @@ public class MatchEditorController extends FormBasicController {
 		JSAndCSSFormItem js = new JSAndCSSFormItem("js", new String[] { "js/jquery/qti/jquery.match.js" });
 		formLayout.add(js);
 		
-		uifactory.addFormSubmitButton("submit", answersCont);
-		if(!restrictedEdit) {
+		if(!readOnly) {
+			uifactory.addFormSubmitButton("submit", answersCont);
+		}
+		if(!restrictedEdit && !readOnly) {
 			addColumnButton = uifactory.addFormLink("add.match.column", answersCont, Link.BUTTON);
+			addColumnButton.setElementCssClass("o_sel_match_add_column");
 			addColumnButton.setIconLeftCSS("o_icon o_icon_add");
 			addRowButton = uifactory.addFormLink("add.match.row", answersCont, Link.BUTTON);
+			addRowButton.setElementCssClass("o_sel_match_add_row");
 			addRowButton.setIconLeftCSS("o_icon o_icon_add");
 		}
 	}
@@ -171,11 +221,12 @@ public class MatchEditorController extends FormBasicController {
 		RichTextElement choiceEl = uifactory.addRichTextElementForQTI21Match(choiceId, "form.imd.answer", choiceContent, 4, -1, itemContainer,
 				answersCont, ureq.getUserSession(), getWindowControl());
 		choiceEl.setUserObject(choice);
+		choiceEl.setEnabled(!readOnly);
 		answersCont.add("choiceId", choiceEl);
 		
 		FormLink deleteButton = uifactory.addFormLink("del_" + (count++), "delete", "delete", null, answersCont, Link.NONTRANSLATED);
 		deleteButton.setIconLeftCSS("o_icon o_icon_delete_item");
-		deleteButton.setVisible(!restrictedEdit);
+		deleteButton.setVisible(!restrictedEdit && !readOnly);
 		deleteButton.setI18nKey("");
 		
 		MatchWrapper wrapper = new MatchWrapper(choice, choiceEl, deleteButton);
@@ -198,39 +249,11 @@ public class MatchEditorController extends FormBasicController {
 		}
 		
 		commitTemporaryAssociations(ureq);
-		
-		if(singleMultiEl.isOneSelected() && singleMultiEl.isSelected(0)) {
-			Map<String,String> sourseTargetMap = new HashMap<>();
-			String[] directedPairsIds = ureq.getHttpReq().getParameterValues("qtiworks_response_" + itemBuilder.getResponseIdentifier());
-			if(directedPairsIds == null || directedPairsIds.length == 0) {
-				for(MatchWrapper sourceWrapper:sourceWrappers) {
-					sourceWrapper.setErrorSingleChoice(true);
-					allOk &= false;
-				}
-			} else {
-				for(String directedPairIds: directedPairsIds) {
-					String[] pairs = directedPairIds.split(" ");
-					String sourceId = pairs[0];
-					String targetId = pairs[1];
-					if(sourseTargetMap.containsKey(sourceId)) {
-						for(MatchWrapper sourceWrapper:sourceWrappers) {
-							if(sourceId.equals(sourceWrapper.getIdentifierString())) {
-								sourceWrapper.setErrorSingleChoice(true);
-							}
-						}
-						allOk &= false;
-					} else {
-						sourseTargetMap.put(sourceId, targetId);
-					}
-				}
-	
-				for(MatchWrapper sourceWrapper:sourceWrappers) {
-					String sourceId = sourceWrapper.getIdentifierString();
-					if(!sourseTargetMap.containsKey(sourceId)) {
-						sourceWrapper.setErrorSingleChoice(true);
-						allOk &= false;
-					}
-				}
+		if(layoutEl != null) {
+			layoutEl.clearError();
+			if(!layoutEl.isOneSelected()) {
+				layoutEl.setErrorKey("form.legende.mandatory", null);
+				allOk &= false;
 			}
 		}
 		
@@ -261,6 +284,7 @@ public class MatchEditorController extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(readOnly) return;
 		//title
 		itemBuilder.setTitle(titleEl.getValue());
 		//question
@@ -275,6 +299,13 @@ public class MatchEditorController extends FormBasicController {
 		//shuffle
 		if(!restrictedEdit) {
 			itemBuilder.setShuffle(shuffleEl.isOneSelected() && shuffleEl.isSelected(0));
+		}
+		
+		//layout
+		if(!restrictedEdit && layoutEl != null) {
+			itemBuilder.removeMatchInteractionClass(layoutKeys);
+			String cssClass = layoutEl.getSelectedKey();
+			itemBuilder.addMatchInteractionClass(cssClass);
 		}
 		
 		//update 
@@ -315,6 +346,8 @@ public class MatchEditorController extends FormBasicController {
 	}
 	
 	private void commitAssociations(UserRequest ureq) {
+		if(restrictedEdit) return;
+		
 		temporaryAssociations.clear();
 		itemBuilder.clearAssociations();
 

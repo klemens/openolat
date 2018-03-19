@@ -71,8 +71,7 @@ public class AssessmentToolPage {
 	 */
 	public AssessmentToolPage selectUser(UserVO user) {
 		By userLinksBy = By.xpath("//div[contains(@class,'o_table_flexi')]//table//tr//td//a[text()[contains(.,'" + user.getFirstName() + "')]]");
-		WebElement userLink = browser.findElement(userLinksBy);
-		userLink.click();
+		browser.findElement(userLinksBy).click();
 		OOGraphene.waitBusy(browser);
 		return this;
 	}
@@ -146,18 +145,9 @@ public class AssessmentToolPage {
 		browser.findElement(userLinksBy).click();
 		OOGraphene.waitBusy(browser);
 		OOGraphene.waitAndCloseBlueMessageWindow(browser);
-		
-		boolean newCertificate = false;
-		for(int i=0; i<50; i++) {
-			By certificateBy = By.cssSelector("ul.o_certificates a>i.o_icon.o_filetype_pdf");
-			List<WebElement> completedEls = browser.findElements(certificateBy);
-			if(completedEls.size() > 0) {
-				newCertificate = true;
-				break;
-			}
-			OOGraphene.waitingALittleLonger();
-		}
-		Assert.assertTrue(newCertificate);
+
+		By certificateBy = By.cssSelector("ul.o_certificates a>i.o_icon.o_filetype_pdf");
+		OOGraphene.waitElement(certificateBy, 15, browser);
 		return this;
 	}
 	
@@ -169,6 +159,7 @@ public class AssessmentToolPage {
 		By newBy = By.cssSelector("a.o_sel_assessment_tool_new_bulk_assessment");
 		browser.findElement(newBy).click();
 		OOGraphene.waitBusy(browser);
+		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_bulk_assessment_data"), browser);
 		return new BulkAssessmentPage(browser);
 	}
 	

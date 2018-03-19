@@ -30,6 +30,7 @@ import uk.ac.ed.ph.jqtiplus.node.item.interaction.DrawingInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.EndAttemptInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.ExtendedTextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.HotspotInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.Interaction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.TextEntryInteraction;
@@ -49,12 +50,14 @@ public enum QTI21QuestionType {
 	mc(true, "mc", "o_mi_qtimc", QuestionType.MC),
 	kprim(true, "kprim", "o_mi_qtikprim", QuestionType.KPRIM),
 	match(true, "match", "o_mi_qtimatch", QuestionType.MATCH),
+	matchdraganddrop(true, "matchdraganddrop", "o_mi_qtimatch_draganddrop", QuestionType.MATCHDRAGANDDROP),
 	fib(true, "fib", "o_mi_qtifib", QuestionType.FIB),
 	numerical(true, "numerical", "o_mi_qtinumerical", QuestionType.NUMERICAL),
 	hotspot(true, "hotspot", "o_mi_qtihotspot", QuestionType.HOTSPOT),
 	essay(true, "essay", "o_mi_qtiessay", QuestionType.ESSAY),
 	upload(true, "upload", "o_mi_qtiupload", QuestionType.UPLOAD),
 	drawing(true, "drawing", "o_mi_qtidrawing", QuestionType.DRAWING),
+	hottext(true, "hottext", "o_mi_qtihottext", QuestionType.HOTTEXT),
 	unkown(false, null, "o_mi_qtiunkown", null);
 	
 	private final String prefix;
@@ -120,6 +123,7 @@ public enum QTI21QuestionType {
 		boolean fHotspot = false;
 		boolean fUpload = false;
 		boolean fDrawing = false;
+		boolean fHottext = false;
 		boolean fUnkown = false;
 
 		if(interactions != null && interactions.size() > 0) {
@@ -138,7 +142,9 @@ public enum QTI21QuestionType {
 					fTextEntry = true;
 				} else if(interaction instanceof HotspotInteraction) {
 					fHotspot = true;
-				} else if(interaction instanceof EndAttemptInteraction) {
+				} else if(interaction instanceof HottextInteraction) {
+					fHottext = true;
+				}  else if(interaction instanceof EndAttemptInteraction) {
 					//ignore
 				}   else {
 					fUnkown = true;
@@ -148,20 +154,22 @@ public enum QTI21QuestionType {
 		
 		if(fUnkown) {
 			return QTI21QuestionType.unkown;
-		} else if(fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fUnkown) {
+		} else if(fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return getTypeOfChoice(item, interactions);
-		} else if(!fChoice && fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fUnkown) {
+		} else if(!fChoice && fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return getTypeOfMatch(item, interactions);
-		} else if(!fChoice && !fMatch && fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fUnkown) {
+		} else if(!fChoice && !fMatch && fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return getTypeOfTextEntryInteraction(item);
-		} else if(!fChoice && !fMatch && !fTextEntry && fEssay && !fUpload && !fDrawing && !fHotspot && !fUnkown) {
+		} else if(!fChoice && !fMatch && !fTextEntry && fEssay && !fUpload && !fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return QTI21QuestionType.essay;
-		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && fUpload && !fDrawing && !fHotspot && !fUnkown) {
+		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && fUpload && !fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return QTI21QuestionType.upload;
-		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && fDrawing && !fHotspot && !fUnkown) {
+		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && fDrawing && !fHotspot && !fHottext && !fUnkown) {
 			return QTI21QuestionType.drawing;
-		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && fHotspot && !fUnkown) {
+		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && fHotspot && !fHottext && !fUnkown) {
 			return QTI21QuestionType.hotspot;
+		} else if(!fChoice && !fMatch && !fTextEntry && !fEssay && !fUpload && !fDrawing && !fHotspot && fHottext && !fUnkown) {
+			return QTI21QuestionType.hottext;
 		} else {
 			return QTI21QuestionType.unkown;
 		}
@@ -202,8 +210,12 @@ public enum QTI21QuestionType {
 			ResponseDeclaration responseDeclaration = item.getResponseDeclaration(interaction.getResponseIdentifier());
 			String responseIdentifier = responseDeclaration.getIdentifier().toString();
 			Cardinality cardinalty = responseDeclaration.getCardinality();
-			if(cardinalty.isMultiple()) {
-				if(responseIdentifier.startsWith("KPRIM_")) {
+			if(hasClass(interaction, QTI21Constants.CSS_MATCH_DRAG_AND_DROP)) {
+				return QTI21QuestionType.matchdraganddrop;
+			} else if(cardinalty.isMultiple()) {
+				if(hasClass(interaction, QTI21Constants.CSS_MATCH_KPRIM)) {
+					return QTI21QuestionType.kprim;
+				} else if(responseIdentifier.startsWith("KPRIM_")) {
 					return QTI21QuestionType.kprim;
 				} else {
 					return QTI21QuestionType.match;
@@ -231,5 +243,12 @@ public enum QTI21QuestionType {
 		} else {
 			return QTI21QuestionType.unkown;
 		}
+	}
+	
+	public static final boolean hasClass(Interaction interaction, String cssClass) {
+		if(interaction == null || cssClass == null) return false;
+		
+		List<String> cssClasses = interaction.getClassAttr();
+		return cssClasses != null && cssClasses.size() > 0 && cssClasses.contains(cssClass);
 	}
 }

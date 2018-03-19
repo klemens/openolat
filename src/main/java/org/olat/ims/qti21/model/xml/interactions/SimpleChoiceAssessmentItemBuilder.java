@@ -22,16 +22,17 @@ package org.olat.ims.qti21.model.xml.interactions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import javax.xml.transform.stream.StreamResult;
 
 import org.olat.core.gui.render.StringOutput;
+import org.olat.core.util.filter.FilterFactory;
+import org.olat.ims.qti21.model.xml.ResponseIdentifierForFeedback;
 
 import uk.ac.ed.ph.jqtiplus.node.content.basic.Block;
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.ChoiceInteraction;
-import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.Choice;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.Interaction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.SimpleChoice;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.MapEntry;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.Mapping;
@@ -48,17 +49,17 @@ import uk.ac.ed.ph.jqtiplus.value.SingleValue;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public abstract class SimpleChoiceAssessmentItemBuilder extends ChoiceAssessmentItemBuilder {
-	
+public abstract class SimpleChoiceAssessmentItemBuilder extends ChoiceAssessmentItemBuilder implements ResponseIdentifierForFeedback {
+
+	protected int maxChoices;
+	protected int minChoices;
 	protected boolean shuffle;
 	protected String question;
 	protected List<String> cssClass;
 	protected Orientation orientation;
 	protected List<SimpleChoice> choices;
 	protected Identifier responseIdentifier;
-	protected ScoreEvaluation scoreEvaluation;
 	protected ChoiceInteraction choiceInteraction;
-	protected Map<Identifier,Double> scoreMapping;
 	
 	public SimpleChoiceAssessmentItemBuilder(AssessmentItem assessmentItem, QtiSerializer qtiSerializer) {
 		super(assessmentItem, qtiSerializer);
@@ -115,15 +116,57 @@ public abstract class SimpleChoiceAssessmentItemBuilder extends ChoiceAssessment
 			choices.addAll(choiceInteraction.getSimpleChoices());
 			orientation = choiceInteraction.getOrientation();
 			cssClass = choiceInteraction.getClassAttr();
+			maxChoices = choiceInteraction.getMaxChoices();
+			minChoices = choiceInteraction.getMinChoices();
 		}
+	}
+	
+	@Override
+	public Identifier getResponseIdentifier() {
+		return responseIdentifier;
+	}
+
+	@Override
+	public List<Answer> getAnswers() {
+		List<SimpleChoice> simpleChoices = getChoices();
+		List<Answer> answers = new ArrayList<>(simpleChoices.size());
+		for(SimpleChoice choice:simpleChoices) {
+			String choiceContent =  getHtmlHelper().flowStaticString(choice.getFlowStatics());
+			String label = FilterFactory.getHtmlTagAndDescapingFilter().filter(choiceContent);
+			answers.add(new Answer(choice.getIdentifier(), label));
+		}
+		return answers;
+	}
+	
+	@Override
+	public Interaction getInteraction() {
+		return choiceInteraction;
 	}
 	
 	public ChoiceInteraction getChoiceInteraction() {
 		return choiceInteraction;
 	}
-	
-	public abstract boolean isCorrect(Choice choice);
-	
+
+	@Override
+	public int getMaxChoices() {
+		return maxChoices;
+	}
+
+	@Override
+	public void setMaxChoices(int maxChoices) {
+		this.maxChoices = maxChoices;
+	}
+
+	@Override
+	public int getMinChoices() {
+		return minChoices;
+	}
+
+	@Override
+	public void setMinChoices(int minChoices) {
+		this.minChoices = minChoices;
+	}
+
 	public boolean isShuffle() {
 		return shuffle;
 	}
@@ -159,35 +202,6 @@ public abstract class SimpleChoiceAssessmentItemBuilder extends ChoiceAssessment
 		}
 	}
 	
-	public ScoreEvaluation getScoreEvaluationMode() {
-		return scoreEvaluation;
-	}
-	
-	public void setScoreEvaluationMode(ScoreEvaluation scoreEvaluation) {
-		this.scoreEvaluation = scoreEvaluation;
-	}
-	
-	public Double getMapping(Identifier identifier) {
-		Double score = null;
-		if(scoreMapping != null) {
-			score = scoreMapping.get(identifier);
-		}
-		return score;
-	}
-	
-	public void clearMapping() {
-		if(scoreMapping != null) {
-			scoreMapping.clear();
-		}
-	}
-	
-	public void setMapping(Identifier identifier, Double score) {
-		if(scoreMapping == null) {
-			scoreMapping = new HashMap<>();
-		}
-		scoreMapping.put(identifier, score);
-	}
-	
 	/**
 	 * Return the HTML block before the choice interaction as a string.
 	 * 
@@ -203,11 +217,12 @@ public abstract class SimpleChoiceAssessmentItemBuilder extends ChoiceAssessment
 		this.question = html;
 	}
 	
-	public List<SimpleChoice> getSimpleChoices() {
+	@Override
+	public List<SimpleChoice> getChoices() {
 		return choices;
 	}
 	
-	public SimpleChoice getSimpleChoice(Identifier identifier) {
+	public SimpleChoice getChoice(Identifier identifier) {
 		for(SimpleChoice choice:choices) {
 			if(choice.getIdentifier().equals(identifier)) {
 				return choice;

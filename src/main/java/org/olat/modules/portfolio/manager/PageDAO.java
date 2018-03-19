@@ -443,6 +443,8 @@ public class PageDAO {
 	 * @return
 	 */
 	public int deletePage(Page page) {
+		if(page == null || page.getKey() == null) return 0;//nothing to do
+		
 		OLATResourceable ores = OresHelper.createOLATResourceableInstance(Page.class, page.getKey());
 		
 		PageBody body = page.getBody();
@@ -458,11 +460,7 @@ public class PageDAO {
 				.setParameter("pageKey", page.getKey())
 				.executeUpdate();
 		
-		int evaluations = 0;
-		if(assignments > 0) {
-			// delete sessions and responses	
-			evaluations = evaluationFormSessionDao.deleteSessionForPortfolioEvaluation(body);
-		}
+		int evaluations = evaluationFormSessionDao.deleteSessionForPortfolioEvaluation(body);
 		
 		dbInstance.getCurrentEntityManager().remove(page);
 		dbInstance.getCurrentEntityManager().remove(body);

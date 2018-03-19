@@ -22,11 +22,13 @@ package org.olat.modules.qpool.ui.datasource;
 import java.util.Collections;
 import java.util.List;
 
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemShort;
+import org.olat.modules.qpool.QuestionStatus;
 
 /**
  * 
@@ -44,6 +46,10 @@ public class PoolItemsSource extends DefaultItemsSource {
 		getDefaultParams().setPoolKey(pool.getKey());
 	}
 	
+	public Pool getPool() {
+		return pool;
+	}
+
 	@Override
 	public void removeFromSource(List<QuestionItemShort> items) {
 		qpoolService.removeItemsInPool(items, pool);
@@ -55,14 +61,75 @@ public class PoolItemsSource extends DefaultItemsSource {
 	}
 
 	@Override
+	public boolean askAddToSource() {
+		return true;
+	}
+
+	@Override
+	public boolean askAddToSourceDefault() {
+		return false;
+	}
+
+	@Override
+	public String getAskToSourceText(Translator translator) {
+		return translator.translate("pool.add.to.source", new String[] {pool.getName()});
+	}
+
+	@Override
+	public void addToSource(List<QuestionItem> items, boolean editable) {
+		qpoolService.addItemsInPools(items, Collections.singletonList(pool), editable);
+	}
+
+	@Override
 	public int postImport(List<QuestionItem> items, boolean editable) {
 		if(items == null || items.isEmpty()) return 0;
-		qpoolService.addItemsInPools(items, Collections.singletonList(pool), editable);
+		addToSource(items, editable);
 		return items.size();
+	}
+
+	@Override
+	public boolean isCreateEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean isCopyEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean isImportEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean isAuthorRightsEnable() {
+		return true;
 	}
 
 	@Override
 	public boolean isDeleteEnabled() {
 		return false;
 	}
+
+	@Override
+	public boolean isBulkChangeEnabled() {
+		return true;
+	}
+
+	@Override
+	public boolean isStatusFilterEnabled() {
+		return false;
+	}
+
+	@Override
+	public QuestionStatus getStatusFilter() {
+		return null;
+	}
+	
+	@Override
+	public void setStatusFilter(QuestionStatus questionStatus) {
+		// not enabled
+	}
+
 }

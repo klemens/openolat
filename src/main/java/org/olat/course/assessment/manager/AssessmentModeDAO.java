@@ -143,6 +143,19 @@ public class AssessmentModeDAO {
 				.getResultList();
 	}
 	
+	public List<AssessmentMode> getPlannedAssessmentMode(RepositoryEntryRef entry, Date from) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select mode from courseassessmentmode mode")
+		  .append(" where mode.repositoryEntry.key=:entryKey and mode.begin>=:from")
+		  .append(" order by mode.begin asc");
+		
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), AssessmentMode.class)
+				.setParameter("entryKey", entry.getKey())
+				.setParameter("from", from)
+				.getResultList();
+	}
+	
 	public List<AssessmentMode> getAssessmentModes(Date now) {
 		Calendar cal = Calendar.getInstance();
 		cal.set(Calendar.MILLISECOND, 0);
@@ -150,7 +163,8 @@ public class AssessmentModeDAO {
 		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select mode from courseassessmentmode mode where ")
-		  .append(" (mode.beginWithLeadTime<=:now and mode.endWithFollowupTime>=:now and mode.manualBeginEnd=false)")
+		  .append(" (mode.beginWithLeadTime<=:now and mode.endWithFollowupTime>=:now")
+		  .append("   and (mode.manualBeginEnd=false or (mode.manualBeginEnd=true and mode.leadTime>0)))")
 		  .append(" or mode.statusString in ('").append(Status.leadtime.name()).append("','")
 		  .append(Status.assessment.name()).append("','").append(Status.followup.name()).append("')");
 
@@ -169,7 +183,8 @@ public class AssessmentModeDAO {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select count(mode) from courseassessmentmode mode where ")
 		  .append(" mode.repositoryEntry.key=:repoKey and (")
-		  .append(" (mode.beginWithLeadTime<=:now and mode.endWithFollowupTime>=:now and mode.manualBeginEnd=false)")
+		  .append(" (mode.beginWithLeadTime<=:now and mode.endWithFollowupTime>=:now ")
+		  .append("   and (mode.manualBeginEnd=false or (mode.manualBeginEnd=true and mode.leadTime>0)))")
 		  .append(" or mode.statusString in ('").append(Status.leadtime.name()).append("','")
 		  .append(Status.assessment.name()).append("','").append(Status.followup.name()).append("'))");
 
@@ -180,6 +195,28 @@ public class AssessmentModeDAO {
 				.getResultList();
 		return count != null && count.size() > 0 && count.get(0).intValue() > 0;
 	}
+	
+	public List<AssessmentMode> getCurrentAssessmentMode(RepositoryEntryRef entry, Date date) {
+		Calendar cal = Calendar.getInstance();
+		cal.setTime(date);
+		cal.set(Calendar.MILLISECOND, 0);
+		cal.set(Calendar.SECOND, 0);
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("select mode from courseassessmentmode mode where ")
+		  .append(" mode.repositoryEntry.key=:repoKey and (")
+		  .append(" (mode.beginWithLeadTime<=:now and mode.endWithFollowupTime>=:now")
+		  .append("   and (mode.manualBeginEnd=false or (mode.manualBeginEnd=true and mode.leadTime>0)))")
+		  .append(" or mode.statusString in ('").append(Status.leadtime.name()).append("','")
+		  .append(Status.assessment.name()).append("','").append(Status.followup.name()).append("'))");
+
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), AssessmentMode.class)
+				.setParameter("now", date)
+				.setParameter("repoKey", entry.getKey())
+				.getResultList();
+	}
+	
 	
 	protected List<AssessmentMode> loadAssessmentModeFor(IdentityRef identity, List<AssessmentMode> currentModes) {
 		StringBuilder sb = new StringBuilder(1500);

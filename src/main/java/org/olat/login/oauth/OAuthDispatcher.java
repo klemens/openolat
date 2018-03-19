@@ -123,7 +123,11 @@ public class OAuthDispatcher implements Dispatcher {
 			OAuthSPI provider = (OAuthSPI)sess.getAttribute(OAuthConstants.OAUTH_SPI);
 
 			Token accessToken;
-			if(provider.isImplicitWorkflow()) {
+			if(provider == null) {
+				log.audit("OAuth Login failed, no provider in request");
+				DispatcherModule.redirectToDefaultDispatcher(response);
+				return;
+			} else if(provider.isImplicitWorkflow()) {
 				String idToken = ureq.getParameter("id_token");
 				if(idToken == null) {
 					redirectImplicitWorkflow(ureq);
@@ -143,19 +147,32 @@ public class OAuthDispatcher implements Dispatcher {
 			OAuthUser infos = provider.getUser(service, accessToken);
 			if(infos == null || !StringHelper.containsNonWhitespace(infos.getId())) {
 				error(ureq, translate(ureq, "error.no.id"));
-				log.error("OAuth Login failed, no infos extracted from access token ");
+				log.error("OAuth Login failed, no infos extracted from access token: " + accessToken);
 				return;
 			}
 
 			OAuthRegistration registration = new OAuthRegistration(provider.getProviderName(), infos);
 			login(infos, registration);
+
+			if(provider instanceof OAuthUserCreator) {
+				Identity newIdentity;
+				OAuthUserCreator userCreator = (OAuthUserCreator)provider;
+				if(registration.getIdentity() == null) {
+					newIdentity = userCreator.createUser(infos);
+				} else {
+					newIdentity = userCreator.updateUser(infos, registration.getIdentity());			
+				}
+				if(newIdentity != null) {
+					registration.setIdentity(newIdentity);
+				}
+			}
 			
 			if(registration.getIdentity() == null) {
 				if(CoreSpringFactory.getImpl(OAuthLoginModule.class).isAllowUserCreation()) {
 					register(request, response, registration);
 				} else {
 					error(ureq, translate(ureq, "error.account.creation"));
-					log.error("OAuth Login ok but the user has not an account on OpenOLAT");
+					log.error("OAuth Login ok but the user has not an account on OpenOLAT: " + infos);
 				}
 			} else {
 				if(ureq.getUserSession() != null) {
@@ -185,7 +202,7 @@ public class OAuthDispatcher implements Dispatcher {
 				}
 			}
 		} catch (Exception e) {
-			log.error("", e);
+			log.error("Unexpected error", e);
 			error(ureq, translate(ureq, "error.generic"));
 		}
 	}
@@ -204,14 +221,7 @@ public class OAuthDispatcher implements Dispatcher {
 			if(auth == null) {
 				String email = infos.getEmail();
 				if(StringHelper.containsNonWhitespace(email)) {
-					Identity identity = null;
-					try {
-						identity = userManager.findIdentityByEmail(email);
-					} catch(AssertException e) {
-						// username was not an valid mail address. That is
-						// totally ok here, continue with search by identity
-						// name. 
-					}
+					Identity identity = userManager.findUniqueIdentityByEmail(email);
 					if(identity == null) {
 						identity = securityManager.findIdentityByName(id);
 					}

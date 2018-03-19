@@ -21,6 +21,7 @@ package org.olat.course.assessment.ui.tool;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentMap;
 
 import org.olat.core.commons.persistence.SortKey;
@@ -30,7 +31,8 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.Filterable
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiSortableColumnDef;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableColumnModel;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.SortableFlexiTableDataModel;
-import org.olat.core.gui.components.form.flexible.impl.elements.table.SortableFlexiTableModelDelegate;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.course.certificate.CertificateLight;
 import org.olat.course.nodes.AssessableCourseNode;
@@ -46,13 +48,17 @@ import org.olat.modules.assessment.ui.AssessedIdentityElementRow;
  */
 public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel<AssessedIdentityElementRow>
 	implements SortableFlexiTableDataModel<AssessedIdentityElementRow>, FilterableFlexiTableModel {
+	
+	private static final OLog log = Tracing.createLoggerFor(IdentityListCourseNodeTableModel.class);
 
+	private final Locale locale;
 	private final AssessableCourseNode courseNode;
 	private List<AssessedIdentityElementRow> backups;
 	private ConcurrentMap<Long, CertificateLight> certificateMap;
 	
-	public IdentityListCourseNodeTableModel(FlexiTableColumnModel columnModel, AssessableCourseNode courseNode) {
+	public IdentityListCourseNodeTableModel(FlexiTableColumnModel columnModel, AssessableCourseNode courseNode, Locale locale) {
 		super(columnModel);
+		this.locale = locale;
 		this.courseNode = courseNode;
 	}
 	
@@ -100,10 +106,13 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 
 	@Override
 	public void sort(SortKey orderBy) {
-		SortableFlexiTableModelDelegate<AssessedIdentityElementRow> sorter
-				= new SortableFlexiTableModelDelegate<>(orderBy, this, null);
-		List<AssessedIdentityElementRow> views = sorter.sort();
-		super.setObjects(views);
+		try {
+			List<AssessedIdentityElementRow> views = new IdentityListCourseNodeTableSortDelegate(orderBy, this, locale)
+					.sort();
+			super.setObjects(views);
+		} catch (Exception e) {
+			log.error("", e);
+		}
 	}
 	
 	@Override
@@ -118,6 +127,7 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 			switch(IdentityCourseElementCols.values()[col]) {
 				case username: return row.getIdentityName();
 				case attempts: return row.getAttempts();
+				case userVisibility: return row.getUserVisibility();
 				case score: return row.getScore();
 				case min: {
 					if(!(courseNode instanceof STCourseNode) && courseNode.hasScoreConfigured()) {
@@ -133,14 +143,25 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 				}
 				case status: return "";
 				case passed: return row.getPassed();
+				case numOfAssessmentDocs: {
+					if(row.getNumOfAssessmentDocs() <= 0) {
+						return null;
+					}
+					return row.getNumOfAssessmentDocs();
+				}
 				case assessmentStatus: return row.getAssessmentStatus();
+				case currentCompletion: return row.getCurrentCompletion();
 				case certificate: return certificateMap.get(row.getIdentityKey());
 				case recertification: {
 					CertificateLight certificate = certificateMap.get(row.getIdentityKey());
 					return certificate == null ? null : certificate.getNextRecertificationDate();
 				}
-				case initialLaunchDate: return row.getCreationDate();
-				case lastScoreUpdate: return row.getLastModified();
+				case initialLaunchDate: return row.getInitialCourseLaunchDate();
+				case lastModified: return row.getLastModified();
+				case lastUserModified: return row.getLastUserModified();
+				case lastCoachModified: return row.getLastCoachModified();
+				case tools: return row.getToolsLink();
+				case details: return row.getDetails();
 			}
 		}
 		int propPos = col - AssessmentToolConstants.USER_PROPS_OFFSET;
@@ -149,12 +170,13 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 
 	@Override
 	public DefaultFlexiTableDataModel<AssessedIdentityElementRow> createCopyWithEmptyList() {
-		return new IdentityListCourseNodeTableModel(getTableColumnModel(), courseNode);
+		return new IdentityListCourseNodeTableModel(getTableColumnModel(), courseNode, locale);
 	}
 	
 	public enum IdentityCourseElementCols implements FlexiSortableColumnDef {
 		username("table.header.name"),
 		attempts("table.header.attempts"),
+		userVisibility("table.header.userVisibility"),
 		score("table.header.score"),
 		min("table.header.min"),
 		max("table.header.max"),
@@ -164,7 +186,13 @@ public class IdentityListCourseNodeTableModel extends DefaultFlexiTableDataModel
 		certificate("table.header.certificate"),
 		recertification("table.header.recertification"),
 		initialLaunchDate("table.header.initialLaunchDate"),
-		lastScoreUpdate("table.header.lastScoreDate");
+		lastModified("table.header.lastScoreDate"),
+		lastUserModified("table.header.lastUserModificationDate"),
+		lastCoachModified("table.header.lastCoachModificationDate"),
+		numOfAssessmentDocs("table.header.num.assessmentDocs"),
+		currentCompletion("table.header.completion"),
+		tools("table.header.tools"),
+		details("table.header.details");
 		
 		private final String i18nKey;
 		

@@ -1,0 +1,129 @@
+<div class="panel panel-default o_comment">
+	<div class="panel-heading" data-toggle="collapse" data-target="#o_collapseHighscore">
+		<h4 class="panel-title">
+			<i id="o_collapseHighscoreToggler" class="o_icon o_icon-fw #if($showConfig) o_icon_close_togglebox #else o_icon_open_togglebox #end "> </i>
+			$r.translate("highscore.title")
+		</h4>
+	</div>
+	<div id="o_collapseHighscore" class="panel-collapse collapse #if($showConfig) in #end">
+		<div class="panel-body">
+			<div class="container-fluid o_highscore o_block_large_bottom">
+			<div class="row clearfix">
+			#if ($position) 
+				<div class="o_position o_block_bottom">
+					<h2>$r.translate("highscore.position.congratulation")</h2>
+					$position
+					#if($relposition)					
+					<span class="o_position_relative">
+						$relposition					
+					</span>
+					#end
+				</div>
+			#end
+			#if ($first)
+				<div class="col-sm-6 o_podium">
+					<div class="o_rank o_first">
+						#if ($r.available("portrait1")) 
+							<div class="o_singleportrait">$r.render("portrait1")</div> 	
+						#else
+							#if ($number1) 
+								<ul class="list-inline o_rank_portraits">
+								 	#foreach ($i in [1..$number1])
+										<li>$r.render("portrait1-$i")</li>						
+									#end					
+								</ul>
+							#end
+						#end
+						#if ($score1)
+							<div class="o_score">$score1 $r.translate("graph.axis.points")</div>
+						#end
+						<div class="o_name">
+						#if ($first != "")$first<br />#end
+						#if ($r.available("link1")) 
+							$r.render("link1") 
+						#elseif ($further1)
+							$further1
+						#end 						
+						</div>
+					</div>
+	
+					<div class="o_rank o_second">
+						#if ($r.available("portrait2")) 
+							<div class="o_singleportrait">$r.render("portrait2")</div>
+						#else
+							#if ($number2)
+								<ul class="list-inline o_rank_portraits">
+									#foreach ($i in [1..$number2])
+										<li>$r.render("portrait2-$i")</li>						
+									#end
+								</ul>
+							#end	
+						#end
+						#if ($score2)
+							<div class="o_score">$score2 $r.translate("graph.axis.points")</div>
+						#end
+						<div class="o_name">
+						#if ($second != "")$second<br /> #end
+						#if ($r.available("link2")) 
+							$r.render("link2") 
+						#elseif ($further2)
+							$further2
+						#end 						
+						</div>
+					</div>
+									
+					<div class="o_rank o_third">
+						#if ($r.available("portrait3")) 
+							<div class="o_singleportrait">$r.render("portrait3")</div> 
+						#else
+							#if ($number3)
+								<ul class="list-inline o_rank_portraits">
+								 	#foreach ($i in [1..$number3])
+										<li>$r.render("portrait3-$i")</li>						
+									#end
+								</ul>
+							#end
+						#end
+						#if ($score3)
+							<div class="o_score">$score3 $r.translate("graph.axis.points")</div>
+						#end
+						<div class="o_name">
+						#if ($third != "")$third<br />#end
+						#if ($r.available("link3")) 
+							$r.render("link3")	
+						#elseif ($further3)
+							$further3 
+						#end 						
+						</div>
+					</div>
+	
+				</div>
+			#end
+				
+			#if ($r.available("scoreHistogram")) 
+				<div class="col-sm-6 o_histogram">
+					$r.render("scoreHistogram")
+				</div>
+			#end
+
+			</div>
+			</div>
+			#if ($r.available("table"))
+			<div class="o_listing">
+				<h4>$r.translate("highscore.listing")</h4>
+				$r.render("table")
+				#if ($r.available("table2")) $r.render("table2") #end
+			</div>
+			#end
+		</div>
+	</div>
+</div>
+<script type='text/javascript'>/* <![CDATA[ */
+		jQuery('#o_collapseHighscore').on('hide.bs.collapse', function () {
+			jQuery('#o_collapseHighscoreToggler').removeClass('o_icon_close_togglebox').addClass('o_icon_open_togglebox');
+	  		$r.backgroundCommand("hide")
+		}).on('show.bs.collapse', function () {
+			jQuery('#o_collapseHighscoreToggler').removeClass('o_icon_open_togglebox').addClass('o_icon_close_togglebox');
+			$r.backgroundCommand("show")
+		})
+	/* ]]> */</script>

@@ -49,9 +49,11 @@ import uk.ac.ed.ph.jqtiplus.node.item.CorrectResponse;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.choice.Choice;
 import uk.ac.ed.ph.jqtiplus.node.item.response.declaration.ResponseDeclaration;
 import uk.ac.ed.ph.jqtiplus.node.item.template.declaration.TemplateDeclaration;
+import uk.ac.ed.ph.jqtiplus.node.test.TestFeedback;
 import uk.ac.ed.ph.jqtiplus.node.test.VisibilityMode;
 import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentItem;
 import uk.ac.ed.ph.jqtiplus.state.ItemSessionState;
+import uk.ac.ed.ph.jqtiplus.state.TestSessionState;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
 import uk.ac.ed.ph.jqtiplus.types.ResponseData;
 import uk.ac.ed.ph.jqtiplus.types.StringResponseData;
@@ -61,6 +63,7 @@ import uk.ac.ed.ph.jqtiplus.value.Cardinality;
 import uk.ac.ed.ph.jqtiplus.value.DurationValue;
 import uk.ac.ed.ph.jqtiplus.value.FileValue;
 import uk.ac.ed.ph.jqtiplus.value.FloatValue;
+import uk.ac.ed.ph.jqtiplus.value.IdentifierValue;
 import uk.ac.ed.ph.jqtiplus.value.IntegerValue;
 import uk.ac.ed.ph.jqtiplus.value.ListValue;
 import uk.ac.ed.ph.jqtiplus.value.MultipleValue;
@@ -130,12 +133,13 @@ public class AssessmentRenderFunctions {
     // or not(@templateIdentifier)
     // or (qw:value-contains(qw:get-template-value(@templateIdentifier), @identifier) and not(@showHide='hide'))])"/>
 	public static boolean isVisible(Choice choice, ItemSessionState iSessionState) {
-		Value templateValue = choice.getTemplateIdentifier() == null ? null : iSessionState.getTemplateValue(choice.getTemplateIdentifier());
-
-		return choice.getTemplateIdentifier() != null 
-				//TODO the check must be checked
-				|| (templateValue != null && templateValue.toString().equals(choice.getIdentifier().toString()))
-				|| choice.getVisibilityMode() != VisibilityMode.HIDE_IF_MATCH;
+		if(choice.getTemplateIdentifier() == null) return true;
+		
+		Value templateValue = iSessionState.getTemplateValue(choice.getTemplateIdentifier());
+		boolean visible = templateValue instanceof IdentifierValue
+				&& ((IdentifierValue)templateValue).identifierValue().equals(choice.getIdentifier())
+				&& choice.getVisibilityMode() != VisibilityMode.HIDE_IF_MATCH;
+		return visible;
 	}
 	
 	//<xsl:if test="qw:is-invalid-response(@responseIdentifier)">
@@ -565,6 +569,7 @@ public class AssessmentRenderFunctions {
 		String name = attribute.getLocalName();
 		switch(name) {
 			case "accesskey":
+			case "alt":
 			case "class":
 			case "contextmenu":
 			case "dir":
@@ -576,6 +581,8 @@ public class AssessmentRenderFunctions {
 			case "tabindex":
 			case "title":
 			case "style":
+			case "width":
+			case "height":
 				value = getDomAttributeValue(attribute);
 				break;
 			case "href":
@@ -615,12 +622,51 @@ public class AssessmentRenderFunctions {
     </xsl:choose>
   </xsl:function>
 	 */
+	
 	public static final String convertLink(AssessmentObjectComponent component, ResolvedAssessmentItem resolvedAssessmentItem, String uri) {
-		if(uri != null && uri.startsWith("http:") || uri.startsWith("https:") || uri.startsWith("mailto:")) {
+		if(uri != null && (uri.startsWith("http:") || uri.startsWith("https:") || uri.startsWith("mailto:"))) {
 			return uri;
 		}
-
+		
+		String filename = getLinkFilename(uri);
 		String relativePath = component.relativePathTo(resolvedAssessmentItem);
-		return component.getMapperUri() + "/file?href=" + relativePath + (uri == null ? "" : uri);
+		return component.getMapperUri() + "/" + filename + "?href=" + relativePath + (uri == null ? "" : uri);
 	}
+	
+	public static final String convertSubmissionLink(AssessmentObjectComponent component, ResolvedAssessmentItem resolvedAssessmentItem, String uri) {
+		String filename = getLinkFilename(uri);
+		String relativePath = component.relativePathTo(resolvedAssessmentItem);
+		return component.getSubmissionMapperUri() + "/submissions/" + filename + "?href=" + relativePath + (uri == null ? "" : uri);
+	}
+	
+	private static final String getLinkFilename(String uri) {
+		String filename = "file";
+		try {
+			if(StringHelper.containsNonWhitespace(uri)) {
+				int lastIndex = uri.lastIndexOf('/');
+				if(lastIndex >= 0 && lastIndex + 1 < uri.length()) {
+					filename = uri.substring(lastIndex + 1, uri.length());
+				} else {
+					filename = uri;
+				}
+			}
+		} catch (Exception e) {
+			log.error("", e);
+		}
+		return filename;
+	}
+	
+	public static final boolean testFeedbackVisible(TestFeedback testFeedback, TestSessionState testSessionState) {
+		//<xsl:variable name="identifierMatch" select="boolean(qw:value-contains(qw:get-test-outcome-value(@outcomeIdentifier), @identifier))" as="xs:boolean"/>
+		Identifier outcomeIdentifier = testFeedback.getOutcomeIdentifier();
+		Value outcomeValue = testSessionState.getOutcomeValue(outcomeIdentifier);
+		boolean identifierMatch = valueContains(outcomeValue, testFeedback.getOutcomeValue());
+		//<xsl:if test="($identifierMatch and @showHide='show') or (not($identifierMatch) and @showHide='hide')">
+		if((identifierMatch && testFeedback.getVisibilityMode() == VisibilityMode.SHOW_IF_MATCH)
+				|| (!identifierMatch && testFeedback.getVisibilityMode() == VisibilityMode.HIDE_IF_MATCH)) {
+			return true;
+		}
+		return false;
+	}
+	
 }

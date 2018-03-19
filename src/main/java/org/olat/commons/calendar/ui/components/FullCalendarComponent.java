@@ -55,11 +55,13 @@ public class FullCalendarComponent extends AbstractComponent {
 	public static final String RECURRENCE_ID_SEP = "_xRecOOceRx_";
 	public static final String OCCURRENCE_ID_SEP = "_xOccOOccOx_";
 
+	private KalendarRenderWrapper alwaysVisibleCalendar;
 	private List<KalendarRenderWrapper> calendars = new ArrayList<>();
 	private Date currentDate;
 	private String viewName = "month";
 	private boolean configurationEnabled;
 	private boolean aggregatedFeedEnabled;
+	private boolean differentiateManagedEvents;
 	
 	private final MapperKey mapperKey;
 	private final FullCalendarElement calendarEl;
@@ -123,6 +125,29 @@ public class FullCalendarComponent extends AbstractComponent {
 		this.aggregatedFeedEnabled = aggregatedFeedEnabled;
 	}
 
+	public boolean isDifferentiateManagedEvents() {
+		return differentiateManagedEvents;
+	}
+
+	public void setDifferentiateManagedEvents(boolean differentiateManagedEvents) {
+		this.differentiateManagedEvents = differentiateManagedEvents;
+	}
+
+	public KalendarRenderWrapper getAlwaysVisibleCalendar() {
+		return alwaysVisibleCalendar;
+	}
+
+	public void setAlwaysVisibleCalendar(KalendarRenderWrapper alwaysVisibleCalendar) {
+		this.alwaysVisibleCalendar = alwaysVisibleCalendar;
+	}
+	
+	public boolean isCalendarVisible(KalendarRenderWrapper calendar) {
+		return calendar.isVisible() ||
+				(alwaysVisibleCalendar != null
+					&& alwaysVisibleCalendar.getKalendar().getType().equals(calendar.getKalendar().getType())
+					&& alwaysVisibleCalendar.getKalendar().getCalendarID().equals(calendar.getKalendar().getCalendarID()));
+	}
+
 	/**
 	 * @see org.olat.core.gui.components.Component#doDispatchRequest(org.olat.core.gui.UserRequest)
 	 */
@@ -147,6 +172,7 @@ public class FullCalendarComponent extends AbstractComponent {
 		super.validate(ureq, vr);
 		vr.getJsAndCSSAdder().addRequiredStaticJsFile("js/jquery/fullcalendar/fullcalendar.min.js");
 		vr.getJsAndCSSAdder().addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.11.4.custom.dnd.min.js");
+		vr.getJsAndCSSAdder().addRequiredStaticJsFile("js/jquery/ui/jquery-ui-1.11.4.custom.resize.min.js");
 	}
 	
 	public boolean isOccurenceOfCalendarEvent(String eventId) {

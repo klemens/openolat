@@ -46,6 +46,8 @@ import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.controller.BasicController;
 import org.olat.core.gui.control.creator.ControllerCreator;
 import org.olat.core.gui.control.generic.popup.PopupBrowserWindow;
+import org.olat.search.SearchModule;
+import org.olat.search.SearchUserToolExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -59,6 +61,8 @@ public class OlatGuestTopNavController extends BasicController implements Lockab
 	private Link loginLink, impressumLink;
 
 	@Autowired
+	private SearchModule searchModule;
+	@Autowired
 	private ImpressumModule impressumModule;
 	
 	public OlatGuestTopNavController(UserRequest ureq, WindowControl wControl) {
@@ -68,11 +72,18 @@ public class OlatGuestTopNavController extends BasicController implements Lockab
 		
 		// impressum
 		vc.contextPut("impressumInfos", new ImpressumInformations(impressumModule));
-		impressumLink = LinkFactory.createLink("topnav.impressum", vc, this);
+		impressumLink = LinkFactory.createLink("_top_nav_guest_impressum", "topnav.impressum", vc, this);
 		impressumLink.setTooltip("topnav.impressum.alt");
 		impressumLink.setIconLeftCSS("o_icon o_icon_impress o_icon-lg");
 		impressumLink.setAjaxEnabled(false);
 		impressumLink.setTarget("_blank");
+		
+		if(searchModule.isGuestEnabled()) {
+			SearchUserToolExtension search = CoreSpringFactory.getImpl(SearchUserToolExtension.class);
+			UserTool userTool = search.createUserTool(ureq, getWindowControl(), getLocale());
+			Component cmp = userTool.getMenuComponent(ureq, vc);
+			vc.put("search.tool", cmp);
+		}
 		
 		// the help link
 		HelpModule helpModule = CoreSpringFactory.getImpl(HelpModule.class);

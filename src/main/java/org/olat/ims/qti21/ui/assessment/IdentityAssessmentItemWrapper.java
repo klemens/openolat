@@ -26,6 +26,7 @@ import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.ui.components.InteractionResultFormItem;
 
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
+import uk.ac.ed.ph.jqtiplus.state.ItemSessionState;
 import uk.ac.ed.ph.jqtiplus.state.TestPlanNodeKey;
 
 /**
@@ -39,17 +40,18 @@ public class IdentityAssessmentItemWrapper {
 	private final String fullName;
 	private String minScore, maxScore;
 	private Double minScoreVal, maxScoreVal;
-	private TextElement scoreEl;
+	private TextElement scoreEl, commentEl;
 	private final AssessmentItem assessmentItem;
 	private final List<InteractionResultFormItem> responseFormItems;
 	
 	private AssessmentItemCorrection itemInfos;
 	
 	public IdentityAssessmentItemWrapper(String fullName, AssessmentItem assessmentItem,
-			AssessmentItemCorrection itemInfos,
-			List<InteractionResultFormItem> responseFormItems, TextElement scoreEl) {
+			AssessmentItemCorrection itemInfos, List<InteractionResultFormItem> responseFormItems,
+			TextElement scoreEl, TextElement commentEl) {
 		this.scoreEl = scoreEl;
 		this.fullName = fullName;
+		this.commentEl = commentEl;
 		this.assessmentItem = assessmentItem;
 		this.responseFormItems = responseFormItems;
 		this.itemInfos = itemInfos;
@@ -75,12 +77,28 @@ public class IdentityAssessmentItemWrapper {
 		return itemInfos.getTestSession();
 	}
 	
+	public ItemSessionState getItemSessionState() {
+		return itemInfos.getItemSessionState();
+	}
+	
+	public boolean isItemSessionStateFinal() {
+		return itemInfos.isItemSessionStatusFinal();
+	}
+	
+	public String getItemSessionStatus() {
+		return itemInfos.getItemSessionStatus();
+	}
+	
 	public TestPlanNodeKey getTestPlanNodeKey() {
 		return itemInfos.getItemNode().getKey();
 	}
 
 	public TextElement getScoreEl() {
 		return scoreEl;
+	}
+	
+	public TextElement getCommentEl() {
+		return commentEl;
 	}
 
 	public List<InteractionResultFormItem> getResponseFormItems() {

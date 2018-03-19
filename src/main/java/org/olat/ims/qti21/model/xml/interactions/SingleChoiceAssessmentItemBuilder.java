@@ -41,7 +41,6 @@ import uk.ac.ed.ph.jqtiplus.node.expression.general.MapResponse;
 import uk.ac.ed.ph.jqtiplus.node.expression.general.Variable;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.IsNull;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Match;
-import uk.ac.ed.ph.jqtiplus.node.expression.operator.Not;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Sum;
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.CorrectResponse;
@@ -76,16 +75,16 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 	
 	private Identifier correctAnswer;
 	
-	public SingleChoiceAssessmentItemBuilder(QtiSerializer qtiSerializer) {
-		super(createAssessmentItem(), qtiSerializer);
+	public SingleChoiceAssessmentItemBuilder(String title, String defaultAnswer, QtiSerializer qtiSerializer) {
+		super(createAssessmentItem(title, defaultAnswer), qtiSerializer);
 	}
 	
 	public SingleChoiceAssessmentItemBuilder(AssessmentItem assessmentItem, QtiSerializer qtiSerializer) {
 		super(assessmentItem, qtiSerializer);
 	}
 	
-	private static AssessmentItem createAssessmentItem() {
-		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.sc, "Single choice");
+	private static AssessmentItem createAssessmentItem(String title, String defaultAnswer) {
+		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.sc, title);
 
 		//define correct answer
 		Identifier responseDeclarationId = Identifier.assumedLegal("RESPONSE_1");
@@ -100,7 +99,7 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 		ItemBody itemBody = appendDefaultItemBody(assessmentItem);
 		ChoiceInteraction choiceInteraction = appendChoiceInteraction(itemBody, responseDeclarationId, 1, true);
 		
-		appendSimpleChoice(choiceInteraction, "New answer", correctResponseId);
+		appendSimpleChoice(choiceInteraction, defaultAnswer, correctResponseId);
 
 		//response processing
 		ResponseProcessing responseProcessing = createResponseProcessing(assessmentItem, responseDeclarationId);
@@ -141,6 +140,11 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 	}
 	
 	@Override
+	public int getMaxPossibleCorrectAnswers() {
+		return 1;
+	}
+	
+	@Override
 	public void clearSimpleChoices() {
 		correctAnswer = null;
 		super.clearSimpleChoices();
@@ -170,7 +174,7 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 				.createSingleChoiceInteraction(assessmentItem, responseIdentifier, orientation, cssClass);
 		singleChoiceInteraction.setShuffle(isShuffle());
 		blocks.add(singleChoiceInteraction);
-		List<SimpleChoice> choiceList = getSimpleChoices();
+		List<SimpleChoice> choiceList = getChoices();
 		singleChoiceInteraction.getSimpleChoices().addAll(choiceList);
 	}
 
@@ -317,11 +321,10 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 		/*
 		<responseCondition>
 			<responseIf>
-				<not>
-					<isNull>
-						<variable identifier="RESPONSE_1" />
-					</isNull>
-				</not>
+				<match>
+					<variable identifier="RESPONSE_1" />
+					<correct identifier="RESPONSE_1" />
+				</match>
 				<setOutcomeValue identifier="SCORE">
 					<sum>
 						<variable identifier="SCORE" />
@@ -330,7 +333,7 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 				</setOutcomeValue>
 				<setOutcomeValue identifier="FEEDBACKBASIC">
 					<baseValue baseType="identifier">
-						incorrect
+						correct
 					</baseValue>
 				</setOutcomeValue>
 			</responseIf>
@@ -339,17 +342,20 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 		ResponseIf responseIf = new ResponseIf(rule);
 		rule.setResponseIf(responseIf);
 		
-		Not not = new Not(responseIf);
-		responseIf.getExpressions().add(not);
-		
-		IsNull isNull = new IsNull(not);
-		not.getExpressions().add(isNull);
-		
-		Variable responseVar = new Variable(isNull);
-		ComplexReferenceIdentifier choiceResponseIdentifier
-			= ComplexReferenceIdentifier.parseString(choiceInteraction.getResponseIdentifier().toString());
-		responseVar.setIdentifier(choiceResponseIdentifier);
-		isNull.getExpressions().add(responseVar);
+		{// match the correct answer
+			Match match = new Match(responseIf);
+			responseIf.getExpressions().add(match);
+			
+			Variable responseVar = new Variable(match);
+			ComplexReferenceIdentifier choiceResponseIdentifier
+				= ComplexReferenceIdentifier.parseString(choiceInteraction.getResponseIdentifier().toString());
+			responseVar.setIdentifier(choiceResponseIdentifier);
+			match.getExpressions().add(responseVar);
+			
+			Correct correct = new Correct(match);
+			correct.setIdentifier(choiceResponseIdentifier);
+			match.getExpressions().add(correct);
+		}
 		
 		{// outcome score
 			SetOutcomeValue scoreOutcome = new SetOutcomeValue(responseIf);
@@ -369,9 +375,40 @@ public class SingleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentIte
 		}
 		
 		{//outcome feedback
-			SetOutcomeValue incorrectOutcomeValue = new SetOutcomeValue(responseIf);
+			SetOutcomeValue correctOutcomeValue = new SetOutcomeValue(responseIf);
+			correctOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
+			responseIf.getResponseRules().add(correctOutcomeValue);
+			
+			BaseValue correctValue = new BaseValue(correctOutcomeValue);
+			correctValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);
+			correctValue.setSingleValue(QTI21Constants.CORRECT_IDENTIFIER_VALUE);
+			correctOutcomeValue.setExpression(correctValue);
+		}
+		
+		ResponseElse responseElse = new ResponseElse(rule);
+		rule.setResponseElse(responseElse);
+		
+		{//outcome score
+			SetOutcomeValue scoreOutcome = new SetOutcomeValue(responseElse);
+			scoreOutcome.setIdentifier(QTI21Constants.SCORE_IDENTIFIER);
+			responseElse.getResponseRules().add(scoreOutcome);
+			
+			Sum sum = new Sum(scoreOutcome);
+			scoreOutcome.getExpressions().add(sum);
+			
+			Variable scoreVar = new Variable(sum);
+			scoreVar.setIdentifier(QTI21Constants.SCORE_CLX_IDENTIFIER);
+			sum.getExpressions().add(scoreVar);
+			
+			MapResponse mapResponse = new MapResponse(sum);
+			mapResponse.setIdentifier(choiceInteraction.getResponseIdentifier());
+			sum.getExpressions().add(mapResponse);
+		}
+		
+		{// outcome feedback
+			SetOutcomeValue incorrectOutcomeValue = new SetOutcomeValue(responseElse);
 			incorrectOutcomeValue.setIdentifier(QTI21Constants.FEEDBACKBASIC_IDENTIFIER);
-			responseIf.getResponseRules().add(incorrectOutcomeValue);
+			responseElse.getResponseRules().add(incorrectOutcomeValue);
 			
 			BaseValue incorrectValue = new BaseValue(incorrectOutcomeValue);
 			incorrectValue.setBaseTypeAttrValue(BaseType.IDENTIFIER);

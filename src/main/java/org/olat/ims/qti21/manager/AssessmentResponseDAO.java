@@ -27,13 +27,12 @@ import javax.persistence.TypedQuery;
 
 import org.olat.basesecurity.GroupRoles;
 import org.olat.core.commons.persistence.DB;
-import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.AssessmentItemSession;
 import org.olat.ims.qti21.AssessmentResponse;
 import org.olat.ims.qti21.AssessmentTestSession;
+import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.ims.qti21.model.ResponseLegality;
 import org.olat.ims.qti21.model.jpa.AssessmentResponseImpl;
-import org.olat.repository.RepositoryEntryRef;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -95,8 +94,7 @@ public class AssessmentResponseDAO {
 	 * @param testEntry
 	 * @return
 	 */
-	public boolean hasResponses(RepositoryEntryRef courseEntry, String subIdent, RepositoryEntryRef testEntry,
-			boolean participant, boolean users, boolean anonymUsers) {
+	public boolean hasResponses(QTI21StatisticSearchParams searchParams) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select response.key from qtiassessmentresponse response ")
 		  .append(" inner join response.assessmentItemSession itemSession")
@@ -104,78 +102,64 @@ public class AssessmentResponseDAO {
 		  .append(" where testSession.repositoryEntry.key=:repoEntryKey")
 		  .append("  and testSession.testEntry.key=:testEntryKey")
 		  .append("  and testSession.subIdent=:subIdent")
-		  .append("  and testSession.finishTime is not null")
+		  .append("  and testSession.finishTime is not null and testSession.authorMode=false")
 		  .append("  and (");
-		if(users) {
+
+		if(searchParams.isViewAllUsers()) {
 			sb.append(" testSession.identity.key is not null");
-		} else if(participant) {
+		} else if(searchParams.getLimitToGroups() != null) {
+			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
+			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key and rel.group.key in (:limitGroupKeys)")
+			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
+			  .append(" )");
+		} else if(searchParams.getLimitToIdentities() != null) {
+			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
+			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key and membership.identity.key in (:limitIdentityKeys)")
+			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
+			  .append(" )");
+		} else {
 			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
 			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key ")
 			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
 			  .append(" )");
 		}
-		if(anonymUsers) {
-			if(participant || users) sb.append(" or ");
-			sb.append(" testSession.anonymousIdentifier is not null");
+		if(searchParams.isViewAnonymUsers()) {
+			sb.append(" or testSession.anonymousIdentifier is not null");
 		}
-		sb.append("))");
+		sb.append(")");
 		
 		List<Long> responses = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), Long.class)
-				.setParameter("repoEntryKey", courseEntry.getKey())
-				.setParameter("testEntryKey", testEntry.getKey())
-				.setParameter("subIdent", subIdent)
+				.setParameter("repoEntryKey", searchParams.getCourseEntry().getKey())
+				.setParameter("testEntryKey", searchParams.getTestEntry().getKey())
+				.setParameter("subIdent", searchParams.getNodeIdent())
 				.setFirstResult(0)
 				.setMaxResults(1)
 				.getResultList();
 		return responses.size() > 0 && responses.get(0) != null;
 	}
 	
-	public List<AssessmentResponse> getResponse(RepositoryEntryRef courseEntry, String subIdent, RepositoryEntryRef testEntry,
-			boolean participant, boolean users, boolean anonymUsers) {
+	/**
+	 * @param searchParams
+	 * @return The returned list is order by user name, test session key and item session key
+	 */
+	public List<AssessmentResponse> getResponse(QTI21StatisticSearchParams searchParams) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select response from qtiassessmentresponse response ")
 		  .append(" inner join fetch response.assessmentItemSession itemSession")
 		  .append(" inner join fetch itemSession.assessmentTestSession testSession")
 		  .append(" inner join fetch testSession.assessmentEntry assessmentEntry")
 		  .append(" left join assessmentEntry.identity as ident")
-		  .append(" left join ident.user as usr")
-		  .append(" where testSession.testEntry.key=:testEntryKey")
-		  .append("  and testSession.finishTime is not null");
-		if(courseEntry != null) {
-			sb.append(" and testSession.repositoryEntry.key=:repoEntryKey");
-		}
-		if(StringHelper.containsNonWhitespace(subIdent)) {
-			sb.append(" and testSession.subIdent=:subIdent");
-		}
+		  .append(" left join ident.user as usr");
 		
-		sb.append(" and (");
-		if(users) {
-			sb.append(" testSession.identity.key is not null");
-		} else if(participant) {
-			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
-			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key ")
-			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
-			  .append(" )");
-		}
-		if(anonymUsers) {
-			if(participant || users) sb.append(" or ");
-			sb.append(" testSession.anonymousIdentifier is not null");
-		}
-		sb.append(")");
+		AssessmentTestSessionDAO.decorateTestSessionPermission(sb, searchParams);
 
 		//need to be anonymized
 		sb.append(" order by usr.lastName, testSession.key, itemSession.key");
 		
 		TypedQuery<AssessmentResponse> query = dbInstance.getCurrentEntityManager()
-				.createQuery(sb.toString(), AssessmentResponse.class)
-				.setParameter("testEntryKey", testEntry.getKey());
-		if(courseEntry != null) {
-			query.setParameter("repoEntryKey", courseEntry.getKey());
-		}
-		if(StringHelper.containsNonWhitespace(subIdent)) {
-			query.setParameter("subIdent", subIdent);
-		}
+				.createQuery(sb.toString(), AssessmentResponse.class);
+		AssessmentTestSessionDAO.decorateTestSessionPermission(query, searchParams);
 		return query.getResultList();
 	}
 }

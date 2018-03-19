@@ -24,9 +24,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
+import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.id.Identity;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.assessment.ui.component.CompletionItem;
 import org.olat.user.UserPropertiesRow;
 import org.olat.user.propertyhandlers.UserPropertyHandler;
 
@@ -38,28 +40,47 @@ import org.olat.user.propertyhandlers.UserPropertyHandler;
  */
 public class AssessedIdentityElementRow extends UserPropertiesRow {
 	
-	private final Integer attempts;
-	private final BigDecimal score;
-	private final Boolean passed;
-	private final Date creationDate;
-	private final Date lastModified;
-	private final AssessmentEntryStatus status;
+	private Integer attempts;
+	private Boolean userVisibility;
+	private BigDecimal score;
+	private Boolean passed;
+	private Date lastModified, lastUserModified, lastCoachModified;
+	private int numOfAssessmentDocs;
+	private AssessmentEntryStatus status;
 	
-	public AssessedIdentityElementRow(Identity identity, AssessmentEntry entry, List<UserPropertyHandler> userPropertyHandlers, Locale locale) {
+	private Object details;
+	private Date initialCourseLaunchDate;
+	
+	private FormLink toolsLink;
+	private CompletionItem currentCompletion;
+	
+	public AssessedIdentityElementRow(Identity identity, AssessmentEntry entry,
+			CompletionItem currentCompletion, FormLink toolsLink, List<UserPropertyHandler> userPropertyHandlers, Locale locale) {
 		super(identity, userPropertyHandlers, locale);
+		this.currentCompletion = currentCompletion;
+		this.toolsLink = toolsLink;
+		setAssessmentEntry(entry);
+	}
+	
+	public void setAssessmentEntry(AssessmentEntry entry) {
 		if(entry != null) {
 			attempts = entry.getAttempts();
 			score = entry.getScore();
 			passed = entry.getPassed();
-			creationDate = entry.getCreationDate();
+			userVisibility = entry.getUserVisibility();
 			lastModified = entry.getLastModified();
+			lastUserModified = entry.getLastUserModified();
+			lastCoachModified = entry.getLastCoachModified();
 			status = entry.getAssessmentStatus();
+			numOfAssessmentDocs = entry.getNumberOfAssessmentDocuments();
 		} else {
 			attempts = null;
 			score = null;
 			passed = null;
-			creationDate = lastModified = null;
+			userVisibility = null;
+			lastModified = lastUserModified = lastCoachModified = null;
 			status = null;
+			numOfAssessmentDocs = 0;
 		}
 	}
 
@@ -75,15 +96,51 @@ public class AssessedIdentityElementRow extends UserPropertiesRow {
 		return passed;
 	}
 
-	public Date getCreationDate() {
-		return creationDate;
+	public Date getInitialCourseLaunchDate() {
+		return initialCourseLaunchDate;
 	}
-
+	
+	public void setInitialCourseLaunchDate(Date initialCourseLaunchDate) {
+		this.initialCourseLaunchDate = initialCourseLaunchDate;
+	}
+	
 	public Date getLastModified() {
 		return lastModified;
+	}
+	
+	public Date getLastUserModified() {
+		return lastUserModified;
+	}
+	
+	public Date getLastCoachModified() {
+		return lastCoachModified;
+	}
+
+	public int getNumOfAssessmentDocs() {
+		return numOfAssessmentDocs;
 	}
 
 	public AssessmentEntryStatus getAssessmentStatus() {
 		return status;
+	}
+	
+	public CompletionItem getCurrentCompletion() {
+		return currentCompletion;
+	}
+	
+	public FormLink getToolsLink() {
+		return toolsLink;
+	}
+
+	public Boolean getUserVisibility() {
+		return userVisibility;
+	}
+
+	public Object getDetails() {
+		return details;
+	}
+
+	public void setDetails(Object details) {
+		this.details = details;
 	}
 }

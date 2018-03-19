@@ -32,10 +32,10 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import org.apache.commons.io.IOUtils;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.gui.translator.Translator;
+import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -52,6 +52,8 @@ import org.olat.core.util.openxml.OpenXMLWorksheet.Row;
 import org.olat.core.util.openxml.workbookstyle.CellStyle;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
+import org.olat.course.archiver.ExportFormat;
+import org.olat.course.nodes.AssessableCourseNode;
 import org.olat.course.nodes.CourseNode;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.ims.qti.export.QTIArchiver;
@@ -62,6 +64,7 @@ import org.olat.ims.qti21.AssessmentResponse;
 import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.manager.AssessmentResponseDAO;
+import org.olat.ims.qti21.manager.AssessmentTestSessionDAO;
 import org.olat.ims.qti21.manager.QTI21ServiceImpl;
 import org.olat.ims.qti21.manager.archive.interactions.AssociateInteractionArchive;
 import org.olat.ims.qti21.manager.archive.interactions.ChoiceInteractionArchive;
@@ -83,6 +86,7 @@ import org.olat.ims.qti21.manager.archive.interactions.PositionObjectInteraction
 import org.olat.ims.qti21.manager.archive.interactions.SelectPointInteractionArchive;
 import org.olat.ims.qti21.manager.archive.interactions.SliderInteractionArchive;
 import org.olat.ims.qti21.manager.archive.interactions.TextEntryInteractionArchive;
+import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.ims.qti21.ui.QTI21RuntimeController;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
@@ -133,25 +137,30 @@ public class QTI21ArchiveFormat {
 	private List<UserPropertyHandler> userPropertyHandlers;
 	private IdentityAnonymizerCallback anonymizerCallback;
 
-	private boolean participants;
-	private boolean allUsers;
-	private boolean anonymUsers;
+	private final QTI21StatisticSearchParams searchParams;
+	private ExportFormat exportConfig;
 	
+	private CourseNode courseNode;
 	private List<ItemInfos> itemInfos;
 	private final Map<String, InteractionArchive> interactionArchiveMap = new HashMap<>();
 	
 	private final QTI21Service qtiService;
 	private final UserManager userManager;
 	private final AssessmentResponseDAO responseDao;
+	private final AssessmentTestSessionDAO testSessionDao;
 	
-	public QTI21ArchiveFormat(Locale locale, boolean participants, boolean allUsers, boolean anonymUsers) {
-		this.participants = participants;
-		this.allUsers = allUsers;
-		this.anonymUsers = anonymUsers;
+	public QTI21ArchiveFormat(Locale locale, QTI21StatisticSearchParams searchParams) {
+		this.searchParams = searchParams;
+		if(searchParams.getArchiveOptions() == null || searchParams.getArchiveOptions().getExportFormat() == null) {
+			exportConfig = new ExportFormat(true, true, true, true, true);
+		} else {
+			exportConfig = searchParams.getArchiveOptions().getExportFormat();
+		}
 		
 		userManager = CoreSpringFactory.getImpl(UserManager.class);
 		qtiService = CoreSpringFactory.getImpl(QTI21ServiceImpl.class);
 		responseDao = CoreSpringFactory.getImpl(AssessmentResponseDAO.class);
+		testSessionDao = CoreSpringFactory.getImpl(AssessmentTestSessionDAO.class);
 		
 		userPropertyHandlers = userManager.getUserPropertyHandlersFor(QTIArchiver.TEST_USER_PROPERTIES, true);
 		
@@ -187,69 +196,77 @@ public class QTI21ArchiveFormat {
 		interactionArchiveMap.put(TextEntryInteraction.QTI_CLASS_NAME, new TextEntryInteractionArchive());					//ok
 	}
 	
-	public boolean hasResults(RepositoryEntry courseEntry, String subIdent, RepositoryEntry testEntry) {
-		return responseDao.hasResponses(courseEntry, subIdent, testEntry, participants, allUsers, anonymUsers);
+	public boolean hasResults() {
+		return responseDao.hasResponses(searchParams);
 	}
 
-	public void export(RepositoryEntry courseEntry, String subIdent, RepositoryEntry testEntry, ZipOutputStream exportStream) {
-		FileResourceManager frm = FileResourceManager.getInstance();
-		File unzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
-		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, false, false);
-		
-		ICourse course = CourseFactory.loadCourse(courseEntry);
-		CourseNode courseNode = course.getRunStructure().getNode(subIdent);
-		String label = courseNode.getType() + "_"
-				+ StringHelper.transformDisplayNameToFileSystemName(courseNode.getShortName())
-				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()))
+	/**
+	 * 
+	 * @param exportStream
+	 */
+	public void exportCourseElement(ZipOutputStream exportStream) {
+		ICourse course = CourseFactory.loadCourse(searchParams.getCourseEntry());
+		courseNode = course.getRunStructure().getNode(searchParams.getNodeIdent());
+		String label = StringHelper.transformDisplayNameToFileSystemName(courseNode.getShortName())
+				+ "_" + Formatter.formatDatetimeWithMinutes(new Date())
 				+ ".xlsx";
-		
+		exportCourseElement(label, exportStream);
+	}
+	
+	public void exportCourseElement(String label, ZipOutputStream exportStream) {
+		ICourse course = CourseFactory.loadCourse(searchParams.getCourseEntry());
+		courseNode = course.getRunStructure().getNode(searchParams.getNodeIdent());
 		if("iqself".equals(courseNode.getType())) {
 			anonymizerCallback = course.getCourseEnvironment().getCoursePropertyManager();
 		}
-		
-		export(courseEntry, subIdent, testEntry, label, exportStream);
+		export(label, exportStream);
 	}
 	
-	public void export(RepositoryEntry testEntry, ZipOutputStream exportStream) {
-		FileResourceManager frm = FileResourceManager.getInstance();
-		File unzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
-		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, false, false);
-		
+	public void exportResource(ZipOutputStream exportStream) {
 		String archiveName = "qti21test_"
-				+ StringHelper.transformDisplayNameToFileSystemName(testEntry.getDisplayname())
+				+ StringHelper.transformDisplayNameToFileSystemName(searchParams.getTestEntry().getDisplayname())
 				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis())) + ".xlsx";
-		export(null, null, testEntry, archiveName, exportStream);
+		export(archiveName, exportStream);
 	}
 	
-	private void export(RepositoryEntry courseEntry, String subIdent, RepositoryEntry testEntry, String filename,  ZipOutputStream exportStream) {
-		//content
-		final List<AssessmentResponse> responses = responseDao.getResponse(courseEntry, subIdent, testEntry, participants, allUsers, anonymUsers);
-		try {
+	public void export(String filename,  ZipOutputStream exportStream) {
+		try(OutputStream out = new ShieldOutputStream(exportStream)) {
 			exportStream.putNextEntry(new ZipEntry(filename));
-			OpenXMLWorkbook workbook = new OpenXMLWorkbook(new ShieldOutputStream(exportStream), 1);
-			
-			//headers
-			OpenXMLWorksheet exportSheet = workbook.nextWorksheet();
-			exportSheet.setHeaderRows(2);
-			writeHeaders_1(exportSheet, workbook);
-			writeHeaders_2(exportSheet, workbook);
-			writeData(responses, exportSheet, workbook);
-			
-			IOUtils.closeQuietly(workbook);
-
+			exportWorkbook(out);
 			exportStream.closeEntry();
 		} catch (IOException e) {
 			log.error("", e);
 		}
 	}
 	
-	public MediaResource export(RepositoryEntry courseEntry, String subIdent, RepositoryEntry testEntry) {
+	public void exportWorkbook(OutputStream exportStream) {
+		RepositoryEntry testEntry = searchParams.getTestEntry();
 		FileResourceManager frm = FileResourceManager.getInstance();
 		File unzippedDirRoot = frm.unzipFileResource(testEntry.getOlatResource());
 		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, false, false);
 		
-		ICourse course = CourseFactory.loadCourse(courseEntry);
-		CourseNode courseNode = course.getRunStructure().getNode(subIdent);
+		//content
+		final List<AssessmentTestSession> sessions = testSessionDao.getTestSessionsOfResponse(searchParams);
+		final List<AssessmentResponse> responses = responseDao.getResponse(searchParams);
+		try(OpenXMLWorkbook workbook = new OpenXMLWorkbook(exportStream, 1)) {
+			//headers
+			OpenXMLWorksheet exportSheet = workbook.nextWorksheet();
+			exportSheet.setHeaderRows(2);
+			writeHeaders_1(exportSheet, workbook);
+			writeHeaders_2(exportSheet, workbook);
+			writeData(sessions, responses, exportSheet, workbook);
+		} catch(Exception e) {
+			log.error("", e);
+		}
+	}
+	
+	public MediaResource exportCourseElement() {
+		FileResourceManager frm = FileResourceManager.getInstance();
+		File unzippedDirRoot = frm.unzipFileResource(searchParams.getTestEntry().getOlatResource());
+		resolvedAssessmentTest = qtiService.loadAndResolveAssessmentTest(unzippedDirRoot, false, false);
+		
+		ICourse course = CourseFactory.loadCourse(searchParams.getCourseEntry());
+		courseNode = course.getRunStructure().getNode(searchParams.getNodeIdent());
 		String label = courseNode.getType() + "_"
 				+ StringHelper.transformDisplayNameToFileSystemName(courseNode.getShortName())
 				+ "_" + Formatter.formatDatetimeFilesystemSave(new Date(System.currentTimeMillis()))
@@ -260,8 +277,8 @@ public class QTI21ArchiveFormat {
 		}
 		
 		//content
-		final List<AssessmentResponse> responses = responseDao.getResponse(courseEntry, subIdent, testEntry, participants, allUsers, anonymUsers);
-
+		final List<AssessmentTestSession> sessions = testSessionDao.getTestSessionsOfResponse(searchParams);
+		final List<AssessmentResponse> responses = responseDao.getResponse(searchParams);
 		return new OpenXMLWorkbookResource(label) {
 			@Override
 			protected void generate(OutputStream out) {
@@ -271,7 +288,7 @@ public class QTI21ArchiveFormat {
 					exportSheet.setHeaderRows(2);
 					writeHeaders_1(exportSheet, workbook);
 					writeHeaders_2(exportSheet, workbook);
-					writeData(responses, exportSheet, workbook);
+					writeData(sessions, responses, exportSheet, workbook);
 				} catch (Exception e) {
 					log.error("", e);
 				}
@@ -281,30 +298,64 @@ public class QTI21ArchiveFormat {
 	
 	
 	private void writeHeaders_1(OpenXMLWorksheet exportSheet, OpenXMLWorkbook workbook) {
+		CellStyle headerStyle = workbook.getStyles().getHeaderStyle();
 		//first header
 		Row header1Row = exportSheet.newRow();
 		int col = 1;
 		if(anonymizerCallback != null) {
-			col += 5;// anonymized name -> test duration
+			col += 0;// anonymized name -> test duration
 		} else {
 			for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
 				if (userPropertyHandler != null) {
 					col++;
 				}
 			}
-			col += 5;// homepage -> test duration
+			col += 1;// homepage -> test duration
 		}
+
+		// course node points and passed
+		if(courseNode instanceof AssessableCourseNode) {
+			AssessableCourseNode assessableCourseNode = (AssessableCourseNode)courseNode;
+			if(assessableCourseNode.hasScoreConfigured()) {
+				header1Row.addCell(col++, translator.translate("archive.table.header.node"), headerStyle);
+			}
+			if(assessableCourseNode.hasPassedConfigured()) {
+				if(assessableCourseNode.hasScoreConfigured()) {
+					col++;
+				} else {
+					header1Row.addCell(col++, translator.translate("archive.table.header.node"), headerStyle);
+				}
+			}
+		}
+
+		// test points, passed and dates
+		header1Row.addCell(col++, translator.translate("archive.table.header.test"), headerStyle);
+		col += 5;
 		
 		List<ItemInfos> infos = getItemInfos();
 		for(int i=0; i<infos.size(); i++) {
+			int delta = col;
 			ItemInfos item = infos.get(i);
-			List<Interaction> interactions = item.getInteractions();
-			for(int j=0; j<interactions.size(); j++) {
-				Interaction interaction = interactions.get(j);
-				col = interactionArchiveMap.get(interaction.getQtiClassName())
-						.writeHeader1(item.getAssessmentItem(), interaction, i, j, header1Row, col, workbook);
+			if (exportConfig.isResponseCols() || exportConfig.isPointCol() || exportConfig.isTimeCols() || exportConfig.isCommentCol()) {
+				List<Interaction> interactions = item.getInteractions();
+				for(int j=0; j<interactions.size(); j++) {
+					Interaction interaction = interactions.get(j);
+					col = interactionArchiveMap.get(interaction.getQtiClassName())
+							.writeHeader1(item.getAssessmentItem(), interaction, i, j, header1Row, col, workbook);
+				}
 			}
-			col += 3;//score, start, duration
+			if (!exportConfig.isResponseCols()) {
+				col -= col - delta;
+			}
+			if (exportConfig.isPointCol()) {
+				col++;
+			}
+			if (exportConfig.isCommentCol()) {
+				col++;
+			}
+			if (exportConfig.isTimeCols()) {
+				col += anonymizerCallback != null ? 1 : 2;
+			}		
 		}
 	}
 
@@ -330,47 +381,84 @@ public class QTI21ArchiveFormat {
 			// add other user and session information
 			header2Row.addCell(col++, translator.translate("column.header.homepage"), headerStyle);
 		}
+
+		// course node points and passed
+		if(courseNode instanceof AssessableCourseNode) {
+			AssessableCourseNode assessableCourseNode = (AssessableCourseNode)courseNode;
+			if(assessableCourseNode.hasScoreConfigured()) {
+				header2Row.addCell(col++, translator.translate("archive.table.header.node.points"), headerStyle);
+			}
+			if(assessableCourseNode.hasPassedConfigured()) {
+				header2Row.addCell(col++, translator.translate("archive.table.header.node.passed"), headerStyle);
+			}
+		}
 		
-		header2Row.addCell(col++, translator.translate("column.header.assesspoints"), headerStyle);
+		header2Row.addCell(col++, translator.translate("archive.table.header.points"), headerStyle);
+		header2Row.addCell(col++, translator.translate("archive.table.header.manual.points"), headerStyle);
+		header2Row.addCell(col++, translator.translate("archive.table.header.final.points"), headerStyle);
 		header2Row.addCell(col++, translator.translate("column.header.passed"), headerStyle);
-		header2Row.addCell(col++, translator.translate("column.header.date"), headerStyle);
+		if (anonymizerCallback == null){
+			header2Row.addCell(col++, translator.translate("column.header.date"), headerStyle);
+		}
 		header2Row.addCell(col++, translator.translate("column.header.duration"), headerStyle);
 
 		List<ItemInfos> infos = getItemInfos();
 		for(int i=0; i<infos.size(); i++) {
 			ItemInfos info = infos.get(i);
-			List<Interaction> interactions = info.getInteractions();
-			for(int j=0; j<interactions.size(); j++) {
-				Interaction interaction = interactions.get(j);
-				col = interactionArchiveMap.get(interaction.getQtiClassName())
-						.writeHeader2(info.getAssessmentItem(), interaction, i, j, header2Row, col, workbook);
+			if (exportConfig.isResponseCols()) {
+				List<Interaction> interactions = info.getInteractions();
+				for(int j=0; j<interactions.size(); j++) {
+					Interaction interaction = interactions.get(j);
+					col = interactionArchiveMap.get(interaction.getQtiClassName())
+							.writeHeader2(info.getAssessmentItem(), interaction, i, j, header2Row, col, workbook);
+				}
 			}
-
-			header2Row.addCell(col++, translator.translate("item.score"), headerStyle);
-			header2Row.addCell(col++, translator.translate("item.start"), headerStyle);
-			header2Row.addCell(col++, translator.translate("item.duration"), headerStyle);
+			if (exportConfig.isPointCol()) {
+				header2Row.addCell(col++, translator.translate("item.score"), headerStyle);
+			}
+			if (exportConfig.isCommentCol()) {
+				header2Row.addCell(col++, translator.translate("item.comment"), headerStyle);
+			}
+			if (exportConfig.isTimeCols()) {
+				if (anonymizerCallback == null){
+					header2Row.addCell(col++, translator.translate("item.start"), headerStyle);
+				}
+				header2Row.addCell(col++, translator.translate("item.duration"), headerStyle);
+			}
 		}
 	}
 	
-	private void writeData(List<AssessmentResponse> responses, OpenXMLWorksheet exportSheet, OpenXMLWorkbook workbook) {
-		int num = 0;
-		SessionResponses sessionResponses = null;
-		int numOfResponses = responses.size();
-		for(int i=0; i<numOfResponses; i++) {
-			AssessmentResponse response = responses.get(i);
-			AssessmentItemSession itemSession = response.getAssessmentItemSession();
-			AssessmentTestSession testSession = itemSession.getAssessmentTestSession();
-			
-			if(sessionResponses == null) {
-				sessionResponses = new SessionResponses(testSession);
-			} else if(!sessionResponses.getSessionKey().equals(testSession.getKey())) {
-				writeDataRow(++num, sessionResponses, exportSheet, workbook);
-				sessionResponses = new SessionResponses(testSession);
-			}
-			sessionResponses.addResponse(itemSession, response);
+	/**
+	 * The 2 lists, sessions and responses are order by the user name and the test session key.
+	 * @param sessions A list of test sessions ordered by test session key
+	 * @param responses A list of responses ordered by test session key
+	 * @param exportSheet
+	 * @param workbook
+	 */
+	private void writeData(List<AssessmentTestSession> sessions, List<AssessmentResponse> responses, OpenXMLWorksheet exportSheet, OpenXMLWorkbook workbook) {
+		int numOfSessions = sessions.size();
+		Map<AssessmentTestSession, SessionResponses> sessionToResponses = new HashMap<>();
+		for(int i=0; i<numOfSessions; i++) {
+			AssessmentTestSession testSession = sessions.get(i);
+			sessionToResponses.put(testSession, new SessionResponses(testSession));
 		}
-		if(sessionResponses != null) {
-			writeDataRow(++num, sessionResponses, exportSheet, workbook);
+
+		int numOfResponses = responses.size();
+		for(int j=0; j<numOfResponses; j++) {
+			AssessmentResponse response = responses.get(j);
+			
+			AssessmentItemSession itemSession = response.getAssessmentItemSession();
+			AssessmentTestSession responseTestSession = itemSession.getAssessmentTestSession();
+			SessionResponses sessionResponses = sessionToResponses.get(responseTestSession);
+			if(sessionResponses != null) {
+				sessionResponses.addResponse(itemSession, response);
+			}
+		}
+		
+		for(int i=0; i<numOfSessions; i++) {
+			AssessmentTestSession testSession = sessions.get(i);
+			SessionResponses sessionResponses = sessionToResponses.get(testSession);
+			writeDataRow(i + 2, sessionResponses, exportSheet, workbook);
 		}
 	}
 	
@@ -381,9 +469,10 @@ public class QTI21ArchiveFormat {
 		
 		AssessmentTestSession testSession = responses.getTestSession();
 		AssessmentEntry entry = testSession.getAssessmentEntry();
+		Identity assessedIdentity = entry.getIdentity();
 		
 		//user properties
-		if(entry.getIdentity() == null) {
+		if(assessedIdentity == null) {
 			for (UserPropertyHandler userPropertyHandler:userPropertyHandlers) {
 				if (userPropertyHandler != null) {
 					if(userPropertyHandlers.get(0) == userPropertyHandler) {
@@ -394,10 +483,10 @@ public class QTI21ArchiveFormat {
 				}	
 			}
 		} else if(anonymizerCallback != null) {
-			String anonymizedName = anonymizerCallback.getAnonymizedUserName(entry.getIdentity());
+			String anonymizedName = anonymizerCallback.getAnonymizedUserName(assessedIdentity);
 			dataRow.addCell(col++, anonymizedName, null);
 		} else {
-			User assessedUser = entry.getIdentity().getUser();
+			User assessedUser = assessedIdentity.getUser();
 			for (UserPropertyHandler userPropertyHandler : userPropertyHandlers) {
 				if (userPropertyHandler != null) {
 					String property = userPropertyHandler.getUserProperty(assessedUser, translator.getLocale());
@@ -418,9 +507,38 @@ public class QTI21ArchiveFormat {
 			dataRow.addCell(col++, homepage, null);
 		}
 		
+		// course node points and passed
+		if(courseNode instanceof AssessableCourseNode) {
+			AssessableCourseNode assessableCourseNode = (AssessableCourseNode)courseNode;
+			if(assessableCourseNode.hasScoreConfigured()) {
+				if(entry.getScore() != null) {
+					dataRow.addCell(col++, entry.getScore(), null);
+				} else {
+					col++;
+				}
+			}
+			if(assessableCourseNode.hasPassedConfigured()) {
+				if(entry.getPassed() != null) {
+					dataRow.addCell(col++, entry.getPassed().toString(), null);
+				} else {
+					col++;
+				}
+			}
+		}
+		
 		//assesspoints, passed, ipaddress, date, duration
 		if(testSession.getScore() != null) {
 			dataRow.addCell(col++, testSession.getScore(), null);
+		} else {
+			col++;
+		}
+		if(testSession.getManualScore() != null) {
+			dataRow.addCell(col++, testSession.getManualScore(), null);
+		} else {
+			col++;
+		}
+		if(testSession.getFinalScore() != null) {
+			dataRow.addCell(col++, testSession.getFinalScore(), null);
 		} else {
 			col++;
 		}
@@ -429,7 +547,9 @@ public class QTI21ArchiveFormat {
 		} else {
 			col++;
 		}
-		dataRow.addCell(col++, testSession.getCreationDate(), workbook.getStyles().getDateStyle());
+		if(anonymizerCallback == null) {
+			dataRow.addCell(col++, testSession.getCreationDate(), workbook.getStyles().getDateStyle());
+		}
 		dataRow.addCell(col++, toDurationInMilliseconds(testSession.getDuration()), null);
 
 		List<ItemInfos> infos = getItemInfos();
@@ -439,22 +559,45 @@ public class QTI21ArchiveFormat {
 			String itemRefIdentifier = itemRef.getIdentifier().toString();
 			AssessmentItemSession itemSession = responses.getItemSession(itemRefIdentifier);
 			
-			List<Interaction> interactions = info.getInteractions();
-			for(int j=0; j<interactions.size(); j++) {
-				Interaction interaction = interactions.get(j);
-				 AssessmentResponse response = responses
-						 .getResponse(itemRefIdentifier, interaction.getResponseIdentifier());
-				col = interactionArchiveMap.get(interaction.getQtiClassName())
-							.writeInteractionData(info.getAssessmentItem(), response, interaction, j, dataRow, col, workbook);
+			if (exportConfig.isResponseCols()) {
+				List<Interaction> interactions = info.getInteractions();
+				for(int j=0; j<interactions.size(); j++) {
+					Interaction interaction = interactions.get(j);
+					AssessmentResponse response = responses
+							 .getResponse(itemRefIdentifier, interaction.getResponseIdentifier());
+					col = interactionArchiveMap.get(interaction.getQtiClassName())
+								.writeInteractionData(info.getAssessmentItem(), response, interaction, j, dataRow, col, workbook);
+				}
 			}
 			
 			//score, start, duration
-			if(itemSession == null) {
-				col += 3;
+			if (itemSession == null) {
+				if (exportConfig.isPointCol()) {
+					col++;
+				}
+				if (exportConfig.isCommentCol()) {
+					col++;
+				}
+				if (exportConfig.isTimeCols()) {
+					col += anonymizerCallback != null ? 1 : 2;
+				}
 			} else {
-				dataRow.addCell(col++, itemSession.getScore(), null);
-				dataRow.addCell(col++, itemSession.getCreationDate(), workbook.getStyles().getTimeStyle());
-				dataRow.addCell(col++, toDurationInMilliseconds(itemSession.getDuration()), null);
+				if (exportConfig.isPointCol()) {
+					if(itemSession.getManualScore() != null) {
+						dataRow.addCell(col++, itemSession.getManualScore(), null);
+					} else {
+						dataRow.addCell(col++, itemSession.getScore(), null);
+					}
+				}
+				if (exportConfig.isCommentCol()) {
+					dataRow.addCell(col++, itemSession.getCoachComment(), null);	
+				}
+				if (exportConfig.isTimeCols()) {
+					if (anonymizerCallback == null){
+						dataRow.addCell(col++, itemSession.getCreationDate(), workbook.getStyles().getTimeStyle());
+					}
+					dataRow.addCell(col++, toDurationInMilliseconds(itemSession.getDuration()), null);
+				}
 			}
 		}
 	}
@@ -491,10 +634,6 @@ public class QTI21ArchiveFormat {
 		
 		public AssessmentTestSession getTestSession() {
 			return testSession;
-		}
-		
-		public Long getSessionKey() {
-			return testSession.getKey();
 		}
 		
 		public AssessmentResponse getResponse(String itemRefIdentifier, Identifier responseIdentifier) {

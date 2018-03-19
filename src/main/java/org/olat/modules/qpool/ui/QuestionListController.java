@@ -24,10 +24,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.olat.NewControllerFactory;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
 import org.olat.core.gui.components.form.flexible.FormItem;
@@ -35,9 +37,8 @@ import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.stack.BreadcrumbPanel;
-import org.olat.core.gui.components.stack.BreadcrumbPanelAware;
 import org.olat.core.gui.components.stack.PopEvent;
+import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
@@ -55,12 +56,12 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
-import org.olat.core.util.StringHelper;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.fileresource.types.ImsQTI21Resource;
 import org.olat.group.BusinessGroup;
 import org.olat.group.model.BusinessGroupSelectionEvent;
 import org.olat.group.ui.main.SelectBusinessGroupController;
+import org.olat.ims.qti.QTIModule;
 import org.olat.ims.qti.fileresource.SurveyFileResource;
 import org.olat.ims.qti.fileresource.TestFileResource;
 import org.olat.ims.qti.qpool.QTIQPoolServiceProvider;
@@ -72,22 +73,32 @@ import org.olat.ims.qti21.questionimport.AssessmentItemsPackage;
 import org.olat.ims.qti21.questionimport.ImportOptions;
 import org.olat.ims.qti21.questionimport.QImport_1_InputStep;
 import org.olat.modules.qpool.ExportFormatOptions;
+import org.olat.modules.qpool.ExportFormatOptions.Outcome;
 import org.olat.modules.qpool.Pool;
 import org.olat.modules.qpool.QItemFactory;
 import org.olat.modules.qpool.QPoolSPI;
+import org.olat.modules.qpool.QPoolSecurityCallback;
 import org.olat.modules.qpool.QuestionItem;
+import org.olat.modules.qpool.QuestionItemAuditLog.Action;
+import org.olat.modules.qpool.QuestionItemAuditLogBuilder;
 import org.olat.modules.qpool.QuestionItemCollection;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.QuestionPoolModule;
+import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.model.QItemList;
+import org.olat.modules.qpool.model.QuestionItemImpl;
+import org.olat.modules.qpool.ui.datasource.TaxonomyLevelItemsSource;
+import org.olat.modules.qpool.ui.events.ExportFormatSelectionEvent;
 import org.olat.modules.qpool.ui.events.QItemCreationCmdEvent;
 import org.olat.modules.qpool.ui.events.QItemEdited;
 import org.olat.modules.qpool.ui.events.QItemEvent;
+import org.olat.modules.qpool.ui.events.QItemsProcessedEvent;
 import org.olat.modules.qpool.ui.events.QPoolEvent;
 import org.olat.modules.qpool.ui.events.QPoolSelectionEvent;
 import org.olat.modules.qpool.ui.metadata.MetadataBulkChangeController;
 import org.olat.modules.qpool.ui.wizard.Export_1_TypeStep;
 import org.olat.modules.qpool.ui.wizard.ImportAuthor_1_ChooseMemberStep;
+import org.olat.modules.taxonomy.TaxonomyLevel;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.controllers.EntryChangedEvent;
@@ -96,6 +107,7 @@ import org.olat.repository.controllers.RepositorySearchController.Can;
 import org.olat.repository.handlers.RepositoryHandler;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.ui.author.CreateEntryController;
+import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -106,18 +118,26 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Initial date: 22.01.2013<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class QuestionListController extends AbstractItemListController implements BreadcrumbPanelAware, Activateable2 {
+public class QuestionListController extends AbstractItemListController implements Activateable2 {
 
+	private FormLink statusDraftLink;
+	private FormLink statusReviewLink;
+	private FormLink statusRevisedLink;
+	private FormLink statusFinalLink;
+	private FormLink statusEndOfLifeLink;
+	private FormLink createTest;
 	private FormLink list, exportItem, shareItem, removeItem, newItem, copyItem, convertItem, deleteItem, authorItem, importItem, bulkChange;
 
-	private BreadcrumbPanel stackPanel;
+	private final TooledStackedPanel stackPanel;
 	private RenameController renameCtrl;
 	private CloseableModalController cmc;
 	private CloseableModalController cmcShareItemToSource;
-	private DialogBoxController confirmCopyBox;
-	private DialogBoxController confirmDeleteBox;
+	private DeleteConfirmationController deleteConfirmationCtrl;
+	private CopyConfirmationController copyConfirmationCtrl;
 	private DialogBoxController confirmRemoveBox;
 	private DialogBoxController confirmDeleteSourceBox;
+	private CreateTestTargetController createTestTargetCtrl;
+	private CreateTestOverviewController createTestOverviewCtrl;
 	private ShareItemOptionController shareItemsCtrl;
 	private ShareItemSourceOptionController shareItemsToSourceCtrl;
 	private PoolsController selectPoolCtrl;
@@ -132,7 +152,6 @@ public class QuestionListController extends AbstractItemListController implement
 	private ShareTargetController shareTargetCtrl;
 	private CreateEntryController addController;
 	private QuestionItemDetailsController currentDetailsCtrl;
-	private LayoutMain3ColsController currentMainDetailsCtrl;
 	private MetadataBulkChangeController bulkChangeCtrl;
 	private ImportSourcesController importSourcesCtrl;
 	private NewItemOptionsController newItemOptionsCtrl;
@@ -145,34 +164,91 @@ public class QuestionListController extends AbstractItemListController implement
 	private boolean itemCollectionDirty = false;
 
 	@Autowired
+	private DB dbInstance;
+	@Autowired
+	private QTIModule qtiModule;
+	@Autowired
 	private QuestionPoolModule qpoolModule;
 	@Autowired
 	private RepositoryManager repositoryManager;
 	@Autowired
 	private RepositoryHandlerFactory repositoryHandlerFactory;
 	
-	public QuestionListController(UserRequest ureq, WindowControl wControl, QuestionItemsSource source, String key) {
-		super(ureq, wControl, source, key);
+	public QuestionListController(UserRequest ureq, WindowControl wControl, TooledStackedPanel stackPanel,
+			QuestionItemsSource source, QPoolSecurityCallback securityCallback, String key,
+			boolean searchAllTaxonomyLevels) {
+		super(ureq, wControl, securityCallback, source, key, searchAllTaxonomyLevels);
+		this.stackPanel = stackPanel;
+		stackPanel.addListener(this);
 	}
 
 	@Override
 	protected void initButtons(UserRequest ureq, FormItemContainer formLayout) {
-		list = uifactory.addFormLink("list", formLayout, Link.BUTTON);
+		if (getSource().isStatusFilterEnabled()) {
+			QuestionStatus statusFilter = getSource().getStatusFilter();
+			statusDraftLink = uifactory.addFormLink("source.status.draft", "source.status.draft", null, formLayout, Link.BUTTON);
+			statusDraftLink.setUserObject(QuestionStatus.draft);
+			statusDraftLink.setElementCssClass("btn-arrow-right o_qpool_qitem_draft");
+			statusDraftLink.setIconLeftCSS("o_icon o_icon-lg o_icon_qitem_draft");
+			if (QuestionStatus.draft.equals(statusFilter)) setSelectionCssClass(statusDraftLink);
+			statusReviewLink = uifactory.addFormLink("source.status.review", "source.status.review", null, formLayout, Link.BUTTON);
+			statusReviewLink.setUserObject(QuestionStatus.review);
+			statusReviewLink.setElementCssClass("btn-arrow-right o_qpool_qitem_review");
+			statusReviewLink.setIconLeftCSS("o_icon o_icon-lg o_icon_qitem_review");
+			if (QuestionStatus.review.equals(statusFilter)) setSelectionCssClass(statusReviewLink);
+			statusRevisedLink = uifactory.addFormLink("source.status.revised", "source.status.revised", null, formLayout, Link.BUTTON);
+			statusRevisedLink.setUserObject(QuestionStatus.revised);
+			statusRevisedLink.setElementCssClass("btn-arrow-right o_qpool_qitem_revised");
+			statusRevisedLink.setIconLeftCSS("o_icon o_icon-lg o_icon_qitem_revised");
+			if (QuestionStatus.revised.equals(statusFilter)) setSelectionCssClass(statusRevisedLink);
+			statusFinalLink = uifactory.addFormLink("source.status.finalVersion", "source.status.finalVersion", null, formLayout, Link.BUTTON);
+			statusFinalLink.setUserObject(QuestionStatus.finalVersion);
+			statusFinalLink.setElementCssClass("btn-arrow-right o_qpool_qitem_final");
+			statusFinalLink.setIconLeftCSS("o_icon o_icon-lg o_icon_qitem_finalVersion");
+			if (QuestionStatus.finalVersion.equals(statusFilter)) setSelectionCssClass(statusFinalLink);
+			statusEndOfLifeLink = uifactory.addFormLink("source.status.endOfLife", "source.status.endOfLife", null, formLayout, Link.BUTTON);
+			statusEndOfLifeLink.setUserObject(QuestionStatus.endOfLife);
+			statusEndOfLifeLink.setElementCssClass("btn-arrow-right o_qpool_qitem_end_of_life");
+			statusEndOfLifeLink.setIconLeftCSS("o_icon o_icon-lg o_icon_qitem_endOfLife");
+			if (QuestionStatus.endOfLife.equals(statusFilter)) setSelectionCssClass(statusEndOfLifeLink);
+			updateStatusFilter();
+		}
+		
+		if(getSource().isCreateEnabled()) {
+			newItem = uifactory.addFormLink("new.item", formLayout, Link.BUTTON);
+			newItem.setIconLeftCSS("o_icon o_icon-fw o_icon_qitem_new");
+		}
+		importItem = uifactory.addFormLink("import.item", formLayout, Link.BUTTON);
+		importItem.setIconLeftCSS("o_icon o_icon-fw o_icon_qitem_import");
+		
+		if (getSecurityCallback().canUseCollections()) {
+			list = uifactory.addFormLink("list", formLayout, Link.BUTTON);
+		}
+		if (getSecurityCallback().canCreateTest()) {
+			createTest = uifactory.addFormLink("create.test", formLayout, Link.BUTTON);
+		}
 		exportItem = uifactory.addFormLink("export.item", formLayout, Link.BUTTON);
-		shareItem = uifactory.addFormLink("share.item", formLayout, Link.BUTTON);
+		if (getSecurityCallback().canUsePools() || getSecurityCallback().canUseGroups()) {
+			shareItem = uifactory.addFormLink("share.item", formLayout, Link.BUTTON);
+		}
 		if(getSource().isRemoveEnabled()) {
 			removeItem = uifactory.addFormLink("unshare.item", formLayout, Link.BUTTON);
 		}
-
-		newItem = uifactory.addFormLink("new.item", formLayout, Link.BUTTON);
-		copyItem = uifactory.addFormLink("copy", formLayout, Link.BUTTON);
-		convertItem = uifactory.addFormLink("convert.item", formLayout, Link.BUTTON);
-		importItem = uifactory.addFormLink("import.item", formLayout, Link.BUTTON);
-		authorItem = uifactory.addFormLink("author.item", formLayout, Link.BUTTON);
+		if(getSource().isCopyEnabled()) {
+			copyItem = uifactory.addFormLink("copy", formLayout, Link.BUTTON);
+		}
+		if(getSource().isImportEnabled()) {
+			convertItem = uifactory.addFormLink("convert.item", formLayout, Link.BUTTON);
+		}
+		if(getSource().isAuthorRightsEnable()) {
+			authorItem = uifactory.addFormLink("author.item", formLayout, Link.BUTTON);
+		}
 		if(getSource().isDeleteEnabled()) {
 			deleteItem = uifactory.addFormLink("delete.item", formLayout, Link.BUTTON);
 		}
-		bulkChange = uifactory.addFormLink("bulk.change", formLayout, Link.BUTTON);
+		if(getSource().isBulkChangeEnabled()) {
+			bulkChange = uifactory.addFormLink("bulk.change", formLayout, Link.BUTTON);
+		}
 	}
 
 	public QuestionItemCollection getItemCollection() {
@@ -181,14 +257,6 @@ public class QuestionListController extends AbstractItemListController implement
 
 	public void setItemCollection(QuestionItemCollection itemCollection) {
 		this.itemCollection = itemCollection;
-	}
-
-	@Override
-	public void setBreadcrumbPanel(BreadcrumbPanel stackPanel) {
-		this.stackPanel = stackPanel;
-		if(stackPanel != null) {
-			stackPanel.addListener(this);
-		}
 	}
 
 	@Override
@@ -201,9 +269,18 @@ public class QuestionListController extends AbstractItemListController implement
 			Long itemKey = entry.getOLATResourceable().getResourceableId();
 			ItemRow row = getModel().getObjectByKey(itemKey);
 			if(row == null) {
-				//TODO xhr
+				getModel().load(null, null, null, 0, -1);
+				row = getModel().getObjectByKey(itemKey);
+				if(row != null) {
+					doOpenDetails(ureq, row);
+					int index = getModel().getObjects().indexOf(row);
+					if(index >= 1 && getItemsTable().getPageSize() > 1) {
+						int page = index / getItemsTable().getPageSize();
+						getItemsTable().setPage(page);
+					}
+				}
 			} else {
-				doSelect(ureq, row);
+				doOpenDetails(ureq, row);
 			}
 		}
 	}
@@ -214,64 +291,101 @@ public class QuestionListController extends AbstractItemListController implement
 			FormLink link = (FormLink)source;
 			if(link == list) {
 				doList(ureq);
+			} else if (link == createTest) {
+				List<QuestionItemShort> items = getSelectedShortItems();
+				if(!items.isEmpty()) {
+					doCreateTest(ureq, items);
+				} else {
+					showWarning("error.select.one.create.test");
+				}
 			} else if(link == exportItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(false);
-				if(items.size() > 0) {
+				List<QuestionItemShort> items = getSelectedShortItems();
+				if(!items.isEmpty()) {
 					doExport(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.export");
 				}
 			} else if(link == shareItem) {
 				doShare(ureq);
 			} else if(link == removeItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(false);
-				if(items.size() > 0) {
+				List<QuestionItemShort> items = getRemovableItems();
+				if(!items.isEmpty()) {
 					doConfirmRemove(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.remove");
 				}
 			} else if(link == copyItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(false);
-				if(items.size() > 0) {
+				List<QuestionItemShort> items = getSelectedShortItems();
+				if(!items.isEmpty()) {
 					doConfirmCopy(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.copy");
 				}
 			} else if(link == convertItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(false);
-				if(items.size() > 0) {
+				List<QuestionItemShort> items = getSelectedShortItems();
+				if(!items.isEmpty()) {
 					doConfirmConversion(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.convert");
 				}
 			} else if(link == deleteItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(true);
-				if(items.size() > 0) {
+				List<QuestionItemShort> items = getDeletableItems();
+				if(!items.isEmpty()) {
 					doConfirmDelete(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.delete");
 				}
 			} else if(link == authorItem) {
-				List<QuestionItemShort> items = getSelectedShortItems(false);
-				if(items.size() > 0) {
-					doChooseAuthoren(ureq, items);
+				List<QuestionItemShort> items = getAuthorsEditableItems();
+				if(!items.isEmpty()) {
+					doChooseAuthors(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.author");
 				}
 			} else if(link == importItem) {
 				doOpenImport(ureq);
 			} else if(link == newItem) {
 				doChooseNewItemType(ureq);
 			} else if(link == bulkChange) {
-				List<QuestionItemShort> items = getSelectedShortItems(true);
-				if(items.size() > 0) {
+				List<ItemRow> items = getMetadataEditableItems();
+				if(!items.isEmpty()) {
 					doBulkChange(ureq, items);
 				} else {
-					showWarning("error.select.one");
+					showWarning("error.select.one.metadata");
 				}
+			} else if (link == statusDraftLink || link == statusReviewLink || link == statusRevisedLink || link == statusFinalLink || link == statusEndOfLifeLink) {
+				doSetSourceStatus(link);
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
+	}
+	
+	private List<QuestionItemShort> getRemovableItems() {
+		return getItemsTable().getMultiSelectedIndex().stream()
+				.map(index -> getModel().getObject(index.intValue()))
+				.filter(itemRow -> itemRow.getSecurityCallback().canRemove())
+				.collect(Collectors.toList());
+	}
+
+	private List<QuestionItemShort> getDeletableItems() {
+		return getItemsTable().getMultiSelectedIndex().stream()
+				.map(index -> getModel().getObject(index.intValue()))
+				.filter(itemRow -> itemRow.getSecurityCallback().canDelete())
+				.collect(Collectors.toList());
+	}
+	
+	private List<QuestionItemShort> getAuthorsEditableItems() {
+		return getItemsTable().getMultiSelectedIndex().stream()
+				.map(index -> getModel().getObject(index.intValue()))
+				.filter(itemRow -> itemRow.getSecurityCallback().canEditAuthors())
+				.collect(Collectors.toList());
+	}
+	
+	private List<ItemRow> getMetadataEditableItems() {
+		return getItemsTable().getMultiSelectedIndex().stream()
+				.map(index -> getModel().getObject(index.intValue()))
+				.filter(itemRow -> itemRow.getSecurityCallback().canEditMetadata())
+				.collect(Collectors.toList());
 	}
 
 	@Override
@@ -282,6 +396,8 @@ public class QuestionListController extends AbstractItemListController implement
 				Controller mainCtrl = pe.getController();
 				if(mainCtrl != null && mainCtrl.isControllerListeningTo(this)) {
 					reloadData();
+					updateStatusFilter();
+					fireEvent(ureq, new QPoolEvent(QPoolEvent.ITEMS_RELOADED));
 					itemCollectionDirty = false;
 				}
 			}
@@ -293,7 +409,7 @@ public class QuestionListController extends AbstractItemListController implement
 	@Override
 	protected void event(UserRequest ureq, Controller source, Event event) {
 		if(source == shareTargetCtrl) {
-			List<QuestionItemShort> items = getSelectedShortItems(false);
+			List<QuestionItemShort> items = getSelectedShortItems();
 			calloutCtrl.deactivate();
 			if(items.isEmpty()) {
 				showWarning("error.select.one");
@@ -310,7 +426,7 @@ public class QuestionListController extends AbstractItemListController implement
 				if(pools.size() > 0) {
 					@SuppressWarnings("unchecked")
 					List<QuestionItemShort> items = (List<QuestionItemShort>)selectPoolCtrl.getUserObject();
-					doShareItemsToGroups(ureq, items, null, pools);
+					doShareItemsToPools(ureq, items, pools);
 				}
 			}	
 		} else if(source == importSourcesCtrl) {
@@ -328,7 +444,7 @@ public class QuestionListController extends AbstractItemListController implement
 			cmc.deactivate();
 			if(event instanceof QItemCreationCmdEvent) {
 				QItemCreationCmdEvent qicce = (QItemCreationCmdEvent)event;
-				doCreateNewItem(ureq, qicce.getTitle(), qicce.getFactory());
+				doCreateNewItem(ureq, qicce.getTitle(), qicce.getTaxonomyLevel(), qicce.getFactory());
 			}
 		} else if(source == selectGroupCtrl) {
 			cmc.deactivate();
@@ -338,7 +454,7 @@ public class QuestionListController extends AbstractItemListController implement
 				if(groups.size() > 0) {
 					@SuppressWarnings("unchecked")
 					List<QuestionItemShort> items = (List<QuestionItemShort>)selectGroupCtrl.getUserObject();
-					doShareItemsToGroups(ureq, items, groups, null);
+					doShareItemsToGroups(ureq, items, groups);
 				}
 			}
 		} else if(source == shareItemsCtrl) {
@@ -348,7 +464,7 @@ public class QuestionListController extends AbstractItemListController implement
 			cmc.deactivate();
 			cleanUp();
 		} else if(source == listTargetCtrl) {
-			List<QuestionItemShort> items = getSelectedShortItems(false);
+			List<QuestionItemShort> items = getSelectedShortItems();
 			calloutCtrl.deactivate();
 			if(CollectionTargetController.ADD_TO_LIST_POOL_CMD.equals(event.getCommand())) {
 				if(items.isEmpty()) {
@@ -385,6 +501,20 @@ public class QuestionListController extends AbstractItemListController implement
 		} else if(source == chooseCollectionCtrl) {
 			cmc.deactivate();
 			cleanUp();
+		} else if(source == createTestTargetCtrl && event instanceof ExportFormatSelectionEvent) {
+			calloutCtrl.deactivate();
+			ExportFormatSelectionEvent efsEvent = (ExportFormatSelectionEvent) event;
+			ExportFormatOptions format = efsEvent.getFormat();
+			List<QuestionItemShort> items = getSelectedShortItems();
+			doShowCreateTestOverview(ureq, items, format);
+		} else if (source == createTestOverviewCtrl) {
+			List<QuestionItemShort> items = createTestOverviewCtrl.getExportableQuestionItems();
+			String typeFormat = createTestOverviewCtrl.getResourceTypeFormat();
+			cmc.deactivate();
+			cleanUp();
+			if (event == Event.DONE_EVENT) {
+				doOpenCreateRepositoryTest(ureq, items, typeFormat);
+			}
 		} else if(source == exportWizard) {
 			if(event == Event.CANCELLED_EVENT || event == Event.DONE_EVENT || event == Event.CHANGED_EVENT) {
 				getWindowControl().pop();
@@ -433,26 +563,21 @@ public class QuestionListController extends AbstractItemListController implement
 			}
 			cmc.deactivate();
 			cleanUp();
-		} else if(source == confirmCopyBox) {
-			if(DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
-				@SuppressWarnings("unchecked")
-				List<QuestionItemShort> items = (List<QuestionItemShort>)confirmCopyBox.getUserObject();
-				doCopy(ureq, items);
-			}
+		} else if(source == copyConfirmationCtrl) {
+			doPostCopy(ureq, event);
+			cmc.deactivate();
+			cleanUp();
 		} else if(source == conversionConfirmationCtrl) {
-			if(event == Event.DONE_EVENT) {
-				List<QuestionItemShort> items = conversionConfirmationCtrl.getSelectedItems();
-				String format = conversionConfirmationCtrl.getSelectedFormat();
-				doConvert(ureq, items, format);
+			doPostConvert(ureq, event);
+			cmc.deactivate();
+			cleanUp();
+		} else if(source == deleteConfirmationCtrl) {
+			if (event == Event.DONE_EVENT) {
+				List<QuestionItemShort> items = deleteConfirmationCtrl.getItemsToDelete();
+				doDelete(items);
 			}
 			cmc.deactivate();
 			cleanUp();
-		} else if(source == confirmDeleteBox) {
-			if(DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
-				@SuppressWarnings("unchecked")
-				List<QuestionItemShort> items = (List<QuestionItemShort>)confirmDeleteBox.getUserObject();
-				doDelete(items);
-			}
 		} else if(source == confirmRemoveBox) {
 			if(DialogBoxUIFactory.isYesEvent(event) || DialogBoxUIFactory.isOkEvent(event)) {
 				@SuppressWarnings("unchecked")
@@ -462,20 +587,24 @@ public class QuestionListController extends AbstractItemListController implement
 		} else if(source == currentDetailsCtrl) {
 			if(event instanceof QItemEvent) {
 				QItemEvent qce = (QItemEvent)event;
-				if("copy-item".equals(qce.getCommand())) {
+				if("copy-item".equals(qce.getCommand()) || "convert-item".equals(qce.getCommand())) {
 					stackPanel.popUpToRootController(ureq);
-					doSelect(ureq, qce.getItem(), true);
+					doOpenDetails(ureq, qce.getItem());
 				} else if("previous".equals(qce.getCommand())) {
 					doPrevious(ureq, qce.getItem());
 				} else if("next".equals(qce.getCommand())) {
 					doNext(ureq, qce.getItem());
 				}
 			} else if(event instanceof QItemEdited) {
+				String title = ((QItemEdited) event).getItem().getTitle();
+				stackPanel.changeDisplayname(title, null, currentDetailsCtrl);
 				itemCollectionDirty = true;
 			} else if (event instanceof QPoolEvent) {
 				QPoolEvent qce = (QPoolEvent)event;
 				if(QPoolEvent.ITEM_DELETED.equals(qce.getCommand())) {
 					fireEvent(ureq, qce);
+				} else if (QPoolEvent.ITEM_STATUS_CHANGED.equals(qce.getCommand())) {
+					itemCollectionDirty = true;
 				}
 			}
 		} else if(source == addController) {
@@ -485,7 +614,7 @@ public class QuestionListController extends AbstractItemListController implement
 				
 				EntryChangedEvent addEvent = (EntryChangedEvent)event;
 				Long repoEntryKey = addEvent.getRepositoryEntryKey();
-				doExportToRepositoryEntry(ureq, repoEntryKey);
+				doCreateRepositoryTest(ureq, repoEntryKey);
 			} else if(event == Event.CANCELLED_EVENT) {
 				cmc.deactivate();
 				cleanUp();
@@ -499,20 +628,26 @@ public class QuestionListController extends AbstractItemListController implement
 	private void cleanUp() {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(addController);
+		removeAsListenerAndDispose(createTestOverviewCtrl);
 		removeAsListenerAndDispose(bulkChangeCtrl);
 		removeAsListenerAndDispose(importItemCtrl);
 		removeAsListenerAndDispose(importTestCtrl);
 		removeAsListenerAndDispose(selectGroupCtrl);
 		removeAsListenerAndDispose(createCollectionCtrl);
 		removeAsListenerAndDispose(conversionConfirmationCtrl);
+		removeAsListenerAndDispose(deleteConfirmationCtrl);
+		removeAsListenerAndDispose(copyConfirmationCtrl);
 		cmc = null;
 		addController = null;
+		createTestOverviewCtrl = null;
 		bulkChangeCtrl = null;
 		importItemCtrl = null;
 		importTestCtrl = null;
 		selectGroupCtrl = null;
 		createCollectionCtrl = null;
 		conversionConfirmationCtrl = null;
+		deleteConfirmationCtrl = null;
+		copyConfirmationCtrl = null;
 	}
 	
 	protected void updateRows(List<QuestionItem> items) {
@@ -520,30 +655,81 @@ public class QuestionListController extends AbstractItemListController implement
 		getModel().reload(rowIndex);
 		getItemsTable().getComponent().setDirty(true);
 	}
-	
+
 	private void doNext(UserRequest ureq, QuestionItem item) {
 		ItemRow row = getRowByItemKey(item.getKey());
 		ItemRow nextRow = getModel().getNextObject(row);
-		if(nextRow != null) {
-			QuestionItem nextItem = qpoolService.loadItemById(nextRow.getKey());
-			stackPanel.popUpToRootController(ureq);
-			doSelect(ureq, nextItem, nextRow.isEditable());
-		}
+		doSelectOrReset(ureq, nextRow);
 	}
 	
 	private void doPrevious(UserRequest ureq, QuestionItem item) {
 		ItemRow row = getRowByItemKey(item.getKey());
 		ItemRow previousRow = getModel().getPreviousObject(row);
-		if(previousRow != null) {
-			QuestionItem previousItem = qpoolService.loadItemById(previousRow.getKey());
-			stackPanel.popUpToRootController(ureq);
-			doSelect(ureq, previousItem, previousRow.isEditable());
-		}
+		doSelectOrReset(ureq, previousRow);
 	}
 	
-	private void doBulkChange(UserRequest ureq, List<QuestionItemShort> items) {
+	private void doSelectOrReset(UserRequest ureq, ItemRow row) {
+		if(row != null) {
+			stackPanel.popUpToRootController(ureq);
+			doOpenDetails(ureq, row);
+		} else {
+			getItemsTable().reset(true, true, true);
+		}
+	}
+
+	private void doSetSourceStatus(FormLink link) {
+		if (getSource().isStatusFilterEnabled()) {
+			QuestionStatus status = (QuestionStatus) link.getUserObject();
+			getSource().setStatusFilter(status);
+			getItemsTable().reset(true, true, true);
+			removeSelectionCssClass(statusDraftLink);
+			removeSelectionCssClass(statusReviewLink);
+			removeSelectionCssClass(statusRevisedLink);
+			removeSelectionCssClass(statusFinalLink);
+			removeSelectionCssClass(statusEndOfLifeLink);
+			setSelectionCssClass(link);
+		}
+	}
+
+	private void removeSelectionCssClass(FormLink link) {
+		String cssClass = link.getElementCssClass();
+		if (cssClass.contains(" o_qpool_status_slected")) {
+			cssClass = cssClass.replace(" o_qpool_status_slected", "");
+			link.setElementCssClass(cssClass);
+			link.getComponent().setDirty(true);
+		}
+	}
+
+	public void updateStatusFilter() {
+		if (getSource().isStatusFilterEnabled()) {
+			QuestionStatus actualStatus = getSource().getStatusFilter();
+			reloadStatusFilterTitle(statusDraftLink, "source.status.draft");
+			reloadStatusFilterTitle(statusReviewLink, "source.status.review");
+			reloadStatusFilterTitle(statusRevisedLink, "source.status.revised");
+			reloadStatusFilterTitle(statusFinalLink, "source.status.finalVersion");
+			reloadStatusFilterTitle(statusEndOfLifeLink, "source.status.endOfLife");
+			getSource().setStatusFilter(actualStatus);
+		}
+	}
+
+	private void reloadStatusFilterTitle(FormLink link, String i18n) {
+		QuestionStatus linkStatus = (QuestionStatus) link.getUserObject();
+		getSource().setStatusFilter(linkStatus);
+		int numItems = getSource().getNumOfItems();
+		link.setI18nKey(i18n, new String[] {Integer.toString(numItems)});
+		link.getComponent().setDirty(true);
+	}
+
+	private void setSelectionCssClass(FormLink link) {
+		String cssClass = link.getElementCssClass();
+		link.setElementCssClass(cssClass + " o_qpool_status_slected");
+		link.getComponent().setDirty(true);
+	}
+
+	private void doBulkChange(UserRequest ureq, List<ItemRow> items) {
 		removeAsListenerAndDispose(bulkChangeCtrl);
-		bulkChangeCtrl = new MetadataBulkChangeController(ureq, getWindowControl(), items);
+		bulkChangeCtrl = new MetadataBulkChangeController(ureq, getWindowControl(), items,
+				getSource().isAdminItemSource());
 		listenTo(bulkChangeCtrl);
 		
 		cmc = new CloseableModalController(getWindowControl(), translate("close"),
@@ -554,7 +740,13 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	private void doChooseNewItemType(UserRequest ureq) {
 		removeAsListenerAndDispose(newItemOptionsCtrl);
-		newItemOptionsCtrl = new NewItemOptionsController(ureq, getWindowControl());
+		if (getSource() instanceof TaxonomyLevelItemsSource) {
+			TaxonomyLevelItemsSource tliSource = (TaxonomyLevelItemsSource) getSource();
+			newItemOptionsCtrl = new NewItemOptionsController(ureq, getWindowControl(), tliSource.getTaxonomyLevel(),
+					getSource().isAdminItemSource());
+		} else {
+			newItemOptionsCtrl = new NewItemOptionsController(ureq, getWindowControl(), getSource().isAdminItemSource());
+		}
 		listenTo(newItemOptionsCtrl);
 		
 		removeAsListenerAndDispose(cmc);
@@ -564,17 +756,30 @@ public class QuestionListController extends AbstractItemListController implement
 		listenTo(cmc);
 	}
 	
-	private void doCreateNewItem(UserRequest ureq, String title, QItemFactory factory) {
+	private void doCreateNewItem(UserRequest ureq, String title, TaxonomyLevel taxonomyLevel, QItemFactory factory) {
 		QuestionItem item = factory.createItem(getIdentity(), title, getLocale());
 		List<QuestionItem> newItems = Collections.singletonList(item);
 		getSource().postImport(newItems, false);
+		if (taxonomyLevel != null && item instanceof QuestionItemImpl) {
+			QuestionItemImpl itemImpl = (QuestionItemImpl) item;
+			itemImpl.setTaxonomyLevel(taxonomyLevel);
+			String creator = UserManager.getInstance().getUserDisplayName(getIdentity());
+			itemImpl.setCreator(creator);
+			qpoolService.updateItem(itemImpl);
+		}
 		getItemsTable().reset();
+		
+		dbInstance.commit();
+		qpoolService.index(newItems);
+		
+		QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+				Action.CREATE_QUESTION_ITEM_NEW);
+		builder.withAfter(item);
+		qpoolService.persist(builder.create());
 		
 		QPoolEvent qce = new QPoolEvent(QPoolEvent.ITEM_CREATED);
 		fireEvent(ureq, qce);
-
-		List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType("Edit");
-		doSelect(ureq, item, true).activate(ureq, entries, null);
+		doOpenDetails(ureq, item);
 	}
 	
 	private void doOpenImport(UserRequest ureq) {
@@ -611,6 +816,12 @@ public class QuestionListController extends AbstractItemListController implement
 				= (QTIQPoolServiceProvider)CoreSpringFactory.getBean("qtiPoolServiceProvider");
 			importItems = spi.importRepositoryEntry(getIdentity(), repositoryEntry, getLocale());
 		}
+		for (QuestionItem item: importItems) {
+			QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+					Action.CREATE_QUESTION_ITEM_BY_IMPORT);
+			builder.withAfter(item);
+			qpoolService.persist(builder.create());
+		}
 
 		if(getSource().askEditable()) {
 			removeAsListenerAndDispose(shareItemsToSourceCtrl);
@@ -623,6 +834,7 @@ public class QuestionListController extends AbstractItemListController implement
 			cmcShareItemToSource.activate();
 			listenTo(cmcShareItemToSource);
 		} else {
+			qpoolService.index(importItems);
 			int postImported = getSource().postImport(importItems, true);
 			if(postImported > 0) {
 				getItemsTable().reset();
@@ -639,7 +851,12 @@ public class QuestionListController extends AbstractItemListController implement
 	
 	private void doOpenRepositoryImport(UserRequest ureq) {
 		removeAsListenerAndDispose(importTestCtrl);
-		String[] allowed = new String[]{ ImsQTI21Resource.TYPE_NAME, TestFileResource.TYPE_NAME, SurveyFileResource.TYPE_NAME };
+		String[] allowed;
+		if(qtiModule.isCreateResourcesEnabled()) {
+			allowed = new String[]{ ImsQTI21Resource.TYPE_NAME, TestFileResource.TYPE_NAME, SurveyFileResource.TYPE_NAME };
+		} else {
+			allowed = new String[]{ ImsQTI21Resource.TYPE_NAME };
+		}
 		importTestCtrl = new ReferencableEntriesSearchController(getWindowControl(), ureq, allowed,
 				null, translate("import.repository"), false, false, false, true, Can.copyable);
 		listenTo(importTestCtrl);
@@ -669,12 +886,19 @@ public class QuestionListController extends AbstractItemListController implement
 				List<ItemAndMetadata> itemsToImport = importPackage.getItems();
 				QTIQPoolServiceProvider spi = CoreSpringFactory.getImpl (QTIQPoolServiceProvider.class);
 				List<QuestionItem> importItems = spi.importBeecomItem(getIdentity(), itemsToImport, getLocale());
+				for (QuestionItem item: importItems) {
+					QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+							Action.CREATE_QUESTION_ITEM_BY_IMPORT);
+					builder.withAfter(item);
+					qpoolService.persist(builder.create());
+				}
 				
 				boolean editable = true;
 				if(getSource().askEditable()) {
 					Object editableCtx = runContext.get("editable");
 					editable = (editableCtx instanceof Boolean) ? ((Boolean)editableCtx).booleanValue() : false;
 				}
+				qpoolService.index(importItems);
 				int postImported = getSource().postImport(importItems, editable);
 				if(postImported > 0) {
 					getItemsTable().reset();
@@ -714,12 +938,19 @@ public class QuestionListController extends AbstractItemListController implement
 						importItems.add(importedItem);
 					}
 				}
+				for (QuestionItem item: importItems) {
+					QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+							Action.CREATE_QUESTION_ITEM_BY_IMPORT);
+					builder.withAfter(item);
+					qpoolService.persist(builder.create());
+				}
 
 				boolean editable = true;
 				if(getSource().askEditable()) {
 					Object editableCtx = runContext.get("editable");
 					editable = (editableCtx instanceof Boolean) ? ((Boolean)editableCtx).booleanValue() : false;
 				}
+				qpoolService.index(importItems);
 				int postImported = getSource().postImport(importItems, editable);
 				if(postImported > 0) {
 					getItemsTable().reset();
@@ -770,12 +1001,63 @@ public class QuestionListController extends AbstractItemListController implement
 		cmc.activate();
 		listenTo(cmc);
 	}
+
+	private void doCreateTest(UserRequest ureq, List<QuestionItemShort> items) {
+		Set<ExportFormatOptions> exportFormatOptions = qpoolService.getExportFormatOptions(items, Outcome.repository);
+		if (exportFormatOptions.size() > 1) {
+			doChooseTestFormat(ureq, exportFormatOptions);
+		} else if (exportFormatOptions.size() == 1) {
+			doShowCreateTestOverview(ureq, items, exportFormatOptions.iterator().next());
+		} else {
+			showWarning("create.test.no.formats");
+		}
+	}
 	
-	/**
-	 * Test only QTI 1.2
-	 * @param ureq
-	 * @param items
-	 */
+	private void doChooseTestFormat(UserRequest ureq, Set<ExportFormatOptions> exportFormatOptions) {
+		removeAsListenerAndDispose(createTestTargetCtrl);
+		createTestTargetCtrl = new CreateTestTargetController(ureq, getWindowControl(), exportFormatOptions);
+		listenTo(createTestTargetCtrl);
+		
+		removeAsListenerAndDispose(calloutCtrl);
+		calloutCtrl = new CloseableCalloutWindowController(ureq, getWindowControl(), createTestTargetCtrl.getInitialComponent(), createTest, null, true, null);
+		listenTo(calloutCtrl);
+		calloutCtrl.activate();
+	}
+
+	private void doShowCreateTestOverview(UserRequest ureq, List<QuestionItemShort> items, ExportFormatOptions format) {
+		removeAsListenerAndDispose(createTestOverviewCtrl);
+		createTestOverviewCtrl = new CreateTestOverviewController(ureq, getWindowControl(), items, format);
+		listenTo(createTestOverviewCtrl);
+		
+		removeAsListenerAndDispose(cmc);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"),
+				createTestOverviewCtrl.getInitialComponent(), true, translate("create.test"));
+		cmc.activate();	
+		listenTo(cmc);
+	}
+	
+	private void doOpenCreateRepositoryTest(UserRequest ureq, List<QuestionItemShort> items, String type) {
+		removeAsListenerAndDispose(cmc);
+		removeAsListenerAndDispose(addController);
+
+		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
+		addController = handler.createCreateRepositoryEntryController(ureq, getWindowControl());
+		addController.setCreateObject(new QItemList(items));
+		listenTo(addController);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
+		listenTo(cmc);
+		cmc.activate();
+	}
+	
+	private void doCreateRepositoryTest(UserRequest ureq, Long repoEntryKey) {
+		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(repoEntryKey, false);
+		if(re != null) {
+			WindowControl wControl = BusinessControlFactory.getInstance()
+					.createBusinessWindowControl(getWindowControl(), re, OresHelper.createOLATResourceableType("Editor"));
+			NewControllerFactory.getInstance().launch(ureq, wControl);
+		}
+	}
+
 	private void doExport(UserRequest ureq, List<QuestionItemShort> items) {
 		removeAsListenerAndDispose(exportWizard);
 		Step start = new Export_1_TypeStep(ureq, items);
@@ -796,40 +1078,9 @@ public class QuestionListController extends AbstractItemListController implement
 		ExportFormatOptions format = (ExportFormatOptions)runContext.get("format");
 		@SuppressWarnings("unchecked")
 		List<QuestionItemShort> items = (List<QuestionItemShort>)runContext.get("itemsToExport");
-		switch(format.getOutcome()) {
-			case download: {
-				MediaResource mr = qpoolService.export(items, format, getLocale());
-				if(mr != null) {
-					ureq.getDispatchResult().setResultingMediaResource(mr);
-				}
-				break;
-			}
-			case repository: {
-				doExportToRepository(ureq, items, format.getResourceTypeFormat());
-				break;
-			}
-		}
-	}
-	
-	private void doExportToRepository(UserRequest ureq, List<QuestionItemShort> items, String type) {
-		removeAsListenerAndDispose(cmc);
-		removeAsListenerAndDispose(addController);
-
-		RepositoryHandler handler = repositoryHandlerFactory.getRepositoryHandler(type);
-		addController = handler.createCreateRepositoryEntryController(ureq, getWindowControl());
-		addController.setCreateObject(new QItemList(items));
-		listenTo(addController);
-		cmc = new CloseableModalController(getWindowControl(), translate("close"), addController.getInitialComponent());
-		listenTo(cmc);
-		cmc.activate();
-	}
-	
-	private void doExportToRepositoryEntry(UserRequest ureq, Long repoEntryKey) {
-		RepositoryEntry re = repositoryManager.lookupRepositoryEntry(repoEntryKey, false);
-		if(re != null) {
-			WindowControl wControl = BusinessControlFactory.getInstance()
-					.createBusinessWindowControl(getWindowControl(), re, OresHelper.createOLATResourceableType("Editor"));
-			NewControllerFactory.getInstance().launch(ureq, wControl);
+		MediaResource mr = qpoolService.export(items, format, getLocale());
+		if(mr != null) {
+			ureq.getDispatchResult().setResultingMediaResource(mr);
 		}
 	}
 	
@@ -838,7 +1089,7 @@ public class QuestionListController extends AbstractItemListController implement
 		fireEvent(ureq, new QPoolEvent(QPoolEvent.COLL_CREATED, coll.getKey()));
 	}
 	
-	private void doChooseAuthoren(UserRequest ureq, List<QuestionItemShort> items) {
+	private void doChooseAuthors(UserRequest ureq, List<QuestionItemShort> items) {
 		removeAsListenerAndDispose(importAuthorsWizard);
 
 		Step start = new ImportAuthor_1_ChooseMemberStep(ureq, items);
@@ -865,24 +1116,22 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 	
 	private void doConfirmDelete(UserRequest ureq, List<QuestionItemShort> items) {
-		StringBuilder sb = new StringBuilder();
-		for(QuestionItemShort item:items) {
-			if(sb.length() > 0) sb.append(", ");
-			sb.append(StringHelper.escapeHtml(item.getTitle()));
-		}
-		
-		String msg;
-		if(items.size() > 1) {
-			msg = translate("confirm.delete.plural", sb.toString());
-		} else {
-			msg = translate("confirm.delete", sb.toString());
-		}
-		confirmDeleteBox = activateYesNoDialog(ureq, null, msg, confirmDeleteBox);
-		confirmDeleteBox.setCssClass("o_error");
-		confirmDeleteBox.setUserObject(items);
+		deleteConfirmationCtrl = new DeleteConfirmationController(ureq, getWindowControl(), items);
+		listenTo(deleteConfirmationCtrl);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"),
+				deleteConfirmationCtrl.getInitialComponent(), true, translate("confirm.delete.title"), true);
+		listenTo(cmc);
+		cmc.activate();
 	}
 	
 	private void doDelete(List<QuestionItemShort> items) {
+		for (QuestionItemShort item: items) {
+			QuestionItem qitem = qpoolService.loadItemById(item.getKey());
+			QuestionItemAuditLogBuilder builder = qpoolService.createAuditLogBuilder(getIdentity(),
+					Action.DELETE_QUESTION_ITEM);
+			builder.withBefore(qitem);
+			qpoolService.persist(builder.create());
+		}
 		qpoolService.deleteItems(items);
 		getItemsTable().reset(true, true, true);
 		showInfo("item.deleted");
@@ -891,7 +1140,7 @@ public class QuestionListController extends AbstractItemListController implement
 	protected void doShare(UserRequest ureq) {
 		String title = translate("filter.view");
 		removeAsListenerAndDispose(shareTargetCtrl);
-		shareTargetCtrl = new ShareTargetController(ureq, getWindowControl());
+		shareTargetCtrl = new ShareTargetController(ureq, getWindowControl(), getSecurityCallback());
 		listenTo(shareTargetCtrl);
 		
 		removeAsListenerAndDispose(calloutCtrl);
@@ -965,20 +1214,25 @@ public class QuestionListController extends AbstractItemListController implement
 	}
 
 	protected void doConfirmCopy(UserRequest ureq, List<QuestionItemShort> items) {
-		String title = translate("copy");
-		String text = translate("copy.confirmation");
-		confirmCopyBox = activateYesNoDialog(ureq, title, text, confirmCopyBox);
-		confirmCopyBox.setUserObject(items);
+		copyConfirmationCtrl = new CopyConfirmationController(ureq, getWindowControl(), items, getSource());
+		listenTo(copyConfirmationCtrl);
+		cmc = new CloseableModalController(getWindowControl(), translate("close"),
+				copyConfirmationCtrl.getInitialComponent(), true, translate("confirm.copy.title"), true);
+		listenTo(cmc);
+		cmc.activate();
+	}
+
+	private void doPostCopy(UserRequest ureq, Event event) {
+		if (event instanceof QItemsProcessedEvent) {
+			QItemsProcessedEvent ipEvent = (QItemsProcessedEvent) event;
+			int numberOfCopies = ipEvent.getNumberOfItems();
+			showInfo("item.copied", Integer.toString(numberOfCopies));
+			getItemsTable().reset();
+			fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
+		}
 	}
 	
-	protected void doCopy(UserRequest ureq, List<QuestionItemShort> items) {
-		List<QuestionItem> copies = qpoolService.copyItems(getIdentity(), items);
-		getItemsTable().reset();
-		showInfo("item.copied", Integer.toString(copies.size()));
-		fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
-	}
-	
-	protected void doConfirmConversion(UserRequest ureq, List<QuestionItemShort> items) {
+	private void doConfirmConversion(UserRequest ureq, List<QuestionItemShort> items) {
 		Map<String,List<QuestionItemShort>> formatToItems = new HashMap<>();
 		List<QPoolSPI> spies = qpoolModule.getQuestionPoolProviders();
 		for(QuestionItemShort item:items) {
@@ -999,7 +1253,8 @@ public class QuestionListController extends AbstractItemListController implement
 		if(formatToItems.isEmpty()) {
 			showWarning("convert.item.not.possible");
 		} else {
-			conversionConfirmationCtrl = new ConversionConfirmationController(ureq, getWindowControl(), formatToItems);
+			conversionConfirmationCtrl = new ConversionConfirmationController(ureq, getWindowControl(), formatToItems,
+					getSource());
 			listenTo(conversionConfirmationCtrl);
 			
 			cmc = new CloseableModalController(getWindowControl(), translate("close"),
@@ -1009,56 +1264,84 @@ public class QuestionListController extends AbstractItemListController implement
 		}
 	}
 	
-	protected void doConvert(UserRequest ureq, List<QuestionItemShort> items, String format) {
-		QPoolSPI sp = qpoolModule.getQuestionPoolProvider(format);
-		
-		int count = 0;
-		for(QuestionItemShort item:items) {
-			QuestionItem convertedQuestion = sp.convert(getIdentity(), item, getLocale());
-			if(convertedQuestion != null) {
-				count++;
+	private void doPostConvert(UserRequest ureq, Event event) {
+		if (event instanceof QItemsProcessedEvent) {
+			QItemsProcessedEvent ipEvent = (QItemsProcessedEvent) event;
+			int numberOfCopies = ipEvent.getNumberOfItems();
+			int numberOfFails = ipEvent.getNumberOfFails();
+			if(numberOfFails == 0) {
+				showInfo("convert.item.successful", new String[]{ Integer.toString(numberOfCopies)} );
+			} else {
+				showWarning("convert.item.warning", new String[]{ Integer.toString(numberOfFails), Integer.toString(numberOfCopies) } );
 			}
+			
+			getItemsTable().reset();
+			fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
 		}
-		
-		if(count == items.size()) {
-			showInfo("convert.item.successful", new String[]{ Integer.toString(count)} );
-		} else {
-			int errors = items.size() - count;
-			showWarning("convert.item.warning", new String[]{ Integer.toString(errors), Integer.toString(items.size()) } );
-		}
-		
-		getItemsTable().reset();
-		fireEvent(ureq, new QPoolEvent(QPoolEvent.EDIT));
 	}
 	
-	private void doShareItemsToGroups(UserRequest ureq, List<QuestionItemShort> items, List<BusinessGroup> groups, List<Pool> pools) {
+	private void doShareItemsToGroups(UserRequest ureq, List<QuestionItemShort> items, List<BusinessGroup> groups) {
 		removeAsListenerAndDispose(shareItemsCtrl);
-		shareItemsCtrl = new ShareItemOptionController(ureq, getWindowControl(), items, groups, pools);
+		shareItemsCtrl = new ShareItemOptionController(ureq, getWindowControl(), items, groups, null);
 		listenTo(shareItemsCtrl);
 		
+		String title;
+		if (groups != null && groups.size() == 1) {
+			title = translate("share.item.group", new String[] {groups.get(0).getName()});
+		} else {
+			title = translate("share.item.groups");
+		}
+		
 		cmc = new CloseableModalController(getWindowControl(), translate("close"),
-				shareItemsCtrl.getInitialComponent(), true, translate("share.item"));
+				shareItemsCtrl.getInitialComponent(), true, title);
+		cmc.activate();
+		listenTo(cmc);	
+	}
+	
+	private void doShareItemsToPools(UserRequest ureq, List<QuestionItemShort> items, List<Pool> pools) {
+		removeAsListenerAndDispose(shareItemsCtrl);
+		shareItemsCtrl = new ShareItemOptionController(ureq, getWindowControl(), items, null, pools);
+		listenTo(shareItemsCtrl);
+		
+		String title;
+		if (pools != null && pools.size() == 1) {
+			title = translate("share.item.pool", new String[] {pools.get(0).getName()});
+		} else {
+			title = translate("share.item.pools");
+		}
+		
+		cmc = new CloseableModalController(getWindowControl(), translate("close"),
+				shareItemsCtrl.getInitialComponent(), true, title);
 		cmc.activate();
 		listenTo(cmc);	
 	}
 	
 	@Override
 	protected void doSelect(UserRequest ureq, ItemRow row) {
-		QuestionItem item = qpoolService.loadItemById(row.getKey());
-		doSelect(ureq, item, row.isEditable());
+		doOpenDetails(ureq, row);
 	}
-		
-	protected QuestionItemDetailsController doSelect(UserRequest ureq, QuestionItem item, boolean editable) {
+
+	protected void doOpenDetails(UserRequest ureq, ItemRow row) {
+		Integer index = getIndex(row.getKey());
+		int count = getModel().getRowCount();
+		doOpenDetails(ureq, row, index, count);
+	}
+
+	private void doOpenDetails(UserRequest ureq, QuestionItem newItem) {
+		ItemRow row = wrapNewItem(newItem);
+		itemCollectionDirty = true;
+		doOpenDetails(ureq, row, 0, 1);
+	}
+
+	private void doOpenDetails(UserRequest ureq, ItemRow row, int index, int count) {
 		removeAsListenerAndDispose(currentDetailsCtrl);
-		removeAsListenerAndDispose(currentMainDetailsCtrl);
 		
+		QuestionItem item = qpoolService.loadItemById(row.getKey());
 		WindowControl bwControl = addToHistory(ureq, item, null);
-		currentDetailsCtrl = new QuestionItemDetailsController(ureq, bwControl, item, editable, getSource().isDeleteEnabled());
-		currentDetailsCtrl.setBreadcrumbPanel(stackPanel);
+		currentDetailsCtrl = new QuestionItemDetailsController(ureq, bwControl, stackPanel, getSecurityCallback(), item,
+				row.getSecurityCallback(), getSource(), index, count);
 		listenTo(currentDetailsCtrl);
-		currentMainDetailsCtrl = new LayoutMain3ColsController(ureq, getWindowControl(), currentDetailsCtrl);
-		listenTo(currentMainDetailsCtrl);
-		stackPanel.pushController(item.getTitle(), currentMainDetailsCtrl);
-		return currentDetailsCtrl;
+		stackPanel.pushController(item.getTitle(), currentDetailsCtrl);
 	}
+	
 }

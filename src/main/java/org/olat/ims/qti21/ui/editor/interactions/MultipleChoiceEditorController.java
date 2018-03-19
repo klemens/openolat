@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.elements.TextElement;
 import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.FormEvent;
 import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
+import org.olat.core.gui.components.form.flexible.impl.elements.richText.TextMode;
 import org.olat.core.gui.components.link.Link;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
@@ -70,7 +71,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 	private final VFSContainer itemContainer;
 	
 	private int count = 0;
-	private final boolean restrictedEdit;
+	private final boolean restrictedEdit, readOnly;
 	private final MultipleChoiceAssessmentItemBuilder itemBuilder;
 	
 	private static final String[] yesnoKeys = new String[]{ "y", "n"};
@@ -79,10 +80,12 @@ public class MultipleChoiceEditorController extends FormBasicController {
 
 	public MultipleChoiceEditorController(UserRequest ureq, WindowControl wControl,
 			MultipleChoiceAssessmentItemBuilder itemBuilder,
-			File rootDirectory, VFSContainer rootContainer, File itemFile, boolean restrictedEdit) {
+			File rootDirectory, VFSContainer rootContainer, File itemFile,
+			boolean restrictedEdit, boolean readOnly) {
 		super(ureq, wControl, "simple_choices_editor");
 		setTranslator(Util.createPackageTranslator(AssessmentTestEditorController.class, getLocale()));
 		this.itemBuilder = itemBuilder;
+		this.readOnly = readOnly;
 		this.restrictedEdit = restrictedEdit;
 		
 		String relativePath = rootDirectory.toPath().relativize(itemFile.toPath().getParent()).toString();
@@ -100,16 +103,19 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		formLayout.add("metadata", metadata);
 
 		titleEl = uifactory.addTextElement("title", "form.imd.title", -1, itemBuilder.getTitle(), metadata);
+		titleEl.setElementCssClass("o_sel_assessment_item_title");
 		titleEl.setMandatory(true);
+		titleEl.setEnabled(!readOnly);
 		
 		String description = itemBuilder.getQuestion();
 		textEl = uifactory.addRichTextElementForQTI21("desc", "form.imd.descr", description, 8, -1, itemContainer,
 				metadata, ureq.getUserSession(), getWindowControl());
+		textEl.setEnabled(!readOnly);
 		
 		//shuffle
 		String[] yesnoValues = new String[]{ translate("yes"), translate("no") };
 		shuffleEl = uifactory.addRadiosHorizontal("shuffle", "form.imd.shuffle", metadata, yesnoKeys, yesnoValues);
-		shuffleEl.setEnabled(!restrictedEdit);
+		shuffleEl.setEnabled(!restrictedEdit && !readOnly);
 		if (itemBuilder.isShuffle()) {
 			shuffleEl.select("y", true);
 		} else {
@@ -119,7 +125,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		//layout
 		String[] layoutValues = new String[]{ translate("form.imd.layout.vertical"), translate("form.imd.layout.horizontal") };
 		orientationEl = uifactory.addRadiosHorizontal("layout", "form.imd.layout", metadata, layoutKeys, layoutValues);
-		orientationEl.setEnabled(!restrictedEdit);
+		orientationEl.setEnabled(!restrictedEdit && !readOnly);
 		if (itemBuilder.getOrientation() == null || Orientation.VERTICAL.equals(itemBuilder.getOrientation())) {
 			orientationEl.select(Orientation.VERTICAL.name(), true);
 		} else {
@@ -129,7 +135,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		//alignment
 		String[] alignmentValues = new String[]{ translate("form.imd.alignment.left"), translate("form.imd.alignment.right") };
 		alignmentEl = uifactory.addRadiosHorizontal("alignment", "form.imd.alignment", metadata, alignmentKeys, alignmentValues);
-		alignmentEl.setEnabled(!restrictedEdit);
+		alignmentEl.setEnabled(!restrictedEdit && !readOnly);
 		if (itemBuilder.hasClassAttr(QTI21Constants.CHOICE_ALIGN_RIGHT)) {
 			alignmentEl.select(alignmentKeys[1], true);
 		} else {
@@ -146,18 +152,20 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		ChoiceInteraction interaction = itemBuilder.getChoiceInteraction();
 		if(interaction != null) {
 			
-			List<SimpleChoice> choices = itemBuilder.getSimpleChoices();
+			List<SimpleChoice> choices = itemBuilder.getChoices();
 			for(SimpleChoice choice:choices) {
 				wrapAnswer(ureq, choice);
 			}
 		}
 		answersCont.contextPut("choices", choiceWrappers);
-		answersCont.contextPut("restrictedEdit", restrictedEdit);
+		answersCont.contextPut("restrictedEdit", restrictedEdit || readOnly);
 		recalculateUpDownLinks();
 
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createDefaultFormLayout_2_10("buttons", getTranslator());
+		buttonsContainer.setElementCssClass("o_sel_choices_save");
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setVisible(!readOnly);
 		formLayout.add(buttonsContainer);
 		formLayout.add("buttons", buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
@@ -168,30 +176,32 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		String choiceId = "answer" + count++;
 		RichTextElement choiceEl = uifactory.addRichTextElementForQTI21(choiceId, "form.imd.answer", choiceContent, 8, -1, itemContainer,
 				answersCont, ureq.getUserSession(), getWindowControl());
+		choiceEl.setEnabled(!readOnly);
+		choiceEl.getEditorConfiguration().setSimplestTextModeAllowed(TextMode.oneLine);
 		choiceEl.setUserObject(choice);
 		answersCont.add("choiceId", choiceEl);
 		
 		FormLink removeLink = uifactory.addFormLink("rm-".concat(choiceId), "rm", "", null, answersCont, Link.NONTRANSLATED);
 		removeLink.setIconLeftCSS("o_icon o_icon-lg o_icon_delete");
-		removeLink.setEnabled(!restrictedEdit);
+		removeLink.setEnabled(!restrictedEdit && !readOnly);
 		answersCont.add(removeLink);
 		answersCont.add("rm-".concat(choiceId), removeLink);
 		
 		FormLink addLink = uifactory.addFormLink("add-".concat(choiceId), "add", "", null, answersCont, Link.NONTRANSLATED);
 		addLink.setIconLeftCSS("o_icon o_icon-lg o_icon_add");
-		addLink.setEnabled(!restrictedEdit);
+		addLink.setEnabled(!restrictedEdit && !readOnly);
 		answersCont.add(addLink);
 		answersCont.add("add-".concat(choiceId), addLink);
 		
 		FormLink upLink = uifactory.addFormLink("up-".concat(choiceId), "up", "", null, answersCont, Link.NONTRANSLATED);
 		upLink.setIconLeftCSS("o_icon o_icon-lg o_icon_move_up");
-		upLink.setEnabled(!restrictedEdit);
+		upLink.setEnabled(!restrictedEdit && !readOnly);
 		answersCont.add(upLink);
 		answersCont.add("up-".concat(choiceId), upLink);
 		
 		FormLink downLink = uifactory.addFormLink("down-".concat(choiceId), "down", "", null, answersCont, Link.NONTRANSLATED);
 		downLink.setIconLeftCSS("o_icon o_icon-lg o_icon_move_down");
-		downLink.setEnabled(!restrictedEdit);
+		downLink.setEnabled(!restrictedEdit && !readOnly);
 		answersCont.add(downLink);
 		answersCont.add("down-".concat(choiceId), downLink);
 		
@@ -214,7 +224,7 @@ public class MultipleChoiceEditorController extends FormBasicController {
 		}
 		
 		answersCont.clearError();
-		if(!restrictedEdit) {
+		if(!restrictedEdit && !readOnly) {
 			String[] correctAnswers = ureq.getHttpReq().getParameterValues("correct");
 			if(correctAnswers == null || correctAnswers.length == 0) {
 				answersCont.setErrorKey("error.need.correct.answer", null);
@@ -227,6 +237,8 @@ public class MultipleChoiceEditorController extends FormBasicController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
+		if(readOnly) return;
+		
 		//title
 		itemBuilder.setTitle(titleEl.getValue());
 		//question
@@ -237,8 +249,10 @@ public class MultipleChoiceEditorController extends FormBasicController {
 			//correct response
 			String[] correctAnswers = ureq.getHttpReq().getParameterValues("correct");
 			List<Identifier> correctAnswerList = new ArrayList<>();
-			for(String correctAnswer:correctAnswers) {
-				correctAnswerList.add(Identifier.parseString(correctAnswer));
+			if(correctAnswers != null) {
+				for(String correctAnswer:correctAnswers) {
+					correctAnswerList.add(Identifier.parseString(correctAnswer));
+				}
 			}
 			itemBuilder.setCorrectAnswers(correctAnswerList);
 			
@@ -292,20 +306,20 @@ public class MultipleChoiceEditorController extends FormBasicController {
 	
 	private void updateCorrectAnswers(UserRequest ureq) {
 		String[] correctAnswers = ureq.getHttpReq().getParameterValues("correct");
+		List<Identifier> correctAnswerList = new ArrayList<>();
 		if(correctAnswers != null) {
-			List<Identifier> correctAnswerList = new ArrayList<>();
 			for(String correctAnswer:correctAnswers) {
 				correctAnswerList.add(Identifier.parseString(correctAnswer));
 			}
-			itemBuilder.setCorrectAnswers(correctAnswerList);
-		}	
+		}
+		itemBuilder.setCorrectAnswers(correctAnswerList);	
 	}
 	
 	private void doAddSimpleChoice(UserRequest ureq) {
 		ChoiceInteraction interaction = itemBuilder.getChoiceInteraction();
 		SimpleChoice newChoice = new SimpleChoice(interaction);
 		newChoice.setIdentifier(IdentifierGenerator.newAsIdentifier("mc"));
-		P firstChoiceText = AssessmentItemFactory.getParagraph(newChoice, "New answer");
+		P firstChoiceText = AssessmentItemFactory.getParagraph(newChoice, translate("new.answer"));
 		newChoice.getFlowStatics().add(firstChoiceText);
 		
 		wrapAnswer(ureq, newChoice);

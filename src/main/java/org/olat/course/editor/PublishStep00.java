@@ -130,13 +130,9 @@ class PublishStep00 extends BasicStep {
 		 * first step is to show selection tree for selecting
 		 * prepares all data needed for next step(s)
 		 */
+		runContext.put("repoEntry", repoEntry);
 		runContext.put("publishProcess", publishProcess);
-		//fxdiff VCRP-1,2: access control of resources
-		if(repoEntry.isMembersOnly()) {
-			runContext.put("selectedCourseAccess", RepositoryEntry.MEMBERS_ONLY);
-		} else {
-			runContext.put("selectedCourseAccess",String.valueOf(repoEntry.getAccess()));
-		}
+
 		return new PublishStep00Form(ureq, wControl, form, publishProcess, runContext);
 	}
 
@@ -194,7 +190,7 @@ class PublishStep00 extends BasicStep {
 					}
 				}
 				
-				List<String> asList = new ArrayList<String>(selectedKeys);
+				List<String> asList = new ArrayList<>(selectedKeys);
 				publishManager2.createPublishSetFor(asList);
 				addToRunContext("publishSetCreatedFor", selectedKeys);
 				//
@@ -215,11 +211,11 @@ class PublishStep00 extends BasicStep {
 				// assemble warnings and errors
 				String generalErrorTxt = null;
 				String errorTxt = getTranslator().translate("publish.notpossible.setincomplete");
-				String warningTxt = getTranslator().translate("publish.withwarnings");
+				String warningTxt = "";
 
-				String errors = "<ul>";
+				String errors = "<ul class='list-unstyled'>";
 				int errCnt = 0;
-				String warnings = "<ul>";
+				String warnings = "<ul class='list-unstyled'>";
 				for (int i = 0; i < sds.length; i++) {
 					StatusDescription description = sds[i];
 					String nodeId = sds[i].getDescriptionForUnit();
@@ -229,7 +225,7 @@ class PublishStep00 extends BasicStep {
 						break;
 					}
 					String nodeName = publishProcess.getCourseEditorTreeModel().getCourseNode(nodeId).getShortName();
-					String isFor = "<b>" + nodeName + "</b><br/>";
+					String isFor = "<h5>" + nodeName + "</h5>";
 					if (description.isError()) {
 						errors += "<li>" + isFor + description.getShortDescription(getLocale()) + "</li>";
 						errCnt++;
@@ -240,8 +236,8 @@ class PublishStep00 extends BasicStep {
 				warnings += "</ul>";
 				errors += "</ul>";
 				//
-				errorTxt += "<p/>" + errors;
-				warningTxt += "<p/>" + warnings;
+				errorTxt += errors;
+				warningTxt += warnings;
 				
 				if (generalErrorTxt != null) {
 					addToRunContext("STEP00.generalErrorText", generalErrorTxt);

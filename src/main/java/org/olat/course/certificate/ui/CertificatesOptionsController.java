@@ -63,6 +63,7 @@ import org.olat.core.util.Util;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.event.EventBus;
+import org.olat.core.util.vfs.JavaIOItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSMediaResource;
 import org.olat.course.CourseFactory;
@@ -77,6 +78,7 @@ import org.olat.course.config.CourseConfigEvent;
 import org.olat.course.config.CourseConfigEvent.CourseConfigType;
 import org.olat.course.config.ui.CourseOptionsController;
 import org.olat.course.run.RunMainController;
+import org.olat.fileresource.ZippedDirectoryMediaResource;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryManagedFlag;
 import org.olat.repository.RepositoryManager;
@@ -302,8 +304,7 @@ public class CertificatesOptionsController extends FormBasicController {
 			}
 		} else if(source == certificateChooserCtrl) {
 			if(event == Event.DONE_EVENT) {
-				CertificateTemplate template = certificateChooserCtrl.getSelectedTemplate();
-				doSetTemplate(template);
+				doSetTemplate(certificateChooserCtrl.getSelectedTemplate());
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -334,6 +335,7 @@ public class CertificatesOptionsController extends FormBasicController {
 	}
 	
 	private void doPreviewTemplate(UserRequest ureq) {
+		selectedTemplate = certificatesManager.getTemplateById(selectedTemplate.getKey());
 		File preview = certificatesManager.previewCertificate(selectedTemplate, entry, getLocale());
 		MediaResource resource = new PreviewMediaResource(preview);
 		ureq.getDispatchResult().setResultingMediaResource(resource);
@@ -343,8 +345,10 @@ public class CertificatesOptionsController extends FormBasicController {
 		this.selectedTemplate = template;
 		if(selectedTemplate == null) {
 			templateCont.contextPut("templateName", translate("default.template"));
+			previewTemplateLink.setEnabled(false);
 		} else {
 			templateCont.contextPut("templateName", template.getName());
+			previewTemplateLink.setEnabled(true);
 		}
 	}
 	
@@ -454,7 +458,13 @@ public class CertificatesOptionsController extends FormBasicController {
 			MediaResource resource;
 			if(selectedTemplate != null) {
 				VFSLeaf templateLeaf = certificatesManager.getTemplateLeaf(selectedTemplate);
-				resource = new VFSMediaResource(templateLeaf); 
+				if(templateLeaf.getName().equals("index.html") && templateLeaf instanceof JavaIOItem) {
+					JavaIOItem indexFile = (JavaIOItem)templateLeaf;
+					File templateDir = indexFile.getBasefile().getParentFile();
+					resource = new ZippedDirectoryMediaResource(selectedTemplate.getName(), templateDir);
+				} else {
+					resource = new VFSMediaResource(templateLeaf); 
+				}
 			} else {
 				InputStream stream = certificatesManager.getDefaultTemplate();
 				resource = new StreamedMediaResource(stream, "Certificate_template.pdf", "application/pdf");

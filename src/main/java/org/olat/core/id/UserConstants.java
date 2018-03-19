@@ -44,6 +44,8 @@ public class UserConstants {
 	public static final String TELOFFICE = "telOffice";
 	/** TELPRIVATE user field identifier. */
 	public static final String TELPRIVATE = "telPrivate";
+	/** TELMOBILE user field identifier. */
+	public static final String SMSTELMOBILE = "smsTelMobile";
 	/** SKYPE user field identifier. */
 	public static final String SKYPE = "skype";
 	/** HOMEPAGE user field identifier. */
@@ -78,6 +80,8 @@ public class UserConstants {
 	public static final String ORGUNIT = "orgUnit";
 	/** STUDYSUBJECT user field identifier. */
 	public static final String STUDYSUBJECT = "studySubject";
+	/** USERNAME */
+	public static final String USERNAME  = "userName";
 
 	
 	/**

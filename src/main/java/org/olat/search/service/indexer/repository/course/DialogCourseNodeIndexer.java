@@ -26,35 +26,32 @@
 package org.olat.search.service.indexer.repository.course;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import org.apache.lucene.document.Document;
 import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.core.CoreSpringFactory;
-import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.Roles;
 import org.olat.core.id.context.BusinessControl;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.util.resource.OresHelper;
+import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.filters.VFSLeafFilter;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
-import org.olat.course.properties.CoursePropertyManager;
-import org.olat.modules.dialog.DialogElement;
-import org.olat.modules.dialog.DialogElementsController;
-import org.olat.modules.dialog.DialogElementsPropertyManager;
-import org.olat.modules.dialog.DialogPropertyElements;
+import org.olat.course.nodes.dialog.DialogElement;
+import org.olat.course.nodes.dialog.DialogElementsManager;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.Message;
 import org.olat.modules.fo.Status;
 import org.olat.modules.fo.manager.ForumManager;
+import org.olat.repository.RepositoryEntry;
 import org.olat.search.service.SearchResourceContext;
+import org.olat.search.service.document.CourseNodeDocument;
 import org.olat.search.service.document.ForumMessageDocument;
 import org.olat.search.service.document.file.DocumentAccessException;
 import org.olat.search.service.document.file.FileDocumentFactory;
@@ -81,26 +78,17 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 
 	@Override
 	public void doIndex(SearchResourceContext repositoryResourceContext, ICourse course, CourseNode courseNode, OlatFullIndexer indexWriter) throws IOException,InterruptedException  {
-		SearchResourceContext courseNodeResourceContext = new SearchResourceContext(repositoryResourceContext);
-		courseNodeResourceContext.setBusinessControlFor(courseNode);
-		courseNodeResourceContext.setTitle(courseNode.getShortTitle());
-		courseNodeResourceContext.setDescription(courseNode.getLongTitle());
-    
-		CoursePropertyManager coursePropMgr = course.getCourseEnvironment().getCoursePropertyManager();
-		DialogElementsPropertyManager dialogElmsMgr = DialogElementsPropertyManager.getInstance();
-		DialogPropertyElements elements = dialogElmsMgr.findDialogElements(coursePropMgr, courseNode);
-		List<DialogElement> list = new ArrayList<DialogElement>();
-		if (elements != null) list = elements.getDialogPropertyElements();
-		// loop over all dialog elements
-		for (Iterator<DialogElement> iter = list.iterator(); iter.hasNext();) {
-			DialogElement element = iter.next();
-			element.getAuthor();
-			element.getDate();
-			Forum forum = ForumManager.getInstance().loadForum(element.getForumKey());
-			// do IndexForum
+		SearchResourceContext courseNodeResourceContext = createSearchResourceContext(repositoryResourceContext, courseNode, null);
+		Document document = CourseNodeDocument.createDocument(courseNodeResourceContext, courseNode);
+		indexWriter.addDocument(document);
+		
+		RepositoryEntry entry = course.getCourseEnvironment().getCourseGroupManager().getCourseEntry();
+		DialogElementsManager dialogElmsMgr = CoreSpringFactory.getImpl(DialogElementsManager.class);
+		List<DialogElement> elements = dialogElmsMgr.getDialogElements(entry, courseNode.getIdent());
+		for (DialogElement element:elements) {
+			Forum forum = element.getForum();
 			doIndexAllMessages(courseNodeResourceContext, forum, indexWriter );
-			// do Index File
-			doIndexFile(element.getFilename(), element.getForumKey(), courseNodeResourceContext, indexWriter);
+			doIndexFile(element, courseNodeResourceContext, indexWriter);
 		}
 	}
 
@@ -113,13 +101,15 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 	 * @throws IOException
 	 * @throws InterruptedException
 	 */
-	private void doIndexFile(String filename, Long forumKey, SearchResourceContext leafResourceContext, OlatFullIndexer indexWriter) throws IOException,InterruptedException {
-		OlatRootFolderImpl forumContainer = DialogElementsController.getForumContainer(forumKey);
-		VFSLeaf leaf = (VFSLeaf) forumContainer.getItems(new VFSLeafFilter()).get(0);
+	private void doIndexFile(DialogElement element, SearchResourceContext leafResourceContext, OlatFullIndexer indexWriter)
+	throws IOException,InterruptedException {
+		DialogElementsManager dialogElmsMgr = CoreSpringFactory.getImpl(DialogElementsManager.class);
+		VFSContainer dialogContainer = dialogElmsMgr.getDialogContainer(element);
+		VFSLeaf leaf = (VFSLeaf) dialogContainer.getItems(new VFSLeafFilter()).get(0);
 		if (isLogDebugEnabled()) logDebug("Analyse VFSLeaf=" + leaf.getName());
 		try {
 			if (CoreSpringFactory.getImpl(FileDocumentFactory.class).isFileSupported(leaf)) {
-				leafResourceContext.setFilePath(filename);
+				leafResourceContext.setFilePath(element.getFilename());
 				leafResourceContext.setDocumentType(TYPE_FILE);
 				
 				Document document = CoreSpringFactory.getImpl(FileDocumentFactory.class).createDocument(leafResourceContext, leaf);
@@ -158,12 +148,16 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 	@Override
 	public boolean checkAccess(ContextEntry contextEntry, BusinessControl businessControl, Identity identity, Roles roles)  {
 		ContextEntry ce = businessControl.popLauncherContextEntry();
+		if(ce == null || ce.getOLATResourceable() == null || ce.getOLATResourceable().getResourceableId() == null) {
+			return true;// it's the node itself
+		}
+		
 		OLATResourceable ores = ce.getOLATResourceable();
 		if(isLogDebugEnabled()) logDebug("OLATResourceable=" + ores);
-		if ( (ores != null) && (ores.getResourceableTypeName().startsWith("path=")) ) {
+		if (ores.getResourceableTypeName().startsWith("path=")) {
 			// => it is a file element, typeName format: 'path=/test1/test2/readme.txt'
 			return true;
-		} else if ((ores != null) && ores.getResourceableTypeName().equals( OresHelper.calculateTypeName(Message.class) ) ) {
+		} else if (ores.getResourceableTypeName().equals(OresHelper.calculateTypeName(Message.class))) {
 			// it is message => check message access
 			Long resourceableId = ores.getResourceableId();
 			Message message = ForumManager.getInstance().loadMessage(resourceableId);
@@ -174,9 +168,10 @@ public class DialogCourseNodeIndexer extends DefaultIndexer implements CourseNod
 			boolean isMessageHidden = Status.getStatus(threadtop.getStatusCode()).isHidden(); 
 			//assumes that if is owner then is moderator so it is allowed to see the hidden forum threads		
 			//TODO: (LD) fix this!!! - the contextEntry is not the right context for this check
-			boolean isOwner = BaseSecurityManager.getInstance().isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable());
-			if(isMessageHidden && !isOwner) {
-				return false;
+			if(isMessageHidden) {
+				boolean isOwner = BaseSecurityManager.getInstance()
+						.isIdentityPermittedOnResourceable(identity, Constants.PERMISSION_ACCESS,  contextEntry.getOLATResourceable());
+				return isOwner;
 			}		
 			return true;
 		} else {

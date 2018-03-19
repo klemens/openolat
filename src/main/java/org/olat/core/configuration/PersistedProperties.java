@@ -443,7 +443,8 @@ public class PersistedProperties extends LogDelegator implements Initializable, 
 	
 	public void removeProperty(String propertyName, boolean saveConfiguration) {
 		synchronized (configuredProperties) { // make read/write save in VM
-			configuredProperties.remove(propertyName);
+			Object removedProperty = configuredProperties.remove(propertyName);
+			propertiesDirty |= removedProperty != null;
 			if (saveConfiguration) {
 				savePropertiesAndFireChangedEvent();
 			}
@@ -471,8 +472,8 @@ public class PersistedProperties extends LogDelegator implements Initializable, 
 				if(secured) {
 					SecretKey key = generateKey("rk6R9pQy7dg3usJk");
 					Cipher cipher = Cipher.getInstance("AES/CTR/NOPADDING");
-        	cipher.init(Cipher.ENCRYPT_MODE, key, generateIV(cipher), random);
-        	fileStream =  new CipherOutputStream(fileStream, cipher);	
+		        	cipher.init(Cipher.ENCRYPT_MODE, key, generateIV(cipher), random);
+		        	fileStream =  new CipherOutputStream(fileStream, cipher);	
 				}
 				
 				configuredProperties.store(fileStream, null);

@@ -28,6 +28,8 @@ package org.olat.course.assessment;
 
 import java.lang.reflect.Field;
 
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.logging.activity.ActionObject;
 import org.olat.core.logging.activity.ActionType;
 import org.olat.core.logging.activity.ActionVerb;
@@ -53,6 +55,8 @@ import org.olat.core.logging.activity.StringResourceableType;
  * @author Stefan
  */
 public class AssessmentLoggingAction extends BaseLoggingAction {
+	
+	private static final OLog log = Tracing.createLoggerFor(AssessmentLoggingAction.class);
 
 	// note that these assessment logging actions can both be
 	// triggered by a user (when running a test) or a tutor (when assessing a user).
@@ -76,6 +80,16 @@ public class AssessmentLoggingAction extends BaseLoggingAction {
 	public static final ILoggingAction ASSESSMENT_COACHCOMMENT_UPDATED = 
 		new AssessmentLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.edit, ActionObject.testcomment).setTypeList(
 				new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.node, StringResourceableType.qtiCoachComment).addOptional(StringResourceableType.targetIdentity));
+	
+	public static final ILoggingAction ASSESSMENT_DOCUMENT_ADDED = 
+			new AssessmentLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.assessmentdocument).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.node, StringResourceableType.assessmentDocument)
+						.addOptional(StringResourceableType.targetIdentity));
+	public static final ILoggingAction ASSESSMENT_DOCUMENT_REMOVED = 
+			new AssessmentLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.assessmentdocument).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.node, StringResourceableType.assessmentDocument)
+						.addOptional(StringResourceableType.targetIdentity));
+
 	public static final ILoggingAction ASSESSMENT_BULK = 
 			new AssessmentLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.edit, ActionObject.bulkassessment).setTypeList(
 					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.node));
@@ -97,10 +111,8 @@ public class AssessmentLoggingAction extends BaseLoggingAction {
 					try {
 						AssessmentLoggingAction aLoggingAction = (AssessmentLoggingAction)field.get(null);
 						aLoggingAction.setJavaFieldIdForDebug(field.getName());
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
+					} catch (IllegalArgumentException | IllegalAccessException e) {
+						log.error("", e);
 					}
 				}
 			}

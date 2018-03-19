@@ -30,7 +30,6 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
-import org.olat.core.util.vfs.VFSLeaf;
 
 /**
  * 
@@ -47,8 +46,6 @@ public interface QPoolSPI {
 	public List<ExportFormatOptions> getTestExportFormats();
 	
 	public boolean isCompatible(String filename, File file);
-	
-	public boolean isCompatible(String filename, VFSLeaf file);
 	
 	/**
 	 * 
@@ -120,6 +117,7 @@ public interface QPoolSPI {
 	public boolean isTypeEditable();
 	
 	/**
+	 * Return the controller to edit the question.
 	 * 
 	 * @param ureq
 	 * @param wControl
@@ -127,4 +125,16 @@ public interface QPoolSPI {
 	 * @return
 	 */
 	public Controller getEditableController(UserRequest ureq, WindowControl wControl, QuestionItem item);
+	
+	/**
+	 * Return the editable controller in a read only modus. This controller is e.g.
+	 * used to review a question. If the editable controller has no read only modus,
+	 * this method should return a preview controller.
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param item
+	 * @return
+	 */
+	public Controller getReadOnlyController(UserRequest ureq, WindowControl wControl, QuestionItem item);
 }

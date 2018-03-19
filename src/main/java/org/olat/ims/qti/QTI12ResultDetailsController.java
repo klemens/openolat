@@ -65,6 +65,7 @@ import org.olat.ims.qti.process.AssessmentInstance;
 import org.olat.ims.qti.process.FilePersister;
 import org.olat.ims.qti.process.Persister;
 import org.olat.modules.ModuleConfiguration;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.iq.IQManager;
 import org.olat.modules.iq.IQRetrievedEvent;
 import org.olat.repository.RepositoryEntry;
@@ -145,7 +146,7 @@ public class QTI12ResultDetailsController extends BasicController {
 		main = createVelocityContainer("qtires");
 		
 		boolean hasEssay = checkEssay();
-		main.contextPut("warningEssay", new Boolean(hasEssay));
+		main.contextPut("warningEssay", Boolean.valueOf(hasEssay));
 		
 		TableGuiConfiguration tableConfig = new TableGuiConfiguration();
 		tableCtr = new TableController(tableConfig, ureq, getWindowControl(), getTranslator());
@@ -258,11 +259,11 @@ public class QTI12ResultDetailsController extends BasicController {
 		
 		//olat results
 		AssessmentContext ac = ai.getAssessmentContext();
-		Float score = new Float(ac.getScore());
-		Boolean passed = new Boolean(ac.isPassed());
+		Float score = Float.valueOf(ac.getScore());
+		Boolean passed = Boolean.valueOf(ac.isPassed());
 		ScoreEvaluation sceval = new ScoreEvaluation(score, passed, Boolean.FALSE, new Long(ai.getAssessID()));
 		UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-		testNode.updateUserScoreEvaluation(sceval, userCourseEnv, assessedIdentity, true);
+		testNode.updateUserScoreEvaluation(sceval, userCourseEnv, assessedIdentity, true, Role.coach);
 		
 		//cleanup
 		ai.cleanUp();

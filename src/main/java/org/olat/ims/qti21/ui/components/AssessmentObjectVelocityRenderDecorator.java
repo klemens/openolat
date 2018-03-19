@@ -21,6 +21,7 @@ package org.olat.ims.qti21.ui.components;
 
 import static org.olat.ims.qti21.ui.components.AssessmentRenderFunctions.renderValue;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -34,6 +35,8 @@ import org.olat.core.gui.render.URLBuilder;
 import org.olat.core.gui.render.velocity.VelocityRenderDecorator;
 import org.olat.core.gui.translator.Translator;
 import org.olat.core.helpers.Settings;
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
 import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.AssessmentTestSession;
 import org.olat.ims.qti21.ui.CandidateSessionContext;
@@ -55,6 +58,8 @@ import uk.ac.ed.ph.jqtiplus.node.item.interaction.GapMatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicAssociateInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicGapMatchInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.GraphicOrderInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HotspotInteraction;
+import uk.ac.ed.ph.jqtiplus.node.item.interaction.HottextInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.InlineChoiceInteraction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.Interaction;
 import uk.ac.ed.ph.jqtiplus.node.item.interaction.MatchInteraction;
@@ -94,6 +99,8 @@ import uk.ac.ed.ph.jqtiplus.value.Value;
  *
  */
 public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecorator {
+	
+	private static final OLog log = Tracing.createLoggerFor(AssessmentObjectVelocityRenderDecorator.class);
 
 	private final URLBuilder ubu;
 	private final AssessmentRenderer renderer;
@@ -177,6 +184,10 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 		return path.concat(url);
 	}
 	
+	public String convertSubmissionLinkFull(String uri) {
+		return AssessmentRenderFunctions.convertSubmissionLink(avc, resolvedAssessmentItem, uri);
+	}
+	
 	public String getFormDispatchFieldId() {
 		return avc.getQtiItem().getRootForm().getDispatchFieldId();
 	}
@@ -236,6 +247,21 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 				return false;
 			}
 			return sc;
+		} else if(interaction instanceof HottextInteraction) {
+			HottextInteraction hottextInteraction = (HottextInteraction)interaction;
+			boolean sc = hottextInteraction.getMaxChoices() == 1;
+			ResponseDeclaration responseDeclaration = assessmentItem.getResponseDeclaration(hottextInteraction.getResponseIdentifier());
+			if(responseDeclaration != null && responseDeclaration.hasCardinality(Cardinality.MULTIPLE)) {
+				return false;
+			}
+			return sc;
+		} else if(interaction instanceof HotspotInteraction) {
+			HotspotInteraction hotspotInteraction = (HotspotInteraction)interaction;
+			ResponseDeclaration responseDeclaration = assessmentItem.getResponseDeclaration(hotspotInteraction.getResponseIdentifier());
+			if(responseDeclaration != null && responseDeclaration.hasCardinality(Cardinality.SINGLE)) {
+				return true;
+			}
+			return false;
 		}
 		return false;
 	}
@@ -315,7 +341,7 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 					.filter((choice) -> isVisible(choice, itemSessionState))
 					.collect(Collectors.toList());
 		} catch (Exception e) {
-			e.printStackTrace();
+			log.error("", e);
 			return null;
 		}
 	}
@@ -508,6 +534,14 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 		return new SliderOptions(discrete, reverse, min, max, step);
 	}
 	
+	public boolean hasCssClass(Interaction interaction, String cssClass) {
+		if(StringHelper.containsNonWhitespace(cssClass)) {
+			List<String> cssClasses = interaction.getClassAttr();
+			return cssClasses != null && cssClasses.contains(cssClass);
+		}
+		return false;
+	}
+	
 	public boolean isVisible(Choice choice, ItemSessionState iSessionState) {
 		return AssessmentRenderFunctions.isVisible(choice, iSessionState);
 	}
@@ -599,26 +633,30 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 	}
 	
 	public String renderKprimSpecialFlowStatics(List<FlowStatic> flowStaticList) {
-		StringOutput sb = new StringOutput();
-		if(flowStaticList != null && flowStaticList.size() > 0) {
-			flowStaticList.forEach((flow)
-					-> avc.getHTMLRendererSingleton().renderFlow(renderer, sb, avc, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
-		}
-		String specialKprim = sb.toString();
-		if("+".equals(specialKprim)) {
-			if(translator != null) {
-				specialKprim = translator.translate("kprim.plus");
-			} else {
-				specialKprim = "True";
+		try(StringOutput sb = new StringOutput()) {
+			if(flowStaticList != null && flowStaticList.size() > 0) {
+				flowStaticList.forEach((flow)
+						-> avc.getHTMLRendererSingleton().renderFlow(renderer, sb, avc, resolvedAssessmentItem, itemSessionState, flow, ubu, translator));
 			}
-		} else if("-".equals(specialKprim)) {
-			if(translator != null) {
-				specialKprim = translator.translate("kprim.minus");
-			} else {
-				specialKprim = "False";
+			String specialKprim = sb.toString();
+			if("+".equals(specialKprim)) {
+				if(translator != null) {
+					specialKprim = translator.translate("kprim.plus");
+				} else {
+					specialKprim = "True";
+				}
+			} else if("-".equals(specialKprim)) {
+				if(translator != null) {
+					specialKprim = translator.translate("kprim.minus");
+				} else {
+					specialKprim = "False";
+				}
 			}
+			return specialKprim;
+		} catch(IOException e) {
+			log.error("", e);
+			return "";
 		}
-		return specialKprim;
 	}
 	
 	public String renderTextOrVariables(List<TextOrVariable> textOrVariables) {
@@ -673,9 +711,13 @@ public class AssessmentObjectVelocityRenderDecorator extends VelocityRenderDecor
 	}
 
 	public String toString(Value value, String delimiter, String mappingIndicator) {
-		StringOutput out = new StringOutput(32);
-		renderValue(out, value, delimiter, mappingIndicator);
-		return out.toString();
+		try(StringOutput out = new StringOutput(32)) {
+			renderValue(out, value, delimiter, mappingIndicator);
+			return out.toString();
+		} catch(IOException e) {
+			log.error("", e);
+			return "";
+		}
 	}
 	
 	public String toJavascriptArguments(List<? extends Choice> choices) {

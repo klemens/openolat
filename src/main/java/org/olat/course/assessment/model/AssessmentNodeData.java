@@ -23,6 +23,8 @@ import static org.olat.course.assessment.AssessmentHelper.KEY_ATTEMPTS;
 import static org.olat.course.assessment.AssessmentHelper.KEY_DETAILS;
 import static org.olat.course.assessment.AssessmentHelper.KEY_IDENTIFYER;
 import static org.olat.course.assessment.AssessmentHelper.KEY_INDENT;
+import static org.olat.course.assessment.AssessmentHelper.KEY_LAST_COACH_MODIFIED;
+import static org.olat.course.assessment.AssessmentHelper.KEY_LAST_USER_MODIFIED;
 import static org.olat.course.assessment.AssessmentHelper.KEY_MAX;
 import static org.olat.course.assessment.AssessmentHelper.KEY_MIN;
 import static org.olat.course.assessment.AssessmentHelper.KEY_PASSED;
@@ -33,6 +35,7 @@ import static org.olat.course.assessment.AssessmentHelper.KEY_TITLE_LONG;
 import static org.olat.course.assessment.AssessmentHelper.KEY_TITLE_SHORT;
 import static org.olat.course.assessment.AssessmentHelper.KEY_TYPE;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,7 +69,15 @@ public class AssessmentNodeData {
 	private Float minScore;
 	
 	private Boolean passed;
+	
+	private Boolean userVisibility;
 	private AssessmentEntryStatus assessmentStatus;
+	
+	private int numOfAssessmentDocs;
+	
+	private Date lastModified;
+	private Date lastUserModified;
+	private Date lastCoachModified;
 	
 	private boolean selectable;
 	private boolean onyx = false;
@@ -147,6 +158,14 @@ public class AssessmentNodeData {
 		this.attempts = attempts;
 	}
 
+	public Boolean getUserVisibility() {
+		return userVisibility;
+	}
+
+	public void setUserVisibility(Boolean userVisibility) {
+		this.userVisibility = userVisibility;
+	}
+
 	public Float getScore() {
 		return score;
 	}
@@ -195,6 +214,38 @@ public class AssessmentNodeData {
 		this.assessmentStatus = assessmentStatus;
 	}
 
+	public int getNumOfAssessmentDocs() {
+		return numOfAssessmentDocs;
+	}
+
+	public void setNumOfAssessmentDocs(int numOfAssessmentDocs) {
+		this.numOfAssessmentDocs = numOfAssessmentDocs;
+	}
+
+	public Date getLastModified() {
+		return lastModified;
+	}
+
+	public void setLastModified(Date lastModified) {
+		this.lastModified = lastModified;
+	}
+
+	public Date getLastUserModified() {
+		return lastUserModified;
+	}
+
+	public void setLastUserModified(Date lastUserModified) {
+		this.lastUserModified = lastUserModified;
+	}
+
+	public Date getLastCoachModified() {
+		return lastCoachModified;
+	}
+
+	public void setLastCoachModified(Date lastCoachModified) {
+		this.lastCoachModified = lastCoachModified;
+	}
+
 	public boolean isOnyx() {
 		return onyx;
 	}
@@ -238,6 +289,12 @@ public class AssessmentNodeData {
 		if (passed != null) {
 			nodeData.put(KEY_PASSED, passed);
 		}
+		if(lastUserModified != null) {
+			nodeData.put(KEY_LAST_USER_MODIFIED, lastUserModified);
+		}
+		if(lastCoachModified != null) {
+			nodeData.put(KEY_LAST_COACH_MODIFIED, lastCoachModified);
+		}
 		nodeData.put(KEY_SELECTABLE, selectable ? Boolean.TRUE : Boolean.FALSE);
 		return nodeData;
 	}
@@ -260,6 +317,13 @@ public class AssessmentNodeData {
 		if(nodeData.get(KEY_SELECTABLE) instanceof Boolean) {
 			selectable = ((Boolean)nodeData.get(KEY_SELECTABLE)).booleanValue();
 		}
+		if(nodeData.get(KEY_LAST_USER_MODIFIED) instanceof Date) {
+			lastUserModified = ((Date)nodeData.get(KEY_LAST_USER_MODIFIED));
+		}
+		if(nodeData.get(KEY_LAST_COACH_MODIFIED) instanceof Date) {
+			lastCoachModified = ((Date)nodeData.get(KEY_LAST_COACH_MODIFIED));
+		}
+		
 	}
 	
 	@Override

@@ -92,7 +92,6 @@ import org.olat.course.CourseFactory;
 import org.olat.course.DisposedCourseRestartController;
 import org.olat.course.ICourse;
 import org.olat.course.assessment.AssessmentModeManager;
-import org.olat.course.editor.PublishStepCatalog.CategoryLabel;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.CourseNode;
 import org.olat.course.nodes.CourseNodeConfiguration;
@@ -1074,7 +1073,7 @@ public class EditorMainController extends MainLayoutBasicController implements G
 		 * callback executed in case wizard is finished.
 		 */
 		StepRunnerCallback finish = new StepRunnerCallback(){
-			
+			@Override
 			public Step execute(UserRequest ureq1, WindowControl wControl1, StepsRunContext runContext) {
 				//all information to do now is within the runContext saved
 				boolean hasChanges = false;
@@ -1090,28 +1089,17 @@ public class EditorMainController extends MainLayoutBasicController implements G
 					}
 				}
 				
-				if (runContext.containsKey("changedaccess")) {
-					// there were changes made to the general course access
-					String newAccessStr = (String) runContext.get("changedaccess");
-					int newAccess;
-					boolean membersOnly = RepositoryEntry.MEMBERS_ONLY.equals(newAccessStr);
-					if(membersOnly) {
-						newAccess = RepositoryEntry.ACC_OWNERS;
-					} else {
-						newAccess = Integer.valueOf(newAccessStr);
-					}
-					
+				if (runContext.containsKey("accessAndProperties")) {
+					CourseAccessAndProperties accessAndProperties = (CourseAccessAndProperties) runContext.get("accessAndProperties");
 					// fires an EntryChangedEvent for repository entry notifying
 					// about modification.
-					publishManager.changeGeneralAccess(getIdentity(), newAccess, membersOnly);
-					hasChanges = true;
+					publishManager.changeAccessAndProperties(getIdentity(), accessAndProperties);
+					hasChanges = true;					
 				}
 				
-				if (runContext.containsKey("catalogChoice")) {
-					String choice = (String) runContext.get("catalogChoice");
-					@SuppressWarnings("unchecked")
-					List<CategoryLabel> categories = (List<CategoryLabel>)runContext.get("categories");
-					publishManager.publishToCatalog(choice, categories);
+				CourseCatalog courseCatalog = (CourseCatalog)runContext.get("categories");
+				if(courseCatalog != null) {
+					publishManager.publishToCatalog(courseCatalog.getChoiceValue(), courseCatalog.getCategoryLabels());
 				}
 				
 				if(publishEvents.getPostPublishingEvents().size() > 0) {

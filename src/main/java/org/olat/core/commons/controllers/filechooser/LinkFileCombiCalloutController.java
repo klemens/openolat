@@ -46,8 +46,8 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.filters.SystemItemFilter;
 import org.olat.core.util.vfs.filters.VFSItemFilter;
-import org.olat.core.util.vfs.restapi.SystemItemFilter;
 
 
 /**
@@ -67,7 +67,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 	private CloseableCalloutWindowController calloutCtr;
 	private CustomLinkTreeModel customLinkTreeModel;
 	
-	private Link editLink;
+	private Link editLink, removeLink;
 	
 	private CloseableModalController cmc;
 	private Controller currentModalController;
@@ -77,10 +77,11 @@ public class LinkFileCombiCalloutController extends BasicController {
 
 	private FileCombiCalloutWindowController combiWindowController;
 
-	private VFSContainer baseContainer;
-	private VFSLeaf file=null;
-	
-	private String relFilePath;	
+	private final VFSContainer baseContainer;
+	private VFSLeaf file;
+
+	private String relFilePath;
+	private boolean editable = true;
 	private boolean relFilPathIsProposal;
 	private boolean allowEditorRelativeLinks;
 
@@ -109,7 +110,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 	 */
 	
 	public LinkFileCombiCalloutController(UserRequest ureq, WindowControl wControl, VFSContainer baseContainer, String relFilePath,
-			boolean relFilPathIsProposal, boolean allowEditorRelativeLinks, CustomLinkTreeModel customLinkTreeModel) {
+			boolean relFilPathIsProposal, boolean allowEditorRelativeLinks, boolean allowRemove, CustomLinkTreeModel customLinkTreeModel) {
 		super(ureq, wControl);
 		this.baseContainer = baseContainer;
 		this.relFilPathIsProposal = relFilPathIsProposal;
@@ -130,6 +131,11 @@ public class LinkFileCombiCalloutController extends BasicController {
 		editLink = LinkFactory.createButtonSmall("command.edit", contentVC, this);
 		editLink.setPrimary(true);
 		editLink.setIconLeftCSS("o_icon o_icon-fw o_icon_edit");
+		
+		if(allowRemove) {
+			removeLink = LinkFactory.createButtonSmall("command.remove", contentVC, this);
+			removeLink.setIconLeftCSS("o_icon o_icon-fw o_icon_delete_item");
+		}
 
 		// Callout button with the three links next to edit button
 		calloutTriggerLink = LinkFactory.createButtonSmall("calloutTriggerLink", contentVC, this);
@@ -137,18 +143,23 @@ public class LinkFileCombiCalloutController extends BasicController {
 		// Load file from configuration and update links
 		setRelFilePath(relFilePath);
 	}
+	
+	public void setEditable(boolean editable) {
+		this.editable = editable;
+		updateLinks();
+	}
 
 	@Override
 	public void event(UserRequest ureq, Component source, Event event) {
 		if(source == editLink){
 			doOpenWysiwygEditor(ureq);
-		}
-		if (source == calloutTriggerLink) {
+		} else if (source == calloutTriggerLink) {
 			doOpenCallout(ureq);
-		}
-
-		if (source == previewLink){
+		} else if (source == previewLink){
 			doShowPreview(ureq);
+		} else if(removeLink == source) {
+			doRemove();
+			fireEvent(ureq, new FileRemoveEvent());
 		}
 	}
 
@@ -178,7 +189,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 					// Cleanup modal first
 					cleanupModal(true);
 					// Unzip file and open file chooser in new modal
-					VFSContainer zipContainer = doUnzip(newFile, newFile.getParentContainer(), ureq);
+					VFSContainer zipContainer = doUnzip(newFile, newFile.getParentContainer());
 					if (zipContainer != null) {
 						FileChooserController fileChooserCtr = FileChooserUIFactory.createFileChooserController(ureq, getWindowControl(), zipContainer, null, true);
 						fileChooserCtr.setShowTitle(true);
@@ -255,6 +266,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 		Controller wysiwygCtr = WysiwygFactory.createWysiwygControllerWithInternalLink(ureq, getWindowControl(), editorBaseContainer, editorRelPath, true, customLinkTreeModel);
 		displayModal(wysiwygCtr);			
 	}
+	
 	private void doOpenCallout(UserRequest ureq) {
 		if (combiWindowController == null) {
 			// Create file combi and callout controller only once. Later on
@@ -267,6 +279,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 		}
 		calloutCtr.activate();
 	}
+	
 	private void doShowPreview(UserRequest ureq) {
 		SinglePageController previewController = new SinglePageController(ureq, getWindowControl(), file.getParentContainer(), file.getName(), false);
 		previewLayoutCtr = new LayoutMain3ColsPreviewController(ureq, getWindowControl(), null, previewController.getInitialComponent(), null);
@@ -274,6 +287,7 @@ public class LinkFileCombiCalloutController extends BasicController {
 		previewLayoutCtr.activate();
 		listenTo(previewLayoutCtr);
 	}
+	
 	public void doOpenFileChanger(UserRequest ureq, String tool) {
 		// close callout and open appropriate file changer controller
 		calloutCtr.deactivate();
@@ -300,12 +314,12 @@ public class LinkFileCombiCalloutController extends BasicController {
 				// remove file name from relFilePath to represent directory path
 				folderPath = relFilePath.substring(0, relFilePath.lastIndexOf("/"));
 			}
-			toolCtr = new FileUploadController(getWindowControl(), baseContainer, ureq, quotaLeftKB, quotaLeftKB, null, true, false, false, true, true, folderPath);
+			toolCtr = new FileUploadController(getWindowControl(), baseContainer, ureq, quotaLeftKB, quotaLeftKB, null, false, true, false, false, true, true, folderPath);
 		}
 		displayModal(toolCtr);
 	}
 
-	private VFSContainer doUnzip(VFSLeaf vfsItem, VFSContainer currentContainer, UserRequest ureq) {
+	private VFSContainer doUnzip(VFSLeaf vfsItem, VFSContainer currentContainer) {
 		String name = vfsItem.getName();
 		// we make a new folder with the same name as the zip file
 		String sZipContainer = name.substring(0, name.length() - 4);
@@ -333,6 +347,13 @@ public class LinkFileCombiCalloutController extends BasicController {
 			}
 		}
 		return zipContainer;
+	}
+	
+	private void doRemove() {
+		file = null;
+		relFilePath = null;
+		updateLinks();
+		
 	}
 
 
@@ -402,7 +423,10 @@ public class LinkFileCombiCalloutController extends BasicController {
 			}
 		} else {			
 			calloutTriggerLink.setCustomDisplayText(translate("calloutTriggerLink.replace"));
-			calloutTriggerLink.setIconLeftCSS("o_icon o_icon-fw o_icon_select");			
+			calloutTriggerLink.setIconLeftCSS("o_icon o_icon-fw o_icon_replace");			
+		}
+		if(removeLink != null) {
+			removeLink.setVisible(file != null);
 		}
 	}
 	
@@ -439,9 +463,16 @@ public class LinkFileCombiCalloutController extends BasicController {
 		return file;
 	}
 	
+	/**
+	 * @return The path of the file relative to the base container.
+	 */
+	public String getRelativeItemPath() {
+		return VFSManager.getRelativeItemPath(getFile(), baseContainer, null);
+	}
+	
 	public boolean isEditorEnabled() {
 		// enable html editor for html files
-		if(StringHelper.containsNonWhitespace(relFilePath)) {
+		if(editable && StringHelper.containsNonWhitespace(relFilePath)) {
 			String lowercase = relFilePath.toLowerCase().trim();
 			if (lowercase.endsWith(".html") || lowercase.endsWith(".htm")) {
 				return true;

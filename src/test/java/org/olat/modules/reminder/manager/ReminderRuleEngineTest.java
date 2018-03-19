@@ -19,8 +19,11 @@
  */
 package org.olat.modules.reminder.manager;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -50,6 +53,7 @@ import org.olat.course.run.userview.UserCourseEnvironmentImpl;
 import org.olat.group.BusinessGroup;
 import org.olat.group.manager.BusinessGroupDAO;
 import org.olat.group.manager.BusinessGroupRelationDAO;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.reminder.ReminderRule;
 import org.olat.modules.reminder.model.ReminderRuleImpl;
 import org.olat.modules.reminder.rule.CourseEnrollmentDateRuleSPI;
@@ -1059,9 +1063,35 @@ public class ReminderRuleEngineTest extends OlatTestCase {
 		ienv.setIdentity(student);
 		UserCourseEnvironment userCourseEnv = new UserCourseEnvironmentImpl(ienv, course.getCourseEnvironment());
 
-		course.getCourseEnvironment().getAssessmentManager().saveScoreEvaluation(testNode, tutor, student, scoreEval, userCourseEnv, true);
+		course.getCourseEnvironment().getAssessmentManager().saveScoreEvaluation(testNode, tutor, student, scoreEval, userCourseEnv, true, Role.coach);
 		dbInstance.commit();
 		
 		return testNode.getIdent();
+	}
+	
+	@Test
+	public void evaluateRuleListThrowsException() {
+		List<ReminderRule> ruleList = Collections.<ReminderRule>emptyList();
+		
+		boolean ollOk = ruleEngine.evaluate(null, ruleList);
+		
+		Assert.assertFalse(ollOk);
+	}
+	
+	@Test
+	public void getMembersThrowsException() {
+		
+		List<Identity> members = ruleEngine.getMembers(null, null);
+		
+		assertThat(members).isNotNull().isEmpty();
+	}
+	
+	@Test
+	public void getFilterThrowsException() {
+		ReminderRuleImpl rule = new ReminderRuleImpl();
+		rule.setType(ScoreRuleSPI.class.getSimpleName());
+		rule.setRightOperand("no integer");
+		
+		ruleEngine.filterByRule(null, null, rule);
 	}
 }

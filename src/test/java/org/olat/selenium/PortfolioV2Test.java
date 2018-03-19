@@ -25,14 +25,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.UUID;
 
-import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.page.InitialPage;
 import org.jboss.arquillian.graphene.page.Page;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.selenium.page.LoginPage;
@@ -44,7 +42,6 @@ import org.olat.selenium.page.course.CourseEditorPageFragment;
 import org.olat.selenium.page.course.CoursePageFragment;
 import org.olat.selenium.page.course.MembersPage;
 import org.olat.selenium.page.course.PortfolioElementPage;
-import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.forum.ForumPage;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.portfolio.BinderPage;
@@ -55,12 +52,11 @@ import org.olat.selenium.page.portfolio.EntryPage;
 import org.olat.selenium.page.portfolio.MediaCenterPage;
 import org.olat.selenium.page.portfolio.PortfolioV2HomePage;
 import org.olat.selenium.page.repository.AuthoringEnvPage;
-import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.AuthoringEnvPage.ResourceType;
+import org.olat.selenium.page.repository.FeedPage;
 import org.olat.selenium.page.repository.RepositoryAccessPage.UserAccess;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.wiki.WikiPage;
-import org.olat.test.ArquillianDeployments;
 import org.olat.test.JunitTestHelper;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
@@ -75,12 +71,7 @@ import org.openqa.selenium.WebDriver;
  *
  */
 @RunWith(Arquillian.class)
-public class PortfolioV2Test {
-	
-	@Deployment(testable = false)
-	public static WebArchive createDeployment() {
-		return ArquillianDeployments.createDeployment();
-	}
+public class PortfolioV2Test extends Deployments {
 
 	@Drone
 	private WebDriver browser;
@@ -184,7 +175,7 @@ public class PortfolioV2Test {
 			.selectTabLearnContent()
 			.choosePortfolio(binderTitle)
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 	
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -193,7 +184,10 @@ public class PortfolioV2Test {
 		membersPage
 			.importMembers()
 			.setMembers(ryomou)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Participant log in
 		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
@@ -418,7 +412,7 @@ public class PortfolioV2Test {
 	/**
 	 * Create a course with an assessment course element, setup
 	 * efficiency statement, add a user and assess her.
-	 * The user log in, search its efficency statemet, pick it
+	 * The user log in, search its efficiency statement, pick it
 	 * as a media for is portfolio and goes in the media center
 	 * to search it and select it.
 	 * 
@@ -473,7 +467,10 @@ public class PortfolioV2Test {
 		members
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//efficiency statement is default on
 		//go to the assessment to to set the points
@@ -678,10 +675,10 @@ public class PortfolioV2Test {
 		AssessmentCEConfigurationPage assessmentConfig = new AssessmentCEConfigurationPage(browser);
 		assessmentConfig
 			.selectConfiguration()
-			.setScoreAuto(0.1f, 10.0f, 5.0f);
+			.setScoreAuto(0.0f, 10.0f, 5.0f);
 		courseEditor
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 	
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -690,7 +687,10 @@ public class PortfolioV2Test {
 		membersPage
 			.importMembers()
 			.setMembers(rei)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Participant log in
 		LoginPage reiLoginPage = LoginPage.getLoginPage(reiBrowser, deploymentUrl);
@@ -729,10 +729,10 @@ public class PortfolioV2Test {
 			.openAccessMenu()
 			.addMember()
 			.searchMember(author, false)
-			.next()
-			.next()
+			.nextUsers()
+			.nextOverview()
 			.fillAccessRights(binderTitle, Boolean.TRUE)
-			.next()
+			.nextPermissions()
 			.deSelectEmail()
 			.finish();
 		
@@ -743,6 +743,7 @@ public class PortfolioV2Test {
 			.openPortfolioV2();
 		portfolio
 			.openSharedWithMe()
+			.openSharedBindersWithMe()
 			.assertOnBinder(binderTitle)
 			.selectBinder(binderTitle)
 			.selectAssessment()

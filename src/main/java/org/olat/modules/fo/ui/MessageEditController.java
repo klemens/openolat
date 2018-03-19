@@ -66,12 +66,11 @@ import org.olat.core.util.vfs.LocalFolderImpl;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
-import org.olat.core.util.vfs.filters.VFSItemExcludePrefixFilter;
+import org.olat.core.util.vfs.filters.VFSItemMetaFilter;
 import org.olat.modules.fo.Forum;
 import org.olat.modules.fo.ForumCallback;
 import org.olat.modules.fo.ForumChangedEvent;
 import org.olat.modules.fo.ForumLoggingAction;
-import org.olat.modules.fo.ForumModule;
 import org.olat.modules.fo.Message;
 import org.olat.modules.fo.Pseudonym;
 import org.olat.modules.fo.manager.ForumManager;
@@ -100,7 +99,6 @@ public class MessageEditController extends FormBasicController {
 	// attached files anywhere at the time of deleting it
 	// likely to be resolved after user logs out, caches get cleared - and if not the server
 	// restart overnight definitely removes those .nfs files.
-	public static final String[] ATTACHMENT_EXCLUDE_PREFIXES = new String[]{".nfs", ".CVS", ".DS_Store"};
 	private static final String[] enableKeys = new String[]{ "on" };
 	
 	private RichTextElement bodyEl;
@@ -115,7 +113,7 @@ public class MessageEditController extends FormBasicController {
 	private VFSContainer tempUploadFolder;
 	private boolean userIsMsgCreator;
 	private boolean msgHasChildren;
-	private VFSItemExcludePrefixFilter exclFilter;
+	private VFSItemMetaFilter exclFilter;
 
 	private final Forum forum;
 	private final EditMode editMode;
@@ -126,8 +124,6 @@ public class MessageEditController extends FormBasicController {
 
 	@Autowired
 	private ForumManager fm;
-	@Autowired
-	private ForumModule forumModule;
 	@Autowired
 	private BaseSecurity securityManager;
 	@Autowired
@@ -160,7 +156,7 @@ public class MessageEditController extends FormBasicController {
 		this.guestOnly = ureq.getUserSession().getRoles().isGuestOnly();
 
 		tempUploadFolder = new LocalFolderImpl(new File(WebappHelper.getTmpDir(), CodeHelper.getUniqueID()));
-		exclFilter = new VFSItemExcludePrefixFilter(ATTACHMENT_EXCLUDE_PREFIXES);
+		exclFilter = new VFSItemMetaFilter();
 		
 		initForm(ureq);
 	}
@@ -183,6 +179,7 @@ public class MessageEditController extends FormBasicController {
 		bodyEl.setNotEmptyCheck("error.field.not.empty");
 		bodyEl.setMaxLength(MAX_BODY_LENGTH);
 		bodyEl.setNotLongerThanCheck(MAX_BODY_LENGTH, "input.toolong");
+		bodyEl.getEditorConfiguration().enableCharCount();
 		
 		setEditPermissions(message);
 		// list existing attachments. init attachment layout now, to place it in
@@ -210,6 +207,7 @@ public class MessageEditController extends FormBasicController {
 			passwordEl = uifactory.addPasswordElement("password", "password", 128, "", formLayout);
 			passwordEl.setElementCssClass("o_sel_forum_message_alias_pass");
 			passwordEl.setPlaceholderKey("password.placeholder", null);
+			passwordEl.setAutocomplete("new-password");
 
 			if(guestOnly) {
 				usePseudonymEl.setVisible(false);

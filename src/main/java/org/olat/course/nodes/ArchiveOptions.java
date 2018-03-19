@@ -22,18 +22,20 @@ package org.olat.course.nodes;
 import java.util.List;
 
 import org.olat.core.id.Identity;
+import org.olat.course.archiver.ExportFormat;
 import org.olat.group.BusinessGroup;
 
 /**
  * 
  * Initial date: 20.12.2013<br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
- *
+ * @author fkiefer
  */
 public class ArchiveOptions {
 	
 	private BusinessGroup group;
 	private List<Identity> identities;
+	private ExportFormat exportFormat;
 	
 	public BusinessGroup getGroup() {
 		return group;
@@ -49,5 +51,13 @@ public class ArchiveOptions {
 	
 	public void setIdentities(List<Identity> identities) {
 		this.identities = identities;
+	}
+
+	public ExportFormat getExportFormat() {
+		return exportFormat;
+	}
+
+	public void setExportFormat(ExportFormat exportFormat) {
+		this.exportFormat = exportFormat;
 	}
 }

@@ -21,6 +21,8 @@ package org.olat.modules.portfolio;
 
 import java.util.Date;
 
+import org.olat.core.util.StringHelper;
+
 /**
  * Define the status for a page / entry. And some utilitiy methods.
  * 
@@ -51,6 +53,13 @@ public enum PageStatus {
 	public String i18nKey() {
 		return i18nKey;
 	}
+	
+	public static final PageStatus valueOfOrNull(String val) {
+		if(StringHelper.containsNonWhitespace(val)) {
+			return PageStatus.valueOf(val);
+		}
+		return null;
+	}
 
 	public static final boolean isValueOf(String val) {
 		if(val == null) return false;
@@ -72,6 +81,17 @@ public enum PageStatus {
 			if(section.getEndDate() != null && section.getEndDate().compareTo(now) < 0) {
 				return true;
 			}
+		}
+		return false;
+	}
+	
+	public static boolean isClosed(PageStatus status, Date sectionEndDate, Date now) {
+		if(status == PageStatus.closed) {
+			return true;
+		}
+
+		if(sectionEndDate != null && sectionEndDate.compareTo(now) < 0) {
+			return true;
 		}
 		return false;
 	}

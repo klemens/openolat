@@ -1,7 +1,7 @@
 #set($responseIdentifier = $r.responseUniqueId($interaction))
 
 <input name="qtiworks_presented_${responseIdentifier}" type="hidden" value="1"/>
-<div class="$localName">
+<div id="qti_container_${responseIdentifier}" class="$localName">
 	#if($interaction.getPrompt())
 	<div class="prompt">$r.renderPrompt($interaction.getPrompt())</div>
 	#end
@@ -12,7 +12,7 @@
 			#if($interaction.minChoices == 1)
 				$r.translate("error.input.choice.minax.one")
 			#else
-				$r.translate("error.input.choice.minax")
+				$r.translate("error.input.choice.minax", $interaction.minChoices)
 			#end
 		#elseif($interaction.minChoices > 0 && $interaction.maxChoices > 0)
 			$r.translate("error.input.choice.min.max", $interaction.minChoices, $interaction.maxChoices)
@@ -26,3 +26,14 @@
 	
 	$r.renderBlockStatics($interaction.getBlockStatics())
 </div>
+#if(!$r.isSingleChoice($interaction) && $r.isItemSessionOpen())
+<script type='text/javascript'>
+	jQuery(function() {
+		jQuery('#qti_container_${responseIdentifier}').choiceInteraction({
+			responseIdentifier: '$responseIdentifier',
+			formDispatchFieldId: '$r.formDispatchFieldId',
+			maxChoices: $interaction.maxChoices
+		});
+	});
+</script>
+#end

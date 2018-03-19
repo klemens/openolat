@@ -21,8 +21,8 @@ package de.bps.olat.user;
 
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.dispatcher.DispatcherModule;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
@@ -34,12 +34,10 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.util.Util;
 import org.olat.registration.RegistrationManager;
-import org.olat.registration.TemporaryKeyImpl;
+import org.olat.registration.TemporaryKey;
 import org.olat.user.ProfileAndHomePageEditController;
 import org.olat.user.UserManager;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * This controller do change the email of a user after he has clicked the appropriate activation-link.
@@ -56,7 +54,7 @@ public class ChangeEMailController extends DefaultController {
 	
 	protected Translator pT;
 	protected String emKey;
-	protected TemporaryKeyImpl tempKey;
+	protected TemporaryKey tempKey;
 	protected UserRequest userRequest;
 	
 	@Autowired
@@ -109,9 +107,8 @@ public class ChangeEMailController extends DefaultController {
 				} else {
 					// link time is up
 					userRequest.getUserSession().putEntryInNonClearedStore("error.change.email.time", pT.translate("error.change.email.time"));
-					XStream xml = new XStream();
-					HashMap<String, String> mails = (HashMap<String, String>) xml.fromXML(tempKey.getEmailAddress());
-					Identity ident = UserManager.getInstance().findIdentityByEmail(mails.get("currentEMail"));
+					Long identityKey = tempKey.getIdentityKey();
+					Identity ident = BaseSecurityManager.getInstance().loadIdentityByKey(identityKey);
 					if (ident != null) {
 						// remove keys
 						ident.getUser().setProperty("emchangeKey", null);

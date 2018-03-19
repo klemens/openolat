@@ -102,6 +102,8 @@ public class DataStepForm extends StepFormBasicController {
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
+		formLayout.setElementCssClass("o_sel_bulk_assessment_data");
+		
 		// hide data input field in case the element does not have any score, passed or comment field enabled
 		BulkAssessmentSettings settings = new BulkAssessmentSettings(courseNode);
 		boolean onlyReturnFiles = (!settings.isHasScore() && !settings.isHasPassed() && !settings.isHasUserComment());
@@ -117,7 +119,7 @@ public class DataStepForm extends StepFormBasicController {
 			OlatRootFileImpl file = new OlatRootFileImpl(savedDatas.getDataBackupFile(), null);
 			InputStream in = file.getInputStream();
 			try {
-				dataVal = IOUtils.toString(in);
+				dataVal = IOUtils.toString(in, "UTF-8");
 			} catch (IOException e) {
 				logError("", e);
 			} finally {
@@ -236,7 +238,7 @@ public class DataStepForm extends StepFormBasicController {
 		OutputStream out = inputFile.getOutputStream(false);
 
 		try {
-			IOUtils.write(val, out);
+			IOUtils.write(val, out, "UTF-8");
 			datas.setDataBackupFile(inputFile.getRelPath());
 		} catch (IOException e) {
 			logError("", e);

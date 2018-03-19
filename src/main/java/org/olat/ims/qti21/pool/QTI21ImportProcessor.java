@@ -22,7 +22,10 @@ package org.olat.ims.qti21.pool;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Writer;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -33,6 +36,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import javax.xml.parsers.SAXParser;
+import javax.xml.parsers.SAXParserFactory;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamWriter;
+
+import org.olat.core.CoreSpringFactory;
 import org.olat.core.id.Identity;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.Tracing;
@@ -40,37 +49,39 @@ import org.olat.core.util.PathUtils;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.io.ShieldInputStream;
 import org.olat.fileresource.types.ImsQTI21Resource;
-import org.olat.fileresource.types.ImsQTI21Resource.PathResourceLocator;
 import org.olat.ims.qti.qpool.QTIMetadataConverter;
 import org.olat.ims.qti21.QTI21Constants;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.model.IdentifierGenerator;
 import org.olat.ims.qti21.model.QTI21QuestionType;
+import org.olat.ims.qti21.model.xml.AssessmentItemChecker;
 import org.olat.ims.qti21.model.xml.AssessmentItemMetadata;
 import org.olat.ims.qti21.model.xml.ManifestBuilder;
 import org.olat.ims.qti21.model.xml.ManifestMetadataBuilder;
+import org.olat.ims.qti21.model.xml.OnyxToQtiWorksHandler;
+import org.olat.ims.qti21.model.xml.QTI21Infos;
+import org.olat.ims.qti21.repository.handlers.QTI21IMSManifestExplorerVisitor;
 import org.olat.imscp.xml.manifest.ResourceType;
+import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionType;
-import org.olat.modules.qpool.TaxonomyLevel;
 import org.olat.modules.qpool.manager.QEducationalContextDAO;
 import org.olat.modules.qpool.manager.QItemTypeDAO;
 import org.olat.modules.qpool.manager.QLicenseDAO;
 import org.olat.modules.qpool.manager.QPoolFileStorage;
 import org.olat.modules.qpool.manager.QuestionItemDAO;
-import org.olat.modules.qpool.manager.TaxonomyLevelDAO;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QLicense;
 import org.olat.modules.qpool.model.QuestionItemImpl;
+import org.olat.modules.taxonomy.TaxonomyLevel;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import uk.ac.ed.ph.jqtiplus.node.content.xhtml.image.Img;
-import uk.ac.ed.ph.jqtiplus.node.content.xhtml.object.Object;
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.reading.AssessmentObjectXmlLoader;
 import uk.ac.ed.ph.jqtiplus.reading.QtiXmlReader;
 import uk.ac.ed.ph.jqtiplus.resolution.ResolvedAssessmentItem;
-import uk.ac.ed.ph.jqtiplus.utils.QueryUtils;
+import uk.ac.ed.ph.jqtiplus.xmlutils.locators.FileResourceLocator;
 import uk.ac.ed.ph.jqtiplus.xmlutils.locators.ResourceLocator;
 
 /**
@@ -86,42 +97,42 @@ public class QTI21ImportProcessor {
 	private final Identity owner;
 	private final Locale defaultLocale;
 	
-	private final QItemTypeDAO qItemTypeDao;
-	private final QLicenseDAO qLicenseDao;
-	private final QTI21Service qtiService;
-	private final QuestionItemDAO questionItemDao;
-	private final QPoolFileStorage qpoolFileStorage;
-	private final TaxonomyLevelDAO taxonomyLevelDao;
-	private final QEducationalContextDAO qEduContextDao;
+	@Autowired
+	private QItemTypeDAO qItemTypeDao;
+	@Autowired
+	private QLicenseDAO qLicenseDao;
+	@Autowired
+	private QTI21Service qtiService;
+	@Autowired
+	private QuestionItemDAO questionItemDao;
+	@Autowired
+	private QPoolFileStorage qpoolFileStorage;
+	@Autowired
+	private QPoolService qpoolService;
+	@Autowired
+	private QEducationalContextDAO qEduContextDao;
 	
-	public QTI21ImportProcessor(Identity owner, Locale defaultLocale,
-			QuestionItemDAO questionItemDao, QItemTypeDAO qItemTypeDao, QEducationalContextDAO qEduContextDao,
-			TaxonomyLevelDAO taxonomyLevelDao, QLicenseDAO qLicenseDao, QPoolFileStorage qpoolFileStorage, QTI21Service qtiService) {
+	public QTI21ImportProcessor(Identity owner, Locale defaultLocale) {
 		this.owner = owner;
-		this.qtiService = qtiService;
 		this.defaultLocale = defaultLocale;
-		this.qLicenseDao = qLicenseDao;
-		this.qItemTypeDao = qItemTypeDao;
-		this.qEduContextDao = qEduContextDao;
-		this.questionItemDao = questionItemDao;
-		this.qpoolFileStorage = qpoolFileStorage;
-		this.taxonomyLevelDao = taxonomyLevelDao;
+
+		CoreSpringFactory.autowireObject(this);
 	}
 
 	public List<QuestionItem> process(File file) {
 		//export zip file
 		List<QuestionItem> items = new ArrayList<>();
-		try {
-			Path fPath = FileSystems.newFileSystem(file.toPath(), null).getPath("/");
+		try(FileSystem fs = FileSystems.newFileSystem(file.toPath(), null)) {
+			Path fPath = fs.getPath("/");
 			if(fPath != null) {
 				ImsManifestVisitor visitor = new ImsManifestVisitor();
 			    Files.walkFileTree(fPath, visitor);
 			    
 			    List<Path> imsmanifests = visitor.getImsmanifestFiles();
 			    for(Path imsmanifest:imsmanifests) {
-			    	InputStream in = Files.newInputStream(imsmanifest);
-			    	ManifestBuilder manifestBuilder = ManifestBuilder.read(new ShieldInputStream(in));
-			    	List<ResourceType> resources = manifestBuilder.getResourceList();
+			    		InputStream in = Files.newInputStream(imsmanifest);
+			    		ManifestBuilder manifestBuilder = ManifestBuilder.read(new ShieldInputStream(in));
+			    		List<ResourceType> resources = manifestBuilder.getResourceList();
 					for(ResourceType resource:resources) {
 						ManifestMetadataBuilder metadataBuilder = manifestBuilder.getMetadataBuilder(resource, true);
 						QuestionItem qitem = processResource(resource, imsmanifest, metadataBuilder);
@@ -137,6 +148,17 @@ public class QTI21ImportProcessor {
 		return items;
 	}
 	
+	private QTI21Infos getInfos(Path imsmanifestPath) {
+		try {
+			QTI21IMSManifestExplorerVisitor visitor = new QTI21IMSManifestExplorerVisitor();
+			Files.walkFileTree(imsmanifestPath, visitor);
+			return visitor.getInfos();
+		} catch (IOException e) {
+			log.error("", e);
+			return null;
+		}
+	}
+	
 	private QuestionItem processResource(ResourceType resource, Path imsmanifestPath, ManifestMetadataBuilder metadataBuilder) {
 		try {
 			String href = resource.getHref();
@@ -145,16 +167,30 @@ public class QTI21ImportProcessor {
 			if(Files.notExists(assessmentItemPath)) {
 				return null;
 			}
-			
+	
+			String dir = qpoolFileStorage.generateDir();
+			//storage
+			File itemStorage = qpoolFileStorage.getDirectory(dir);
+			File outputFile = new File(itemStorage, href);
+			if(!outputFile.getParentFile().exists()) {
+				outputFile.getParentFile().mkdirs();
+			}
+			QTI21Infos infos = getInfos(imsmanifestPath);
+			convertXmlFile(assessmentItemPath, outputFile.toPath(), infos);
+
 			QtiXmlReader qtiXmlReader = new QtiXmlReader(qtiService.jqtiExtensionManager());
-			ResourceLocator fileResourceLocator = new PathResourceLocator(parentPath);
+			ResourceLocator fileResourceLocator = new FileResourceLocator();
 			ResourceLocator inputResourceLocator = 
 					ImsQTI21Resource.createResolvingResourceLocator(fileResourceLocator);
 			
-			URI assessmentObjectSystemId = new URI("zip", href, null);
+			URI assessmentObjectSystemId = outputFile.toURI();
 			AssessmentObjectXmlLoader assessmentObjectXmlLoader = new AssessmentObjectXmlLoader(qtiXmlReader, inputResourceLocator);
 			ResolvedAssessmentItem resolvedAssessmentItem = assessmentObjectXmlLoader.loadAndResolveAssessmentItem(assessmentObjectSystemId);
 			AssessmentItem assessmentItem = resolvedAssessmentItem.getRootNodeLookup().extractIfSuccessful();
+			
+			if(!AssessmentItemChecker.checkAndCorrect(assessmentItem)) {
+				qtiService.persistAssessmentObject(outputFile, assessmentItem);
+			}
 			
 			AssessmentItemMetadata metadata = new AssessmentItemMetadata(metadataBuilder);
 
@@ -168,12 +204,8 @@ public class QTI21ImportProcessor {
 			}
 
 			QuestionItemImpl qitem = processItem(assessmentItem, null, href,
-					editor, editorVersion, metadata);
-			
-			//storage
-			File itemStorage = qpoolFileStorage.getDirectory(qitem.getDirectory());
-			PathUtils.copyFileToDir(assessmentItemPath, itemStorage, href);
-			
+					editor, editorVersion, dir, metadata);
+
 			//create manifest
 			ManifestBuilder manifest = ManifestBuilder.createAssessmentItemBuilder();
 			String itemId = IdentifierGenerator.newAsIdentifier("item").toString();
@@ -183,11 +215,11 @@ public class QTI21ImportProcessor {
 			manifest.write(new File(itemStorage, "imsmanifest.xml"));
 			
 			//process material
-			List<String> materials = getMaterials(assessmentItem);
+			List<String> materials = ImportExportHelper.getMaterials(assessmentItem);
 			for(String material:materials) {
 				if(material.indexOf("://") < 0) {// material can be an external URL
 					Path materialFile = assessmentItemPath.getParent().resolve(material);
-					PathUtils.copyFileToDir(materialFile, itemStorage, material);
+					PathUtils.copyFileToDir(materialFile, outputFile.getParentFile(), material);
 				}
 			}
 			return qitem;
@@ -196,25 +228,30 @@ public class QTI21ImportProcessor {
 			return null;
 		}
 	}
-
-	protected List<String> getMaterials(AssessmentItem item) {
-		List<String> materials = new ArrayList<>();
-		QueryUtils.search(Img.class, item).forEach((img) -> {
-			if(img.getSrc() != null) {
-				materials.add(img.getSrc().toString());
-			}
-		});
-
-		QueryUtils.search(Object.class, item).forEach((object) -> {
-			if(StringHelper.containsNonWhitespace(object.getData())) {
-				materials.add(object.getData());
-			}
-		});
-		return materials;
+	
+	private void convertXmlFile(Path inputFile, Path outputFile, QTI21Infos infos) {
+		try(InputStream in = Files.newInputStream(inputFile);
+				Writer out = Files.newBufferedWriter(outputFile, Charset.forName("UTF-8"))) {
+			XMLOutputFactory xof = XMLOutputFactory.newInstance();
+	        XMLStreamWriter xtw = xof.createXMLStreamWriter(out);
+	
+			SAXParser saxParser = SAXParserFactory.newInstance().newSAXParser();
+			OnyxToQtiWorksHandler myHandler = new OnyxToQtiWorksHandler(xtw, infos);
+			saxParser.setProperty("http://xml.org/sax/properties/lexical-handler", myHandler);
+			saxParser.parse(in, myHandler);
+		} catch(Exception e) {
+			log.error("", e);
+		}
+	}
+	
+	protected QuestionItemImpl processItem(AssessmentItem assessmentItem, String comment, String originalItemFilename,
+			String editor, String editorVersion, AssessmentItemMetadata metadata) {
+		String dir = qpoolFileStorage.generateDir();
+		return processItem(assessmentItem, comment, originalItemFilename, editor, editorVersion, dir, metadata);
 	}
 
 	protected QuestionItemImpl processItem(AssessmentItem assessmentItem, String comment, String originalItemFilename,
-			String editor, String editorVersion, AssessmentItemMetadata metadata) {
+			String editor, String editorVersion, String dir, AssessmentItemMetadata metadata) {
 		//filename
 		String filename;
 		String ident = assessmentItem.getIdentifier();
@@ -225,7 +262,6 @@ public class QTI21ImportProcessor {
 		} else {
 			filename = "item.xml";
 		}
-		String dir = qpoolFileStorage.generateDir();
 		
 		//title
 		String title = assessmentItem.getTitle();
@@ -252,12 +288,6 @@ public class QTI21ImportProcessor {
 			QItemType defType = convertType(assessmentItem);
 			poolItem.setType(defType);
 		}
-		/*if(docInfos != null) {
-			processSidecarMetadata(poolItem, docInfos);
-		}*/
-		if(metadata != null) {
-			//processItemMetadata(poolItem, metadata);
-		}
 		questionItemDao.persist(owner, poolItem);
 		return poolItem;
 	}
@@ -269,6 +299,7 @@ public class QTI21ImportProcessor {
 			case mc: return qItemTypeDao.loadByType(QuestionType.MC.name());
 			case kprim: return qItemTypeDao.loadByType(QuestionType.KPRIM.name());
 			case match: return qItemTypeDao.loadByType(QuestionType.MATCH.name());
+			case matchdraganddrop: return qItemTypeDao.loadByType(QuestionType.MATCHDRAGANDDROP.name());
 			case fib: return qItemTypeDao.loadByType(QuestionType.FIB.name());
 			case numerical: return qItemTypeDao.loadByType(QuestionType.NUMERICAL.name());
 			case hotspot: return qItemTypeDao.loadByType(QuestionType.HOTSPOT.name());
@@ -277,7 +308,7 @@ public class QTI21ImportProcessor {
 			default: return qItemTypeDao.loadByType(QuestionType.UNKOWN.name());
 		}
 	}
-	
+	//additionalInformations, assessmentType
 	protected void processItemMetadata(QuestionItemImpl poolItem, AssessmentItemMetadata metadata) {
 		//non heuristic set of question type
 		String typeStr = null;	
@@ -309,14 +340,15 @@ public class QTI21ImportProcessor {
 		
 		String taxonomyPath = metadata.getTaxonomyPath();
 		if(StringHelper.containsNonWhitespace(taxonomyPath)) {
-			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, qEduContextDao, qpoolService);
 			TaxonomyLevel taxonomyLevel = converter.toTaxonomy(taxonomyPath);
 			poolItem.setTaxonomyLevel(taxonomyLevel);
 		}
 		
+		//educational
 		String level = metadata.getLevel();
 		if(StringHelper.containsNonWhitespace(level)) {
-			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, qEduContextDao, qpoolService);
 			QEducationalContext educationalContext = converter.toEducationalContext(level);
 			poolItem.setEducationalContext(educationalContext);
 		}
@@ -335,22 +367,26 @@ public class QTI21ImportProcessor {
 		if(StringHelper.containsNonWhitespace(editorVersion)) {
 			poolItem.setEditorVersion(editorVersion);
 		}
+
+		String license = metadata.getLicense();
+		if(StringHelper.containsNonWhitespace(license)) {
+			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, qEduContextDao, qpoolService);
+			QLicense qLicense = converter.toLicense(license);
+			poolItem.setLicense(qLicense);
+		}
 		
+		//OpenOLAT
+		poolItem.setDifficulty(metadata.getDifficulty());
+		poolItem.setDifferentiation(metadata.getDifferentiation());
+		poolItem.setStdevDifficulty(metadata.getStdevDifficulty());
 		int numOfAnswerAlternatives = metadata.getNumOfAnswerAlternatives();
 		if(numOfAnswerAlternatives > 0) {
 			poolItem.setNumOfAnswerAlternatives(numOfAnswerAlternatives);
 		}
-		
-		poolItem.setDifficulty(metadata.getDifficulty());
-		poolItem.setDifferentiation(metadata.getDifferentiation());
-		poolItem.setStdevDifficulty(metadata.getStdevDifficulty());
-		
-		String license = metadata.getLicense();
-		if(StringHelper.containsNonWhitespace(license)) {
-			QTIMetadataConverter converter = new QTIMetadataConverter(qItemTypeDao, qLicenseDao, taxonomyLevelDao, qEduContextDao);
-			QLicense qLicense = converter.toLicense(license);
-			poolItem.setLicense(qLicense);
-		}
+		poolItem.setCreator(metadata.getCreator());
+		poolItem.setTopic(metadata.getTopic());
+		poolItem.setAssessmentType(metadata.getAssessmentType());
+		poolItem.setAdditionalInformations(metadata.getAdditionalInformations());
 	}
 	
 	public static class ImsManifestVisitor extends SimpleFileVisitor<Path> {

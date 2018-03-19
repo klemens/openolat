@@ -66,8 +66,8 @@ public class MenuTreePageFragment {
 		WebElement tree = browser.findElement(treeBy);
 		List<WebElement> nodeLinks = tree.findElements(By.cssSelector("li>div>span.o_tree_link>a"));
 		for(WebElement nodeLink:nodeLinks) {
-			String text = nodeLink.getText();
-			if(text.contains(title)) {
+			String text = nodeLink.getText().toLowerCase();
+			if(text.contains(title.toLowerCase())) {
 				nodeLink.click();
 				OOGraphene.waitBusy(browser);
 				found = true;
@@ -77,7 +77,6 @@ public class MenuTreePageFragment {
 		Assert.assertTrue("Link not found with title: " + title, found);
 		return this;
 	}
-	
 
 	public MenuTreePageFragment assertWithTitle(String title) {
 		boolean found = false;

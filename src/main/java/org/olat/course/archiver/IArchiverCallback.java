@@ -34,6 +34,11 @@ public interface IArchiverCallback {
 	 * @return true if user has rights to archive course qti results, false otherwhise
 	 */
 	public boolean mayArchiveQtiResults();
+	
+	/**
+	 * @return true if user has rights to archive course qti test results, false otherwhise
+	 */
+	public boolean mayArchiveQtiTestResults();
 	/**
 	 * @return true if user has rights to archive logfiles, false otherwhise
 	 */
@@ -68,6 +73,8 @@ public interface IArchiverCallback {
 	public boolean mayArchiveScorm();
 	
 	public boolean mayArchiveChecklist();
+	
+	public boolean mayArchiveParticipantFolder();
 	
 	/**
 	 * @return true if user has rights to archive project-broker data

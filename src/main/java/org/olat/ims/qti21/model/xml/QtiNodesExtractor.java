@@ -26,6 +26,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.olat.ims.qti21.QTI21Constants;
+
+import uk.ac.ed.ph.jqtiplus.node.expression.Expression;
+import uk.ac.ed.ph.jqtiplus.node.expression.general.BaseValue;
+import uk.ac.ed.ph.jqtiplus.node.expression.general.Variable;
+import uk.ac.ed.ph.jqtiplus.node.expression.operator.Lt;
 import uk.ac.ed.ph.jqtiplus.node.item.AssessmentItem;
 import uk.ac.ed.ph.jqtiplus.node.item.CorrectResponse;
 import uk.ac.ed.ph.jqtiplus.node.outcome.declaration.OutcomeDeclaration;
@@ -33,6 +39,12 @@ import uk.ac.ed.ph.jqtiplus.node.shared.BaseTypeAndCardinality;
 import uk.ac.ed.ph.jqtiplus.node.shared.FieldValue;
 import uk.ac.ed.ph.jqtiplus.node.shared.declaration.DefaultValue;
 import uk.ac.ed.ph.jqtiplus.node.test.AssessmentTest;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeCondition;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeConditionChild;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeConditionExpressionChild;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeIf;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.OutcomeRule;
+import uk.ac.ed.ph.jqtiplus.node.test.outcome.processing.SetOutcomeValue;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
 import uk.ac.ed.ph.jqtiplus.value.Cardinality;
 import uk.ac.ed.ph.jqtiplus.value.DirectedPairValue;
@@ -124,5 +136,78 @@ public interface QtiNodesExtractor {
 			}
 		}
 	}
-
+	
+	public static Double extractCutValue(AssessmentTest assessmentTest) {
+		Double cutValue = null;
+		if(assessmentTest.getOutcomeProcessing() != null) {
+			List<OutcomeRule> outcomeRules = assessmentTest.getOutcomeProcessing().getOutcomeRules();
+			for(OutcomeRule outcomeRule:outcomeRules) {
+				if(outcomeRule instanceof OutcomeCondition) {
+					OutcomeCondition outcomeCondition = (OutcomeCondition)outcomeRule;
+					boolean findIf = findSetOutcomeValue(outcomeCondition.getOutcomeIf(), QTI21Constants.PASS_IDENTIFIER);
+					boolean findElse = findSetOutcomeValue(outcomeCondition.getOutcomeElse(), QTI21Constants.PASS_IDENTIFIER);
+					if(findIf && findElse) {
+						cutValue = extractCutValue(outcomeCondition.getOutcomeIf());
+					}
+				}
+			}
+		}
+		return cutValue;
+	}
+	
+	public static boolean findSetOutcomeValue(OutcomeConditionChild outcomeConditionChild, Identifier identifier) {
+		if(outcomeConditionChild == null
+				|| outcomeConditionChild.getOutcomeRules() == null
+				|| outcomeConditionChild.getOutcomeRules().isEmpty()) return false;
+		
+		List<OutcomeRule> outcomeRules = outcomeConditionChild.getOutcomeRules();
+		for(OutcomeRule outcomeRule:outcomeRules) {
+			SetOutcomeValue setOutcomeValue = (SetOutcomeValue)outcomeRule;
+			if(identifier.equals(setOutcomeValue.getIdentifier())) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+	
+	public static boolean findLtValue(OutcomeConditionExpressionChild outcomeIfElse, Identifier identifier) {
+		if(outcomeIfElse == null
+				|| outcomeIfElse.getOutcomeRules() == null
+				|| outcomeIfElse.getOutcomeRules().isEmpty()) return false;
+		
+		List<Expression> expressions = outcomeIfElse.getExpressions();
+		for(Expression expression:expressions) {
+			if(expression instanceof Lt) {
+				Lt lt = (Lt)expression;
+				for(Expression ltExpression:lt.getExpressions()) {
+					if(ltExpression instanceof Variable) {
+						Variable variable = (Variable)ltExpression;
+						if(identifier.toString().equals(variable.getIdentifier().toString())) {
+							return true;
+						}
+					}
+				}
+			}
+			
+		}
+		
+		return false;
+	}
+	
+	public static Double extractCutValue(OutcomeIf outcomeIf) {
+		if(outcomeIf != null && outcomeIf.getExpressions().size() > 0) {
+			Expression gte = outcomeIf.getExpressions().get(0);
+			if(gte.getExpressions().size() > 1) {
+				Expression baseValue = gte.getExpressions().get(1);
+				if(baseValue instanceof BaseValue) {
+					BaseValue value = (BaseValue)baseValue;
+					if(value.getSingleValue() instanceof FloatValue) {
+						return ((FloatValue)value.getSingleValue()).doubleValue();
+					}
+				}
+			}
+		}
+		return null;
+	}
 }

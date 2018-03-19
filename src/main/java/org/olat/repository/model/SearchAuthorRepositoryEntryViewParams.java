@@ -36,8 +36,10 @@ public class SearchAuthorRepositoryEntryViewParams {
 	private final Roles roles;
 	
 	private Boolean marked;
+	private Boolean closed;
 	private boolean deleted = false;
 	private boolean ownedResourcesOnly;
+	private ResourceUsage resourceUsage = ResourceUsage.all;
 	
 	private String idAndRefs;
 	private String idRefsAndTitle;
@@ -174,6 +176,22 @@ public class SearchAuthorRepositoryEntryViewParams {
 		this.marked = marked;
 	}
 	
+	public ResourceUsage getResourceUsage() {
+		return resourceUsage;
+	}
+
+	public void setResourceUsage(ResourceUsage resourceUsage) {
+		this.resourceUsage = resourceUsage;
+	}
+
+	public Boolean getClosed() {
+		return closed;
+	}
+
+	public void setClosed(Boolean closed) {
+		this.closed = closed;
+	}
+
 	public enum OrderBy {
 		key,
 		favorit,
@@ -192,7 +210,14 @@ public class SearchAuthorRepositoryEntryViewParams {
 		lifecycleSoftkey,
 		lifecycleStart,
 		lifecycleEnd,
+		references,
 		deletionDate,
 		deletedBy
+	}
+	
+	public enum ResourceUsage {
+		all,
+		used,
+		notUsed
 	}
 }

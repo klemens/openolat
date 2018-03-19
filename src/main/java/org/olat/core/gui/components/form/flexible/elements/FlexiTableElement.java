@@ -36,6 +36,7 @@ import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiColum
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponent;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableComponentDelegate;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableRendererType;
+import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTreeTableNode;
 import org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableCssDelegate;
 import org.olat.core.gui.components.velocity.VelocityContainer;
 import org.olat.core.gui.control.generic.ajax.autocompletion.ListProvider;
@@ -98,6 +99,19 @@ public interface FlexiTableElement extends FormItem {
 	 * @param bordered Set or not border to the cells
 	 */
 	public void setBordered(boolean bordered);
+	
+	/**
+	 * @return True if the footer is enabled
+	 */
+	public boolean isFooter();
+	
+	/**
+	 * To enable the footer, the data model need to implement
+	 * org.olat.core.gui.components.form.flexible.impl.elements.table.FlexiTableFooterModel
+	 * 
+	 * @param footer Enable/disable the footer
+	 */
+	public void setFooter(boolean footer);
 
 	/**
 	 * @return True if muli selection is enabled
@@ -353,6 +367,19 @@ public interface FlexiTableElement extends FormItem {
 	public void collapseAllDetails();
 	
 	/**
+	 * @return The root bread crumb or null
+	 */
+	public FlexiTreeTableNode getRootCrumb();
+
+	/**
+	 * Set a root bread crumb which is not part of
+	 * the tree table model.
+	 * 
+	 * @param rootCrumb A bread crumb
+	 */
+	public void setRootCrumb(FlexiTreeTableNode rootCrumb);
+	
+	/**
 	 * Return the page size
 	 * @return
 	 */
@@ -380,7 +407,20 @@ public interface FlexiTableElement extends FormItem {
 	
 	public void quickSearch(UserRequest ureq, String search);
 	
+	/**
+	 * Sort with the specified parameter. A null sort key
+	 * will remove the order by.
+	 * 
+	 * @param sortKey
+	 * @param asc
+	 */
 	public void sort(String sortKey, boolean asc);
+	
+	/**
+	 * Order by the specified setting.
+	 * @param sortKey The sort key cannot be null.
+	 */
+	public void sort(SortKey sortKey);
 	
 	@Override
 	public void reset();

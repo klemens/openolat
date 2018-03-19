@@ -125,6 +125,16 @@ public class QTI21RuntimeController extends RepositoryEntryRuntimeController  {
 	}
 
 	@Override
+	protected void event(UserRequest ureq, Controller source, Event event) {
+		if(source instanceof AssessmentTestComposerController) {
+			if(event == Event.CHANGED_EVENT) {
+				reloadRuntime = true;
+			}
+		}
+		super.event(ureq, source, event);
+	}
+
+	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		if(testStatisticLink == source) {
 			doAssessmentTestStatistics(ureq);
@@ -190,7 +200,7 @@ public class QTI21RuntimeController extends RepositoryEntryRuntimeController  {
 		if (reSecurity.isEntryAdmin() || reSecurity.isCourseCoach() || reSecurity.isGroupCoach()) {
 			AssessmentToolOptions asOptions = new AssessmentToolOptions();
 			asOptions.setAdmin(reSecurity.isEntryAdmin());
-			QTI21RuntimeStatisticsController ctrl = new QTI21RuntimeStatisticsController(ureq, swControl,
+			QTI21RuntimeStatisticsController ctrl = new QTI21RuntimeStatisticsController(ureq, swControl, toolbarPanel,
 					getRepositoryEntry(), asOptions);
 			listenTo(ctrl);
 

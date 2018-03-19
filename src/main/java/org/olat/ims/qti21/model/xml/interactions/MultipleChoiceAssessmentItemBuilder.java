@@ -79,16 +79,16 @@ public class MultipleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentI
 	
 	private List<Identifier> correctAnswers;
 	
-	public MultipleChoiceAssessmentItemBuilder(QtiSerializer qtiSerializer) {
-		super(createAssessmentItem(), qtiSerializer);
+	public MultipleChoiceAssessmentItemBuilder(String title, String defaultAnswer, QtiSerializer qtiSerializer) {
+		super(createAssessmentItem(title, defaultAnswer), qtiSerializer);
 	}
 	
 	public MultipleChoiceAssessmentItemBuilder(AssessmentItem assessmentItem, QtiSerializer qtiSerializer) {
 		super(assessmentItem, qtiSerializer);
 	}
 	
-	private static AssessmentItem createAssessmentItem() {
-		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.mc, "Multiple choice");
+	private static AssessmentItem createAssessmentItem(String title, String defaultAnswer) {
+		AssessmentItem assessmentItem = AssessmentItemFactory.createAssessmentItem(QTI21QuestionType.mc, title);
 		
 		NodeGroupList nodeGroups = assessmentItem.getNodeGroups();
 
@@ -104,9 +104,9 @@ public class MultipleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentI
 		
 		//the single choice interaction
 		ItemBody itemBody = appendDefaultItemBody(assessmentItem);
-		ChoiceInteraction choiceInteraction = appendChoiceInteraction(itemBody, responseDeclarationId, 1, true);
+		ChoiceInteraction choiceInteraction = appendChoiceInteraction(itemBody, responseDeclarationId, 0, true);
 		
-		appendSimpleChoice(choiceInteraction, "New answer", correctResponseId);
+		appendSimpleChoice(choiceInteraction, defaultAnswer, correctResponseId);
 
 		//response processing
 		ResponseProcessing responseProcessing = createResponseProcessing(assessmentItem, responseDeclarationId);
@@ -161,6 +161,11 @@ public class MultipleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentI
 	}
 
 	@Override
+	public int getMaxPossibleCorrectAnswers() {
+		return choices.size();
+	}
+
+	@Override
 	public void clearSimpleChoices() {
 		if(correctAnswers != null) {
 			correctAnswers.clear();
@@ -192,8 +197,20 @@ public class MultipleChoiceAssessmentItemBuilder extends SimpleChoiceAssessmentI
 				.createMultipleChoiceInteraction(assessmentItem, responseIdentifier, orientation, cssClass);
 		singleChoiceInteraction.setShuffle(isShuffle());
 		blocks.add(singleChoiceInteraction);
-		List<SimpleChoice> choiceList = getSimpleChoices();
+		List<SimpleChoice> choiceList = getChoices();
 		singleChoiceInteraction.getSimpleChoices().addAll(choiceList);
+
+		int finalMaxChoices = 0;
+		if(maxChoices >= 0 && maxChoices <= choiceList.size()) {
+			finalMaxChoices = maxChoices;
+		}
+		singleChoiceInteraction.setMaxChoices(finalMaxChoices);
+		
+		int finalMinChoices = 0;
+		if(minChoices >= 0 && minChoices <= choiceList.size()) {
+			finalMinChoices = minChoices;
+		}
+		singleChoiceInteraction.setMinChoices(finalMinChoices);
 	}
 
 	@Override

@@ -49,9 +49,9 @@ public class MinimalScoreController extends AssessmentItemRefEditorController {
 	private final String contextHelpUrl;
 	
 	public MinimalScoreController(UserRequest ureq, WindowControl wControl,
-			AssessmentItemBuilder itemBuilder, AssessmentItemRef itemRef, boolean restrictedEdit,
-			String contextHelpUrl) {
-		super(ureq, wControl, itemRef, restrictedEdit);
+			AssessmentItemBuilder itemBuilder, AssessmentItemRef itemRef,
+			boolean restrictedEdit, boolean readOnly, String contextHelpUrl) {
+		super(ureq, wControl, itemRef, restrictedEdit, readOnly);
 		this.itemBuilder = itemBuilder;
 		this.contextHelpUrl = contextHelpUrl;
 		initForm(ureq);
@@ -62,17 +62,19 @@ public class MinimalScoreController extends AssessmentItemRefEditorController {
 		setFormContextHelp(contextHelpUrl);
 		super.initForm(formLayout, listener, ureq);
 		minScoreEl = uifactory.addTextElement("min.score", "min.score", 8, "0.0", formLayout);
+		minScoreEl.setElementCssClass("o_sel_assessment_item_min_score");
 		minScoreEl.setEnabled(false);
-		minScoreEl.setEnabled(!restrictedEdit);
 		
 		ScoreBuilder maxScore = itemBuilder.getMaxScoreBuilder();
 		String maxValue = maxScore == null ? "" : (maxScore.getScore() == null ? "" : maxScore.getScore().toString());
 		maxScoreEl = uifactory.addTextElement("max.score", "max.score", 8, maxValue, formLayout);
-		maxScoreEl.setEnabled(!restrictedEdit);
+		maxScoreEl.setElementCssClass("o_sel_assessment_item_max_score");
+		maxScoreEl.setEnabled(!restrictedEdit && !readOnly);
 
 		// Submit Button
 		FormLayoutContainer buttonsContainer = FormLayoutContainer.createButtonLayout("buttons", getTranslator());
 		buttonsContainer.setRootForm(mainForm);
+		buttonsContainer.setVisible(!readOnly);
 		formLayout.add(buttonsContainer);
 		uifactory.addFormSubmitButton("submit", buttonsContainer);
 	}
@@ -88,7 +90,7 @@ public class MinimalScoreController extends AssessmentItemRefEditorController {
 
 	@Override
 	protected void formOK(UserRequest ureq) {
-		if(restrictedEdit) return;
+		if(restrictedEdit || readOnly) return;
 		
 		super.formOK(ureq);
 		

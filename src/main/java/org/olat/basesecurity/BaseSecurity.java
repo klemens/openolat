@@ -60,7 +60,7 @@ public interface BaseSecurity {
 	 * @param olatResourceable
 	 * @return true if permitted
 	 */
-	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable);
+	public boolean isIdentityPermittedOnResourceable(IdentityRef identity, String permission, OLATResourceable olatResourceable);
 
 	
 	
@@ -70,7 +70,7 @@ public interface BaseSecurity {
 	 * @param identity
 	 * @return The roles of the identity
 	 */
-	public Roles getRoles(Identity identity);
+	public Roles getRoles(IdentityRef identity);
 	
 	/**
 	 * Get the list of roles as string without inheritence (an admin
@@ -78,7 +78,7 @@ public interface BaseSecurity {
 	 * @param identity
 	 * @return
 	 */
-	public List<String> getRolesAsString(Identity identity);
+	public List<String> getRolesAsString(IdentityRef identity);
 	
 	/**
 	 * Update the roles
@@ -95,7 +95,7 @@ public interface BaseSecurity {
 	 * @param checkTypeRight
 	 * @return true if permitted
 	 */
-	public boolean isIdentityPermittedOnResourceable(Identity identity, String permission, OLATResourceable olatResourceable,
+	public boolean isIdentityPermittedOnResourceable(IdentityRef identity, String permission, OLATResourceable olatResourceable,
 			boolean checkTypeRight);
 
 	/**
@@ -367,6 +367,8 @@ public interface BaseSecurity {
 	 */
 	public Authentication findAuthentication(IdentityRef identity, String provider);
 	
+	public List<Authentication> findAuthentications(IdentityRef identity, List<String> providers);
+	
 	public String findAuthenticationName(IdentityRef identity, String provider);
 	
 	
@@ -399,6 +401,18 @@ public interface BaseSecurity {
 	 * @param authentication
 	 */
 	public void deleteAuthentication(Authentication authentication);
+	
+	/**
+	 * Deletes invalid authentications with the specified email address in the field
+	 * username. An authentication is invalid if no unique user with that email
+	 * exists. Use this method to clean old authentications after the change of the
+	 * email address of a user to avoid duplicate authentications. Because a user
+	 * can have an email address as his username, the authentication of the OLAT
+	 * authentication provider is never deleted.
+	 * 
+	 * @param email
+	 */
+	public void deleteInvalidAuthenticationsByEmail(String email);
 	
 	/**
 	 * 
@@ -526,6 +540,9 @@ public interface BaseSecurity {
 	 *         found
 	 */
 	public Authentication findAuthenticationByAuthusername(String authusername, String provider);
+	
+
+	public List<Authentication> findAuthenticationByAuthusername(String authusername, List<String> providers);
 
 
 	/**

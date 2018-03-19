@@ -1,8 +1,6 @@
 #if($infos.isEmpty())
 	<div class="o_important">
-		<p>
-		$r.translate("display.no_messages")
-		</p>
+		<p>$r.translate("display.no_messages")</p>
 		#if($r.available("new_message"))
 		<div class="o_button_group">
 			$r.render("new_message")
@@ -19,9 +17,7 @@
 	#end	
 #end
 
-
-<div class="o_infomsg o_block_with_datecomp clearfix">
-	
+<div class="clearfix"><div class="o_infomsg o_block_with_datecomp">
 	#foreach($info in $infos)
 		<div class="o_msg o_block_large clearfix">
 			<div class="o_head">
@@ -38,6 +34,24 @@
 			</div>
 			#if($info.getMessage())
 				<div class="o_content">$info.getMessage()</div>
+			#end 
+			
+			#if($r.isNotEmpty($info.attachment))
+			<div class="o_attachment">
+				#set($attachment = $info.attachment)
+				#set($fname = $attachment.name)
+				<a href="${attachmentMapper}/$info.key/$fname" target="_blank">
+					<div class="o_filename">$r.escapeHtml($fname)</div>
+					<div class="o_size">
+						<i class="o_icon o_icon-fw $r.getFiletypeIconCss($fname)"></i>
+						 $r.formatBytes($attachment.getSize())
+					</div>
+					#if ($attachment.getMetaInfo() && $attachment.getMetaInfo().isThumbnailAvailable())										
+					<img src="${thumbnailMapper}/$info.key/$attachment.getMetaInfo().getUUID()/$fname" class="img-thumbnail" alt="$r.escapeHtml("$fname")" title="$r.escapeHtml("$fname")"/>
+					<i class="o_icon o_icon-lg o_icon_enlarge"> </i>
+					#end
+				</a>	
+			</div>
 			#end
 			#if($r.available("info.delete.${info.getKey()}") or $r.available("info.edit.${info.getKey()}"))
 				<div class="o_button_group">
@@ -51,12 +65,12 @@
 			#end
 		</div>
 	#end
-	<div class="pull-right clearfix">
-		#if($r.available("display.old_messages"))
-			$r.render("display.old_messages")
-		#end
-		#if($r.available("display.new_messages"))
-			$r.render("display.new_messages")
-		#end
-	</div>
+</div></div>
+<div class="o_button_group">
+	#if($r.available("display.old_messages"))
+		$r.render("display.old_messages")
+	#end
+	#if($r.available("display.new_messages"))
+		$r.render("display.new_messages")
+	#end
 </div>

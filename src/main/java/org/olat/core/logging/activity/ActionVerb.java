@@ -57,6 +57,8 @@ public enum ActionVerb {
 	view,
 	deactivate,
 	trash,
-	restore
+	restore,
+	cancel,
+	reset
 
 }

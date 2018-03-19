@@ -33,6 +33,8 @@ import org.olat.login.oauth.spi.FacebookProvider;
 import org.olat.login.oauth.spi.Google2Provider;
 import org.olat.login.oauth.spi.JSONWebToken;
 import org.olat.login.oauth.spi.LinkedInProvider;
+import org.olat.login.oauth.spi.TequilaApi;
+import org.olat.login.oauth.spi.TequilaProvider;
 import org.olat.login.oauth.spi.TwitterProvider;
 import org.scribe.model.Token;
 
@@ -64,7 +66,7 @@ public class OAuthDispatcherTest {
 	@Test
 	public void parseUserInfos_twitter() throws IOException {
 		URL jsonUrl = OAuthDispatcherTest.class.getResource("verify_credentials.json");
-		String body = IOUtils.toString(jsonUrl);
+		String body = IOUtils.toString(jsonUrl, "UTF-8");
 		
 		OAuthUser infos = new TwitterProvider().parseInfos(body);
 		Assert.assertNotNull(infos);
@@ -77,7 +79,7 @@ public class OAuthDispatcherTest {
 	@Test
 	public void parseUserInfos_google() throws IOException {
 		URL jsonUrl = OAuthDispatcherTest.class.getResource("me_google.json");
-		String body = IOUtils.toString(jsonUrl);
+		String body = IOUtils.toString(jsonUrl, "UTF-8");
 		
 		OAuthUser infos = new Google2Provider().parseInfos(body);
 		Assert.assertNotNull(infos);
@@ -90,7 +92,7 @@ public class OAuthDispatcherTest {
 	@Test
 	public void parseUserInfos_facebook() throws IOException {
 		URL jsonUrl = OAuthDispatcherTest.class.getResource("me_facebook.json");
-		String body = IOUtils.toString(jsonUrl);
+		String body = IOUtils.toString(jsonUrl, "UTF-8");
 		
 		OAuthUser infos = new FacebookProvider().parseInfos(body);
 		Assert.assertNotNull(infos);
@@ -121,7 +123,42 @@ public class OAuthDispatcherTest {
 		Assert.assertEquals("test_openolat", payloadObj.opt("SAMAccountName"));
 		Assert.assertEquals("OpenOlat", payloadObj.opt("Sn"));
 		Assert.assertEquals("Testuser", payloadObj.opt("displayNamePrintable"));
-		
+	}
+	
+	@Test
+	public void oAuthUserInfos_toString() throws JSONException {
+		OAuthUser infos = new OAuthUser();
+		infos.setId("mySecretId");
+		infos.setEmail("mySecretEmail@openolat.com");
+		String toString = infos.toString();
+		Assert.assertTrue(toString.contains("mySecretId"));
+		Assert.assertTrue(toString.contains("mySecretEmail@openolat.com"));
+	}
+	
+	@Test
+	public void oAuthUserInfos_toString_NULL() throws JSONException {
+		OAuthUser infos = new OAuthUser();
+		String toString = infos.toString();
+		Assert.assertNotNull(toString);
+	}
+	
+	@Test
+	public void extractTequilaBearerToken() {
+		String response = "\"access_token\": \"Bearer 880a11c9aaae0abf0f6a384c559110d8c7570456\", \"scope\": \"Tequila.profile\"";
+		TequilaApi.TequilaBearerExtractor extractor = new TequilaApi.TequilaBearerExtractor();
+		Token token = extractor.extract(response);
+		String accessToken = token.getToken();
+		Assert.assertEquals("880a11c9aaae0abf0f6a384c559110d8c7570456", accessToken);
+	}
+	
+	@Test
+	public void parseTequilaUserInfos() {
+		String data = "{ \"Sciper\": \"M02491\", \"authscheme\": \"OAuth2\", \"Firstname\": \"Service\", \"Username\": \"Erecruiting_oAuth2\", \"Name\": \"Erecruiting_oAuth2\", \"scope\": \"Tequila.profile\" }";
+		OAuthUser infos = new TequilaProvider().parseResponse(data);
+		Assert.assertNotNull(infos);
+		Assert.assertEquals("Service",  infos.getFirstName());
+		Assert.assertEquals("Erecruiting_oAuth2",  infos.getLastName());
+		Assert.assertEquals("M02491",  infos.getId());
 		
 		
 	}

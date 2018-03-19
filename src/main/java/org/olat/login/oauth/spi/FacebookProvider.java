@@ -29,6 +29,8 @@ import org.olat.login.oauth.OAuthSPI;
 import org.olat.login.oauth.model.OAuthUser;
 import org.scribe.builder.api.Api;
 import org.scribe.builder.api.FacebookApi;
+import org.scribe.extractors.AccessTokenExtractor;
+import org.scribe.extractors.JsonTokenExtractor;
 import org.scribe.model.OAuthRequest;
 import org.scribe.model.Response;
 import org.scribe.model.Token;
@@ -68,7 +70,12 @@ public class FacebookProvider implements OAuthSPI {
 
 	@Override
 	public Api getScribeProvider() {
-		return new FacebookApi();
+		return new FacebookApi() {
+			@Override
+			public AccessTokenExtractor getAccessTokenExtractor() {
+				return new JsonTokenExtractor();
+			}
+		};
 	}
 
 	@Override
@@ -129,5 +136,10 @@ public class FacebookProvider implements OAuthSPI {
 	private String getValue(JSONObject obj, String property) {
 		String value = obj.optString(property);
 		return StringHelper.containsNonWhitespace(value) ? value : null;
+	}
+
+	@Override
+	public String getIssuerIdentifier() {
+		return "https://facebook.com";
 	}
 }

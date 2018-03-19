@@ -42,6 +42,8 @@ import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.creator.ControllerCreator;
+import org.olat.core.gui.control.winmgr.JSCommand;
+import org.olat.core.gui.control.winmgr.ScrollTopCommand;
 import org.olat.core.logging.AssertException;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.event.GenericEventListener;
@@ -208,12 +210,18 @@ public class StepsMainRunController extends FormBasicController implements Gener
 		} else if (source == nextButton) {
 			// submit and let current unsaved step do its work
 			flc.getRootForm().submitAndNext(ureq);
+			//getWindowControl().getWindowBackOffice()
+			//	.sendCommandTo(new JSCommand("try { o_scrollToElement('.o_wizard.modal.show.in'); } catch(e){ }"));
+			getWindowControl().getWindowBackOffice()
+				.sendCommandTo(new ScrollTopCommand());
 			// the current step decides whether to proceed to the next step or
 			// not.
 		} else if (source == finishButton) {
 			// submit and let last unsaved step do its work
 			finishCycle = true;
 			flc.getRootForm().submitAndFinish(ureq);
+			getWindowControl().getWindowBackOffice()
+				.sendCommandTo(new ScrollTopCommand());
 			// the current step decides whether to proceed or not
 			// an end step will fire FINISH
 			// a intermediate step will fire NEXT .. but NEXT && FINISHCYCLE
@@ -221,6 +229,8 @@ public class StepsMainRunController extends FormBasicController implements Gener
 		} else if (source == prevButton) {
 			lastEvent = StepsEvent.ACTIVATE_PREVIOUS;
 			doAfterDispatch = true;
+			getWindowControl().getWindowBackOffice()
+				.sendCommandTo(new JSCommand("try { o_scrollToElement('.o_wizard.modal.show.in'); } catch(e){ }"));
 		} else if (whichTitleClickedIndex >= 0) {
 			// handle a step title link
 			// remove all steps until the clicked one
@@ -260,9 +270,11 @@ public class StepsMainRunController extends FormBasicController implements Gener
 		prevButton = new FormLinkImpl("back");
 		prevButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_prev");
 		prevButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_prev");
+		prevButton.setIconLeftCSS("o_icon o_icon_previous_step o_icon-fw");
 		nextButton = new FormLinkImpl("next");
 		nextButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_next");
 		nextButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_next");
+		nextButton.setIconRightCSS("o_icon o_icon_next_step o_icon-fw");
 		finishButton = new FormLinkImpl("finish");
 		finishButton.setCustomEnabledLinkCSS("btn btn-default o_wizard_button_finish");
 		finishButton.setCustomDisabledLinkCSS("btn btn-default o_wizard_button_finish");
@@ -415,6 +427,10 @@ public class StepsMainRunController extends FormBasicController implements Gener
 					addNextStep((StepFormController) nextChildCreator.createController(null, getWindowControl()), nextStep);
 				}
 			} else if (lastEvent == StepsEvent.ACTIVATE_PREVIOUS) {
+				if(currentStepIndex <= 0) {
+					return;// the case is possible with FireFox and users who use the keyboard and the enter key.
+				}
+				
 				stepPages.pop();
 				steps.pop();
 				currentStepIndex--;

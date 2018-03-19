@@ -99,6 +99,7 @@ create table o_temporarykey (
    ip varchar(255) not null,
    mailsent bool not null,
    action varchar(255) not null,
+   fk_identity_id int8,
    primary key (reglist_id)
 );
 create table o_bs_authentication (
@@ -228,6 +229,7 @@ create table o_user (
    u_telprivate varchar(255),
    u_telmobile varchar(255),
    u_teloffice varchar(255),
+   u_smstelmobile varchar(255),
    u_skype varchar(255),
    u_msn varchar(255),
    u_xing varchar(255),
@@ -454,10 +456,10 @@ create table o_bs_membership (
 );
 
 create table o_plock (
-    plock_id int8 not null, 
+    plock_id int8 not null,
     version int4 not null,
-    creationdate timestamp, 
-    asset varchar(255) not null unique, 
+    creationdate timestamp,
+    asset varchar(255) not null unique,
     primary key (plock_id)
 );
 
@@ -478,22 +480,22 @@ create table o_lifecycle (
 );
 
 create table oc_lock (
-	lock_id int8 not null, 
+	lock_id int8 not null,
 	version int4 not null,
-	creationdate timestamp, 
-	identity_fk int8 not null, 
-	asset varchar(120) not null unique, 
+	creationdate timestamp,
+	identity_fk int8 not null,
+	asset varchar(120) not null unique,
 	primary key (lock_id)
 );
 alter table oc_lock add constraint FK9E30F4B66115906D foreign key (identity_fk) references o_bs_identity;
 
 create table o_readmessage (
-	id int8 not null, 
+	id int8 not null,
 	version int4 not null,
     creationdate timestamp,
-	identity_id int8 not null, 
-	forum_id int8 not null, 
-	message_id int8 not null, 
+	identity_id int8 not null,
+	forum_id int8 not null,
+	message_id int8 not null,
 	primary key (id)
 );
 
@@ -563,7 +565,7 @@ create table o_checkpoint_results (
    lastmodified timestamp not null,
    result bool not null,
    checkpoint_fk int8,
-   identity_fk int8, 
+   identity_fk int8,
    primary key (checkpoint_result_id)
 );
 
@@ -598,27 +600,27 @@ create table o_projectbroker_customfields (
 );
 
 create table o_usercomment (
-	comment_id int8 not null, 
-	version int4 not null, 
-	creationdate timestamp, 
-	resname varchar(50) not null, 
-	resid int8 not null, 
-	ressubpath varchar(2048), 
+	comment_id int8 not null,
+	version int4 not null,
+	creationdate timestamp,
+	resname varchar(50) not null,
+	resid int8 not null,
+	ressubpath varchar(2048),
 	creator_id int8 not null,
-	commenttext text, 
-	parent_key int8, 
+	commenttext text,
+	parent_key int8,
 	primary key (comment_id)
 );
 create table o_userrating (
-	rating_id int8 not null, 
-	version int4 not null, 
-	creationdate timestamp, 
+	rating_id int8 not null,
+	version int4 not null,
+	creationdate timestamp,
 	lastmodified timestamp,
-	resname varchar(50) not null, 
-	resid int8 not null, 
-	ressubpath varchar(2048), 
+	resname varchar(50) not null,
+	resid int8 not null,
+	ressubpath varchar(2048),
 	creator_id int8 not null,
-	rating int4 not null, 
+	rating int4 not null,
 	primary key (rating_id)
 );
 create table o_info_message (
@@ -628,6 +630,7 @@ create table o_info_message (
   modificationdate timestamp,
   title varchar(2048),
   message text,
+  attachmentpath varchar(1024),
   resname varchar(50) NOT NULL,
   resid int8 NOT NULL,
   ressubpath varchar(2048),
@@ -703,7 +706,7 @@ create table o_ep_struct_el (
   target_resid int8,
   target_ressubpath varchar(2048),
   target_businesspath varchar(2048),
-  style varchar(128),  
+  style varchar(128),
   status varchar(32),
   viewmode varchar(32),
   fk_struct_root_id int8,
@@ -711,7 +714,7 @@ create table o_ep_struct_el (
   fk_map_source_id int8,
   fk_group_id int8,
   fk_olatresource int8 not null,
-  primary key (structure_id)  
+  primary key (structure_id)
 );
 create table o_ep_struct_struct_link (
   link_id int8 not null,
@@ -865,6 +868,19 @@ create table o_ac_offer_access (
   fk_offer_id int8,
   fk_method_id int8,
 	primary key (offer_method_id)
+);
+
+create table o_ac_auto_advance_order (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  a_identifier_key varchar(64) not null,
+  a_identifier_value varchar(64) not null,
+  a_status varchar(32) not null,
+  a_status_modified timestamp not null,
+  fk_identity int8 not null,
+  fk_method int8 not null,
+  primary key (id)
 );
 
 -- access cart
@@ -1121,6 +1137,8 @@ create table o_as_eff_statement (
    id int8 not null,
    version int4 not null,
    lastmodified timestamp,
+   lastcoachmodified timestamp,
+   lastusermodified timestamp,
    creationdate timestamp,
    passed boolean,
    score float4,
@@ -1157,16 +1175,22 @@ create table o_as_entry (
    id bigserial,
    creationdate timestamp not null,
    lastmodified timestamp not null,
+   lastcoachmodified timestamp,
+   lastusermodified timestamp,
    a_attemtps int8 default null,
    a_score decimal default null,
    a_passed bool default null,
    a_status varchar(16) default null,
    a_details varchar(1024) default null,
    a_fully_assessed bool default null,
+   a_user_visibility bool default true,
    a_assessment_id int8 default null,
    a_completion float(24),
+   a_current_run_completion float(24),
+   a_current_run_status varchar(16),
    a_comment text,
    a_coach_comment text,
+   a_num_assessment_docs int8 not null default 0,
    fk_entry int8 not null,
    a_subident varchar(64),
    fk_reference_entry int8,
@@ -1311,6 +1335,19 @@ create table o_vid_transcoding (
    primary key (id)
 );
 
+create table o_vid_metadata (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  vid_width int8 default null,
+  vid_height int8 default null,
+  vid_size int8 default null,
+  vid_format varchar(32) default null,
+  vid_length varchar(32) default null,
+  fk_resource_id int8 not null,
+  primary key (id)
+);
+
 -- calendar
 create table o_cal_use_config (
    id int8 not null,
@@ -1421,10 +1458,13 @@ create table o_qti_assessmenttest_session (
    q_score decimal default null,
    q_manual_score decimal default null,
    q_passed bool default null,
+   q_num_questions int8,
+   q_num_answered_questions int8,
+   q_extra_time int8,
    q_storage varchar(1024),
    fk_reference_entry int8 not null,
    fk_entry int8,
-   q_subident varchar(64),
+   q_subident varchar(255),
    fk_identity int8 default null,
    q_anon_identifier varchar(128) default null,
    fk_assessment_entry int8 not null,
@@ -1435,12 +1475,13 @@ create table o_qti_assessmentitem_session (
    id bigserial,
    creationdate timestamp not null,
    lastmodified timestamp not null,
-   q_itemidentifier varchar(64) not null,
-   q_sectionidentifier varchar(64) default null,
-   q_testpartidentifier varchar(64) default null,
+   q_itemidentifier varchar(255) not null,
+   q_sectionidentifier varchar(255) default null,
+   q_testpartidentifier varchar(255) default null,
    q_duration int8,
    q_score decimal default null,
    q_manual_score decimal default null,
+   q_coach_comment text default null,
    q_passed bool default null,
    q_storage varchar(1024),
    fk_assessmenttest_session int8 not null,
@@ -1465,6 +1506,7 @@ create table o_qti_assessment_marks (
    creationdate timestamp not null,
    lastmodified timestamp not null,
    q_marks text default null,
+   q_hidden_rubrics text default null,
    fk_reference_entry int8 not null,
    fk_entry int8,
    q_subident varchar(64),
@@ -1641,6 +1683,18 @@ create table o_pf_binder_user_infos (
    primary key (id)
 );
 
+create table o_pf_page_user_infos (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  p_mark bool default false,
+  p_status varchar(16) not null default 'incoming',
+  p_recentlaunchdate timestamp not null,
+  fk_identity_id int8 not null,
+  fk_page_id int8 not null,
+  primary key (id)
+);
+
 -- evaluation form
 create table o_eva_form_session (
    id bigserial,
@@ -1694,6 +1748,7 @@ create table o_qp_item (
    q_identifier varchar(36) not null,
    q_master_identifier varchar(36),
    q_title varchar(1024) not null,
+   q_topic varchar(1024),
    q_description varchar(2048),
    q_keywords varchar(1024),
    q_coverage varchar(1024),
@@ -1714,13 +1769,28 @@ create table o_qp_item (
    q_editor varchar(256),
    q_editor_version varchar(256),
    q_format varchar(32) not null,
+   q_creator varchar(1024),
    creationdate timestamp not null,
    lastmodified timestamp not null,
+   q_status_last_modified timestamp,
    q_dir varchar(32),
    q_root_filename varchar(255),
    fk_taxonomy_level int8,
+   fk_taxonomy_level_v2 int8,
    fk_ownergroup int8 not null,
    primary key (id)
+);
+
+create table o_qp_item_audit_log (
+  id bigserial,
+  creationdate timestamp not null,
+  q_action varchar(64),
+  q_val_before text,
+  q_val_after text,
+  q_message text,
+  fk_author_id int8,
+  fk_item_id int8,
+  primary key (id)
 );
 
 create table o_qp_pool_2_item (
@@ -1823,7 +1893,6 @@ create table o_gta_task_list (
    creationdate timestamp not null,
    lastmodified timestamp not null,
    g_course_node_ident varchar(36),
-   g_roundrobin text,
    fk_entry int8 not null,
    primary key (id)
 );
@@ -1835,11 +1904,46 @@ create table o_gta_task (
    g_status varchar(36),
    g_rev_loop int4 not null default 0,
    g_assignment_date timestamp,
+   g_submission_date timestamp,
+   g_submission_ndocs int8,
+   g_submission_revisions_date timestamp,
+   g_submission_revisions_ndocs int8,
+   g_collection_date timestamp,
+   g_collection_ndocs int8,
+   g_acceptation_date timestamp,
+   g_solution_date timestamp,
+   g_graduation_date timestamp,
+   g_allow_reset_date timestamp,
+   g_assignment_due_date timestamp,
+   g_submission_due_date timestamp,
+   g_revisions_due_date timestamp,
+   g_solution_due_date timestamp,
    g_taskname varchar(1024),
    fk_tasklist int8 not null,
    fk_identity int8,
    fk_businessgroup int8,
+   fk_allow_reset_identity int8,
    primary key (id)
+);
+
+create table o_gta_task_revision_date (
+  id bigserial not null,
+  creationdate timestamp not null,
+  g_status varchar(36) not null,
+  g_rev_loop int8 not null,
+  g_date timestamp not null,
+  fk_task int8 not null,
+  primary key (id)
+);
+
+create table o_gta_mark (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  fk_tasklist_id int8 not null,
+  fk_marker_identity_id int8 not null,
+  fk_participant_identity_id int8 not null,
+  primary key (id)
 );
 
 create table o_rem_reminder (
@@ -1850,6 +1954,7 @@ create table o_rem_reminder (
    r_start timestamp,
    r_sendtime varchar(16),
    r_configuration text,
+   r_email_subject varchar(255),
    r_email_body text,
    fk_creator int8 not null,
    fk_entry int8 not null,
@@ -1888,6 +1993,291 @@ create table o_ex_task_modifier (
    fk_task_id int8 not null,
    fk_identity_id int8 not null,
    primary key (id)
+);
+
+-- sms
+create table o_sms_message_log (
+   id bigserial not null,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   s_message_uuid varchar(256) not null,
+   s_server_response varchar(256),
+   s_service_id varchar(32) not null,
+   fk_identity int8 not null,
+   primary key (id)
+);
+
+-- webfeed
+create table o_feed (
+   id bigserial not null,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   f_resourceable_id bigint,
+   f_resourceable_type varchar(64),
+   f_title varchar(1024),
+   f_description text,
+   f_author varchar(255),
+   f_image_name varchar(1024),
+   f_external boolean,
+   f_external_feed_url varchar(4000),
+   f_external_image_url varchar(4000),
+   primary key (id)
+);
+
+create table o_feed_item (
+   id bigserial not null,
+   creationdate timestamp not null,
+   lastmodified timestamp not null,
+   f_title varchar(1024),
+   f_description text,
+   f_content text,
+   f_author varchar(255),
+   f_guid varchar(255),
+   f_external_link varchar(4000),
+   f_draft boolean,
+   f_publish_date timestamp,
+   f_width int8,
+   f_height int8,
+   f_filename varchar(1024),
+   f_type varchar(255),
+   f_length bigint,
+   f_external_url varchar(4000),
+   fk_feed_id bigint,
+   fk_identity_author_id int8,
+   fk_identity_modified_id int8,
+   primary key (id)
+);
+
+-- lectures
+create table o_lecture_reason (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  l_title varchar(255),
+  l_descr varchar(2000),
+  primary key (id)
+);
+
+
+create table o_lecture_block (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  l_external_id varchar(255),
+  l_managed_flags varchar(255),
+  l_title varchar(255),
+  l_descr text,
+  l_preparation text,
+  l_location varchar(255),
+  l_comment text,
+  l_start_date timestamp not null,
+  l_end_date timestamp not null,
+  l_compulsory bool default true,
+  l_eff_end_date timestamp,
+  l_planned_lectures_num int8 not null default 0,
+  l_effective_lectures_num int8 not null default 0,
+  l_effective_lectures varchar(128),
+  l_auto_close_date timestamp default null,
+  l_status varchar(16) not null,
+  l_roll_call_status varchar(16) not null,
+  fk_reason int8,
+  fk_entry int8 not null,
+  fk_teacher_group int8 not null,
+  primary key (id)
+);
+
+create table o_lecture_block_to_group (
+  id bigserial not null,
+  fk_lecture_block int8 not null,
+  fk_group int8 not null,
+  primary key (id)
+);
+
+create table o_lecture_block_roll_call (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  l_comment text,
+  l_lectures_attended varchar(128),
+  l_lectures_absent varchar(128),
+  l_lectures_attended_num int8 not null default 0,
+  l_lectures_absent_num int8 not null default 0,
+  l_absence_reason text,
+  l_absence_authorized bool default null,
+  l_absence_appeal_date timestamp,
+  l_absence_supervisor_noti_date timestamp,
+  fk_lecture_block int8 not null,
+  fk_identity int8 not null,
+  primary key (id)
+);
+
+create table o_lecture_reminder (
+  id bigserial not null,
+  creationdate timestamp not null,
+  l_status varchar(16) not null,
+  fk_lecture_block int8 not null,
+  fk_identity int8 not null,
+  primary key (id)
+);
+
+create table o_lecture_participant_summary (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  l_required_attendance_rate float(24) default null,
+  l_first_admission_date timestamp default null,
+  l_attended_lectures int8 not null default 0,
+  l_absent_lectures int8 not null default 0,
+  l_excused_lectures int8 not null default 0,
+  l_planneds_lectures int8 not null default 0,
+  l_attendance_rate float(24) default null,
+  l_cal_sync bool default false,
+  l_cal_last_sync_date timestamp default null,
+  fk_entry int8 not null,
+  fk_identity int8 not null,
+  primary key (id),
+  unique (fk_entry, fk_identity)
+);
+
+create table o_lecture_entry_config (
+  id bigserial not null,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  l_lecture_enabled bool default null,
+  l_override_module_def bool default false,
+  l_rollcall_enabled bool default null,
+  l_calculate_attendance_rate bool default null,
+  l_required_attendance_rate float(24) default null,
+  l_sync_calendar_teacher bool default null,
+  l_sync_calendar_participant bool default null,
+  l_sync_calendar_course bool default null,
+  fk_entry int8 not null,
+  unique(fk_entry),
+  primary key (id)
+);
+
+create table o_lecture_block_audit_log (
+  id bigserial not null,
+  creationdate timestamp not null,
+  l_action varchar(32),
+  l_val_before text,
+  l_val_after text,
+  l_message text,
+  fk_lecture_block int8,
+  fk_roll_call int8,
+  fk_entry int8,
+  fk_identity int8,
+  fk_author int8,
+  primary key (id)
+);
+
+-- taxonomy
+create table o_tax_taxonomy (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  t_identifier varchar(64),
+  t_displayname varchar(255) not null,
+  t_description text,
+  t_external_id varchar(64),
+  t_managed_flags varchar(255),
+  t_directory_path varchar(255),
+  t_directory_lost_found_path varchar(255),
+  fk_group int8 not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_level_type (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  t_identifier varchar(64),
+  t_displayname varchar(255) not null,
+  t_description text,
+  t_external_id varchar(64),
+  t_managed_flags varchar(255),
+  t_css_class varchar(64),
+  t_visible bool default true,
+  t_library_docs bool default true,
+  t_library_manage bool default true,
+  t_library_teach_read bool default true,
+  t_library_teach_readlevels int8 not null default 0,
+  t_library_teach_write bool default false,
+  t_library_have_read bool default true,
+  t_library_target_read bool default true,
+  fk_taxonomy int8 not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_type_to_type (
+  id bigserial,
+  fk_type int8 not null,
+  fk_allowed_sub_type int8 not null,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_level (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  t_identifier varchar(64),
+  t_displayname varchar(255) not null,
+  t_description text,
+  t_external_id varchar(64),
+  t_sort_order int8,
+  t_directory_path varchar(255),
+  t_m_path_keys varchar(255),
+  t_m_path_identifiers varchar(1024),
+  t_enabled bool default true,
+  t_managed_flags varchar(255),
+  fk_taxonomy int8 not null,
+  fk_parent int8,
+  fk_type int8,
+  primary key (id)
+);
+
+create table o_tax_taxonomy_competence (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  t_type varchar(16),
+  t_achievement decimal default null,
+  t_reliability decimal default null,
+  t_expiration_date timestamp,
+  t_external_id varchar(64),
+  t_source_text varchar(255),
+  t_source_url varchar(255),
+  fk_level int8 not null,
+  fk_identity int8 not null,
+  primary key (id)
+);
+
+create table o_tax_competence_audit_log (
+  id bigserial,
+  creationdate timestamp not null,
+  t_action varchar(32),
+  t_val_before text,
+  t_val_after text,
+  t_message text,
+  fk_taxonomy int8,
+  fk_taxonomy_competence int8,
+  fk_identity int8,
+  fk_author int8,
+  primary key (id)
+);
+
+-- dialog elements
+create table o_dialog_element (
+  id bigserial,
+  creationdate timestamp not null,
+  lastmodified timestamp not null,
+  d_filename varchar(2048),
+  d_filesize int8,
+  d_subident varchar(64) not null,
+  fk_author int8,
+  fk_entry int8 not null,
+  fk_forum int8 not null,
+  primary key (id)
 );
 
 -- user view
@@ -1950,7 +2340,7 @@ create or replace view o_ep_notifications_rating_v as (
       page.title as page_title,
       urating.creator_id as author_id,
       urating.creationdate as creation_date,
-      urating.lastmodified as last_modified 
+      urating.lastmodified as last_modified
    from o_userrating as urating
    inner join o_olatresource as rating_resource on (rating_resource.resid = urating.resid and rating_resource.resname = urating.resname)
    inner join o_ep_struct_el as map on (map.fk_olatresource = rating_resource.resource_id)
@@ -1973,7 +2363,7 @@ create or replace view o_ep_notifications_comment_v as (
 );
 
 create view o_gp_business_to_repository_v as (
-	select 
+	select
 		grp.group_id as grp_id,
 		repoentry.repositoryentry_id as re_id,
 		repoentry.displayname as re_displayname
@@ -2004,9 +2394,9 @@ create or replace view o_re_membership_v as (
       re.repositoryentry_id as fk_entry_id
    from o_repositoryentry as re
    inner join o_re_to_group relgroup on (relgroup.fk_entry_id=re.repositoryentry_id and relgroup.r_defgroup=true)
-   inner join o_bs_group_member as bmember on (bmember.fk_group_id=relgroup.fk_group_id) 
+   inner join o_bs_group_member as bmember on (bmember.fk_group_id=relgroup.fk_group_id)
 );
-  
+
 -- contacts
 create view o_gp_contactkey_v as (
    select
@@ -2100,6 +2490,8 @@ create index userrating_id_idx on o_userrating (resid);
 create index userrating_name_idx on o_userrating (resname);
 create index userrating_subpath_idx on o_userrating (ressubpath);
 create index userrating_rating_idx on o_userrating (rating);
+create index userrating_rating_res_idx on o_userrating (resid, resname, creator_id, rating);
+
 
 -- comment
 alter table o_usercomment add constraint FK92B6864A18251F0 foreign key (parent_key) references o_usercomment (comment_id);
@@ -2202,11 +2594,18 @@ create index idx_user_instid_idx on o_user (u_institutionaluseridentifier);
 create index idx_user_instemail_idx on o_user (u_institutionalemail);
 create index idx_user_creationdate_idx on o_user (creationdate);
 
+create index xx_idx_email_low_text on o_user(lower(u_email) text_pattern_ops);
+create index xx_idx_institutionalemail_low_text on o_user(lower(u_institutionalemail) text_pattern_ops);
+create index xx_idx_username_low_text on o_bs_identity(lower(name) text_pattern_ops);
+
 create index propvalue_idx on o_userproperty (propvalue);
 
 alter table o_user add constraint user_to_ident_idx foreign key (fk_identity) references o_bs_identity(id);
 create index idx_user_to_ident_idx on o_user (fk_identity);
 alter table o_user add constraint idx_un_user_to_ident_idx UNIQUE (fk_identity);
+
+-- temporary key
+create index idx_tempkey_identity_idx on o_temporarykey (fk_identity_id);
 
 -- pub sub
 create index name_idx2 on o_noti_pub (resname, resid, subident);
@@ -2301,6 +2700,11 @@ create index paypal_pay_key_idx on o_ac_paypal_transaction (pay_key);
 create index paypal_pay_trx_id_idx on o_ac_paypal_transaction (ipn_transaction_id);
 create index paypal_pay_s_trx_id_idx on o_ac_paypal_transaction (ipn_sender_transaction_id);
 
+create index idx_ac_aao_id_idx on o_ac_auto_advance_order(id);
+create index idx_ac_aao_identifier_idx on o_ac_auto_advance_order(a_identifier_key, a_identifier_value);
+create index idx_ac_aao_ident_idx on o_ac_auto_advance_order(fk_identity);
+alter table o_ac_auto_advance_order add constraint aao_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+
 -- reservations
 alter table o_ac_reservation add constraint idx_rsrv_to_rsrc_rsrc foreign key (fk_resource) references o_olatresource (resource_id);
 create index idx_rsrv_to_rsrc_idx on o_ac_reservation(fk_resource);
@@ -2338,9 +2742,17 @@ alter table o_gta_task add constraint gtask_to_identity_idx foreign key (fk_iden
 create index idx_gtask_to_identity_idx on o_gta_task (fk_identity);
 alter table o_gta_task add constraint gtask_to_bgroup_idx foreign key (fk_businessgroup) references o_gp_business (group_id);
 create index idx_gtask_to_bgroup_idx on o_gta_task (fk_businessgroup);
+alter table o_gta_task add constraint gtaskreset_to_allower_idx foreign key (fk_allow_reset_identity) references o_bs_identity (id);
+create index idx_gtaskreset_to_allower_idx on o_gta_task (fk_allow_reset_identity);
 
 alter table o_gta_task_list add constraint gta_list_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
 create index idx_gta_list_to_repo_entry_idx on o_gta_task_list (fk_entry);
+
+alter table o_gta_task_revision_date add constraint gtaskrev_to_task_idx foreign key (fk_task) references o_gta_task (id);
+create index idx_gtaskrev_to_task_idx on o_gta_task_revision_date (fk_task);
+
+alter table o_gta_mark add constraint gtamark_tasklist_idx foreign key (fk_tasklist_id) references o_gta_task_list (id);
+create index idx_gtamark_tasklist_idx on o_gta_mark (fk_tasklist_id);
 
 -- reminders
 alter table o_rem_reminder add constraint rem_reminder_to_repo_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
@@ -2546,6 +2958,8 @@ alter table o_vid_transcoding add constraint fk_resource_id_idx foreign key (fk_
 create index idx_vid_trans_resource_idx on o_vid_transcoding(fk_resource_id);
 create index vid_status_trans_idx on o_vid_transcoding(vid_status);
 create index vid_transcoder_trans_idx on o_vid_transcoding(vid_transcoder);
+alter table o_vid_metadata add constraint vid_meta_rsrc_idx foreign key (fk_resource_id) references o_olatresource (resource_id);
+create index idx_vid_meta_rsrc_idx on o_vid_metadata(fk_resource_id);
 
 -- mapper
 create index o_mapper_uuid_idx on o_mapper (mapper_uuid);
@@ -2640,6 +3054,11 @@ create index idx_binder_user_to_ident_idx on o_pf_binder_user_infos (fk_identity
 alter table o_pf_binder_user_infos add constraint binder_user_binder_idx foreign key (fk_binder) references o_pf_binder (id);
 create index idx_binder_user_binder_idx on o_pf_binder_user_infos (fk_binder);
 
+alter table o_pf_page_user_infos add constraint user_pfpage_idx foreign key (fk_identity_id) references o_bs_identity (id);
+create index idx_user_pfpage_idx on o_pf_page_user_infos (fk_identity_id);
+alter table o_pf_page_user_infos add constraint page_pfpage_idx foreign key (fk_page_id) references o_pf_page (id);
+create index idx_page_pfpage_idx on o_pf_page_user_infos (fk_page_id);
+
 -- evaluation form
 alter table o_eva_form_session add constraint eva_session_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
 create index idx_eva_session_to_ident_idx on o_eva_form_session (fk_identity);
@@ -2676,8 +3095,8 @@ alter table o_qp_collection_2_item add unique (fk_collection_id, fk_item_id);
 create index idx_coll2item_coll_idx on o_qp_collection_2_item (fk_collection_id);
 create index idx_coll2item_item_idx on o_qp_collection_2_item (fk_item_id);
 
-alter table o_qp_item add constraint idx_qp_pool_2_field_id foreign key (fk_taxonomy_level) references o_qp_taxonomy_level(id);
-create index idx_item_taxon_idx on o_qp_item (fk_taxonomy_level);
+alter table o_qp_item add constraint idx_qp_pool_2_tax_id foreign key (fk_taxonomy_level_v2) references o_tax_taxonomy_level(id);
+create index idx_item_taxlon_idx on o_qp_item (fk_taxonomy_level_v2);
 alter table o_qp_item add constraint idx_qp_item_owner_id foreign key (fk_ownergroup) references o_bs_secgroup(id);
 create index idx_item_ownergrp_idx on o_qp_item (fk_ownergroup);
 alter table o_qp_item add constraint idx_qp_item_edu_ctxt_id foreign key (fk_edu_context) references o_qp_edu_context(id);
@@ -2692,6 +3111,8 @@ create index idx_taxon_parent_idx on o_qp_taxonomy_level (fk_parent_field);
 create index idx_taxon_mat_path on o_qp_taxonomy_level (q_mat_path_ids);
 
 alter table o_qp_item_type add constraint cst_unique_item_type unique (q_type);
+
+create index idx_item_audit_item_idx on o_qp_item_audit_log (fk_item_id);
 
 -- lti outcome
 alter table o_lti_outcome add constraint idx_lti_outcome_ident_id foreign key (fk_identity_id) references o_bs_identity(id);
@@ -2720,6 +3141,87 @@ alter table o_cer_certificate add constraint cer_to_resource_idx foreign key (fk
 create index cer_resource_idx on o_cer_certificate (fk_olatresource);
 create index cer_archived_resource_idx on o_cer_certificate (c_archived_resource_id);
 create index cer_uuid_idx on o_cer_certificate (c_uuid);
+
+-- sms
+alter table o_sms_message_log add constraint sms_log_to_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_sms_log_to_identity_idx on o_sms_message_log(fk_identity);
+
+-- webfeed
+create index idx_feed_resourceable_idx on o_feed (f_resourceable_id, f_resourceable_type);
+alter table o_feed_item add constraint item_to_feed_fk foreign key(fk_feed_id) references o_feed(id);
+create index idx_item_feed_idx on o_feed_item(fk_feed_id);
+alter table o_feed_item add constraint feed_item_to_ident_author_fk foreign key (fk_identity_author_id) references o_bs_identity (id);
+create index idx_item_ident_author_idx on o_feed_item (fk_identity_author_id);
+alter table o_feed_item add constraint feed_item_to_ident_modified_fk foreign key (fk_identity_modified_id) references o_bs_identity (id);
+create index idx_item_ident_modified_idx on o_feed_item (fk_identity_modified_id);
+
+-- lectures
+alter table o_lecture_block add constraint lec_block_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_lec_block_entry_idx on o_lecture_block(fk_entry);
+alter table o_lecture_block add constraint lec_block_gcoach_idx foreign key (fk_teacher_group) references o_bs_group (id);
+create index idx_lec_block_gcoach_idx on o_lecture_block(fk_teacher_group);
+alter table o_lecture_block add constraint lec_block_reason_idx foreign key (fk_reason) references o_lecture_reason (id);
+create index idx_lec_block_reason_idx on o_lecture_block(fk_reason);
+
+alter table o_lecture_block_to_group add constraint lec_block_to_block_idx foreign key (fk_group) references o_bs_group (id);
+create index idx_lec_block_to_block_idx on o_lecture_block_to_group(fk_group);
+alter table o_lecture_block_to_group add constraint lec_block_to_group_idx foreign key (fk_lecture_block) references o_lecture_block (id);
+create index idx_lec_block_to_group_idx on o_lecture_block_to_group(fk_lecture_block);
+
+alter table o_lecture_block_roll_call add constraint lec_call_block_idx foreign key (fk_lecture_block) references o_lecture_block (id);
+create index idx_lec_call_block_idx on o_lecture_block_roll_call(fk_lecture_block);
+alter table o_lecture_block_roll_call add constraint lec_call_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_lec_call_identity_idx on o_lecture_block_roll_call(fk_identity);
+
+alter table o_lecture_reminder add constraint lec_reminder_block_idx foreign key (fk_lecture_block) references o_lecture_block (id);
+create index idx_lec_reminder_block_idx on o_lecture_reminder(fk_lecture_block);
+alter table o_lecture_reminder add constraint lec_reminder_identity_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_lec_reminder_identity_idx on o_lecture_reminder(fk_identity);
+
+alter table o_lecture_participant_summary add constraint lec_part_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_lec_part_entry_idx on o_lecture_participant_summary(fk_entry);
+alter table o_lecture_participant_summary add constraint lec_part_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_lec_part_ident_idx on o_lecture_participant_summary(fk_identity);
+
+alter table o_lecture_entry_config add constraint lec_entry_config_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_lec_entry_conf_entry_idx on o_lecture_entry_config(fk_entry);
+
+create index idx_lec_audit_entry_idx on o_lecture_block_audit_log(fk_entry);
+create index idx_lec_audit_ident_idx on o_lecture_block_audit_log(fk_identity);
+
+-- taxonomy
+alter table o_tax_taxonomy add constraint tax_to_group_idx foreign key (fk_group) references o_bs_group (id);
+create index idx_tax_to_group_idx on o_tax_taxonomy (fk_group);
+
+alter table o_tax_taxonomy_level_type add constraint tax_type_to_taxonomy_idx foreign key (fk_taxonomy) references o_tax_taxonomy (id);
+create index idx_tax_type_to_taxonomy_idx on o_tax_taxonomy_level_type (fk_taxonomy);
+
+alter table o_tax_taxonomy_type_to_type add constraint tax_type_to_type_idx foreign key (fk_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_type_to_type_idx on o_tax_taxonomy_type_to_type (fk_type);
+alter table o_tax_taxonomy_type_to_type add constraint tax_type_to_sub_type_idx foreign key (fk_allowed_sub_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_type_to_sub_type_idx on o_tax_taxonomy_type_to_type (fk_allowed_sub_type);
+
+alter table o_tax_taxonomy_level add constraint tax_level_to_taxonomy_idx foreign key (fk_taxonomy) references o_tax_taxonomy (id);
+create index idx_tax_level_to_taxonomy_idx on o_tax_taxonomy_level (fk_taxonomy);
+alter table o_tax_taxonomy_level add constraint tax_level_to_tax_level_idx foreign key (fk_parent) references o_tax_taxonomy_level (id);
+create index idx_tax_level_to_tax_level_idx on o_tax_taxonomy_level (fk_parent);
+alter table o_tax_taxonomy_level add constraint tax_level_to_type_idx foreign key (fk_type) references o_tax_taxonomy_level_type (id);
+create index idx_tax_level_to_type_idx on o_tax_taxonomy_level (fk_type);
+create index idx_tax_level_path_key_idx on o_tax_taxonomy_level (t_m_path_keys);
+
+alter table o_tax_taxonomy_competence add constraint tax_comp_to_tax_level_idx foreign key (fk_level) references o_tax_taxonomy_level (id);
+create index idx_tax_comp_to_tax_level_idx on o_tax_taxonomy_competence (fk_level);
+alter table o_tax_taxonomy_competence add constraint tax_level_to_ident_idx foreign key (fk_identity) references o_bs_identity (id);
+create index idx_tax_level_to_ident_idx on o_tax_taxonomy_competence (fk_identity);
+
+-- dialog elements
+alter table o_dialog_element add constraint dial_el_author_idx foreign key (fk_author) references o_bs_identity (id);
+create index idx_dial_el_author_idx on o_dialog_element (fk_author);
+alter table o_dialog_element add constraint dial_el_entry_idx foreign key (fk_entry) references o_repositoryentry (repositoryentry_id);
+create index idx_dial_el_entry_idx on o_dialog_element (fk_entry);
+alter table o_dialog_element add constraint dial_el_forum_idx foreign key (fk_forum) references o_forum (forum_id);
+create index idx_dial_el_forum_idx on o_dialog_element (fk_forum);
+create index idx_dial_el_subident_idx on o_dialog_element (d_subident);
 
 -- o_logging_table
 create index log_target_resid_idx on o_loggingtable(targetresid);

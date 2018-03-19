@@ -25,16 +25,13 @@ import java.net.URL;
 import java.util.List;
 import java.util.UUID;
 
-import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.page.InitialPage;
 import org.jboss.arquillian.graphene.page.Page;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.restapi.support.vo.CourseVO;
@@ -51,18 +48,16 @@ import org.olat.selenium.page.user.PortalPage;
 import org.olat.selenium.page.user.UserAdminPage;
 import org.olat.selenium.page.user.UserPasswordPage;
 import org.olat.selenium.page.user.UserPreferencesPageFragment;
-import org.olat.selenium.page.user.UserProfilePage;
 import org.olat.selenium.page.user.UserPreferencesPageFragment.ResumeOption;
+import org.olat.selenium.page.user.UserProfilePage;
 import org.olat.selenium.page.user.UserToolsPage;
 import org.olat.selenium.page.user.VisitingCardPage;
-import org.olat.test.ArquillianDeployments;
 import org.olat.test.rest.RepositoryRestClient;
 import org.olat.test.rest.UserRestClient;
 import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
 
 /**
  * 
@@ -71,12 +66,7 @@ import org.openqa.selenium.firefox.FirefoxDriver;
  *
  */
 @RunWith(Arquillian.class)
-public class UserTest {
-	
-	@Deployment(testable = false)
-	public static WebArchive createDeployment() {
-		return ArquillianDeployments.createDeployment();
-	}
+public class UserTest extends Deployments {
 
 	@Drone
 	private WebDriver browser;
@@ -218,13 +208,13 @@ public class UserTest {
 		//login again
 		loginPage
 			.assertOnLoginPage()
-			.loginAs(user.getLogin(), user.getPassword());
+			.loginAs(user.getLogin(), user.getPassword())
+			//check that we are really logged in
+			.assertLoggedIn(user);
 		
-		//check that we don't see the resume button
+		//and check that we don't see the resume button
 		List<WebElement> resumeButtons = browser.findElements(LoginPage.resumeButton);
 		Assert.assertTrue(resumeButtons.isEmpty());
-		//double check that we are really logged in
-		loginPage.assertLoggedIn(user);
 	}
 	
 
@@ -581,9 +571,6 @@ public class UserTest {
 	@RunAsClient
 	public void browserBack(@InitialPage LoginPage loginPage)
 	throws IOException, URISyntaxException {
-		
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-		
 		loginPage
 			.loginAs("administrator", "openolat")
 			.resume();
@@ -745,10 +732,10 @@ public class UserTest {
 		importWizard.append(username2, "vampire01", "Mizore", "Shirayuki", csv);
 		importWizard
 			.fill(csv.toString())
-			.next() // -> preview
+			.nextData() // -> preview
 			.assertGreen(2)
-			.next() // -> groups
-			.next() // -> emails
+			.nextOverview() // -> groups
+			.nextGroups() // -> emails
 			.finish();
 		
 		OOGraphene.waitAndCloseBlueMessageWindow(browser);
@@ -801,13 +788,13 @@ public class UserTest {
 		user1 = importWizard.append(user1, "Aono", "openolat2", csv);
 		importWizard
 			.fill(csv.toString())
-			.next() // -> preview
+			.nextData() // -> preview
 			.assertGreen(1)
 			.assertWarn(1)
 			.updatePasswords()
 			.updateUsers()
-			.next() // -> groups
-			.next() // -> emails
+			.nextOverview() // -> groups
+			.nextGroups() // -> emails
 			.finish();
 		
 		OOGraphene.waitAndCloseBlueMessageWindow(browser);
