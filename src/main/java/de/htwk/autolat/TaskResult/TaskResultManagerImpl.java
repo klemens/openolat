@@ -62,7 +62,7 @@ public class TaskResultManagerImpl extends TaskResultManager {
 
 	@Override
 	public TaskResult loadTaskResultByID(long ID) {
-		return (TaskResult)DBFactory.getInstance().loadObject(TaskResultImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(TaskResultImpl.class, ID);
 	}
 	
 	public static TaskResultManagerImpl getInstance() {

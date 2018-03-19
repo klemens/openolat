@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormBasicController;
 import org.olat.core.gui.components.form.flexible.impl.MultipartFileInfos;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.util.StringHelper;
+import org.olat.core.util.filter.FilterFactory;
 import org.olat.ims.qti21.ui.ResponseInput.Base64Input;
 import org.olat.ims.qti21.ui.ResponseInput.FileInput;
 import org.olat.ims.qti21.ui.ResponseInput.StringInput;
@@ -111,6 +112,31 @@ public abstract class AbstractQtiWorksController extends FormBasicController {
 		fireResponse(ureq, source, stringResponseMap, fileResponseMap, candidateComment);
 	}
 	
+	protected void processTemporaryResponse(UserRequest ureq) {
+		Map<Identifier, ResponseInput> stringResponseMap = extractStringResponseData();
+
+		String cmd = ureq.getParameter("tmpResponse");
+		String responseIdentifierString = cmd.substring("qtiworks_response_".length());
+		String presentedFlag = "qtiworks_presented_".concat(responseIdentifierString);
+		if(mainForm.getRequestParameterSet().contains(presentedFlag)) {
+			Identifier responseIdentifier;
+			try {
+				responseIdentifier = getResponseIdentifierFromUniqueId(responseIdentifierString);
+				//Identifier.parseString(responseIdentifierString);
+			} catch (final QtiParseException e) {
+				throw new RuntimeException("Bad response identifier encoded in parameter " + cmd, e);
+			}
+			
+			String[] responseValues = new String[]{ "submit" };
+	        StringInput stringResponseData = new StringInput(responseValues);
+			stringResponseMap.put(responseIdentifier, stringResponseData);
+		}
+		
+		fireTemporaryResponse(ureq, stringResponseMap);
+	}
+	
+	protected abstract void fireTemporaryResponse(UserRequest ureq, Map<Identifier, ResponseInput> stringResponseMap);
+	
 	protected abstract void fireResponse(UserRequest ureq, FormItem source,
 			Map<Identifier, ResponseInput> stringResponseMap, Map<Identifier, ResponseInput> fileResponseMap,
 			String comment);
@@ -137,14 +163,19 @@ public abstract class AbstractQtiWorksController extends FormBasicController {
 					//only used from drawing interaction as image/png
 					String responseData = responseBase64Values[0];
 					if(responseData.startsWith(PNG_BASE64_PREFIX)) {
-	                	byte[] file = Base64.decodeBase64(responseData.substring(PNG_BASE64_PREFIX.length(), responseData.length()));
-	                	final Base64Input stringResponseData = new Base64Input("image/png", file);
-	                	responseMap.put(responseIdentifier, stringResponseData);
+	                		byte[] file = Base64.decodeBase64(responseData.substring(PNG_BASE64_PREFIX.length(), responseData.length()));
+	                		final Base64Input stringResponseData = new Base64Input("image/png", file);
+	                		responseMap.put(responseIdentifier, stringResponseData);
 					}
 				} else {
 					final String[] responseValues = mainForm.getRequestParameterValues("qtiworks_response_" + responseIdentifierString);
-                	final StringInput stringResponseData = new StringInput(responseValues);
-                	responseMap.put(responseIdentifier, stringResponseData);
+					if(responseValues != null && responseValues.length > 0) {
+						for(int i=responseValues.length; i-->0; ) {
+							responseValues[i] = FilterFactory.getXMLValidCharacterFilter().filter(responseValues[i]);
+						}
+					}
+                		final StringInput stringResponseData = new StringInput(responseValues);
+                		responseMap.put(responseIdentifier, stringResponseData);
                 }
             }
         }

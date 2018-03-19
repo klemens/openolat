@@ -51,6 +51,7 @@ import org.olat.commons.calendar.ui.events.CalendarGUIModifiedEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUIMoveEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUIPrintEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUIRemoveEvent;
+import org.olat.commons.calendar.ui.events.CalendarGUIResizeEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUISelectEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUISettingEvent;
 import org.olat.commons.calendar.ui.events.CalendarGUIUpdateEvent;
@@ -76,6 +77,7 @@ import org.olat.core.gui.control.generic.modal.DialogBoxController;
 import org.olat.core.gui.control.generic.modal.DialogBoxUIFactory;
 import org.olat.core.gui.control.winmgr.JSCommand;
 import org.olat.core.helpers.Settings;
+import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.UserConstants;
 import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
@@ -93,11 +95,6 @@ import org.olat.util.logging.activity.LoggingResourceable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class WeeklyCalendarController extends FormBasicController implements Activateable2, CalendarController, GenericEventListener {
-
-	public static final String CALLER_HOME = "home";
-	public static final String CALLER_PROFILE = "profile";
-	public static final String CALLER_COLLAB = "collab";
-	public static final String CALLER_COURSE = "course";
 	
 	private FullCalendarElement calendarEl;
 
@@ -128,6 +125,7 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 	private final String caller;
 	private boolean dirty = false;
 	private final boolean allowImport;
+	private final OLATResourceable callerOres;
 
 	private List<KalendarRenderWrapper> calendarWrappers;
 	
@@ -153,13 +151,14 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 	 * @param eventAlwaysVisible  When true, the 'isVis()' check is disabled and events will be displayed always.
 	 */
 	public WeeklyCalendarController(UserRequest ureq, WindowControl wControl, List<KalendarRenderWrapper> calendarWrappers,
-			String caller, boolean allowImport) {
+			String caller, OLATResourceable callerOres, boolean allowImport) {
 		super(ureq,wControl, "indexWeekly");
 		setTranslator(Util.createPackageTranslator(CalendarManager.class, ureq.getLocale(), getTranslator()));
-		
+
+		this.caller = caller;
 		this.allowImport = allowImport;
 		this.calendarWrappers = calendarWrappers;
-		this.caller = caller;
+		this.callerOres = callerOres == null ? null : OresHelper.clone(callerOres);
 		
 		String themeBaseUri = wControl.getWindowBackOffice().getWindow().getGuiTheme().getBaseURI();
 		printMapper = new CalendarPrintMapper(themeBaseUri, getTranslator());
@@ -180,7 +179,8 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 		formLayout.add("calendar", calendarEl);
 		calendarEl.setConfigurationEnabled(true);
 		calendarEl.setAggregatedFeedEnabled(true);
-		
+		calendarEl.setAlwaysVisibleCalendar(getCallerKalendarRenderWrapper());
+
 		if(formLayout instanceof FormLayoutContainer) {
 			FormLayoutContainer layoutCont = (FormLayoutContainer)formLayout;
 			if (!isGuest && !calendarWrappers.isEmpty()) {
@@ -239,6 +239,11 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 				}
 			}
 		}
+	}
+
+	@Override
+	public void setDifferentiateManagedEvent(boolean differentiate) {
+		calendarEl.setDifferentiateManagedEvents(differentiate);
 	}
 
 	@Override
@@ -305,13 +310,17 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 				CalendarGUIMoveEvent moveEvent = (CalendarGUIMoveEvent)event;
 				doMove(ureq, moveEvent.getKalendarEvent(), moveEvent.getDayDelta(),
 						moveEvent.getMinuteDelta(), moveEvent.getAllDay());
+			} else if (event instanceof CalendarGUIResizeEvent) {
+				CalendarGUIResizeEvent resizeEvent = (CalendarGUIResizeEvent)event;
+				doResize(ureq, resizeEvent.getKalendarEvent(),
+						resizeEvent.getMinuteDelta(), resizeEvent.getAllDay());
 			}  else if (event instanceof CalendarGUIFormEvent) {
 				String cmd = event.getCommand();
 				if(CalendarGUIFormEvent.CONFIGURE.equals(cmd)) {
 					doConfigure(ureq);
 				} else if(CalendarGUIFormEvent.AGGREGATED_FEED.equals(cmd)) {
 					CalendarGUIFormEvent guiEvent = (CalendarGUIFormEvent)event;
-					doOpenAggregatedFeelUrl(ureq, guiEvent.getTargetDomId());
+					doOpenAggregatedFeedUrl(ureq, guiEvent.getTargetDomId());
 				}
 			} else if (event instanceof CalendarGUIPrintEvent) {
 				CalendarGUIPrintEvent printEvent = (CalendarGUIPrintEvent)event;
@@ -367,7 +376,7 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 		} else if(source == updateCtr) {
 			if(event instanceof CalendarGUIUpdateEvent) {
 				doUpdate((CalendarGUIUpdateEvent)event, updateCtr.getKalendarEvent(),
-						updateCtr.getDayDelta(), updateCtr.getMinuteDelta(), updateCtr.getAllDay());
+						updateCtr.getDayDelta(), updateCtr.getMinuteDelta(), updateCtr.getAllDay(), updateCtr.getChangeBegin());
 			}
 			cmc.deactivate();
 			cleanUp();
@@ -482,7 +491,74 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 		}
 	}
 	
-	private void doOpenAggregatedFeelUrl(UserRequest ureq, String targetDomId) {
+	private void doOpenAggregatedFeedUrl(UserRequest ureq, String targetDomId) {
+		String callerUrl = getCallerCalendarUrl();
+		String aggregatedUrl = getAggregatedCalendarUrl();
+		feedUrlCtrl = new CalendarAggregatedURLController(ureq, getWindowControl(), callerUrl, aggregatedUrl);
+		listenTo(feedUrlCtrl);
+		
+		eventCalloutCtr = new CloseableCalloutWindowController(ureq, getWindowControl(), feedUrlCtrl.getInitialComponent(), targetDomId,
+				translate("print"), true, "o_cal_event_callout");
+		listenTo(eventCalloutCtr);
+		eventCalloutCtr.activate();
+	}
+	
+	private KalendarRenderWrapper getCallerKalendarRenderWrapper() {
+		if(callerOres == null || calendarWrappers == null) return null;
+		
+		String callerResId = callerOres.getResourceableId().toString();
+		for(KalendarRenderWrapper calendarWrapper:calendarWrappers) {
+			String calendarType = calendarWrapper.getKalendar().getType();
+			String calendarId = calendarWrapper.getKalendar().getCalendarID();
+			if(callerResId.equals(calendarId)) {
+				if((WeeklyCalendarController.CALLER_COLLAB.equals(caller) && CalendarManager.TYPE_GROUP.equals(calendarType))
+						|| (WeeklyCalendarController.CALLER_COURSE.equals(caller) && CalendarManager.TYPE_COURSE.equals(calendarType))) {
+					return calendarWrapper;
+				}
+			} else if((WeeklyCalendarController.CALLER_PROFILE.equals(caller) || WeeklyCalendarController.CALLER_HOME.equals(caller))
+				&& CalendarManager.TYPE_USER.equals(calendarType) && calendarId.equals(callerOres.getResourceableTypeName())) {
+					return calendarWrapper;
+			}
+		}
+		return null;
+	}
+	
+	private String getCallerCalendarUrl() {
+		if(callerOres == null) return null;
+		
+		String url = null;
+		if(WeeklyCalendarController.CALLER_COLLAB.equals(caller)) {
+			url = getCallerCalendarUrl(CalendarManager.TYPE_GROUP, callerOres.getResourceableId().toString());
+		} else if(WeeklyCalendarController.CALLER_COURSE.equals(caller)) {
+			url = getCallerCalendarUrl(CalendarManager.TYPE_COURSE, callerOres.getResourceableId().toString());
+		}
+		return url;
+	}
+	
+	private String getCallerCalendarUrl(String type, String calendarId) {
+		Kalendar callerKalendar = null;
+		for(KalendarRenderWrapper calendarWrapper:calendarWrappers) {
+			if(calendarWrapper.getKalendar().getType().equals(type) && calendarWrapper.getKalendar().getCalendarID().equals(calendarId)) {
+				callerKalendar = calendarWrapper.getKalendar();
+				break;
+			}
+		}
+		
+		if(callerKalendar != null) {
+			CalendarUserConfiguration config = calendarManager.getCalendarUserConfiguration(getIdentity(), callerKalendar);
+			if(config == null) {
+				config = calendarManager.createCalendarConfig(getIdentity(), callerKalendar);
+			} else if(!StringHelper.containsNonWhitespace(config.getToken())) {
+				config.setToken(RandomStringUtils.randomAlphanumeric(6));
+				config = calendarManager.saveCalendarConfig(config);
+			}
+			return Settings.getServerContextPathURI() + "/ical/" + type + "/" + config.getKey()
+				+ "/" + config.getToken() + "/" + callerKalendar.getCalendarID() + ".ics";
+		}
+		return null;
+	}
+	
+	private String getAggregatedCalendarUrl() {
 		List<CalendarUserConfiguration> configurations = calendarManager
 				.getCalendarUserConfigurationsList(getIdentity(), CalendarManager.TYPE_USER_AGGREGATED);
 
@@ -496,25 +572,18 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 			config.setToken(RandomStringUtils.randomAlphanumeric(6));
 			config = calendarManager.saveCalendarConfig(config);
 		}
-		
-		String token = config.getToken();
-		Long configKey = config.getKey();
-		String url = Settings.getServerContextPathURI() + "/ical/" + CalendarManager.TYPE_USER_AGGREGATED + "/" + configKey + "/" + token + ".ics"; 	
-		feedUrlCtrl = new CalendarAggregatedURLController(ureq, getWindowControl(), url);
-		listenTo(feedUrlCtrl);
-		
-		eventCalloutCtr = new CloseableCalloutWindowController(ureq, getWindowControl(), feedUrlCtrl.getInitialComponent(), targetDomId,
-				translate("print"), true, "o_cal_event_callout");
-		listenTo(eventCalloutCtr);
-		eventCalloutCtr.activate();
+		return Settings.getServerContextPathURI() + "/ical/" + CalendarManager.TYPE_USER_AGGREGATED
+				+ "/" + config.getKey() + "/" + config.getToken() + ".ics";
 	}
 	
 	private void doConfigure(UserRequest ureq) {
 		removeAsListenerAndDispose(cmc);
 		removeAsListenerAndDispose(configurationCtrl);
 		
+		KalendarRenderWrapper alwaysVisibleKalendar = getCallerKalendarRenderWrapper();
 		List<KalendarRenderWrapper> allCalendars = new ArrayList<>(calendarWrappers);
-		configurationCtrl = new CalendarPersonalConfigurationController(ureq, getWindowControl(), allCalendars, allowImport);
+		configurationCtrl = new CalendarPersonalConfigurationController(ureq, getWindowControl(),
+				allCalendars, alwaysVisibleKalendar, allowImport);
 		listenTo(configurationCtrl);
 		
 		String title = translate("cal.configuration.list");
@@ -567,7 +636,7 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 	
 	private void doMove(UserRequest ureq, KalendarEvent calEvent, Long dayDelta, Long minuteDelta, Boolean allDay) {
 		if(calEvent instanceof KalendarRecurEvent && !StringHelper.containsNonWhitespace(calEvent.getRecurrenceID())) {
-			updateCtr = new ConfirmUpdateController(ureq, getWindowControl(), (KalendarRecurEvent)calEvent, dayDelta, minuteDelta, allDay);
+			updateCtr = new ConfirmUpdateController(ureq, getWindowControl(), (KalendarRecurEvent)calEvent, dayDelta, minuteDelta, allDay, true);
 			listenTo(updateCtr);
 			
 			String title = translate("cal.edit.update");
@@ -586,10 +655,32 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 		}
 	}
 	
-	private void doUpdate(CalendarGUIUpdateEvent event, KalendarEvent kalendarEvent, Long dayDelta, Long minuteDelta, Boolean allDay) {
+	private void doResize(UserRequest ureq, KalendarEvent calEvent, Long minuteDelta, Boolean allDay) {
+		if(calEvent instanceof KalendarRecurEvent && !StringHelper.containsNonWhitespace(calEvent.getRecurrenceID())) {
+			updateCtr = new ConfirmUpdateController(ureq, getWindowControl(), (KalendarRecurEvent)calEvent, 0L, minuteDelta, allDay, false);
+			listenTo(updateCtr);
+			
+			String title = translate("cal.edit.update");
+			cmc = new CloseableModalController(getWindowControl(), translate("close"), updateCtr.getInitialComponent(), true, title);
+			listenTo(cmc);
+			cmc.activate();
+		} else {
+			Kalendar cal = calEvent.getCalendar();
+			calEvent.setEnd(doMove(calEvent.getEnd(), 0L, minuteDelta));
+			if(allDay != null && calEvent.isAllDayEvent() != allDay.booleanValue()) {
+				calEvent.setAllDayEvent(allDay.booleanValue());
+			}
+			calendarManager.updateEventFrom(cal, calEvent);
+			calendarEl.getComponent().setDirty(true);
+		}
+	}
+	
+	private void doUpdate(CalendarGUIUpdateEvent event, KalendarEvent kalendarEvent, Long dayDelta, Long minuteDelta, Boolean allDay, boolean changeBegin) {
 		switch(event.getCascade()) {
 			case all: {
-				kalendarEvent.setBegin(doMove(kalendarEvent.getBegin(), dayDelta, minuteDelta));
+				if (changeBegin) {
+					kalendarEvent.setBegin(doMove(kalendarEvent.getBegin(), dayDelta, minuteDelta));
+				}
 				kalendarEvent.setEnd(doMove(kalendarEvent.getEnd(), dayDelta, minuteDelta));
 				if(allDay != null && kalendarEvent.isAllDayEvent() != allDay.booleanValue()) {
 					kalendarEvent.setAllDayEvent(allDay.booleanValue());
@@ -601,7 +692,9 @@ public class WeeklyCalendarController extends FormBasicController implements Act
 				if(kalendarEvent instanceof KalendarRecurEvent) {
 					KalendarRecurEvent refEvent = (KalendarRecurEvent)kalendarEvent;
 					kalendarEvent = calendarManager.createKalendarEventRecurringOccurence(refEvent);
-					kalendarEvent.setBegin(doMove(kalendarEvent.getBegin(), dayDelta, minuteDelta));
+					if (changeBegin) {
+						kalendarEvent.setBegin(doMove(kalendarEvent.getBegin(), dayDelta, minuteDelta));
+					}
 					kalendarEvent.setEnd(doMove(kalendarEvent.getEnd(), dayDelta, minuteDelta));
 					if(allDay != null && kalendarEvent.isAllDayEvent() != allDay.booleanValue()) {
 						kalendarEvent.setAllDayEvent(allDay.booleanValue());

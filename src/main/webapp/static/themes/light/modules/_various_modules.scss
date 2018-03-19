@@ -414,6 +414,9 @@ ul.o_certificates li {
 	.o_content {
 		@include clearfix();
 	}
+	.o_enclosure {
+		clear: both;
+	}
 }
 
 /* Glossary */
@@ -590,6 +593,17 @@ div.o_assessment_user_type_filter {
 	}
 }
 
+/* list */
+ul.o_assessment_docs {
+	margin-bottom: 0;
+}
+ul.o_assessment_docs>li {
+	margin-bottom: 0.33em;
+}
+ul.o_assessment_docs>li:last-child {
+	margin-bottom: 0em;
+}
+
 /* personal mail box tool */
 .o_mail_message {
 	.o_mail_meta {
@@ -638,3 +652,42 @@ div.o_assessment_user_type_filter {
 		font-size: 80%;
 	}
 }	
+
+/* indicator on progress bar */
+.progress .o_progress_marker {
+	position: absolute; 
+	height: 100%;
+	top: 0;
+	width: 3px; 	
+	background: $o-progress-marker-color;
+}
+
+/* web documents */
+.o_web_content {
+	padding-bottom: floor($grid-gutter-width / 2);
+}
+
+/* label */
+%o_labeled,
+.o_labeled {
+    text-transform: uppercase;
+	text-align: center;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	font-size: 75% !important;
+	font-weight: bold !important;
+	line-height: 1;
+	white-space: nowrap;
+    	border: 1px solid;
+	border-radius: 3px;
+	padding: 2px 5px;
+    background-color: $o-labeled_bg-color;
+    color: $o-labeled_color;
+}
+.o_labeled_light {
+	@extend %o_labeled;
+    background-color: 	$o-labeled-light-bg-color;
+ }
+ .dropdown-menu.o_labeled {
+ 	background-color: inherit;
+ }

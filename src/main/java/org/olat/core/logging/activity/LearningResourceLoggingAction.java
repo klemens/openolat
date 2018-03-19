@@ -28,6 +28,9 @@ package org.olat.core.logging.activity;
 
 import java.lang.reflect.Field;
 
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+
 /**
  * LoggingActions for generic stuff re Learning Resources/RepositoryEntries
  * <P>
@@ -43,6 +46,8 @@ import java.lang.reflect.Field;
  * @author Stefan
  */
 public class LearningResourceLoggingAction extends BaseLoggingAction {
+	
+	private static final OLog log = Tracing.createLoggerFor(LearningResourceLoggingAction.class);
 
 	private static final ResourceableTypeList LEARNING_RESOURCE_OPEN_CLOSE_LIST = 
 		new ResourceableTypeList().
@@ -86,6 +91,10 @@ public class LearningResourceLoggingAction extends BaseLoggingAction {
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.chat).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_IM_DISABLED = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.chat).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_COURSESEARCH_ENABLED = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.search).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_COURSESEARCH_DISABLED = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.search).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_GLOSSARY_ENABLED = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.glossar).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_GLOSSARY_DISABLED = 
@@ -106,6 +115,30 @@ public class LearningResourceLoggingAction extends BaseLoggingAction {
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.remove, ActionObject.layout).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
 	public static final ILoggingAction REPOSITORY_ENTRY_PROPERTIES_COURSELAYOUT_CUSTOM_ADDED = 
 		new LearningResourceLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.add, ActionObject.layout).setTypeList(LEARNING_RESOURCE_OPEN_CLOSE_LIST);
+	
+	// lecture block
+	public static final ILoggingAction LECTURE_BLOCK_CREATED = 
+			new LearningResourceLoggingAction(ActionType.admin, CrudAction.create, ActionVerb.add, ActionObject.lectures).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	public static final ILoggingAction LECTURE_BLOCK_EDITED = 
+			new CourseLoggingAction(ActionType.admin, CrudAction.update, ActionVerb.edit, ActionObject.lectures).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	public static final ILoggingAction LECTURE_BLOCK_DELETED = 
+			new CourseLoggingAction(ActionType.admin, CrudAction.delete, ActionVerb.remove, ActionObject.lectures).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	
+	public static final ILoggingAction LECTURE_BLOCK_ROLL_CALL_STARTED = 
+			new CourseLoggingAction(ActionType.tracking, CrudAction.update, ActionVerb.launch, ActionObject.lecturesRollcall).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	public static final ILoggingAction LECTURE_BLOCK_ROLL_CALL_CLOSED = 
+			new CourseLoggingAction(ActionType.tracking, CrudAction.update, ActionVerb.close, ActionObject.lecturesRollcall).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	public static final ILoggingAction LECTURE_BLOCK_ROLL_CALL_CANCELLED = 
+			new CourseLoggingAction(ActionType.tracking, CrudAction.update, ActionVerb.cancel, ActionObject.lecturesRollcall).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
+	public static final ILoggingAction LECTURE_BLOCK_ROLL_CALL_REOPENED = 
+			new CourseLoggingAction(ActionType.tracking, CrudAction.update, ActionVerb.reopen, ActionObject.lecturesRollcall).setTypeList(
+					new ResourceableTypeList().addMandatory(OlatResourceableType.course, OlatResourceableType.lectureBlock));
 
 	/**
 	 * This static constructor's only use is to set the javaFieldIdForDebug
@@ -123,10 +156,8 @@ public class LearningResourceLoggingAction extends BaseLoggingAction {
 					try {
 						LearningResourceLoggingAction aLoggingAction = (LearningResourceLoggingAction)field.get(null);
 						aLoggingAction.setJavaFieldIdForDebug(field.getName());
-					} catch (IllegalArgumentException e) {
-						e.printStackTrace();
-					} catch (IllegalAccessException e) {
-						e.printStackTrace();
+					} catch (IllegalArgumentException | IllegalAccessException e) {
+						log.error("", e);
 					}
 				}
 			}

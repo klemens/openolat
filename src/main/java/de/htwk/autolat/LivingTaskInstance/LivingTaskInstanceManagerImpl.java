@@ -69,7 +69,7 @@ public class LivingTaskInstanceManagerImpl extends LivingTaskInstanceManager {
 	 */
 	@Override
 	public LivingTaskInstance loadLivingTaskInstanceByID(long ID) {
-		return (LivingTaskInstance)DBFactory.getInstance().loadObject(LivingTaskInstanceImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(LivingTaskInstanceImpl.class, ID);
 	}
 
 	/**

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context" 
+	xsi:schemaLocation="
+  http://www.springframework.org/schema/beans 
+  http://www.springframework.org/schema/beans/spring-beans.xsd 
+  http://www.springframework.org/schema/context 
+  http://www.springframework.org/schema/context/spring-context.xsd">
+  
+	<!--  Lecture admin. panel -->
+	<bean class="org.olat.core.extensions.action.GenericActionExtension" init-method="initExtensionPoints">
+		<property name="order" value="8207" />
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.modules.lecture.ui.LectureAdminController"/>
+			</bean>
+		</property>
+		<property name="navigationKey" value="lectures" />
+		<property name="i18nActionKey" value="admin.menu.title"/>
+		<property name="i18nDescriptionKey" value="admin.menu.title.alt"/>
+		<property name="translationPackage" value="org.olat.modules.lecture.ui"/>
+		<property name="parentTreeNodeIdentifier" value="modulesParent" /> 
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.admin.SystemAdminMainController</value>		
+			</list>
+		</property>
+	</bean>
+	
+	<!-- The user tool -->
+	<bean class="org.olat.modules.lecture.LectureExtension" init-method="initExtensionPoints">
+		<property name="order" value="180" />
+		<property name="navigationKey" value="mylectures" />
+		<property name="iconCssClass" value="o_icon o_icon-fw o_icon_lecture" />
+		<property name="actionController">	
+			<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+				<property name="className" value="org.olat.modules.lecture.ui.LecturesToolController"/>
+			</bean>
+		</property>
+		<property name="securityCallbackClassName" value="org.olat.core.extensions.security.UserOnlyExtensionSecurityCallback" />
+		<property name="translationPackage" value="org.olat.modules.lecture.ui" />
+		<property name="i18nActionKey" value="menu.my.lectures"/>
+		<property name="i18nDescriptionKey" value="menu.my.lectures.alt"/>
+		<property name="extensionPoints">
+			<list>	
+				<value>org.olat.home.HomeMainController</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- Lectures login interceptor -->
+	<bean id="resume.AfterLogin.Injection" class="org.springframework.beans.factory.config.MethodInvokingFactoryBean">
+		<property name="targetObject" ref="afterLoginInterceptionManager" />
+		<property name="targetMethod" value="addAfterLoginControllerConfig" />
+		<property name="arguments">
+			<ref bean="start.lectures.AfterLoginConfig"/>
+		</property>
+	</bean>
+	
+	<bean id="start.lectures.AfterLoginConfig" class="org.olat.login.AfterLoginConfig">
+		<property name="afterLoginControllerList">
+			<list>
+				<map>
+					<entry key="controller">
+						<bean class="org.olat.core.gui.control.creator.AutoCreator" scope="prototype">
+							<property name="className" value="org.olat.modules.lecture.ui.RollCallInterceptorController"/>
+						</bean>
+					</entry>
+					<entry key="forceUser"><value>false</value></entry>
+					<entry key="redoTimeout"><value>0</value></entry>
+					<entry key="size"><value>400x200</value></entry>
+					<entry key="order"><value>100</value></entry>
+				</map>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- Lectures reminder job -->
+	<bean id="reminderLecturesTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="reminderLecturesJob.${cluster.singleton.services}" />
+	  	<!-- adjust cron style syntax for your notification needs 
+	   	"0 10 0 * *"  e.g. 10 minutes after midnight
+	   	
+	   	A "Cron-Expression" is a string comprised of 6 or 7 fields separated by white space. The 6 mandatory and 1 optional fields are as follows:
+			Field Name 	  	Allowed Values 	  	Allowed Special Characters
+			Seconds 	  	0-59 	  			, - * /
+			Minutes 	  	0-59 	  			, - * /
+			Hours 	  		0-23 	  			, - * /
+			Day-of-month 	1-31 	  			, - * ? / L W C
+			Month 	  		1-12 or JAN-DEC 	, - * /
+			Day-of-Week 	1-7 or SUN-SAT 	  	, - * ? / L C #
+			Year (Optional)	empty, 1970-2099 	, - * /    	
+	   	-->
+	   	<!-- 
+		<property name="cronExpression" value="15 34 */1 * * ?" />
+		-->
+		<property name="cronExpression" value="15 */2 * * * ?" />
+		<property name="startDelay" value="60000" />
+	</bean>
+
+	<bean id="reminderLecturesJob.enabled" class="org.springframework.scheduling.quartz.JobDetailFactoryBean" lazy-init="true">
+		<property name="jobClass" value="org.olat.modules.lecture.manager.ReminderLecturesJob" />
+	</bean>
+	
+	<!-- dummy bean -->
+	<bean id="reminderLecturesJob.disabled" class="org.springframework.scheduling.quartz.JobDetailFactoryBean"  lazy-init="true">
+		<property name="jobClass" value="org.olat.core.commons.services.scheduler.DummyJob" />
+	</bean>
+	
+	<!-- Lectures auto close job -->
+	<bean id="autoCloseLecturesTrigger" class="org.springframework.scheduling.quartz.CronTriggerFactoryBean">
+		<property name="jobDetail" ref="autoCloseLecturesJob.${cluster.singleton.services}" />
+	  	<!-- adjust cron style syntax for your notification needs 
+	   	"0 10 0 * *"  e.g. 10 minutes after midnight
+	   	
+	   	A "Cron-Expression" is a string comprised of 6 or 7 fields separated by white space. The 6 mandatory and 1 optional fields are as follows:
+			Field Name 	  	Allowed Values 	  	Allowed Special Characters
+			Seconds 	  	0-59 	  			, - * /
+			Minutes 	  	0-59 	  			, - * /
+			Hours 	  		0-23 	  			, - * /
+			Day-of-month 	1-31 	  			, - * ? / L W C
+			Month 	  		1-12 or JAN-DEC 	, - * /
+			Day-of-Week 	1-7 or SUN-SAT 	  	, - * ? / L C #
+			Year (Optional)	empty, 1970-2099 	, - * /    	
+	   	-->
+		<property name="cronExpression" value="15 */3 * * * ?" />
+		<!--  //TODO absence
+		<property name="cronExpression" value="15 34 */1 * * ?" />
+		-->
+		<property name="startDelay" value="60000" />
+	</bean>
+
+	<bean id="autoCloseLecturesJob.enabled" class="org.springframework.scheduling.quartz.JobDetailFactoryBean" lazy-init="true">
+		<property name="jobClass" value="org.olat.modules.lecture.manager.AutoCloseLecturesJob" />
+	</bean>
+	
+	<!-- dummy bean -->
+	<bean id="autoCloseLecturesJob.disabled" class="org.springframework.scheduling.quartz.JobDetailFactoryBean"  lazy-init="true">
+		<property name="jobClass" value="org.olat.core.commons.services.scheduler.DummyJob" />
+	</bean>
+	
+</beans>

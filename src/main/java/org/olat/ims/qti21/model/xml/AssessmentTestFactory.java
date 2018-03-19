@@ -19,6 +19,10 @@
  */
 package org.olat.ims.qti21.model.xml;
 
+import static org.olat.ims.qti21.QTI21Constants.MINSCORE_CLX_IDENTIFIER;
+import static org.olat.ims.qti21.QTI21Constants.SCORE_CLX_IDENTIFIER;
+import static org.olat.ims.qti21.QTI21Constants.SCORE_IDENTIFIER;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -35,6 +39,7 @@ import uk.ac.ed.ph.jqtiplus.node.expression.general.BaseValue;
 import uk.ac.ed.ph.jqtiplus.node.expression.general.Variable;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.And;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Gte;
+import uk.ac.ed.ph.jqtiplus.node.expression.operator.Lt;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Match;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Multiple;
 import uk.ac.ed.ph.jqtiplus.node.expression.operator.Sum;
@@ -82,7 +87,7 @@ public class AssessmentTestFactory {
 	 * @param title
 	 * @return
 	 */
-	public static AssessmentTest createAssessmentTest(String title) {
+	public static AssessmentTest createAssessmentTest(String title, String sectionTitle) {
 		AssessmentTest assessmentTest = new AssessmentTest();
 		assessmentTest.setIdentifier(IdentifierGenerator.newAsString("test"));
 		assessmentTest.setTitle(title);
@@ -98,7 +103,7 @@ public class AssessmentTestFactory {
 		
 		//test part
 		TestPart part = createTestPart(assessmentTest);
-		appendAssessmentSection(part);
+		appendAssessmentSection(sectionTitle, part);
 		
 		//outcome processing
 		OutcomeProcessing outcomeProcessing = new OutcomeProcessing(assessmentTest);
@@ -238,6 +243,46 @@ public class AssessmentTestFactory {
 	}
 	
 	/*
+    <outcomeCondition>
+      <outcomeIf>
+        <lt>
+          <variable identifier="SCORE"/>
+          <variable identifier="MINSCORE"/>
+        </lt>
+        <setOutcomeValue identifier="SCORE">
+          <variable identifier="MINSCORE"/>
+        </setOutcomeValue>
+      </outcomeIf>
+    </outcomeCondition>
+    */
+	public static OutcomeCondition createMinScoreRule(AssessmentTest assessmentTest) {
+		OutcomeCondition outcomeCondition = new OutcomeCondition(assessmentTest);
+		OutcomeIf outcomeIf = new OutcomeIf(outcomeCondition);
+		outcomeCondition.setOutcomeIf(outcomeIf);
+		
+		Lt lt = new Lt(outcomeIf);
+		outcomeIf.setExpression(lt);
+		
+		Variable scoreVar = new Variable(lt);
+		scoreVar.setIdentifier(SCORE_CLX_IDENTIFIER);
+		lt.getExpressions().add(scoreVar);
+		
+		Variable minScoreVar = new Variable(lt);
+		minScoreVar.setIdentifier(MINSCORE_CLX_IDENTIFIER);
+		lt.getExpressions().add(minScoreVar);
+		
+		SetOutcomeValue setOutcomeValue = new SetOutcomeValue(outcomeIf);
+		setOutcomeValue.setIdentifier(SCORE_IDENTIFIER);
+		
+		Variable minScoreOutcomeVar = new Variable(setOutcomeValue);
+		minScoreOutcomeVar.setIdentifier(MINSCORE_CLX_IDENTIFIER);
+		setOutcomeValue.setExpression(minScoreOutcomeVar);
+		outcomeIf.getOutcomeRules().add(setOutcomeValue);
+		
+		return outcomeCondition;
+	}
+	
+	/*
 	<sum>
 		<testVariables variableIdentifier="SCORE" />
 	</sum>
@@ -269,11 +314,12 @@ public class AssessmentTestFactory {
 		
 		// test par item session control
 		ItemSessionControl itemSessionControl = new ItemSessionControl(part);
-		itemSessionControl.setAllowComment(Boolean.FALSE);
+		itemSessionControl.setAllowComment(Boolean.TRUE);
 		itemSessionControl.setAllowReview(Boolean.FALSE);
 		itemSessionControl.setAllowSkipping(Boolean.TRUE);//default is true
 		itemSessionControl.setShowFeedback(Boolean.FALSE);
 		itemSessionControl.setShowSolution(Boolean.FALSE);
+		itemSessionControl.setMaxAttempts(0);
 		part.setItemSessionControl(itemSessionControl);
 		return part;
 	}
@@ -284,20 +330,20 @@ public class AssessmentTestFactory {
 	 * @param part
 	 * @return
 	 */
-	public static AssessmentSection appendAssessmentSection(TestPart part) {
-		return appendAssessmentSectionInternal(part);
+	public static AssessmentSection appendAssessmentSection(String title, TestPart part) {
+		return appendAssessmentSectionInternal(title, part);
 	}
 	
-	public static AssessmentSection appendAssessmentSection(AssessmentSection part) {
-		return appendAssessmentSectionInternal(part);
+	public static AssessmentSection appendAssessmentSection(String title, AssessmentSection part) {
+		return appendAssessmentSectionInternal(title, part);
 	}
 	
-	private final static AssessmentSection appendAssessmentSectionInternal(AbstractPart part) {
+	private final static AssessmentSection appendAssessmentSectionInternal(String title, AbstractPart part) {
 		// section
 		AssessmentSection section = new AssessmentSection(part);
 		section.setFixed(Boolean.TRUE);
 		section.setVisible(Boolean.TRUE);
-		section.setTitle("New section");
+		section.setTitle(title);
 		section.setIdentifier(IdentifierGenerator.newAsIdentifier("sect"));
 		if(part instanceof TestPart) {
 			((TestPart)part).getAssessmentSections().add(section);
@@ -317,7 +363,6 @@ public class AssessmentTestFactory {
 		
 		ItemSessionControl itemSessionControl = new ItemSessionControl(section);
 		section.setItemSessionControl(itemSessionControl);
-		itemSessionControl.setMaxAttempts(0);
 		return section;
 	}
 	

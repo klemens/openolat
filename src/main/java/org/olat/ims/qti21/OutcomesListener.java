@@ -19,6 +19,11 @@
  */
 package org.olat.ims.qti21;
 
+import java.util.Date;
+import java.util.Locale;
+
+import org.olat.ims.qti21.model.DigitalSignatureOptions;
+
 /**
  * 
  * Initial date: 20.05.2015<br>
@@ -28,14 +33,31 @@ package org.olat.ims.qti21;
 public interface OutcomesListener {
 	
 	/**
+	 * Add more useful informations to the signature as a mail bundle to send the signature per email.
+	 * 
+	 * @param candidateSession
+	 * @param options
+	 * @param locale
+	 */
+	public void decorateConfirmation(AssessmentTestSession candidateSession, DigitalSignatureOptions options, Date timestamp, Locale locale);
+	
+	/**
 	 * Update the outcomes.
 	 * 
-	 * @param score
-	 * @param pass
+	 * @param score The current score
+	 * @param pass Currently passed or failed (null is possible)
+	 * @param compeltion The number of questions answered measured against the number of questions in the test
 	 */
-	public void updateOutcomes(Float score, Boolean pass);
+	public void updateOutcomes(Float score, Boolean pass, Double completion);
 	
-	
-	public void submit(Float score, Boolean pass, Long assessmentId);
+	/**
+	 * The test or item is submitted, it's finished.
+	 * 
+	 * @param score The score (automatically calculated)
+	 * @param pass Passed, failed or null
+	 * @param completion The completion grade of the test
+	 * @param assessmentId The ID of the session (primary of the test or item session)
+	 */
+	public void submit(Float score, Boolean pass, Double completion, Long assessmentId);
 
 }

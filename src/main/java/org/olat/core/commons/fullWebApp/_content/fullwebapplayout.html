@@ -2,6 +2,8 @@
 <html lang="$r.getLanguageCode()">
 <head>
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="robots" content="nofollow" />
+<meta name="google" content="notranslate" />
 <meta name="description" content="$r.translate("meta.description")" />
 <meta name="keywords" content="$r.translate("meta.keywords")" /> 
 <meta name="dcterms.creator" content="OpenOLAT - http://www.openolat.org" />
@@ -24,6 +26,7 @@ o_info.uriprefix="$r.relWinLink()";
 o_info.bc="$o_bc";
 o_info.businessPath="";
 o_info.serverUri="$o_serverUri"
+## Legacy form-dirty message displayed by o2cl()
 o_info.dirty_form = "$r.escapeDoubleQuotes($r.translate("form.dirty"))";
 o_info.locale = "$r.getLanguageCode()";
 o_info.lastClickTime = new Date().getTime();
@@ -50,27 +53,40 @@ function o_start() {
 	o_info.initialPageLoadFinished = true;
 }
 function o_mathjax(fct_success) {
-	jQuery.ajax("${r.mathJaxCdn()}2.6-latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML", {
+	window.MathJax = {
+		extensions: ["jsMath2jax.js"],
+		messageStyle: 'none',
+		showProcessingMessages: false,
+		showMathMenu: false,
+		menuSettings: { },
+		jsMath2jax: {
+			preview: "none"
+		},
+		tex2jax: {
+			ignoreClass: "math"
+		},
+		"HTML-CSS": {
+		    EqnChunk: 5, EqnChunkFactor: 1, EqnChunkDelay: 100
+		},
+		"fast-preview": {
+			disabled: true
+		}
+	}
+	jQuery.ajax("${r.mathJaxCdn()}MathJax.js?config=${r.mathJaxConfig()}", {
 		cache: true,
 		dataType: "script",
+		crossDomain: true,
 		success: function() {
-	    	MathJax.Hub.Config({
-				extensions: ["jsMath2jax.js"],
-				messageStyle: 'none',
-				showProcessingMessages: false,
-				jsMath2jax: {
-					preview: "none"
-				},
-				tex2jax: {
-					ignoreClass: "math"
-				}
-			});
 	    	if(!(typeof fct_success === "undefined")) {
 	    		fct_success();
 	    	}
 		}
 	});
 }
+## Analytics code, if available
+$!analytics
+##
+
 /* ]]> */
 </script>
 ## jQuery libraries
@@ -120,6 +136,7 @@ function o_mathjax(fct_success) {
 	<link type="text/css" href='$r.staticLink("js/jquery/cropper/cropper.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/sliderpips/jquery-ui-slider-pips.css")' rel="stylesheet" />
 	<link type="text/css" href='$r.staticLink("js/jquery/ui/jquery-ui-1.11.4.custom.min.css")' rel="stylesheet" />
+	<link type="text/css" href='$r.staticLink("js/dragula/dragula.css")' rel="stylesheet" />
 #else
 	<link type="text/css" href='$r.staticLink("js/js.plugins.min.css")' rel="stylesheet" />
 #end
@@ -174,6 +191,12 @@ $r.render("jsCssRawHtmlHeader", "pre-theme")
 	jQuery(document).ready(function() { jQuery('body').addClass('o_browser_ie9'); });
 </script>
 <![endif]-->
+## Detect IE 10
+<script type="text/javascript">
+	if (Function('/*@cc_on return document.documentMode===10@*/')()){
+		jQuery(document).ready(function() { jQuery('body').addClass('o_browser_ie10'); });
+	}
+</script>
 ## 4) IE 8 fix for icon fonts (see: http://stackoverflow.com/questions/9809351/ie8-css-font-face-fonts-only-working-for-before-content-on-over-and-sometimes/10557782#10557782)
 <!--[if IE 8]>
 <script type="text/javascript">
@@ -318,6 +341,34 @@ $r.render("stickymsg")
 ## IE can't render empty div's properly which results in an ugly white bar.
 $r.render("modalpanel")
 ## ---- END #o_modal ---
+
+## ----- START #o_form_dirty_message ----------
+<div class="modal fade" tabindex="-1" role="dialog" id="o_form_dirty_message">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">$r.translate("form.dirty.title")</h4>
+      </div>
+      <div class="modal-body">
+      	<p class="o_warning">
+			$r.escapeDoubleQuotes($r.translate("form.dirty.intro"))
+		</p>
+      	<p>
+			$r.escapeDoubleQuotes($r.translate("form.dirty.ignore"))
+		</p>
+      	<p>
+			$r.escapeDoubleQuotes($r.translate("form.dirty.back"))
+		</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary pull-left o_form_dirty_back" data-dismiss="modal"><i class="o_icon o_icon-fw o_icon_back"> </i>$r.translate("form.dirty.button.back")</button>
+        <button type="button" class="btn btn btn-danger o_form_dirty_ignore"><i class="o_icon o_icon-fw o_icon_clear_all"> </i>$r.translate("form.dirty.button.ignore")</button>
+      </div>
+    </div>
+  </div>
+</div>
+## ---- END #o_form_dirty_message ---
 
 ## the div for the busy-wait animated-gif
 <div id="o_ajax_busy"><i class="o_icon o_icon_busy o_icon-5x o_icon-spin"></i></div>

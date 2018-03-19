@@ -472,7 +472,7 @@ public class GroupController extends BasicController {
 	
 	private void doAddUsers(UserRequest ureq) {
 		removeAsListenerAndDispose(usc);
-		usc = new UserSearchController(ureq, getWindowControl(), true, true, false);			
+		usc = new UserSearchController(ureq, getWindowControl(), true, true, true);			
 		listenTo(usc);
 		
 		Component usersearchview = usc.getInitialComponent();
@@ -551,7 +551,7 @@ public class GroupController extends BasicController {
 				MailBundle ccBundle = mailManager.makeMailBundle(context, ureq.getIdentity(), mailTemplate, sender, metaId, result);
 				result.append(mailManager.sendMessage(ccBundle));
 			}
-			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
+			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getUserSession().getRoles().isOLATAdmin(), ureq.getLocale());
 		}
 	}
 
@@ -598,7 +598,7 @@ public class GroupController extends BasicController {
 				MailBundle ccBundle = mailManager.makeMailBundle(context, ureq.getIdentity(), mailTemplate, sender, metaId, result);
 				result.append(mailManager.sendMessage(ccBundle));
 			}
-			MailHelper.appendErrorsAndWarnings(result, errorMessage, infoMessage, ureq.getLocale());
+			MailHelper.appendErrorsAndWarnings(result, errorMessage, infoMessage, ureq.getUserSession().getRoles().isOLATAdmin(), ureq.getLocale());
 		}
 		// report any errors on screen
 		if (infoMessage.length() > 0) getWindowControl().setWarning(infoMessage.toString());

@@ -24,6 +24,7 @@ import java.util.Date;
 
 import org.olat.core.id.Identity;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.assessment.model.AssessmentRunStatus;
 import org.olat.repository.RepositoryEntry;
 
 /**
@@ -40,6 +41,14 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 	
 	public Date getLastModified();
 	
+	public Date getLastCoachModified();
+	
+	public void setLastCoachModified(Date date);
+	
+	public Date getLastUserModified();
+	
+	public void setLastUserModified(Date date);
+	
 	public Long getAssessmentId();
 	
 	public void setAssessmentId(Long assessmentId);
@@ -48,13 +57,13 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 
 	public void setAttempts(Integer attempts);
 
-	public BigDecimal getScore();
-
 	public void setScore(BigDecimal score);
 
-	public Boolean getPassed();
-
 	public void setPassed(Boolean passed);
+	
+	public Boolean getUserVisibility();
+	
+	public void setUserVisibility(Boolean visibility);
 	
 	public AssessmentEntryStatus getAssessmentStatus();
 	
@@ -71,10 +80,25 @@ public interface AssessmentEntry extends AssessmentEntryLight {
 	public Double getCompletion();
 
 	public void setCompletion(Double completion);
+	
+	/**
+	 * @return Completion of the current running task (which can be temporary)
+	 */
+	public Double getCurrentRunCompletion();
+	
+	public void setCurrentRunCompletion(Double completion);
+	
+	public AssessmentRunStatus getCurrentRunStatus();
+	
+	public void setCurrentRunStatus(AssessmentRunStatus runStatus);
 
 	public String getComment();
 
 	public void setComment(String comment);
+	
+	public int getNumberOfAssessmentDocuments();
+	
+	public void setNumberOfAssessmentDocuments(int numOfDocuments);
 
 	public String getCoachComment();
 

@@ -103,7 +103,7 @@ public class ConfigurationManagerImpl implements ConfigurationManager {
 	@Override
 	public Configuration loadConfigurationByID(long ID) {
 		try {
-			return (Configuration)DBFactory.getInstance().loadObject(ConfigurationImpl.class, ID);
+			return DBFactory.getInstance().getCurrentEntityManager().find(ConfigurationImpl.class, ID);
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;

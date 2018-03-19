@@ -25,6 +25,7 @@
 
 package org.olat.course.run.preview;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -43,6 +44,9 @@ import org.olat.course.run.scoring.ScoreEvaluation;
 import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.group.BusinessGroup;
 import org.olat.modules.assessment.AssessmentEntry;
+import org.olat.modules.assessment.Role;
+import org.olat.modules.assessment.model.AssessmentEntryStatus;
+import org.olat.modules.assessment.model.AssessmentRunStatus;
 
 /**
  * Initial Date:  08.02.2005
@@ -64,6 +68,11 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 
 	@Override
 	public List<AssessmentEntry> getAssessmentEntries(CourseNode courseNode) {
+		return Collections.emptyList();
+	}
+	
+	@Override
+	public List<AssessmentEntry> getAssessmentEntriesWithStatus(CourseNode courseNode, AssessmentEntryStatus status, boolean excludeZeroScore) {
 		return Collections.emptyList();
 	}
 
@@ -96,7 +105,7 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	 * @see org.olat.course.assessment.AssessmentManager#saveNodeAttempts(org.olat.course.nodes.CourseNode, org.olat.core.id.Identity, org.olat.core.id.Identity, java.lang.Integer)
 	 */
 	@Override
-	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts) {
+	public void saveNodeAttempts(CourseNode courseNode, Identity identity, Identity assessedIdentity, Integer attempts, Role by) {
 		nodeAttempts.put(courseNode.getIdent(), attempts);
 	}
 
@@ -106,6 +115,22 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	@Override
 	public void saveNodeComment(CourseNode courseNode, Identity identity, Identity assessedIdentity, String comment) {
 		throw new AssertException("Not implemented for preview.");
+	}
+
+	@Override
+	public void addIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity,
+			File document, String filename) {
+		// do nothing
+	}
+
+	@Override
+	public void removeIndividualAssessmentDocument(CourseNode courseNode, Identity identity, Identity assessedIdentity, File document) {
+		// do nothing
+	}
+
+	@Override
+	public void deleteIndividualAssessmentDocuments(CourseNode courseNode) {
+		//
 	}
 
 	/**
@@ -127,7 +152,7 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	 * @see org.olat.course.assessment.AssessmentManager#incrementNodeAttempts(org.olat.course.nodes.CourseNode, org.olat.core.id.Identity)
 	 */
 	@Override
-	public void incrementNodeAttempts(CourseNode courseNode, Identity identity, UserCourseEnvironment userCourseEnvironment) {
+	public void incrementNodeAttempts(CourseNode courseNode, Identity identity, UserCourseEnvironment userCourseEnvironment, Role by) {
 		Integer attempts = nodeAttempts.get(courseNode.getIdent());
 		if (attempts == null) attempts = new Integer(0);
 		int iAttempts = attempts.intValue();
@@ -141,7 +166,18 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	 */
 	@Override
 	public void incrementNodeAttemptsInBackground(CourseNode courseNode, Identity identity, UserCourseEnvironment userCourseEnvironment) {
-		incrementNodeAttempts(courseNode, identity, userCourseEnvironment);
+		incrementNodeAttempts(courseNode, identity, userCourseEnvironment, Role.auto);
+	}
+
+	@Override
+	public void updateCurrentCompletion(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnvironment,
+			Double currentCompletion, AssessmentRunStatus runStatus, Role by) {
+		//
+	}
+
+	@Override
+	public void updateLastModifications(CourseNode courseNode, Identity assessedIdentity, UserCourseEnvironment userCourseEnvironment, Role by) {
+		//
 	}
 
 	/**
@@ -158,6 +194,11 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	@Override
 	public String getNodeComment(CourseNode courseNode, Identity identity) {
 		return "This is a preview"; //default comment for preview
+	}
+	
+	@Override
+	public List<File> getIndividualAssessmentDocuments(CourseNode courseNode, Identity identity) {
+		return Collections.emptyList();
 	}
 
 	/**
@@ -188,6 +229,16 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	public Integer getNodeAttempts(CourseNode courseNode, Identity identity) {
 		Integer attempts = nodeAttempts.get(courseNode.getIdent());
 		return (attempts == null ? new Integer(0) : attempts);
+	}
+
+	@Override
+	public Double getNodeCompletion(CourseNode courseNode, Identity identity) {
+		return null;
+	}
+
+	@Override
+	public Double getNodeCurrentRunCompletion(CourseNode courseNode, Identity identity) {
+		return null;
 	}
 
 	/**
@@ -235,13 +286,13 @@ final class PreviewAssessmentManager extends BasicManager implements AssessmentM
 	 */
 	@Override
 	public void saveScoreEvaluation(AssessableCourseNode courseNode, Identity identity, Identity assessedIdentity, ScoreEvaluation scoreEvaluation, 
-			UserCourseEnvironment userCourseEnvironment, boolean incrementUserAttempts) {
+			UserCourseEnvironment userCourseEnvironment, boolean incrementUserAttempts, Role by) {
 		
 		saveNodeScore(courseNode, scoreEvaluation.getScore());
 		saveNodePassed(courseNode, scoreEvaluation.getPassed());
 		saveAssessmentID(courseNode, scoreEvaluation.getAssessmentID());
 		if(incrementUserAttempts) {
-			incrementNodeAttempts(courseNode, identity, userCourseEnvironment);
+			incrementNodeAttempts(courseNode, identity, userCourseEnvironment, by);
 		}
 	}
 

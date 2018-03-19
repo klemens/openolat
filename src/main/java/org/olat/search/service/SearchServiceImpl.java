@@ -35,6 +35,8 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.lucene.analysis.Analyzer;
@@ -80,6 +82,7 @@ import org.olat.search.service.indexer.MainIndexer;
 import org.olat.search.service.searcher.JmsSearchProvider;
 import org.olat.search.service.spell.SearchSpellChecker;
 import org.quartz.JobDetail;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 
@@ -89,6 +92,8 @@ import org.quartz.SchedulerException;
  */
 public class SearchServiceImpl implements SearchService, GenericEventListener {
 	private static final OLog log = Tracing.createLoggerFor(SearchServiceImpl.class);
+	
+	private final JobKey indexerJobKey = new JobKey("org.olat.search.job.enabled", Scheduler.DEFAULT_GROUP);
 	
 	private Index indexer;	
 	private SearchModule searchModuleConfig;
@@ -124,7 +129,8 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 			QItemDocument.ITEM_TYPE_FIELD, QItemDocument.ASSESSMENT_TYPE_FIELD,
 			QItemDocument.ITEM_VERSION_FIELD, QItemDocument.ITEM_STATUS_FIELD,
 			QItemDocument.COPYRIGHT_FIELD, QItemDocument.EDITOR_FIELD,
-			QItemDocument.EDITOR_VERSION_FIELD, QItemDocument.FORMAT_FIELD
+			QItemDocument.EDITOR_VERSION_FIELD, QItemDocument.FORMAT_FIELD,
+			QItemDocument.TOPIC_FIELD
 	};
 
 	
@@ -180,13 +186,13 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 		if (indexer==null) throw new AssertException ("Try to call startIndexing() but indexer is null");
 		
 		try {
-			JobDetail detail = scheduler.getJobDetail("org.olat.search.job.enabled", Scheduler.DEFAULT_GROUP);
+			JobDetail detail = scheduler.getJobDetail(indexerJobKey);
 			if(detail == null) {
 				if("disabled".equals(indexerCron)) {
 					indexer.startFullIndex();
 				}
 			} else {
-				scheduler.triggerJob(detail.getName(), detail.getGroup());
+				scheduler.triggerJob(indexerJobKey);
 			}
 			log.info("startIndexing...");
 		} catch (SchedulerException e) {
@@ -202,13 +208,13 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 		if (indexer==null) throw new AssertException ("Try to call stopIndexing() but indexer is null");
 
 		try {
-			JobDetail detail = scheduler.getJobDetail("org.olat.search.job.enabled", Scheduler.DEFAULT_GROUP);
+			JobDetail detail = scheduler.getJobDetail(indexerJobKey);
 			if(detail == null) {
 				if("disabled".equals(indexerCron)) {
 					indexer.stopFullIndex();
 				}
 			} else {
-				scheduler.interrupt(detail.getName(), detail.getGroup());
+				scheduler.interrupt(indexerJobKey);
 			}
 			log.info("stopIndexing.");
 		} catch (SchedulerException e) {
@@ -233,6 +239,7 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 		searchSpellChecker.setSpellDictionaryPath(searchModuleConfig.getSpellCheckDictionaryPath());
 		searchSpellChecker.setSpellCheckEnabled(searchModuleConfig.getSpellCheckEnabled());
 		searchSpellChecker.setSearchExecutor(searchExecutor);
+		searchSpellChecker.setSearchModule(searchModuleConfig);
 		
 		indexer = new Index(searchModuleConfig, this, searchSpellChecker, mainIndexer, lifeIndexer, coordinatorManager);
 
@@ -243,8 +250,7 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 
 		if (startingFullIndexingAllowed()) {
 			try {
-				JobDetail detail = scheduler.getJobDetail("org.olat.search.job.enabled", Scheduler.DEFAULT_GROUP);
-				scheduler.triggerJob(detail.getName(), detail.getGroup());
+				scheduler.triggerJob(indexerJobKey);
 			} catch (SchedulerException e) {
 				log.error("", e);
 			}
@@ -297,14 +303,19 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 	public SearchResults doSearch(String queryString, List<String> condQueries, Identity identity, Roles roles,
 			int firstResult, int maxResults, boolean doHighlighting)
 	throws ServiceNotAvailableException, ParseException {
-	
+		
+		Future<SearchResults> futureResults = null;
 		try {
 			SearchCallable run = new SearchCallable(queryString,  condQueries, identity, roles, firstResult, maxResults, doHighlighting, this);
-			Future<SearchResults> futureResults = searchExecutor.submit(run);
-			SearchResults results = futureResults.get();
+			futureResults = searchExecutor.submit(run);
+			SearchResults results = futureResults.get(searchModuleConfig.getSearchTimeout(), TimeUnit.SECONDS);
 			queryCount++;
 			return results;
 		} catch (InterruptedException e) {
+			log.error("", e);
+			return null;
+		} catch (TimeoutException e) {
+			cancelSearch(futureResults);
 			log.error("", e);
 			return null;
 		} catch (ExecutionException e) {
@@ -323,15 +334,21 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 	public List<Long> doSearch(String queryString, List<String> condQueries, Identity identity, Roles roles,
 			int firstResult, int maxResults, SortKey... orderBy)
 	throws ServiceNotAvailableException, ParseException, QueryException {
+		
+		Future<List<Long>> futureResults = null;
 		try {
 			SearchOrderByCallable run = new SearchOrderByCallable(queryString, condQueries, orderBy, firstResult, maxResults, this);
-			Future<List<Long>> futureResults = searchExecutor.submit(run);
-			List<Long> results = futureResults.get();
+			futureResults = searchExecutor.submit(run);
+			List<Long> results = futureResults.get(searchModuleConfig.getSearchTimeout(), TimeUnit.SECONDS);
 			queryCount++;
 			if(results == null) {
 				results = new ArrayList<Long>(1);
 			}
 			return results;
+		} catch (TimeoutException e) {
+			cancelSearch(futureResults);
+			log.error("", e);
+			return null;
 		} catch (Exception e) {
 			log.error("", e);
 			return new ArrayList<Long>(1);
@@ -341,13 +358,28 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 	@Override
 	public Document doSearch(String queryString)
 	throws ServiceNotAvailableException, ParseException, QueryException {
+		Future<Document> futureResults = null;
 		try {
 			GetDocumentByCallable run = new GetDocumentByCallable(queryString, this);
-			Future<Document> futureResults = searchExecutor.submit(run);
-			return futureResults.get();
+			futureResults = searchExecutor.submit(run);
+			return futureResults.get(searchModuleConfig.getSearchTimeout(), TimeUnit.SECONDS);
+		} catch (TimeoutException e) {
+			cancelSearch(futureResults);
+			log.error("", e);
+			return null;
 		} catch (Exception e) {
 			log.error("", e);
 			return null;
+		}
+	}
+	
+	private void cancelSearch(Future<?> search) {
+		if(search != null) {
+			try {
+				search.cancel(false);
+			} catch (Exception e) {
+				log.error("Error canceling a search", e);
+			}
 		}
 	}
 	
@@ -567,10 +599,13 @@ public class SearchServiceImpl implements SearchService, GenericEventListener {
 	throws IOException {
 		try {
 			File indexFile = new File(searchModuleConfig.getFullIndexPath());
-			Directory directory = FSDirectory.open(indexFile);
-			File permIndexFile = new File(searchModuleConfig.getFullPermanentIndexPath());
-			Directory permDirectory = FSDirectory.open(permIndexFile);
-			return DirectoryReader.indexExists(directory) && DirectoryReader.indexExists(permDirectory);
+			if(indexFile.exists()) {
+				Directory directory = FSDirectory.open(indexFile);
+				File permIndexFile = new File(searchModuleConfig.getFullPermanentIndexPath());
+				Directory permDirectory = FSDirectory.open(permIndexFile);
+				return DirectoryReader.indexExists(directory) && DirectoryReader.indexExists(permDirectory);
+			}
+			return false;
 		} catch (IOException e) {
 			throw e;
 		}

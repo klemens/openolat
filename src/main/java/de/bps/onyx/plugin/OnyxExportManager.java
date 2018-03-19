@@ -127,7 +127,7 @@ public class OnyxExportManager {
 			String filename =  path + "/" + rs.getIdentity().getName() + "_" + rs.getCreationDate() + ".xml";
 			try {
 				exportStream.putNextEntry(new ZipEntry(filename));
-				IOUtils.write(resultXml, exportStream);
+				IOUtils.write(resultXml, exportStream, "UTF-8");
 				exportStream.closeEntry();
 			} catch (IOException e) {
 				log.error("", e);
@@ -180,7 +180,6 @@ public class OnyxExportManager {
 
 	private String createTargetFilename(final String shortTitle, final String type) {
 		final StringBuilder tf = new StringBuilder();
-		tf.append(type);
 		tf.append(Formatter.makeStringFilesystemSave(shortTitle));
 		tf.append("_");
 		final DateFormat myformat = new SimpleDateFormat("yyyy-MM-dd__hh-mm-ss__SSS");
@@ -296,7 +295,7 @@ public class OnyxExportManager {
 		} catch (FileNotFoundException e) {
 			// do nothing
 		} catch (IOException e) {
-			e.printStackTrace();
+			log.error("", e);
 		} finally {
 			if (target != null) {
 				try {

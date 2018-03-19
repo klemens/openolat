@@ -1,4 +1,6 @@
 /**
+
+
  * <a href="http://www.openolat.org">
  * OpenOLAT - Online Learning and Training</a><br>
  * <p>
@@ -21,12 +23,9 @@
 package org.olat.core.commons.services.notifications.restapi;
 
 import static org.olat.restapi.security.RestSecurityHelper.isAdmin;
+import static org.olat.restapi.security.RestSecurityHelper.parseDate;
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -77,6 +76,40 @@ import org.olat.user.restapi.UserVO;
  */
 @Path("notifications")
 public class NotificationsWebService {
+
+	
+	/**
+	 * Get the publisher by resource name and id + sub identifier.
+	 * 
+	 * @response.representation.200.qname {http://www.example.com}publisherVo
+	 * @response.representation.200.mediaType application/xml, application/json
+	 * @response.representation.200.doc The publisher
+	 * @response.representation.200.example {@link org.olat.restapi.support.vo.Examples#SAMPLE_PUBLISHERVO}
+	 * @response.representation.204.doc The publisher doesn't exist
+	 * @response.representation.401.doc The roles of the authenticated user are not sufficient
+	 * @return It returns the <code>CourseVO</code> object representing the course.
+	 */
+	@GET
+	@Path("publisher/{ressourceName}/{ressourceId}/{subIdentifier}")
+	@Produces({MediaType.APPLICATION_XML ,MediaType.APPLICATION_JSON})
+	public Response getPublisher(@PathParam("ressourceName") String ressourceName, @PathParam("ressourceId") Long ressourceId,
+			@PathParam("subIdentifier") String subIdentifier, @Context HttpServletRequest request) {
+		if(!isAdmin(request)) {
+			return Response.serverError().status(Status.UNAUTHORIZED).build();
+		}
+
+		NotificationsManager notificationsMgr = NotificationsManager.getInstance();
+		
+		SubscriptionContext subsContext
+			= new SubscriptionContext(ressourceName, ressourceId, subIdentifier);
+
+		Publisher publisher = notificationsMgr.getPublisher(subsContext);
+		if(publisher == null) {
+			return Response.ok().status(Status.NO_CONTENT).build();
+		}
+		PublisherVO publisherVo = new PublisherVO(publisher);
+		return Response.ok(publisherVo).build();
+	}
 	
 	@GET
 	@Path("subscribers/{ressourceName}/{ressourceId}/{subIdentifier}")
@@ -240,50 +273,5 @@ public class NotificationsWebService {
 			infoVO.setItems(itemVOes);
 		}
 		return infoVO;
-	}
-	
-	private Date parseDate(String date, Locale locale) {
-		if(StringHelper.containsNonWhitespace(date)) {
-			if(date.indexOf('T') > 0) {
-				if(date.indexOf('.') > 0) {
-					try {
-						return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss.S").parse(date);
-					} catch (ParseException e) {
-						//fail silently
-					}
-				} else {
-					try {
-						return new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ss").parse(date);
-					} catch (ParseException e) {
-						//fail silently
-					}
-				}
-			}
-			
-			//try with the locale
-			if(date.length() > 10) {
-				//probably date time
-				try {
-					DateFormat format = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM, locale);
-					format.setLenient(true);
-					return format.parse(date);
-				} catch (ParseException e) {
-					//fail silently
-				}
-			} else {
-				try {
-					DateFormat format = DateFormat.getDateInstance(DateFormat.MEDIUM, locale);
-					format.setLenient(true);
-					return format.parse(date);
-				} catch (ParseException e) {
-					//fail silently
-				}
-			}
-		}
-		
-		Calendar cal = Calendar.getInstance();
-		cal.setTime(new Date());
-		cal.add(Calendar.MONTH, -1);
-		return cal.getTime();
 	}
 }

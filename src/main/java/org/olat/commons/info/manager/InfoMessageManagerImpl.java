@@ -25,13 +25,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.StringTokenizer;
 
-import org.olat.commons.info.model.InfoMessage;
+import org.olat.basesecurity.IdentityRef;
+import org.olat.commons.info.InfoMessage;
+import org.olat.commons.info.InfoMessageManager;
 import org.olat.commons.info.model.InfoMessageImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.commons.persistence.DBQuery;
 import org.olat.core.id.Identity;
 import org.olat.core.id.OLATResourceable;
 import org.olat.core.util.StringHelper;
+import org.olat.group.BusinessGroupRef;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 /**
  * 
@@ -42,24 +47,11 @@ import org.olat.core.util.StringHelper;
  * Initial Date:  26 jul. 2010 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
-public class InfoMessageManagerImpl extends InfoMessageManager {
+@Service("infoMessageManager")
+public class InfoMessageManagerImpl implements InfoMessageManager {
 	
+	@Autowired
 	private DB dbInstance;
-	
-	/**
-	 * [used by Spring]
-	 */
-	private InfoMessageManagerImpl() {
-		INSTANCE = this;
-	}
-	
-	/**
-	 * [used by Spring]
-	 * @param dbInstance
-	 */
-	public void setDbInstance(DB dbInstance) {
-		this.dbInstance = dbInstance;
-	}
 
 	@Override
 	public InfoMessage createInfoMessage(OLATResourceable ores, String subPath, String businessPath, Identity author) {
@@ -95,19 +87,44 @@ public class InfoMessageManagerImpl extends InfoMessageManager {
 			}
 		}
 	}
+	
+
+	@Override
+	public List<InfoMessage> loadInfoMessagesOfIdentity(BusinessGroupRef businessGroup, IdentityRef identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select msg from ").append(InfoMessageImpl.class.getName()).append(" msg")
+			.append(" left join fetch msg.author author")
+			.append(" left join fetch author.user")
+			.append(" left join fetch msg.modifier modifier")
+			.append(" left join fetch modifier.user")
+			.append(" where (author.key=:authorKey")
+			.append(" or modifier.key=:authorKey)")
+			.append(" and msg.resId=:groupKey");
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), InfoMessage.class)
+				.setParameter("authorKey",identity.getKey())
+				.setParameter("groupKey", businessGroup.getKey())
+				.getResultList();
+	}
 
 	@Override
 	public InfoMessage loadInfoMessageByKey(Long key) {
 		StringBuilder sb = new StringBuilder();
-		sb.append("select msg from ").append(InfoMessageImpl.class.getName())
-			.append(" msg where msg.key=:key");
+		sb.append("select msg from ").append(InfoMessageImpl.class.getName()).append(" msg")
+			.append(" left join fetch msg.author author")
+			.append(" left join fetch author.user")
+			.append(" left join fetch msg.modifier modifier")
+			.append(" left join fetch modifier.user")
+			.append(" where msg.key=:key");
 		
-		DBQuery query = dbInstance.createQuery(sb.toString());
-		query.setLong("key", key);
-		@SuppressWarnings("unchecked")
-		List<InfoMessage> msgs = query.list();
-		if(msgs.isEmpty()) return null;
-		return msgs.get(0);
+		List<InfoMessage> infoMessages = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), InfoMessage.class)
+				.setParameter("key", key)
+				.getResultList();
+		if (infoMessages.size() == 0) {
+			return null;
+		}
+		return infoMessages.get(0);
 	}
 
 	@Override
@@ -147,6 +164,13 @@ public class InfoMessageManagerImpl extends InfoMessageManager {
 			sb.append("msg");
 		
 		sb.append(" from ").append(InfoMessageImpl.class.getName()).append(" msg");
+		
+		if (!count) {
+			sb.append(" left join fetch msg.author author")
+			.append(" left join fetch author.user")
+			.append(" left join fetch msg.modifier modifier")
+			.append(" left join fetch modifier.user");
+		}
 		
 		if(ores != null) {
 			appendAnd(sb, "msg.resId=:resId and msg.resName=:resName ");

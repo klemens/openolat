@@ -19,20 +19,22 @@
  */
 package org.olat.modules.qpool.ui.datasource;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
 import org.olat.core.commons.persistence.DefaultResultInfos;
 import org.olat.core.commons.persistence.ResultInfos;
 import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
+import org.olat.core.gui.translator.Translator;
 import org.olat.modules.qpool.QuestionItem;
 import org.olat.modules.qpool.QuestionItemShort;
 import org.olat.modules.qpool.QuestionItemView;
+import org.olat.modules.qpool.QuestionStatus;
 import org.olat.modules.qpool.ui.QuestionItemsSource;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * An empty data source.
@@ -54,19 +56,84 @@ public class EmptyItemsSource implements QuestionItemsSource {
         return null;
     }
 
+	@Override
+	public boolean isCreateEnabled() {
+		return false;
+	}
+
+	@Override
+	public boolean isCopyEnabled() {
+		return false;
+	}
+
+	@Override
+	public boolean isImportEnabled() {
+		return false;
+	}
+
+	@Override
+	public boolean isAuthorRightsEnable() {
+		return false;
+	}
+
     @Override
     public boolean isRemoveEnabled() {
         return false;
     }
 
+	@Override
+	public boolean isBulkChangeEnabled() {
+		return false;
+	}
+
     @Override
     public boolean isDeleteEnabled() {
         return false;
     }
+	
+	@Override
+	public boolean isAdminItemSource() {
+		return false;
+	}
     
     @Override
 	public boolean askEditable() {
 		return false;
+	}
+
+	@Override
+	public boolean isStatusFilterEnabled() {
+		return false;
+	}
+
+	@Override
+	public QuestionStatus getStatusFilter() {
+		return null;
+	}
+	
+	@Override
+	public void setStatusFilter(QuestionStatus questionStatus) {
+		// not enabled
+	}
+
+	@Override
+	public boolean askAddToSource() {
+		return false;
+	}
+
+	@Override
+	public boolean askAddToSourceDefault() {
+		return false;
+	}
+
+	@Override
+	public String getAskToSourceText(Translator translator) {
+		return "";
+	}
+
+	@Override
+	public void addToSource(List<QuestionItem> items, boolean editable) {
+		//
 	}
 
 	@Override
@@ -90,7 +157,12 @@ public class EmptyItemsSource implements QuestionItemsSource {
     }
 
     @Override
+    public QuestionItemView getItemWithoutRestrictions(Long itemKey) {
+        return null;
+    }
+
+    @Override
     public ResultInfos<QuestionItemView> getItems(String query, List<String> condQueries, int firstResult, int maxResults, SortKey... orderBy) {
-        return new DefaultResultInfos<QuestionItemView>();
+        return new DefaultResultInfos<>();
     }
 }

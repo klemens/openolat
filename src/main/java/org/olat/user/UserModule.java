@@ -33,6 +33,9 @@ import java.util.regex.PatternSyntaxException;
 import org.olat.NewControllerFactory;
 import org.olat.admin.site.UserAdminSite;
 import org.olat.admin.user.UserAdminContextEntryControllerCreator;
+import org.olat.basesecurity.Authentication;
+import org.olat.basesecurity.BaseSecurity;
+import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.id.Identity;
@@ -41,6 +44,7 @@ import org.olat.core.id.UserConstants;
 import org.olat.core.logging.OLog;
 import org.olat.core.logging.StartupException;
 import org.olat.core.logging.Tracing;
+import org.olat.core.util.StringHelper;
 import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.ldap.LDAPLoginManager;
 import org.olat.ldap.LDAPLoginModule;
@@ -61,19 +65,30 @@ public class UserModule extends AbstractSpringModule {
 
 	private static OLog log = Tracing.createLoggerFor(UserModule.class);
 	
+	private final static String USER_EMAIL_MANDATORY = "userEmailMandatory";
+	private final static String USER_EMAIL_UNIQUE = "userEmailUnique";
+	
 	@Autowired @Qualifier("loginBlacklist")
 	private ArrayList<String> loginBlacklist;
-	private List<String> loginBlacklistChecked = new ArrayList<String>();
+	private List<String> loginBlacklistChecked = new ArrayList<>();
 	
 	@Value("${password.change.allowed}")
 	private boolean pwdchangeallowed;
+	@Value("${password.change.allowed.without.authentications:false}")
+	private boolean pwdChangeWithoutAuthenticationAllowed;
+
 	private String adminUserName = "administrator";
 	@Value("${user.logoByProfile:disabled}")
 	private String enabledLogoByProfile;
 	
-	@Autowired
-	private UserManager userManger;
+	@Value("${user.email.mandatory:true}")
+	private boolean isEmailMandatory;
+	@Value("${user.email.unique:true}")
+	private boolean isEmailUnique;
 	
+	@Autowired
+	private UserPropertiesConfig userPropertiesConfig;
+
 	@Autowired
 	public UserModule(CoordinatorManager coordinatorManager) {
 		super(coordinatorManager);
@@ -94,12 +109,24 @@ public class UserModule extends AbstractSpringModule {
 		
 		log.info("Successfully added " + count + " entries to login blacklist.");
 		
+		String userEmailOptionalValue = getStringPropertyValue(USER_EMAIL_MANDATORY, false);
+		if(StringHelper.containsNonWhitespace(userEmailOptionalValue)) {
+			isEmailMandatory = "true".equalsIgnoreCase(userEmailOptionalValue);
+		}
+		
+		String userEmailUniquenessOptionalValue = getStringPropertyValue(USER_EMAIL_UNIQUE, false);
+		if(StringHelper.containsNonWhitespace(userEmailUniquenessOptionalValue)) {
+			isEmailUnique = "true".equalsIgnoreCase(userEmailUniquenessOptionalValue);
+		}
+		
 		// Check if user manager is configured properly and has user property
 		// handlers for the mandatory user properties used in OLAT
 		checkMandatoryUserProperty(UserConstants.FIRSTNAME);
 		checkMandatoryUserProperty(UserConstants.LASTNAME);
-		checkMandatoryUserProperty(UserConstants.EMAIL);
-		
+		if (isEmailMandatory()) {
+			checkMandatoryUserProperty(UserConstants.EMAIL);
+		}
+
 		// Add controller factory extension point to launch user profile controller
 		NewControllerFactory.getInstance().addContextEntryControllerCreator(Identity.class.getSimpleName(),
 				new IdentityContextEntryControllerCreator());
@@ -119,7 +146,7 @@ public class UserModule extends AbstractSpringModule {
 	}
 
 	private void checkMandatoryUserProperty(String userPropertyIdentifyer) {
-		List<UserPropertyHandler> propertyHandlers = userManger.getUserPropertiesConfig().getAllUserPropertyHandlers();
+		List<UserPropertyHandler> propertyHandlers = userPropertiesConfig.getAllUserPropertyHandlers();
 		boolean propertyDefined = false;
 		for (UserPropertyHandler propertyHandler : propertyHandlers) {
 			if (propertyHandler.getName().equals(userPropertyIdentifyer)) {
@@ -173,10 +200,21 @@ public class UserModule extends AbstractSpringModule {
 			return isAnyPasswordChangeAllowed();
 		}
 		
-		// if this is set to false, noone can change their pw
+		// if this is set to false, nobody can change their password
 		if (!pwdchangeallowed) {
 			return false;
 		}
+		
+		// call to CoreSpringFactory to break dependencies cycles
+		// (the method will only be called with a running application)
+		
+		// check if the user has an OLAT provider token, otherwise a password change makes no sense
+		Authentication auth = CoreSpringFactory.getImpl(BaseSecurity.class)
+				.findAuthentication(id, BaseSecurityModule.getDefaultAuthProviderIdentifier());
+		if(auth == null && !pwdChangeWithoutAuthenticationAllowed) {
+			return false;
+		}
+		
 		LDAPLoginManager ldapLoginManager = CoreSpringFactory.getImpl(LDAPLoginManager.class);
 		if (ldapLoginManager.isIdentityInLDAPSecGroup(id)) {
 			// it's an ldap-user
@@ -203,4 +241,25 @@ public class UserModule extends AbstractSpringModule {
 	public String getAdminUserName() {
 		return adminUserName;
 	}
+
+	public boolean isEmailMandatory() {
+		return isEmailMandatory;
+	}
+
+	public void setEmailMandatory(boolean isEmailMandatory) {
+		this.isEmailMandatory = isEmailMandatory;
+		String isEmailMandatoryStr = isEmailMandatory ? "true" : "false";
+		setStringProperty(USER_EMAIL_MANDATORY, isEmailMandatoryStr, true);
+	}
+
+	public boolean isEmailUnique() {
+		return isEmailUnique;
+	}
+
+	public void setEmailUnique(boolean isEmailUnique) {
+		this.isEmailUnique = isEmailUnique;
+		String isEmailUniqueStr = isEmailUnique ? "true" : "false";
+		setStringProperty(USER_EMAIL_UNIQUE, isEmailUniqueStr, true);
+	}
+
 }

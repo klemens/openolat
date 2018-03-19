@@ -26,7 +26,15 @@
 
 package org.olat.course.statistic.studybranch3;
 
-import org.olat.core.commons.persistence.PersistentObject;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
+import org.olat.core.id.Persistable;
 
 /**
  * Hibernate object representing an entry in the o_stat_studybranch3 table.
@@ -34,18 +42,43 @@ import org.olat.core.commons.persistence.PersistentObject;
  * Initial Date:  12.02.2010 <br>
  * @author Stefan
  */
-public class StudyBranch3Stat extends PersistentObject {
+@Entity(name="studybranch3stat")
+@Table(name="o_stat_studybranch3")
+public class StudyBranch3Stat implements Persistable {
+
+	private static final long serialVersionUID = 7156469152258502192L;
 	
+	@Id
+	@GeneratedValue(generator = "system-uuid")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
+	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
+	private Long key;
+	@Column(name="businesspath", nullable=false, unique=false, insertable=true, updatable=true)
 	private String businessPath;
+	@Column(name="studybranch3", nullable=false, unique=false, insertable=true, updatable=true)
 	private String studyBranch3;
+	@Column(name="value", nullable=false, unique=false, insertable=true, updatable=true)
 	private int value;
+	@Column(name="resid", nullable=false, unique=false, insertable=true, updatable=true)
 	private long resId;
 	
 	public StudyBranch3Stat(){
 	// for hibernate	
 	}
 	
-	public final long getResId() {
+	@Override
+	public Long getKey() {
+		return key;
+	}
+	
+	public long getResId() {
 		return resId;
 	}
 	
@@ -53,28 +86,50 @@ public class StudyBranch3Stat extends PersistentObject {
 		this.resId = resId;
 	}
 	
-	public final String getBusinessPath() {
+	public String getBusinessPath() {
 		return businessPath;
 	}
 
-	public final void setBusinessPath(String businessPath) {
+	public void setBusinessPath(String businessPath) {
 		this.businessPath = businessPath;
 	}
 
-	public final String getStudyBranch3() {
+	public String getStudyBranch3() {
 		return studyBranch3;
 	}
 	
-	public final void setStudyBranch3(String studyBranch3) {
+	public void setStudyBranch3(String studyBranch3) {
 		this.studyBranch3 = studyBranch3;
 	}
 	
-	public final int getValue() {
+	public int getValue() {
 		return value;
 	}
 	
-	public final void setValue(int value) {
+	public void setValue(int value) {
 		this.value = value;
+	}
+	
+	@Override
+	public int hashCode() {
+		return getKey() == null ? 39563 : getKey().hashCode();
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if(obj == this) {
+			return true;
+		}
+		if(obj instanceof StudyBranch3Stat) {
+			StudyBranch3Stat stat = (StudyBranch3Stat)obj;
+			return getKey() != null && getKey().equals(stat.getKey());
+		}
+		return super.equals(obj);
+	}
+
+	@Override
+	public boolean equalsByPersistableKey(Persistable persistable) {
+		return equals(persistable);
 	}
 	
 }

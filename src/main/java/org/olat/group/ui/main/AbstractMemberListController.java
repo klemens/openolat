@@ -356,6 +356,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 					openEdit(ureq, row);
 				}
 			} else if(event instanceof FlexiTableSearchEvent) {
+				String cmd = event.getCommand();
 				if(FlexiTableSearchEvent.SEARCH.equals(event.getCommand())) {
 					FlexiTableSearchEvent se = (FlexiTableSearchEvent)event;
 					String search = se.getSearch();
@@ -364,7 +365,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 					FlexiTableSearchEvent se = (FlexiTableSearchEvent)event;
 					String search = se.getSearch();
 					doSearch(search);
-				} else if(FlexiTableSearchEvent.RESET.equals(event.getCommand())) {
+				} else if(FlexiTableSearchEvent.RESET.getCommand().equals(cmd)) {
 					doResetSearch();
 				}
 			}
@@ -493,7 +494,7 @@ public abstract class AbstractMemberListController extends FormBasicController i
 			}
 			if(numOfRemovedOwner == 0 || numOfOwners - numOfRemovedOwner > 0) {
 				List<Identity> ids = securityManager.loadIdentityByKeys(identityKeys);
-				leaveDialogBox = new MemberLeaveConfirmationController(ureq, getWindowControl(), ids);
+				leaveDialogBox = new MemberLeaveConfirmationController(ureq, getWindowControl(), ids, repoEntry != null);
 				listenTo(leaveDialogBox);
 				
 				cmc = new CloseableModalController(getWindowControl(), translate("close"), leaveDialogBox.getInitialComponent(),

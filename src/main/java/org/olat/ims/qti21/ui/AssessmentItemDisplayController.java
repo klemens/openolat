@@ -72,6 +72,7 @@ import uk.ac.ed.ph.jqtiplus.running.ItemSessionController;
 import uk.ac.ed.ph.jqtiplus.running.ItemSessionControllerSettings;
 import uk.ac.ed.ph.jqtiplus.state.ItemProcessingMap;
 import uk.ac.ed.ph.jqtiplus.state.ItemSessionState;
+import uk.ac.ed.ph.jqtiplus.state.TestPlanNode;
 import uk.ac.ed.ph.jqtiplus.types.FileResponseData;
 import uk.ac.ed.ph.jqtiplus.types.Identifier;
 import uk.ac.ed.ph.jqtiplus.types.ResponseData;
@@ -131,7 +132,7 @@ public class AssessmentItemDisplayController extends BasicController implements 
 		currentRequestTimestamp = ureq.getRequestTimestamp();
 		candidateSession = qtiService.createInMemoryAssessmentTestSession(getIdentity());
 		submissionDirToDispose = qtiService.getSubmissionDirectory(candidateSession);
-		mapperUri = registerCacheableMapper(null, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDirToDispose));
+		mapperUri = registerCacheableMapper(ureq, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDirToDispose));
 		
 		itemSessionController = enterSession(ureq);
 		
@@ -159,7 +160,7 @@ public class AssessmentItemDisplayController extends BasicController implements 
 		currentRequestTimestamp = ureq.getRequestTimestamp();
 		candidateSession = qtiService.createInMemoryAssessmentTestSession(getIdentity());
 		submissionDirToDispose = qtiService.getSubmissionDirectory(candidateSession);
-		mapperUri = registerCacheableMapper(null, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDirToDispose));
+		mapperUri = registerCacheableMapper(ureq, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDirToDispose));
 		
 		itemSessionController = enterSession(ureq);
 		
@@ -189,7 +190,7 @@ public class AssessmentItemDisplayController extends BasicController implements 
 		currentRequestTimestamp = ureq.getRequestTimestamp();
 		candidateSession = qtiService.createAssessmentTestSession(getIdentity(), null, assessmentEntry, testEntry, itemRef.getIdentifier().toString(), testEntry, authorMode);
 		File submissionDir = qtiService.getSubmissionDirectory(candidateSession);
-		mapperUri = registerCacheableMapper(null, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDir));
+		mapperUri = registerCacheableMapper(ureq, UUID.randomUUID().toString(), new ResourcesMapper(itemFileRef.toURI(), submissionDir));
 		
 		itemSessionController = enterSession(ureq);
 		
@@ -242,6 +243,16 @@ public class AssessmentItemDisplayController extends BasicController implements 
 	}
 
 	@Override
+	public boolean isRubricHidden(Identifier sectionKey) {
+		return false;
+	}
+
+	@Override
+	public int getNumber(TestPlanNode node) {
+		return 1;
+	}
+
+	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
 		currentRequestTimestamp = ureq.getRequestTimestamp();
 		//
@@ -266,6 +277,9 @@ public class AssessmentItemDisplayController extends BasicController implements 
 				break;
 			case response:
 				handleResponses(ureq, qe.getStringResponseMap(), qe.getFileResponseMap(), qe.getComment());
+				break;
+			case tmpResponse:
+				handleTemporaryResponses(ureq, qe.getStringResponseMap());
 				break;
 			case close:
 				endSession(ureq);
@@ -373,6 +387,62 @@ public class AssessmentItemDisplayController extends BasicController implements 
 		}
 		final int requestedLimitIntValue = requestedLimit.intValue();
 		return requestedLimitIntValue > 0 ? requestedLimitIntValue : JqtiPlus.DEFAULT_TEMPLATE_PROCESSING_LIMIT;
+	}
+	
+	public void handleTemporaryResponses(UserRequest ureq, Map<Identifier, ResponseInput> stringResponseMap) {
+
+		/* Retrieve current JQTI state and set up JQTI controller */
+		NotificationRecorder notificationRecorder = new NotificationRecorder(NotificationLevel.INFO);
+		ItemSessionState itemSessionState = itemSessionController.getItemSessionState();
+
+		/* Make sure an attempt is allowed */
+		if (itemSessionState.isEnded()) {
+			candidateAuditLogger.logAndThrowCandidateException(candidateSession, CandidateExceptionReason.RESPONSES_NOT_EXPECTED, null);
+			logError("RESPONSES_NOT_EXPECTED", null);
+			return;
+		}
+
+		/* Build response map in required format for JQTI+.
+		 * NB: The following doesn't test for duplicate keys in the two maps. I'm not sure
+		 * it's worth the effort.
+		 */
+		final Map<Identifier, ResponseData> responseDataMap = new HashMap<>();
+		final Map<Identifier, AssessmentResponse> assessmentResponseDataMap = new HashMap<>();
+
+		if (stringResponseMap!=null) {
+			for (final Entry<Identifier, ResponseInput> stringResponseEntry : stringResponseMap.entrySet()) {
+				Identifier identifier = stringResponseEntry.getKey();
+				ResponseInput responseData = stringResponseEntry.getValue();
+				if(responseData instanceof StringInput) {
+					responseDataMap.put(identifier, new StringResponseData(((StringInput)responseData).getResponseData()));
+				}
+			}
+		}
+ 
+		final Date timestamp = ureq.getRequestTimestamp();
+
+
+		/* Attempt to bind responses */
+		boolean allResponsesValid = false, allResponsesBound = false;
+		try {
+			itemSessionController.bindResponses(timestamp, responseDataMap);
+		} catch (final QtiCandidateStateException e) {
+	        candidateAuditLogger.logAndThrowCandidateException(candidateSession, CandidateExceptionReason.RESPONSES_NOT_EXPECTED, null);
+			logError("RESPONSES_NOT_EXPECTED", e);
+			return;
+		} catch (final RuntimeException e) {
+			logError("", e);
+			return;// handleExplosion(e, candidateSession);
+		}
+
+		/* Record resulting attempt and event */
+		final CandidateItemEventType eventType = allResponsesBound ?
+				(allResponsesValid ? CandidateItemEventType.ATTEMPT_VALID : CandidateItemEventType.RESPONSE_INVALID)
+				: CandidateItemEventType.RESPONSE_BAD;
+		final CandidateEvent candidateEvent = qtiService.recordCandidateItemEvent(candidateSession, null, entry,
+	                eventType, itemSessionState, notificationRecorder);
+		candidateAuditLogger.logCandidateEvent(candidateEvent, assessmentResponseDataMap);
+		lastEvent = candidateEvent;
 	}
 	
 	public void handleResponses(UserRequest ureq, Map<Identifier, ResponseInput> stringResponseMap,
@@ -687,13 +757,23 @@ public class AssessmentItemDisplayController extends BasicController implements 
 		protected void formInnerEvent(UserRequest ureq, FormItem source, FormEvent event) {
 			if(source == qtiEl) {
 				if(event instanceof QTIWorksAssessmentItemEvent) {
-					fireEvent(ureq, event);
+					QTIWorksAssessmentItemEvent qwaie = (QTIWorksAssessmentItemEvent)event;
+					if(qwaie.getEvent() == QTIWorksAssessmentItemEvent.Event.tmpResponse) {
+						processTemporaryResponse(ureq);
+					} else {
+						fireEvent(ureq, event);
+					}
 				}
 			} else if(source instanceof FormLink) {
 				FormLink formLink = (FormLink)source;
 				processResponse(ureq, formLink);	
 			}
 			super.formInnerEvent(ureq, source, event);
+		}
+
+		@Override
+		protected void fireTemporaryResponse(UserRequest ureq, Map<Identifier, ResponseInput> stringResponseMap) {
+			fireEvent(ureq, new QTIWorksAssessmentItemEvent(QTIWorksAssessmentItemEvent.Event.tmpResponse, stringResponseMap, null, null, null));
 		}
 
 		@Override

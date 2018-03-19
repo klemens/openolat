@@ -44,6 +44,7 @@ import org.olat.core.util.Util;
 import org.olat.repository.RepositoryManager;
 import org.olat.repository.handlers.RepositoryHandlerFactory;
 import org.olat.repository.handlers.RepositoryHandlerFactory.OrderedRepositoryHandler;
+import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams.ResourceUsage;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
@@ -55,12 +56,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class AuthorSearchController extends FormBasicController implements ExtendedFlexiTableSearchController {
 
 	private static final String[] keys = new String[]{ "my" };
+	private static final String[] statusKeys = new String[]{ "all", "active", "closed" };
+	private static final String[] usageKeys = new String[]{ ResourceUsage.all.name(), ResourceUsage.used.name(), ResourceUsage.notUsed.name() };
 	
 	private TextElement id; // only for admins
 	private TextElement displayName;
 	private TextElement author;
 	private TextElement description;
 	private SingleSelection types;
+	private SingleSelection closedEl;
+	private SingleSelection resourceUsageEl;
 	private MultipleSelectionElement ownedResourcesOnlyEl;
 	private FormLink searchButton;
 	
@@ -103,6 +108,14 @@ public class AuthorSearchController extends FormBasicController implements Exten
 		typeKeys = typeList.toArray(new String[typeList.size()]);
 		String[] typeValues = getTranslatedResources(typeList);
 		types = uifactory.addDropdownSingleselect("cif.type", "cif.type", leftContainer, typeKeys, typeValues, null);
+		
+		String[] statusValues = new String[] {
+				translate("cif.resources.status.all"),
+				translate("cif.resources.status.active"),
+				translate("cif.resources.status.closed")
+			};
+		closedEl = uifactory.addRadiosHorizontal("cif_status", "cif.resources.status", leftContainer, statusKeys, statusValues);
+		closedEl.select(statusKeys[1], true);
 
 		FormLayoutContainer rightContainer = FormLayoutContainer.createDefaultFormLayout("right_1", getTranslator());
 		rightContainer.setRootForm(mainForm);
@@ -116,6 +129,16 @@ public class AuthorSearchController extends FormBasicController implements Exten
 		
 		ownedResourcesOnlyEl = uifactory.addCheckboxesHorizontal("cif_my", "cif.owned.resources.only", rightContainer, keys, new String[]{ "" });
 		ownedResourcesOnlyEl.select(keys[0], true);
+		
+		String[] usageValues = new String[] {
+			translate("cif.owned.resources.usage.all"),
+			translate("cif.owned.resources.usage.used"),
+			translate("cif.owned.resources.usage.notUsed")
+		};
+		resourceUsageEl = uifactory.addRadiosHorizontal("cif_used", "cif.owned.resources.usage", rightContainer, usageKeys, usageValues);
+		resourceUsageEl.select(usageKeys[0], true);
+		
+
 		
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());
 		formLayout.add(buttonLayout);
@@ -132,7 +155,18 @@ public class AuthorSearchController extends FormBasicController implements Exten
 		author.setValue(se.getAuthor());
 		ownedResourcesOnlyEl.select(keys[0], se.isOwnedResourcesOnly());
 		description.setValue(se.getDescription());
-		
+		if(se.getResourceUsage() != null) {
+			resourceUsageEl.select(se.getResourceUsage().name(), true);
+		}
+		if(se.getClosed() != null) {
+			if(se.getClosed().booleanValue()) {
+				closedEl.select(statusKeys[2], true);
+			} else {
+				closedEl.select(statusKeys[1], true);
+			}
+		} else {
+			closedEl.select(statusKeys[0], true);
+		}
 		String type = se.getType();
 		if(StringHelper.containsNonWhitespace(type)) {
 			for(String typeKey:typeKeys) {
@@ -197,6 +231,26 @@ public class AuthorSearchController extends FormBasicController implements Exten
 		return ownedResourcesOnlyEl.isAtLeastSelected(1);
 	}
 	
+	public ResourceUsage getResourceUsage() {
+		if(resourceUsageEl.isOneSelected()) {
+			return ResourceUsage.valueOf(resourceUsageEl.getSelectedKey());
+		}
+		return ResourceUsage.all;
+	}
+	
+	public Boolean getClosed() {
+		Boolean status = null;
+		if(closedEl.isOneSelected()) {
+			int selected = closedEl.getSelected();
+			if(selected == 1) {
+				status = Boolean.FALSE;
+			} else if(selected == 2) {
+				status = Boolean.TRUE;
+			}
+		}
+		return status;
+	}
+	
 	@Override
 	public void setEnabled(boolean enable) {
 		this.enabled = enable;
@@ -242,6 +296,8 @@ public class AuthorSearchController extends FormBasicController implements Exten
 		e.setDescription(getDescription());
 		e.setType(getRestrictedType());
 		e.setOwnedResourcesOnly(isOwnedResourcesOnly());
+		e.setResourceUsage(getResourceUsage());
+		e.setClosed(getClosed());
 		fireEvent(ureq, e);
 	}
 

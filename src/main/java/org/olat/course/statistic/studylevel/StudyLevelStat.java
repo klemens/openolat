@@ -26,28 +26,59 @@
 
 package org.olat.course.statistic.studylevel;
 
-import org.olat.core.commons.persistence.PersistentObject;
-import org.olat.core.logging.OLog;
-import org.olat.core.logging.Tracing;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Parameter;
+import org.olat.core.id.Persistable;
 
 /**
  * <p>
  * Initial Date:  20.10.2009 <br>
  * @author Stefan
  */
-public class StudyLevelStat extends PersistentObject {
-	static final OLog log = Tracing.createLoggerFor(StudyLevelStat.class);
+
+@Entity(name="studylevelstat")
+@Table(name="o_stat_studylevel")
+public class StudyLevelStat implements Persistable {
+
+	private static final long serialVersionUID = 1255485547339375940L;
 	
+	@Id
+	@GeneratedValue(generator = "system-uuid")
+	@GenericGenerator(name = "system-uuid", strategy = "enhanced-sequence", parameters={
+		@Parameter(name="sequence_name", value="hibernate_unique_key"),
+		@Parameter(name="force_table_use", value="true"),
+		@Parameter(name="optimizer", value="legacy-hilo"),
+		@Parameter(name="value_column", value="next_hi"),
+		@Parameter(name="increment_size", value="32767"),
+		@Parameter(name="initial_value", value="32767")
+	})
+	@Column(name="id", nullable=false, unique=true, insertable=true, updatable=false)
+	private Long key;
+	@Column(name="businesspath", nullable=false, unique=false, insertable=true, updatable=true)
 	private String businessPath;
+	@Column(name="studylevel", nullable=false, unique=false, insertable=true, updatable=true)
 	private String studyLevel;
+	@Column(name="value", nullable=false, unique=false, insertable=true, updatable=true)
 	private int value;
+	@Column(name="resid", nullable=false, unique=false, insertable=true, updatable=true)
 	private long resId;
 	
 	public StudyLevelStat(){
 	// for hibernate	
 	}
 	
-	public final long getResId() {
+	@Override
+	public Long getKey() {
+		return key;
+	}
+	
+	public long getResId() {
 		return resId;
 	}
 	
@@ -55,28 +86,50 @@ public class StudyLevelStat extends PersistentObject {
 		this.resId = resId;
 	}
 	
-	public final String getBusinessPath() {
+	public String getBusinessPath() {
 		return businessPath;
 	}
 
-	public final void setBusinessPath(String businessPath) {
+	public void setBusinessPath(String businessPath) {
 		this.businessPath = businessPath;
 	}
 
-	public final String getStudyLevel() {
+	public String getStudyLevel() {
 		return studyLevel;
 	}
 	
-	public final void setStudyLevel(String studyLevel) {
+	public void setStudyLevel(String studyLevel) {
 		this.studyLevel = studyLevel;
 	}
 	
-	public final int getValue() {
+	public int getValue() {
 		return value;
 	}
 	
-	public final void setValue(int value) {
+	public void setValue(int value) {
 		this.value = value;
+	}
+	
+	@Override
+	public int hashCode() {
+		return getKey() == null ? 39563 : getKey().hashCode();
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if(obj == this) {
+			return true;
+		}
+		if(obj instanceof StudyLevelStat) {
+			StudyLevelStat stat = (StudyLevelStat)obj;
+			return getKey() != null && getKey().equals(stat.getKey());
+		}
+		return super.equals(obj);
+	}
+
+	@Override
+	public boolean equalsByPersistableKey(Persistable persistable) {
+		return equals(persistable);
 	}
 	
 }

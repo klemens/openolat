@@ -27,8 +27,6 @@ import org.olat.basesecurity.Group;
 import org.olat.core.commons.fullWebApp.LayoutMain3ColsController;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.Component;
-import org.olat.core.gui.components.link.Link;
-import org.olat.core.gui.components.link.LinkFactory;
 import org.olat.core.gui.components.panel.Panel;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.components.tree.GenericTreeModel;
@@ -52,7 +50,6 @@ import org.olat.ims.qti21.QTI21DeliveryOptions;
 import org.olat.ims.qti21.QTI21Service;
 import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.modules.assessment.AssessmentToolOptions;
-import org.olat.modules.assessment.AssessmentToolOptions.AlternativeToIdentities;
 import org.olat.repository.RepositoryEntry;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -65,13 +62,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class QTI21StatisticsToolController extends BasicController implements Activateable2 {
 
 	private MenuTree courseTree;
-	private final Link statsButton;
 	private Controller currentCtrl;
 	private final TooledStackedPanel stackPanel;
 	private LayoutMain3ColsController layoutCtr;
 
 	private final ArchiveOptions options;
-	private final QTICourseNode courseNode;
 	private final RepositoryEntry testEntry;
 	private final RepositoryEntry courseEntry;
 	private QTI21StatisticResourceResult result;
@@ -82,15 +77,24 @@ public class QTI21StatisticsToolController extends BasicController implements Ac
 	@Autowired
 	private QTI21Service qtiService;
 	
+	/**
+	 * This is the statistics tool for the assessment tool.
+	 * 
+	 * @param ureq
+	 * @param wControl
+	 * @param stackPanel
+	 * @param courseEnv
+	 * @param asOptions
+	 * @param courseNode
+	 */
 	public QTI21StatisticsToolController(UserRequest ureq, WindowControl wControl, 
 			TooledStackedPanel stackPanel, CourseEnvironment courseEnv,
 			AssessmentToolOptions asOptions, QTICourseNode courseNode) {
 		super(ureq, wControl);
 		this.stackPanel = stackPanel;
-		this.options = new ArchiveOptions();
-		this.options.setGroup(asOptions.getGroup());
-		this.options.setIdentities(asOptions.getIdentities());
-		this.courseNode = courseNode;
+		options = new ArchiveOptions();
+		options.setGroup(asOptions.getGroup());
+		options.setIdentities(asOptions.getIdentities());
 		courseEntry = courseEnv.getCourseGroupManager().getCourseEntry();
 		testEntry = courseNode.getReferencedRepositoryEntry();
 		
@@ -98,21 +102,41 @@ public class QTI21StatisticsToolController extends BasicController implements Ac
 		secCallback = new QTI21StatisticsSecurityCallback(asOptions.isAdmin(), asOptions.isAdmin() && deliveryOptions.isAllowAnonym());
 		
 		searchParams = new QTI21StatisticSearchParams(testEntry, courseEntry, courseNode.getIdent());
-		searchParams.setViewAnonymUsers(secCallback.canViewAnonymousUsers());
+		searchParams.setViewAnonymUsers(false);//In assessment tool, no user allowed
+		searchParams.setViewAllUsers(false);
 		
-		if(asOptions.getGroup() != null) {
+		if(asOptions.getGroup() != null) {// filter by business group
 			List<Group> bGroups = Collections.singletonList(asOptions.getGroup().getBaseGroup());
 			searchParams.setLimitToGroups(bGroups);
-		} else if(asOptions.getAlternativeToIdentities() != null) {
-			AlternativeToIdentities alt = asOptions.getAlternativeToIdentities();
-			searchParams.setLimitToGroups(alt.getGroups());
+		} else if(asOptions.getGroups() != null) {
+			searchParams.setLimitToGroups(asOptions.getGroups());
+		} else {
+			searchParams.setViewNonMembers(asOptions.isNonMembers());
 		}
 		
-		statsButton = LinkFactory.createButton("menu.title", null, this);
-		statsButton.setIconLeftCSS("o_icon o_icon-fw o_icon_statistics_tool");
-		statsButton.setTranslator(getTranslator());
-		putInitialPanel(statsButton);
-		getInitialComponent().setSpanAsDomReplaceable(true); // override to wrap panel as span to not break link layout 
+		result = new QTI21StatisticResourceResult(testEntry, courseEntry, courseNode, searchParams, secCallback);
+		result.setWithFilter(false);
+		
+		GenericTreeModel treeModel = new GenericTreeModel();
+		StatisticResourceNode rootTreeNode = new StatisticResourceNode(courseNode, result);
+		treeModel.setRootNode(rootTreeNode);
+		
+		TreeNode subRootNode = result.getSubTreeModel().getRootNode();
+		List<INode> subNodes = new ArrayList<>();
+		for(int i=0; i<subRootNode.getChildCount(); i++) {
+			subNodes.add(subRootNode.getChildAt(i));
+		}
+		for(INode subNode:subNodes) {
+			rootTreeNode.addChild(subNode);
+		}
+
+		courseTree = new MenuTree("qti21StatisticsTree");
+		courseTree.setTreeModel(treeModel);
+		courseTree.addListener(this);
+		
+		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, new Panel("empty"), null);
+		putInitialPanel(layoutCtr.getInitialComponent());
+		doSelectNode(ureq, courseTree.getTreeModel().getRootNode());
 	}
 
 	@Override
@@ -138,10 +162,7 @@ public class QTI21StatisticsToolController extends BasicController implements Ac
 
 	@Override
 	protected void event(UserRequest ureq, Component source, Event event) {
-		if(statsButton == source) {
-			doLaunchStatistics(ureq, getWindowControl());
-			doSelectNode(ureq, courseTree.getTreeModel().getRootNode());
-		} else if(courseTree == source) {
+		if(courseTree == source) {
 			if(event instanceof TreeEvent) {
 				TreeEvent te = (TreeEvent)event;
 				if(MenuTree.COMMAND_TREENODE_CLICKED.equals(te.getCommand())) {
@@ -163,31 +184,5 @@ public class QTI21StatisticsToolController extends BasicController implements Ac
 		} else {
 			layoutCtr.setCol3(new Panel("empty"));
 		}
-	}
-
-	private void doLaunchStatistics(UserRequest ureq, WindowControl wControl) {
-		if(result == null) {
-			result = new QTI21StatisticResourceResult(testEntry, courseEntry, courseNode, searchParams, secCallback);
-		}
-		
-		GenericTreeModel treeModel = new GenericTreeModel();
-		StatisticResourceNode rootTreeNode = new StatisticResourceNode(courseNode, result);
-		treeModel.setRootNode(rootTreeNode);
-		
-		TreeNode subRootNode = result.getSubTreeModel().getRootNode();
-		List<INode> subNodes = new ArrayList<>();
-		for(int i=0; i<subRootNode.getChildCount(); i++) {
-			subNodes.add(subRootNode.getChildAt(i));
-		}
-		for(INode subNode:subNodes) {
-			rootTreeNode.addChild(subNode);
-		}
-
-		courseTree = new MenuTree("qti21StatisticsTree");
-		courseTree.setTreeModel(treeModel);
-		courseTree.addListener(this);
-		
-		layoutCtr = new LayoutMain3ColsController(ureq, wControl, courseTree, new Panel("empty"), null);
-		stackPanel.pushController("Stats", layoutCtr);
 	}
 }

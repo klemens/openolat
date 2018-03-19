@@ -36,6 +36,7 @@ import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
 import org.olat.core.commons.persistence.DB;
+import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.id.User;
@@ -279,9 +280,9 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertNotNull(foundId);
 		Assert.assertEquals(id.getKey(), foundId.getKey());
 		Assert.assertEquals(idName, foundId.getName());
-		Assert.assertNotNull(foundId.getEmail());
-		Assert.assertNotNull(foundId.getFirstName());
-		Assert.assertNotNull(foundId.getLastName());
+		Assert.assertEquals(id.getUser().getEmail(), foundId.getEmail());
+		Assert.assertEquals(id.getUser().getFirstName(), foundId.getFirstName());
+		Assert.assertEquals(id.getUser().getLastName(), foundId.getLastName());
 		Assert.assertNotNull(foundId.getLastLogin());
 		Assert.assertEquals(id.getUser().getKey(), foundId.getUserKey());
 		Assert.assertTrue(foundId.getStatus() < Identity.STATUS_VISIBLE_LIMIT);
@@ -971,4 +972,71 @@ public class BaseSecurityManagerTest extends OlatTestCase {
 		Assert.assertEquals(identity, reloadedId);
 		dbInstance.commitAndCloseSession();
 	}
+	
+	@Test
+	public void deleteInvalidAuthenticationsByEmail() {
+		Identity identity = JunitTestHelper.createAndPersistIdentityAsUser("auth-del-email-" + UUID.randomUUID().toString());
+		User user = identity.getUser();
+		String email = user.getEmail();
+		securityManager.createAndPersistAuthentication(identity, "OLAT", email, "secret", Encoder.Algorithm.sha512);
+		securityManager.createAndPersistAuthentication(identity, "del-mail", email, "secret", Encoder.Algorithm.sha512);
+		securityManager.createAndPersistAuthentication(identity, WebDAVAuthManager.PROVIDER_HA1_EMAIL, email, "secret", Encoder.Algorithm.sha512);
+		securityManager.createAndPersistAuthentication(identity, WebDAVAuthManager.PROVIDER_HA1_INSTITUTIONAL_EMAIL, email, "secret", Encoder.Algorithm.sha512);
+		securityManager.createAndPersistAuthentication(identity, WebDAVAuthManager.PROVIDER_WEBDAV_EMAIL, email, "secret", Encoder.Algorithm.sha512);
+		securityManager.createAndPersistAuthentication(identity, WebDAVAuthManager.PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL, email, "secret", Encoder.Algorithm.sha512);
+		dbInstance.commitAndCloseSession();
+		
+		// User with email address exists: The authentications are valid.
+		securityManager.deleteInvalidAuthenticationsByEmail(email);
+		dbInstance.commitAndCloseSession();
+		
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_HA1_EMAIL));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_HA1_INSTITUTIONAL_EMAIL));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_WEBDAV_EMAIL));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL));
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, "OLAT"));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(identity.getName(), "OLAT"));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, "del-mail"));
+		
+		// Email of the user changed: The authentications are not valid any longer.
+		user.setProperty(UserConstants.EMAIL, "new@trashcmail.com");
+		user.setProperty(UserConstants.INSTITUTIONALEMAIL, "new@trashcmail.com");
+		userManager.updateUser(user);
+		dbInstance.commitAndCloseSession();
+		
+		securityManager.deleteInvalidAuthenticationsByEmail(email);
+		dbInstance.commitAndCloseSession();
+		
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_HA1_EMAIL));
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_HA1_INSTITUTIONAL_EMAIL));
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_WEBDAV_EMAIL));
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, WebDAVAuthManager.PROVIDER_WEBDAV_INSTITUTIONAL_EMAIL));
+		Assert.assertNull(securityManager.findAuthenticationByAuthusername(email, "OLAT"));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(identity.getName(), "OLAT"));
+		Assert.assertNotNull(securityManager.findAuthenticationByAuthusername(email, "del-mail"));
+	}
+	
+	@Test
+	public void deleteSecurityGroup() {
+		Identity id = JunitTestHelper.createAndPersistIdentityAsRndUser("test-del-2");
+		SecurityGroup secGroup = securityManager.createAndPersistSecurityGroup();
+		securityManager.addIdentityToSecurityGroup(id, secGroup);
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		Policy policy = securityManager.createAndPersistPolicy(secGroup, "test.right11", resource);
+		dbInstance.commitAndCloseSession();
+		Assert.assertNotNull(policy);
+		
+		//delete the security group (and membership, and policies)
+		securityManager.deleteSecurityGroup(secGroup);
+		dbInstance.commit();
+		
+		//checks
+		List<Policy> deletedPolicies = securityManager.getPoliciesOfResource(resource, secGroup);
+		Assert.assertNotNull(deletedPolicies);
+		Assert.assertTrue(deletedPolicies.isEmpty());
+		
+		boolean membership = securityManager.isIdentityInSecurityGroup(id, secGroup);
+		Assert.assertFalse(membership);
+	}
+	
 }

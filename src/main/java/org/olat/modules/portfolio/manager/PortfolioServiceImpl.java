@@ -61,6 +61,7 @@ import org.olat.course.run.userview.UserCourseEnvironment;
 import org.olat.fileresource.FileResourceManager;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.modules.assessment.AssessmentService;
+import org.olat.modules.assessment.Role;
 import org.olat.modules.assessment.model.AssessmentEntryStatus;
 import org.olat.modules.forms.EvaluationFormSessionStatus;
 import org.olat.modules.forms.manager.EvaluationFormSessionDAO;
@@ -82,6 +83,8 @@ import org.olat.modules.portfolio.PageBody;
 import org.olat.modules.portfolio.PageImageAlign;
 import org.olat.modules.portfolio.PagePart;
 import org.olat.modules.portfolio.PageStatus;
+import org.olat.modules.portfolio.PageUserInformations;
+import org.olat.modules.portfolio.PageUserStatus;
 import org.olat.modules.portfolio.PortfolioElement;
 import org.olat.modules.portfolio.PortfolioElementType;
 import org.olat.modules.portfolio.PortfolioRoles;
@@ -93,6 +96,7 @@ import org.olat.modules.portfolio.handler.BinderTemplateResource;
 import org.olat.modules.portfolio.model.AccessRightChange;
 import org.olat.modules.portfolio.model.AccessRights;
 import org.olat.modules.portfolio.model.AssessedBinder;
+import org.olat.modules.portfolio.model.AssessedPage;
 import org.olat.modules.portfolio.model.AssessmentSectionChange;
 import org.olat.modules.portfolio.model.AssessmentSectionImpl;
 import org.olat.modules.portfolio.model.AssignmentImpl;
@@ -101,6 +105,7 @@ import org.olat.modules.portfolio.model.BinderPageUsage;
 import org.olat.modules.portfolio.model.BinderStatistics;
 import org.olat.modules.portfolio.model.CategoryLight;
 import org.olat.modules.portfolio.model.PageImpl;
+import org.olat.modules.portfolio.model.SearchSharePagesParameters;
 import org.olat.modules.portfolio.model.SectionImpl;
 import org.olat.modules.portfolio.model.SectionKeyRef;
 import org.olat.modules.portfolio.model.SynchedBinder;
@@ -148,6 +153,8 @@ public class PortfolioServiceImpl implements PortfolioService {
 	@Autowired
 	private AssignmentDAO assignmentDao;
 	@Autowired
+	private PageUserInfosDAO pageUserInfosDao;
+	@Autowired
 	private SharedByMeQueries sharedByMeQueries;
 	@Autowired
 	private OLATResourceManager resourceManager;
@@ -180,8 +187,7 @@ public class PortfolioServiceImpl implements PortfolioService {
 
 	@Override
 	public OLATResource createBinderTemplateResource() {
-		OLATResource resource = resourceManager.createOLATResourceInstance(BinderTemplateResource.TYPE_NAME);
-		return resource;
+		return resourceManager.createOLATResourceInstance(BinderTemplateResource.TYPE_NAME);
 	}
 
 	@Override
@@ -251,6 +257,18 @@ public class PortfolioServiceImpl implements PortfolioService {
 			}
 		}
 		return binder;
+	}
+	
+	@Override
+	public boolean detachCourseFromBinders(RepositoryEntry entry) {
+		int deletedRows = binderDao.detachBinderFromRepositoryEntry(entry);
+		return deletedRows > 0;
+	}
+
+	@Override
+	public boolean detachRepositoryEntryFromBinders(RepositoryEntry entry, PortfolioCourseNode courseNode) {
+		int deletedRows = binderDao.detachBinderFromRepositoryEntry(entry, courseNode);
+		return deletedRows > 0;
 	}
 
 	@Override
@@ -507,6 +525,11 @@ public class PortfolioServiceImpl implements PortfolioService {
 		return sharedWithMeQueries.searchSharedBinders(coach, searchString);
 	}
 	
+	@Override
+	public List<AssessedPage> searchSharedPagesWith(Identity coach, SearchSharePagesParameters params) {
+		return sharedWithMeQueries.searchSharedPagesEntries(coach, params);
+	}
+
 	@Override
 	public List<RepositoryEntry> searchCourseWithBinderTemplates(Identity participant) {
 		return binderDao.searchCourseTemplates(participant);
@@ -811,21 +834,22 @@ public class PortfolioServiceImpl implements PortfolioService {
 			File bcroot = portfolioFileStorage.getRootDirectory();
 			File file = new File(bcroot, imagePath);
 			if(file.exists()) {
-				file.delete();
+				boolean deleted = file.delete();
+				if(!deleted) {
+					log.warn("Cannot delete: " + file);
+				}
 			}
 		}
 	}
 
 	@Override
 	public List<Page> searchOwnedPages(IdentityRef owner, String searchString) {
-		List<Page> pages = pageDao.getOwnedPages(owner, searchString);
-		return pages;
+		return pageDao.getOwnedPages(owner, searchString);
 	}
 
 	@Override
 	public List<Page> searchDeletedPages(IdentityRef owner, String searchString) {
-		List<Page> pages = pageDao.getDeletedPages(owner, searchString);
-		return pages;
+		return pageDao.getDeletedPages(owner, searchString);
 	}
 
 	@Override
@@ -957,6 +981,7 @@ public class PortfolioServiceImpl implements PortfolioService {
 	public void deletePage(Page page) {
 		Page reloadedPage = pageDao.loadByKey(page.getKey());
 		pageDao.deletePage(reloadedPage);
+		pageUserInfosDao.delete(page);
 	}
 
 	@Override
@@ -1030,7 +1055,7 @@ public class PortfolioServiceImpl implements PortfolioService {
 	}
 
 	@Override
-	public Page changePageStatus(Page page, PageStatus status) {
+	public Page changePageStatus(Page page, PageStatus status, Identity identity, Role by) {
 		PageStatus currentStatus = page.getPageStatus();
 		Page reloadedPage = pageDao.loadByKey(page.getKey());
 		((PageImpl)reloadedPage).setPageStatus(status);
@@ -1068,7 +1093,16 @@ public class PortfolioServiceImpl implements PortfolioService {
 					}
 				}
 			}
+			pageUserInfosDao.updateStatus(reloadedPage, PageUserStatus.inProcess, PageUserStatus.done);
+		} else if(status == PageStatus.closed) {
+			//set user informations to done
+			pageUserInfosDao.updateStatus(reloadedPage, PageUserStatus.done);
 		}
+		if(reloadedPage.getSection() != null && reloadedPage.getSection().getBinder() != null) {
+			Binder binder = reloadedPage.getSection().getBinder();
+			updateAssessmentEntryLastModification(binder, identity, by);
+		}
+		
 		return pageDao.updatePage(reloadedPage);
 	}
 	
@@ -1094,6 +1128,32 @@ public class PortfolioServiceImpl implements PortfolioService {
 			}
 		}
 	}
+	
+	@Override
+	public PageUserInformations getPageUserInfos(Page page, Identity identity, PageUserStatus defaultStatus) {
+		PageUserInformations infos = pageUserInfosDao.getPageUserInfos(page, identity);
+		if(infos == null) {
+			PageStatus status = page.getPageStatus();
+			PageUserStatus userStatus = defaultStatus;
+			if(status == null || status == PageStatus.draft) {
+				userStatus = PageUserStatus.incoming;
+			} else if(status == PageStatus.closed || status == PageStatus.deleted) {
+				userStatus = PageUserStatus.done;
+			}
+			infos = pageUserInfosDao.create(userStatus, page, identity);
+		}
+		return infos;
+	}
+
+	@Override
+	public List<PageUserInformations> getPageUserInfos(BinderRef binder, IdentityRef identity) {
+		return pageUserInfosDao.getPageUserInfos(binder, identity);
+	}
+
+	@Override
+	public PageUserInformations updatePageUserInfos(PageUserInformations infos) {
+		return pageUserInfosDao.update(infos);
+	}
 
 	@Override
 	public Section changeSectionStatus(Section section, SectionStatus status, Identity coach) {
@@ -1110,12 +1170,49 @@ public class PortfolioServiceImpl implements PortfolioService {
 			if(page != null) {
 				((PageImpl)page).setPageStatus(newPageStatus);
 				pageDao.updatePage(page);
+				if(newPageStatus == PageStatus.closed) {
+					//set user informations to done
+					pageUserInfosDao.updateStatus(page, PageUserStatus.done);
+				}
 			}
 		}
 		
 		((SectionImpl)reloadedSection).setSectionStatus(status);
 		reloadedSection = binderDao.updateSection(reloadedSection);
 		return reloadedSection;
+	}
+	
+	private void updateAssessmentEntryLastModification(Binder binder, Identity doer, Role by) {
+		if(binder.getEntry() == null) return;
+
+		RepositoryEntry entry = binder.getEntry();
+		List<Identity> assessedIdentities = getMembers(binder, PortfolioRoles.owner.name());
+
+		//order status from the entry / section
+		if("CourseModule".equals(entry.getOlatResource().getResourceableTypeName())) {
+			ICourse course = CourseFactory.loadCourse(entry);
+			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
+			if(courseNode instanceof PortfolioCourseNode) {
+				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
+				for(Identity assessedIdentity:assessedIdentities) {
+					UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
+					pfNode.updateLastModifications(userCourseEnv, doer, by);
+				}
+			}
+		} else {
+			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();
+			RepositoryEntry referenceEntry = repositoryService.loadByResourceKey(resource.getKey());
+			for(Identity assessedIdentity:assessedIdentities) {
+				AssessmentEntry assessmentEntry = assessmentService
+						.getOrCreateAssessmentEntry(assessedIdentity, null, binder.getEntry(), binder.getSubIdent(), referenceEntry);
+				if(by == Role.coach) {
+					assessmentEntry.setLastCoachModified(new Date());
+				} else if(by == Role.user) {
+					assessmentEntry.setLastUserModified(new Date());
+				}
+				assessmentService.updateAssessmentEntry(assessmentEntry);
+			}
+		}
 	}
 
 	@Override
@@ -1210,9 +1307,9 @@ public class PortfolioServiceImpl implements PortfolioService {
 			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
 			if(courseNode instanceof PortfolioCourseNode) {
 				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
-				ScoreEvaluation scoreEval= new ScoreEvaluation(totalScore.floatValue(), totalPassed, binderStatus, true, binder.getKey());
+				ScoreEvaluation scoreEval= new ScoreEvaluation(totalScore.floatValue(), totalPassed, binderStatus, true, true, null, null, binder.getKey());
 				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
-				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false);
+				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false, Role.coach);
 			}
 		} else {
 			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();
@@ -1267,8 +1364,8 @@ public class PortfolioServiceImpl implements PortfolioService {
 				UserCourseEnvironment userCourseEnv = AssessmentHelper.createAndInitUserCourseEnvironment(assessedIdentity, course);
 				AssessmentEvaluation eval = pfNode.getUserScoreEvaluation(userCourseEnv);
 				
-				ScoreEvaluation scoreEval= new ScoreEvaluation(eval.getScore(), eval.getPassed(), status, fullyAssessed, binder.getKey());
-				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false);
+				ScoreEvaluation scoreEval= new ScoreEvaluation(eval.getScore(), eval.getPassed(), status, true, fullyAssessed, null, null, binder.getKey());
+				pfNode.updateUserScoreEvaluation(scoreEval, userCourseEnv, coachingIdentity, false, Role.coach);
 			}
 		} else {
 			OLATResource resource = ((BinderImpl)binder.getTemplate()).getOlatResource();

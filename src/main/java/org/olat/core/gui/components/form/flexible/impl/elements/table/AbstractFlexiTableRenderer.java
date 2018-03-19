@@ -54,6 +54,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		String id = ftC.getFormDispatchId();
 
 		renderHeaderButtons(renderer, sb, ftE, ubu, translator, renderResult, args);
+		renderBreadcrumbs(sb, ftE);
 		
 		if(ftE.getTableDataModel().getRowCount() == 0 && StringHelper.containsNonWhitespace(ftE.getEmtpyTableMessageKey())) {
 			String emptyMessageKey = ftE.getEmtpyTableMessageKey();
@@ -81,10 +82,18 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			
 			//render headers
 			renderHeaders(sb, ftC, translator);
+			//render footers
+			if(ftE.isFooter()) {
+				sb.append("<tfoot>");
+				renderFooter(renderer, sb, ftC, ubu, translator, renderResult);
+				sb.append("</tfoot>");
+			}
 			//render body
 			sb.append("<tbody>");
 			renderBody(renderer, sb, ftC, ubu, translator, renderResult);
-			sb.append("</tbody></table>");
+			sb.append("</tbody>");
+			
+			sb.append("</table>");
 			renderFooterButtons(sb, ftC, translator);
 			//draggable
 			if(ftE.getColumnIndexForDragAndDropLabel() > 0) {
@@ -198,8 +207,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			  .append(" <a href=\"javascript:")
 			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 					  new NameValuePair("rm-filter", "true")))
-			  .append("\" title=\"").append(translator.translate("remove.filters")).append("\" ")
-			  .append("\">").append("<i class='o_icon o_icon_remove o_icon-fw'> </i> </a></li></div>"); 
+			  .append("\" title=\"").append(translator.translate("remove.filters")).append("\">")
+			  .append("<i class='o_icon o_icon_remove o_icon-fw'> </i></a></div>"); 
 		}
 		sb.append("</div>");
 		
@@ -218,7 +227,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			renderFormItem(renderer, sb, ftE.getSearchElement(), ubu, translator, renderResult, args);
 			sb.append("<div class='input-group-btn'>");
 			// reset quick search
-			sb.append("<a href=\"javascript:")
+			String id = ftE.getSearchElement().getFormDispatchId();
+			sb.append("<a href=\"javascript:jQuery('#").append(id).append("').val('');")
 			  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 					  new NameValuePair("reset-search", "true")))
 			  .append("\" class='btn o_reset_quick_search'><i class='o_icon o_icon_remove_filters'> </i></a>");
@@ -244,8 +254,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				  .append("<a href=\"javascript:")
 				  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
 						  new NameValuePair("rm-extended-filter", "true")))
-				  .append("\" title=\"").append(translator.translate("remove.filters")).append("\" ")
-				  .append("\">").append("<i class='o_icon o_icon_remove o_icon-fw'> </i> </a></li></div>");
+				  .append("\" title=\"").append(translator.translate("remove.filters")).append("\">")
+				  .append("<i class='o_icon o_icon_remove o_icon-fw'> </i></a></div>");
 			}
 		} else if(ftE.getExtendedSearchButton() != null) {
 			renderFormItem(renderer, sb, ftE.getExtendedSearchButton(), ubu, translator, renderResult, args);
@@ -255,7 +265,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 	protected String renderFilterDropdown(StringOutput sb, FlexiTableElementImpl ftE, List<FlexiTableFilter> filters) {
 		Form theForm = ftE.getRootForm();
 		String dispatchId = ftE.getFormDispatchId();
-		String selected = null;
+		StringBuilder selected = new StringBuilder(256);
 		
 		sb.append("<div class='btn-group'>")
 		  .append("<button id='table-button-filters-").append(dispatchId).append("' type='button' class='btn btn-default dropdown-toggle' data-toggle='dropdown'>")
@@ -278,7 +288,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				}
 				sb.append(filter.getLabel()).append("</a></li>");
 				if(filter.isSelected() && !filter.isShowAll()) {
-					selected = filter.getLabel();
+					if(selected.length() > 0) selected.append(", ");
+					selected.append(filter.getLabel());
 				}
 			}
 		}
@@ -288,7 +299,7 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 		  .append("jQuery(function() { o_popover('table-button-filters-").append(dispatchId).append("','table-filters-").append(dispatchId).append("'); });\n")
 		  .append("/* ]]> */\n")
 		  .append("</script>");
-		return selected;
+		return selected.toString();
 	}
 	
 	protected void renderSortDropdown(StringOutput sb, FlexiTableElementImpl ftE, List<FlexiTableSort> sorts) {
@@ -341,6 +352,32 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 				}
 			}
 		}
+	}
+	
+	protected void renderBreadcrumbs(StringOutput sb, FlexiTableElementImpl ftE) {
+		FlexiTreeTableNode rootCrumb = ftE.getRootCrumb();
+		List<FlexiTreeTableNode> crumbs = ftE.getCrumbs();
+		if(rootCrumb != null || crumbs.size() > 0) {
+			sb.append("<div class='o_breadcrumb o_table_flexi_breadcrumb'><ol class='breadcrumb'>");
+			if(rootCrumb != null) {
+				renderBreadcrumbs(sb, ftE, rootCrumb, "tt-root-crumb");
+			}
+			int index = 0;
+			for(FlexiTreeTableNode crumb:crumbs) {
+				renderBreadcrumbs(sb, ftE, crumb, Integer.toString(index++));
+			}
+			sb.append("</ol></div>");
+		}
+	}
+	
+	protected void renderBreadcrumbs(StringOutput sb, FlexiTableElementImpl ftE, FlexiTreeTableNode crumb, String index) {
+		Form theForm = ftE.getRootForm();
+		String dispatchId = ftE.getFormItemComponent().getDispatchID();
+		sb.append("<li><a href=\"javascript:")
+		  .append(FormJSHelper.getXHRFnCallFor(theForm, dispatchId, 1, true, true, true,
+				  new NameValuePair("tt-crumb", index)))
+		  .append("\">").append(crumb.getCrump()).append("</a></li>");
+
 	}
 	
 	protected void renderFormItem(Renderer renderer, StringOutput sb, FormItem item, URLBuilder ubu, Translator translator,
@@ -408,6 +445,8 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 	protected abstract void renderRow(Renderer renderer, StringOutput target, FlexiTableComponent ftC, String rowIdPrefix,
 			int row, URLBuilder ubu, Translator translator, RenderResult renderResult);
 
+	protected abstract void renderFooter(Renderer renderer, StringOutput target, FlexiTableComponent ftC,
+			URLBuilder ubu, Translator translator, RenderResult renderResult);
 
 	private void renderPagesLinks(StringOutput sb, FlexiTableComponent ftC, Translator translator) {
 		FlexiTableElementImpl ftE = ftC.getFlexiTableElement();
@@ -419,15 +458,15 @@ public abstract class AbstractFlexiTableRenderer extends DefaultComponentRendere
 			renderPageSize(sb, ftC, translator);
 		}
 
-		sb.append("<ul class='pagination'>");
 		if(pageSize > 0 && rows > pageSize) {
+			sb.append("<ul class='pagination'>");
 			int page = ftE.getPage();
 			int maxPage = (int)Math.ceil(((double) rows / (double) pageSize));
 			renderPageBackLink(sb, ftC, page);
 			renderPageNumberLinks(sb, ftC, page, maxPage);
 			renderPageNextLink(sb, ftC, page, maxPage);
+			sb.append("</ul>");
 		}
-		sb.append("</ul>");
 	}
 	
 	private void renderPageSize(StringOutput sb, FlexiTableComponent ftC, Translator translator) {

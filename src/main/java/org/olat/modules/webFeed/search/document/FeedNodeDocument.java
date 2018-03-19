@@ -19,7 +19,7 @@
  */
 package org.olat.modules.webFeed.search.document;
 
-import org.olat.modules.webFeed.models.Feed;
+import org.olat.modules.webFeed.Feed;
 import org.olat.search.model.OlatDocument;
 import org.olat.search.service.SearchResourceContext;
 
@@ -32,6 +32,8 @@ import org.olat.search.service.SearchResourceContext;
  * @author gwassmann
  */
 public class FeedNodeDocument extends OlatDocument {
+
+	private static final long serialVersionUID = 5585883273458311252L;
 
 	public FeedNodeDocument(Feed feed, SearchResourceContext searchResourceContext) {
 		super();

@@ -39,6 +39,7 @@ import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.GroupRoles;
 import org.olat.commons.calendar.CalendarManager;
+import org.olat.commons.calendar.manager.ImportToCalendarManager;
 import org.olat.commons.calendar.ui.CalendarController;
 import org.olat.commons.calendar.ui.WeeklyCalendarController;
 import org.olat.commons.calendar.ui.components.KalendarRenderWrapper;
@@ -82,6 +83,7 @@ import org.olat.course.ICourse;
 import org.olat.course.run.calendar.CourseLinkProviderController;
 import org.olat.group.BusinessGroup;
 import org.olat.group.BusinessGroupService;
+import org.olat.group.ui.run.InfoGroupRunController;
 import org.olat.instantMessaging.InstantMessagingModule;
 import org.olat.instantMessaging.ui.ChatToolController;
 import org.olat.modules.co.ContactFormController;
@@ -221,6 +223,7 @@ public class CollaborationTools implements Serializable {
 	 * cache for Boolean Objects representing the State
 	 */
 	private final static String KEY_NEWS = "news";
+	private final static String KEY_NEWS_ACCESS = "newsAccess";
 	public final static String KEY_CALENDAR_ACCESS = "cal";
 	public final static String KEY_FOLDER_ACCESS = "folder";
 
@@ -250,9 +253,14 @@ public class CollaborationTools implements Serializable {
 		String news = lookupNews();
 		return new SimpleNewsController(ureq, wControl, news);
 	}
+	
+	public Controller createInfoMessageController(UserRequest ureq, WindowControl wControl, boolean isAdmin) {
+		String accessProperty = getNewsAccessProperty();
+		boolean canAccess = "all".equals(accessProperty);
+		return new InfoGroupRunController(ureq, wControl, ores, canAccess, isAdmin);
+	}
 
 	/**
-	 * TODO: rename to getForumController and save instance?
 	 * 
 	 * @param ureq
 	 * @param wControl
@@ -335,8 +343,8 @@ public class CollaborationTools implements Serializable {
 		if(forumProperty != null) {
 			forum = fom.loadForum(forumProperty.getLongValue());
 		} else {
-			//TODO gsync
 			forum = coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<Forum>(){
+				@Override
 				public Forum execute() {
 					Forum aforum;
 					Long forumKey;
@@ -440,7 +448,7 @@ public class CollaborationTools implements Serializable {
 		// add linking
 		List<RepositoryEntry> repoEntries = CoreSpringFactory.getImpl(BusinessGroupService.class).findRepositoryEntries(Collections.singleton(businessGroup), 0, -1);
 		
-		List<ICourse> courses = new ArrayList<ICourse>(repoEntries.size());
+		List<ICourse> courses = new ArrayList<>(repoEntries.size());
 		for (RepositoryEntry repoEntry:repoEntries) {
 			if (repoEntry.getOlatResource().getResourceableTypeName().equals(CourseModule.getCourseTypeName())) {
 				ICourse course = CourseFactory.loadCourse(repoEntry);
@@ -452,11 +460,11 @@ public class CollaborationTools implements Serializable {
 			calRenderWrapper.setLinkProvider(clp);
 		}
 
-		List<KalendarRenderWrapper> calendars = new ArrayList<KalendarRenderWrapper>();
+		List<KalendarRenderWrapper> calendars = new ArrayList<>();
 		calendars.add(calRenderWrapper);
 		
 		return new WeeklyCalendarController(ureq, wControl, calendars,
-				WeeklyCalendarController.CALLER_COLLAB, false);
+				WeeklyCalendarController.CALLER_COLLAB, businessGroup, false);
 	}
 
 	/**
@@ -526,7 +534,6 @@ public class CollaborationTools implements Serializable {
 		if(mapProperty != null) {
 			return createPortfolioController(ureq, wControl, stackPanel, mapProperty);
 		} else {
-			//TODO gsync
 			return coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerCallback<Controller>() {
 				@Override
 				public Controller execute() {
@@ -586,8 +593,6 @@ public class CollaborationTools implements Serializable {
 			portfolioService.updateBinderUserInformations(binder, ureq.getIdentity());
 			BinderSecurityCallback secCallback = BinderSecurityCallbackFactory.getCallbackForBusinessGroup();
 			BinderController binderCtrl = new BinderController(ureq, wControl, stackPanel, secCallback, binder, BinderConfiguration.createBusinessGroupConfig());
-			List<ContextEntry> entries = BusinessControlFactory.getInstance().createCEListFromResourceType("Toc");
-			binderCtrl.activate(ureq, entries, null);
 			ctrl = binderCtrl;
 		} else {
 			PortfolioStructureMap map = (PortfolioStructureMap) CoreSpringFactory.getImpl(EPFrontendManager.class)
@@ -665,8 +670,8 @@ public class CollaborationTools implements Serializable {
 		 * Delete calendar if exists
 		 */
 		if (businessGroupTodelete != null) {
-			CalendarManager calManager =  CoreSpringFactory.getImpl(CalendarManager.class);
-			calManager.deleteGroupCalendar(businessGroupTodelete);
+			CoreSpringFactory.getImpl(ImportToCalendarManager.class).deleteGroupImportedCalendars(businessGroupTodelete);
+			CoreSpringFactory.getImpl(CalendarManager.class).deleteGroupCalendar(businessGroupTodelete);
 		}
 		
 		/*
@@ -737,8 +742,8 @@ public class CollaborationTools implements Serializable {
 		// handle Boolean Values via String Field in Property DB Table
 		final String toolValueStr = toolValue ? TRUE : FALSE;
 		final PropertyManager pm = PropertyManager.getInstance();
-		//TODO gsync
 		coordinatorManager.getCoordinator().getSyncer().doInSync(ores, new SyncerExecutor() {
+			@Override
 			public void execute() {				
 				//was: synchronized (CollaborationTools.class) {
 				Property property = getPropertyOf(selectedTool);
@@ -788,6 +793,35 @@ public class CollaborationTools implements Serializable {
 	}
 
 	/**
+	 * @return Gets the news access property
+	 */
+	public String getNewsAccessProperty() {
+		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
+		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_NEWS_ACCESS);
+		if (property == null) { // no entry
+			return null;
+		}
+		// read the text value of the existing property
+		String text = property.getStringValue();
+		return text;
+	}
+	
+	/**
+	 * @param Save news access property.
+	 */
+	public void saveNewsAccessProperty(String access) {
+		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
+		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_NEWS_ACCESS);
+		if (property == null) { // create a new one
+			Property nP = npm.createPropertyInstance(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_NEWS_ACCESS, null, null, access, null);
+			npm.saveProperty(nP);
+		} else { // modify the existing one
+			property.setStringValue(access);
+			npm.updateProperty(property);
+		}
+	}
+
+	/**
 	 * @return the news; if there is no news yet: return null;
 	 */
 	public String lookupNews() {
@@ -799,6 +833,14 @@ public class CollaborationTools implements Serializable {
 		// read the text value of the existing property
 		String text = property.getTextValue();
 		return text;
+	}
+	
+	public Property lookupNewsDBEntry() {
+		NarrowedPropertyManager npm = NarrowedPropertyManager.getInstance(ores);
+		Property property = npm.findProperty(null, null, PROP_CAT_BG_COLLABTOOLS, KEY_NEWS);
+		if (property == null) { // no entry
+			return null;
+		} else return property;
 	}
 
 	/**
@@ -898,10 +940,12 @@ public class CollaborationTools implements Serializable {
 			}
 		}
 
+		@Override
 		public boolean canRead() {
 			return true;
 		}
 
+		@Override
 		public boolean canWrite() {
 			return write;
 		}
@@ -911,30 +955,37 @@ public class CollaborationTools implements Serializable {
 			return write;
 		}
 
+		@Override
 		public boolean canDelete() {
 			return write;
 		}
 
+		@Override
 		public boolean canList() {
 			return true;
 		}
 
+		@Override
 		public boolean canCopy() {
 			return true;
 		}
-		
+
+		@Override
 		public boolean canDeleteRevisionsPermanently() {
 			return write;
 		}
 
+		@Override
 		public Quota getQuota() {
 			return folderQuota;
 		}
 
+		@Override
 		public void setQuota(Quota quota) {
 			this.folderQuota = quota;
 		}
 
+		@Override
 		public SubscriptionContext getSubscriptionContext() {
 			return subsContext;
 		}

@@ -38,7 +38,6 @@ import java.util.Set;
 import org.olat.admin.user.bulkChange.UserBulkChangeManager;
 import org.olat.admin.user.bulkChange.UserBulkChangeStep00;
 import org.olat.basesecurity.BaseSecurity;
-import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.basesecurity.BaseSecurityModule;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.PermissionOnResourceable;
@@ -46,7 +45,6 @@ import org.olat.basesecurity.SecurityGroup;
 import org.olat.basesecurity.events.SingleIdentityChosenEvent;
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.fullWebApp.popup.BaseFullWebappPopupLayoutFactory;
-import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.PersistenceHelper;
 import org.olat.core.commons.services.webdav.WebDAVModule;
 import org.olat.core.commons.services.webdav.manager.WebDAVAuthManager;
@@ -56,6 +54,7 @@ import org.olat.core.gui.components.form.flexible.FormItem;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.DateChooser;
 import org.olat.core.gui.components.form.flexible.elements.FormLink;
+import org.olat.core.gui.components.form.flexible.elements.MultipleSelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SelectionElement;
 import org.olat.core.gui.components.form.flexible.elements.SingleSelection;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -86,7 +85,6 @@ import org.olat.core.id.OLATResourceable;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.id.context.StateMapped;
-import org.olat.core.logging.AssertException;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.ContactList;
@@ -130,7 +128,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private List<Identity> identitiesList, selectedIdentities;
 	private List<String> notUpdatedIdentities = new ArrayList<String>();
 	private ExtendedIdentitiesTableDataModel tdm;
-	private Identity foundIdentity = null;
 	private ContactFormController contactCtr;
 	private Link backFromMail;
 	private Link backFromList;
@@ -144,6 +141,8 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	private BaseSecurityModule securityModule;
 	@Autowired
 	private BaseSecurity securityManager;
+	@Autowired
+	private UserBulkChangeManager ubcMan;
 
 	/**
 	 * Constructor to trigger the user search workflow using a generic search form
@@ -327,7 +326,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 					foundIdentites.add(found);
 					initUserListCtr(ureq, foundIdentites, 0);
 				}
-				foundIdentity = found;
 				fireEvent(ureq, new SingleIdentityChosenEvent(found));
 			}
 		}
@@ -428,7 +426,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 * @return List of identities that match the criterias from the search form
 	 */
 	private List<Identity> findIdentitiesFromSearchForm() {
-		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		// get user attributes from form
 		String login = searchform.getStringValue("login");
 		// when searching for deleted users, add wildcard to match with backup prefix
@@ -442,9 +439,14 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		Map<String, String> userPropertiesSearch = new HashMap<String, String>();
 		for (UserPropertyHandler userPropertyHandler : searchform.getPropertyHandlers()) {
 			if (userPropertyHandler == null) continue;
+			
 			FormItem ui = searchform.getItem(userPropertyHandler.getName());
 			String uiValue = userPropertyHandler.getStringValue(ui);
-			if (StringHelper.containsNonWhitespace(uiValue)) {
+			if(userPropertyHandler.getName().startsWith("genericCheckboxProperty") && ui instanceof MultipleSelectionElement) {
+				if(!"false".equals(uiValue)) {//ignore false for the search
+					userPropertiesSearch.put(userPropertyHandler.getName(), uiValue);
+				}	
+			} else if (StringHelper.containsNonWhitespace(uiValue)) {
 				// when searching for deleted users, add wildcard to match with backup prefix
 				if (userPropertyHandler instanceof EmailProperty && searchform.getStatus().equals(Identity.STATUS_DELETED)) {
 					uiValue = "*" + uiValue;
@@ -457,27 +459,27 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		// get group memberships from form
 		List<SecurityGroup> groupsList = new ArrayList<SecurityGroup>();
 		if (searchform.getRole("admin")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_ADMIN);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_ADMIN);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("author")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_AUTHORS);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_AUTHORS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("groupmanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_GROUPMANAGERS);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_GROUPMANAGERS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("usermanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_USERMANAGERS);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_USERMANAGERS);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("oresmanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_INST_ORES_MANAGER);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_INST_ORES_MANAGER);
 			groupsList.add(group);
 		}
 		if (searchform.getRole("poolmanager")) {
-			SecurityGroup group = secMgr.findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
+			SecurityGroup group = securityManager.findSecurityGroupByName(Constants.GROUP_POOL_MANAGER);
 			groupsList.add(group);
 		}
 		
@@ -499,7 +501,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 		Date userLoginAfter = searchform.getUserLoginAfter();
 
 		// now perform power search
-		List<Identity> myIdentities = secMgr.getIdentitiesByPowerSearch((login.equals("") ? null : login), userPropertiesSearch, true, groups,
+		List<Identity> myIdentities = securityManager.getIdentitiesByPowerSearch((login.equals("") ? null : login), userPropertiesSearch, true, groups,
 				permissionOnResources, authProviders, createdAfter, createdBefore, userLoginAfter, userLoginBefore, status);
 
 		return myIdentities;
@@ -534,7 +536,7 @@ public class UsermanagerUserSearchController extends BasicController implements 
 				String actionid = te.getActionId();
 				if (actionid.equals(ExtendedIdentitiesTableDataModel.COMMAND_SELECTUSER)) {
 					int rowid = te.getRowId();
-					foundIdentity = tdm.getObject(rowid);
+					Identity foundIdentity = tdm.getObject(rowid);
 					// Tell parentController that a subject has been found
 					fireEvent(ureq, new SingleIdentityChosenEvent(foundIdentity));
 				} else if (actionid.equals(ExtendedIdentitiesTableDataModel.COMMAND_VCARD)) {
@@ -565,7 +567,6 @@ public class UsermanagerUserSearchController extends BasicController implements 
 						return;
 					}
 					selectedIdentities = tdm.getIdentities(tmse.getSelection());
-					final UserBulkChangeManager ubcMan = UserBulkChangeManager.getInstance();
 					// valid selection: load in wizard
 					Step start = new UserBulkChangeStep00(ureq, selectedIdentities);
 					
@@ -664,10 +665,9 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 */
 	private void reloadDataModel(UserRequest ureq) {
 		if (identitiesList == null) return;
-		BaseSecurity secMgr = BaseSecurityManager.getInstance();
 		for (int i = 0; i < identitiesList.size(); i++) {
 			Identity ident = identitiesList.get(i);
-			Identity refrshed = secMgr.loadIdentityByKey(ident.getKey());
+			Identity refrshed = securityManager.loadIdentityByKey(ident.getKey());
 			identitiesList.set(i, refrshed);
 		}
 		initUserListCtr(ureq, identitiesList, null);
@@ -679,20 +679,24 @@ public class UsermanagerUserSearchController extends BasicController implements 
 	 * activated user table list model. The identity will be reloaded from the
 	 * database to have accurate values.
 	 */
-	public void reloadFoundIdentity() {
-		if (foundIdentity == null) throw new AssertException("reloadFoundIdentity called but foundIdentity is null");
-		// reload the found identity
-		foundIdentity = (Identity) DBFactory.getInstance().loadObject(foundIdentity);
-		// replace the found identity in the table list model to display changed
-		// values
-		List identities = tdm.getObjects();
-		PersistenceHelper.replaceObjectInListByKey(identities, foundIdentity);
+	public void reloadFoundIdentity(Identity editedIdentity) {
+		if(editedIdentity == null) return;//nothing to replace
+		
+		List<Identity> identities = tdm.getObjects();
+		int index = identities.indexOf(editedIdentity);
+		if(index >= 0) {
+			// reload the found identity
+			Identity reloadedIdentity = securityManager.loadIdentityByKey(editedIdentity.getKey());
+			// replace the found identity in the table list model to display changed
+			identities.set(index, reloadedIdentity);
+		}
 	}
 
 	/**
 	 * 
 	 * @see org.olat.core.gui.control.DefaultController#doDispose(boolean)
 	 */
+	@Override
 	protected void doDispose() {
 		//
 	}
@@ -937,7 +941,7 @@ class UsermanagerUserSearchForm extends FormBasicController {
 			FormItem fi = userPropertyHandler.addFormItem(
 					getLocale(), null, getClass().getCanonicalName(), false, formLayout
 			);
-			// OO-155: Do not validate items, this is a search form!
+			// Do not validate items, this is a search form!
 			if (fi instanceof TextElement) {
 				TextElement textElement = (TextElement) fi;
 				textElement.setItemValidatorProvider(null);

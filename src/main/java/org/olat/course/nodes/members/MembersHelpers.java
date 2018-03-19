@@ -30,7 +30,7 @@ import org.olat.core.util.StringHelper;
 import org.olat.course.groupsandrights.CourseGroupManager;
 import org.olat.course.nodes.MembersCourseNode;
 import org.olat.group.BusinessGroupService;
-import org.olat.modules.IModuleConfiguration;
+import org.olat.modules.ModuleConfiguration;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryService;
 
@@ -39,24 +39,24 @@ import org.olat.repository.RepositoryService;
  * <p>Initial date: May 20, 2016
  * @author lmihalkovic, http://www.frentix.com
  */
-/*public*/ class MembersHelpers {
+public class MembersHelpers {
 	private MembersHelpers() {
 		// CANNOT CREATE
 	}
 
 	// -----------------------------------------------------
 	
-	static List<Identity> getOwners(RepositoryService repositoryService, RepositoryEntry courseRepositoryEntry) {
+	public static List<Identity> getOwners(RepositoryService repositoryService, RepositoryEntry courseRepositoryEntry) {
 		return repositoryService.getMembers(courseRepositoryEntry, GroupRoles.owner.name());
 	}
 
 	// -----------------------------------------------------
 
-	static void addCoaches(IModuleConfiguration moduleConfiguration, CourseGroupManager cgm, BusinessGroupService bgs, List<Identity> list) {
+	public static void addCoaches(ModuleConfiguration moduleConfiguration, CourseGroupManager cgm, BusinessGroupService bgs, List<Identity> list) {
 	
 		if(moduleConfiguration.has(MembersCourseNode.CONFIG_KEY_COACHES_GROUP)) {
-			String coachGroupNames = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_COACHES_GROUP);
-			List<Long> coachGroupKeys = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_COACHES_GROUP_ID);
+			String coachGroupNames = moduleConfiguration.getStringValue(MembersCourseNode.CONFIG_KEY_COACHES_GROUP);
+			List<Long> coachGroupKeys = moduleConfiguration.getList(MembersCourseNode.CONFIG_KEY_COACHES_GROUP_ID, Long.class);
 			if(coachGroupKeys == null && StringHelper.containsNonWhitespace(coachGroupNames)) {
 				coachGroupKeys = bgs.toGroupKeys(coachGroupNames, cgm.getCourseEntry());
 			}
@@ -64,8 +64,8 @@ import org.olat.repository.RepositoryService;
 		}
 
 		if(moduleConfiguration.has(MembersCourseNode.CONFIG_KEY_COACHES_AREA)) {
-			String coachAreaNames = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_COACHES_AREA);
-			List<Long> coachAreaKeys = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_COACHES_AREA_IDS);
+			String coachAreaNames = moduleConfiguration.getStringValue(MembersCourseNode.CONFIG_KEY_COACHES_AREA);
+			List<Long> coachAreaKeys = moduleConfiguration.getList(MembersCourseNode.CONFIG_KEY_COACHES_AREA_IDS, Long.class);
 			if(coachAreaKeys == null && StringHelper.containsNonWhitespace(coachAreaNames)) {
 				coachAreaKeys = bgs.toGroupKeys(coachAreaNames, cgm.getCourseEntry());
 			}
@@ -81,24 +81,24 @@ import org.olat.repository.RepositoryService;
 		}
 	}
 	
-	static List<Identity> retrieveCoachesFromAreas(List<Long> areaKeys, CourseGroupManager cgm) {
+	public static List<Identity> retrieveCoachesFromAreas(List<Long> areaKeys, CourseGroupManager cgm) {
 		List<Identity> coaches = cgm.getCoachesFromAreas(areaKeys);
 		Set<Identity> coachesWithoutDuplicates = new HashSet<Identity>(coaches);
 		coaches = new ArrayList<Identity>(coachesWithoutDuplicates);
 		return coaches;
 	}
 	
-	static List<Identity> retrieveCoachesFromGroups(List<Long> groupKeys, CourseGroupManager cgm) {
+	public static List<Identity> retrieveCoachesFromGroups(List<Long> groupKeys, CourseGroupManager cgm) {
 		List<Identity> coaches = new ArrayList<Identity>(new HashSet<Identity>(cgm.getCoachesFromBusinessGroups(groupKeys)));
 		return coaches;
 	}
 	
-	static List<Identity> retrieveCoachesFromCourse(CourseGroupManager cgm) {
+	public static List<Identity> retrieveCoachesFromCourse(CourseGroupManager cgm) {
 		List<Identity> coaches = cgm.getCoaches();
 		return coaches;
 	}
 
-	static List<Identity> retrieveCoachesFromCourseGroups(CourseGroupManager cgm) {
+	public static List<Identity> retrieveCoachesFromCourseGroups(CourseGroupManager cgm) {
 		Set<Identity> uniq = new HashSet<Identity>();
 		{
 			List<Identity> coaches = cgm.getCoachesFromAreas();
@@ -113,11 +113,11 @@ import org.olat.repository.RepositoryService;
 	
 	// -----------------------------------------------------
 	
-	static void addParticipants(IModuleConfiguration moduleConfiguration, CourseGroupManager cgm, BusinessGroupService bgs, List<Identity> list) {
+	public static void addParticipants(ModuleConfiguration moduleConfiguration, CourseGroupManager cgm, BusinessGroupService bgs, List<Identity> list) {
 
 		if(moduleConfiguration.has(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP)) {
-			String participantGroupNames = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP);
-			List<Long> participantGroupKeys = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP_ID);
+			String participantGroupNames = moduleConfiguration.getStringValue(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP);
+			List<Long> participantGroupKeys = moduleConfiguration.getList(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_GROUP_ID, Long.class);
 			if(participantGroupKeys == null && StringHelper.containsNonWhitespace(participantGroupNames)) {
 				participantGroupKeys = bgs.toGroupKeys(participantGroupNames, cgm.getCourseEntry());
 			}
@@ -125,8 +125,8 @@ import org.olat.repository.RepositoryService;
 		}
 		
 		if(moduleConfiguration.has(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA)) {
-			String participantAreaNames = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA);
-			List<Long> participantAreaKeys = moduleConfiguration.val(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA_ID);
+			String participantAreaNames = moduleConfiguration.getStringValue(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA);
+			List<Long> participantAreaKeys = moduleConfiguration.getList(MembersCourseNode.CONFIG_KEY_PARTICIPANTS_AREA_ID, Long.class);
 			if(participantAreaKeys == null && StringHelper.containsNonWhitespace(participantAreaNames)) {
 				participantAreaKeys = bgs.toGroupKeys(participantAreaNames, cgm.getCourseEntry());
 			}
@@ -142,22 +142,22 @@ import org.olat.repository.RepositoryService;
 		}
 	}
 	
-	static List<Identity> retrieveParticipantsFromAreas(List<Long> areaKeys, CourseGroupManager cgm) {
+	public static List<Identity> retrieveParticipantsFromAreas(List<Long> areaKeys, CourseGroupManager cgm) {
 		List<Identity> participiants = cgm.getParticipantsFromAreas(areaKeys);
 		return participiants;
 	}
 	
-	static List<Identity> retrieveParticipantsFromGroups(List<Long> groupKeys, CourseGroupManager cgm) {
+	public static List<Identity> retrieveParticipantsFromGroups(List<Long> groupKeys, CourseGroupManager cgm) {
 		List<Identity> participiants = cgm.getParticipantsFromBusinessGroups(groupKeys);
 		return participiants;
 	}
 	
-	static List<Identity> retrieveParticipantsFromCourse(CourseGroupManager cgm) {
+	public static List<Identity> retrieveParticipantsFromCourse(CourseGroupManager cgm) {
 		List<Identity> participiants = cgm.getParticipants();
 		return participiants;
 	}
 	
-	static List<Identity> retrieveParticipantsFromCourseGroups(CourseGroupManager cgm) {
+	public static List<Identity> retrieveParticipantsFromCourseGroups(CourseGroupManager cgm) {
 		Set<Identity> uniq = new HashSet<Identity>();
 		{
 			List<Identity> participiants = cgm.getParticipantsFromAreas();

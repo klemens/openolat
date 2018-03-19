@@ -19,8 +19,6 @@
  */
 package org.olat.user.propertyhandlers;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -38,11 +36,7 @@ import org.olat.core.id.Identity;
 import org.olat.core.id.User;
 import org.olat.core.util.StringHelper;
 import org.olat.core.util.mail.MailHelper;
-import org.olat.registration.RegistrationManager;
-import org.olat.registration.TemporaryKey;
 import org.olat.user.UserManager;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * <h3>Description:</h3>
@@ -99,9 +93,10 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 		//special validator in case of bulkChange, wizard in first step allows entry of ${userProperty} (velocity-style)
 		//to validate the input a special isValidValue is used.
 		if (usageIdentifyer.equals(UserBulkChangeStep00.class.getCanonicalName())){
-			tElem.setItemValidatorProvider(new ItemValidatorProvider(){
+			tElem.setItemValidatorProvider(new ItemValidatorProvider() {
+				@Override
 				public boolean isValidValue(String value, ValidationError validationError, Locale locale2) {
-					UserBulkChangeManager ubcMan = UserBulkChangeManager.getInstance();
+					UserBulkChangeManager ubcMan = CoreSpringFactory.getImpl(UserBulkChangeManager.class);
 					Context vcContext = new VelocityContext();
 					if (user==null){
 						vcContext = ubcMan.getDemoContext(locale2);
@@ -143,7 +138,7 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 			// email is syntactically correct. 
 		  // Check whether it's available.
 			if (!isAddressAvailable(value, (formContext != null) ? (String)formContext.get("username") : null)) {
-				textElement.setErrorKey(i18nFormElementLabelKey() + ".error.exists", null);
+				textElement.setErrorKey(i18nFormElementLabelKey() + ".error.exists", new String[] { value });
 			  return false;
 			}
 		}
@@ -177,41 +172,15 @@ public class EmailProperty extends Generic127CharTextPropertyHandler {
 	
 	
 	private boolean isAddressAvailable(String emailAddress, String currentUsername) {
-		// Check if mail address already used
-		// within the system by a user other than ourselves
-		List<Identity> identityOfEmails = UserManager.getInstance().findIdentitiesByEmail(Collections.singletonList(emailAddress));
+		User currentUser = null; 
+		Identity currentIdentity;
 		if (currentUsername != null) {
-			if(identityOfEmails.size() == 0) {
-				//ok -> checkForScheduledAdressChange
-			} else if(identityOfEmails.size() == 1) {
-				Identity identityOfEmail = identityOfEmails.get(0);
-				if (identityOfEmail != null && !identityOfEmail.getName().equals(currentUsername)) {
-					return false;
-				}
-			} else {
-				return false;
-			}
-		} else if (identityOfEmails.size() > 0) {
-			return false;
-		}
-		return checkForScheduledAdressChange(emailAddress);
-	}
-	
-	
-	private boolean checkForScheduledAdressChange(String emailAddress) {
-		// check if mail address scheduled to change
-		RegistrationManager rm = CoreSpringFactory.getImpl(RegistrationManager.class);
-		List<TemporaryKey> tk = rm.loadTemporaryKeyByAction(RegistrationManager.EMAIL_CHANGE);
-		if (tk != null) {
-			for (TemporaryKey temporaryKey : tk) {
-				XStream xml = new XStream();
-				@SuppressWarnings("unchecked")
-				Map<String, String> mails = (Map<String, String>) xml.fromXML(temporaryKey.getEmailAddress());
-				if (emailAddress.equals(mails.get("changedEMail"))) {
-					return false;
-				}
+			currentIdentity = BaseSecurityManager.getInstance().findIdentityByName(currentUsername);
+			if (currentIdentity != null) {
+				currentUser = currentIdentity.getUser();
 			}
 		}
-		return true;
+		return UserManager.getInstance().isEmailAllowed(emailAddress, currentUser);
 	}
+
 }

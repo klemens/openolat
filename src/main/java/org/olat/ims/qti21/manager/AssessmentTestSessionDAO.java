@@ -23,18 +23,23 @@ import java.io.File;
 import java.nio.file.Path;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.persistence.TypedQuery;
 
+import org.olat.basesecurity.GroupRoles;
 import org.olat.basesecurity.IdentityRef;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
 import org.olat.core.commons.persistence.DB;
 import org.olat.core.id.Identity;
 import org.olat.core.util.StringHelper;
 import org.olat.ims.qti21.AssessmentTestSession;
+import org.olat.ims.qti21.model.QTI21StatisticSearchParams;
 import org.olat.ims.qti21.model.jpa.AssessmentTestSessionImpl;
+import org.olat.ims.qti21.model.jpa.AssessmentTestSessionStatistics;
 import org.olat.modules.assessment.AssessmentEntry;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryEntryRef;
@@ -84,11 +89,11 @@ public class AssessmentTestSessionDAO {
 	}
 	
 	public AssessmentTestSession getLastTestSession(RepositoryEntryRef testEntry,
-			RepositoryEntryRef entry, String subIdent, IdentityRef identity, String anonymousIdentifier) {
+			RepositoryEntryRef entry, String subIdent, IdentityRef identity, String anonymousIdentifier, boolean authorMode) {
 		
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session from qtiassessmenttestsession session ")
-		  .append("where session.testEntry.key=:testEntryKey");
+		  .append("where session.testEntry.key=:testEntryKey and session.authorMode=:authorMode");
 		if(entry != null) {
 			sb.append(" and session.repositoryEntry.key=:courseEntryKey");
 		} else {
@@ -114,7 +119,8 @@ public class AssessmentTestSessionDAO {
 		
 		TypedQuery<AssessmentTestSession> query = dbInstance.getCurrentEntityManager()
 				.createQuery(sb.toString(), AssessmentTestSession.class)
-				.setParameter("testEntryKey", testEntry.getKey());
+				.setParameter("testEntryKey", testEntry.getKey())
+				.setParameter("authorMode", authorMode);
 		if(entry != null) {
 			query.setParameter("courseEntryKey", entry.getKey());
 		}
@@ -242,6 +248,12 @@ public class AssessmentTestSessionDAO {
 		return sessions == null || sessions.isEmpty() ? null : sessions.get(0);
 	}
 	
+	/**
+	 * Load the assessment test session and only fetch the user.
+	 * 
+	 * @param testSessionKey
+	 * @return
+	 */
 	public AssessmentTestSession loadFullByKey(Long testSessionKey) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session from qtiassessmenttestsession session")
@@ -258,6 +270,15 @@ public class AssessmentTestSessionDAO {
 	public AssessmentTestSession update(AssessmentTestSession testSession) {
 		((AssessmentTestSessionImpl)testSession).setLastModified(new Date());
 		return dbInstance.getCurrentEntityManager().merge(testSession);
+	}
+	
+	public int extraTime(AssessmentTestSession testSession, int extraTime) {
+		String q = "update qtiassessmenttestsessionextratime set extraTime=:extraTime where key=:sessionKey";
+		return dbInstance.getCurrentEntityManager()
+				.createQuery(q)
+				.setParameter("extraTime", extraTime)
+				.setParameter("sessionKey", testSession.getKey())
+				.executeUpdate();
 	}
 	
 	/**
@@ -294,6 +315,14 @@ public class AssessmentTestSessionDAO {
 				.getResultList();
 	}
 	
+	/**
+	 * The assessment test sessions of authenticated users (fetched in the query).
+	 * 
+	 * @param courseEntry
+	 * @param courseSubIdent
+	 * @param testEntry
+	 * @return
+	 */
 	public List<AssessmentTestSession> getTestSessions(RepositoryEntryRef courseEntry, String courseSubIdent, RepositoryEntry testEntry) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session from qtiassessmenttestsession session")
@@ -354,6 +383,41 @@ public class AssessmentTestSessionDAO {
 		return query.getResultList();
 	}
 	
+	public List<AssessmentTestSessionStatistics> getUserTestSessionsStatistics(RepositoryEntryRef courseEntry, String courseSubIdent, IdentityRef identity) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select session,")
+		  .append(" (select count(itemSession.key) from qtiassessmentitemsession itemSession")
+		  .append("   where itemSession.assessmentTestSession.key=session.key and itemSession.manualScore is not null")
+		  .append(" ) as correctItems")
+		  .append(" from qtiassessmenttestsession session")
+		  .append(" left join fetch session.testEntry testEntry")
+		  .append(" left join fetch testEntry.olatResource testResource")
+		  .append("  where session.repositoryEntry.key=:repositoryEntryKey and session.identity.key=:identityKey and ");
+		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
+			sb.append("session.subIdent=:subIdent");
+		} else {
+			sb.append("session.subIdent is null");
+		}
+		sb.append(" order by session.creationDate desc");
+		
+		TypedQuery<Object[]> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), Object[].class)
+				.setParameter("repositoryEntryKey", courseEntry.getKey())
+				.setParameter("identityKey", identity.getKey());
+		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
+			query.setParameter("subIdent", courseSubIdent);
+		}
+		List<Object[]> raws = query.getResultList();
+		List<AssessmentTestSessionStatistics> stats = new ArrayList<>(raws.size());
+		for(Object[] raw:raws) {
+			AssessmentTestSession testSession = (AssessmentTestSession)raw[0];
+			int numOfCorrectedItems = (raw[1] == null ? 0 : ((Number)raw[1]).intValue());
+			stats.add(new AssessmentTestSessionStatistics(testSession, numOfCorrectedItems));
+		}
+		
+		return stats;
+	}
+	
 	public AssessmentTestSession getLastUserTestSession(RepositoryEntryRef courseEntry, String courseSubIdent, RepositoryEntry testEntry, IdentityRef identity) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session from qtiassessmenttestsession session")
@@ -390,7 +454,8 @@ public class AssessmentTestSessionDAO {
 		  .append(" left join fetch testEntry.olatResource testResource")
 		  .append(" inner join fetch session.identity assessedIdentity")
 		  .append(" inner join fetch assessedIdentity.user assessedUser")
-		  .append(" where session.repositoryEntry.key=:repositoryEntryKey and (session.finishTime is null or session.terminationTime is null) and session.testEntry.key=:testEntryKey");
+		  .append(" where session.repositoryEntry.key=:repositoryEntryKey and session.testEntry.key=:testEntryKey")
+		  .append(" and session.finishTime is null and session.terminationTime is null");
 		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
 			sb.append(" and session.subIdent=:subIdent");
 		} else {
@@ -407,16 +472,20 @@ public class AssessmentTestSessionDAO {
 		return query.getResultList();
 	}
 	
-	public boolean hasRunningTestSessions(RepositoryEntryRef entry, String courseSubIdent, RepositoryEntry testEntry) {
+	public boolean hasRunningTestSessions(RepositoryEntryRef entry, String courseSubIdent, RepositoryEntry testEntry, List<? extends IdentityRef> identities) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("select session.key from qtiassessmenttestsession session")
 		  .append(" left join session.testEntry testEntry")
 		  .append(" left join testEntry.olatResource testResource")
-		  .append(" where session.repositoryEntry.key=:repositoryEntryKey and (session.finishTime is null or session.terminationTime is null) and session.testEntry.key=:testEntryKey");
+		  .append(" where session.repositoryEntry.key=:repositoryEntryKey and session.testEntry.key=:testEntryKey")
+		  .append(" and session.finishTime is null and session.terminationTime is null");
 		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
 			sb.append(" and session.subIdent=:subIdent");
 		} else {
 			sb.append(" and session.subIdent is null");
+		}
+		if(identities != null && identities.size() > 0) {
+			sb.append(" and session.identity in (:identityKeys)");
 		}
 		
 		TypedQuery<Long> query = dbInstance.getCurrentEntityManager()
@@ -428,6 +497,10 @@ public class AssessmentTestSessionDAO {
 		if(StringHelper.containsNonWhitespace(courseSubIdent)) {
 			query.setParameter("subIdent", courseSubIdent);
 		}
+		if(identities != null && identities.size() > 0) {
+			query.setParameter("identityKeys", identities);
+		}
+		
 		List<Long> found = query.getResultList();
 		return found == null || found.isEmpty() || found.get(0) == null ? false : found.get(0) >= 0;
 	}
@@ -574,5 +647,97 @@ public class AssessmentTestSessionDAO {
 				.setParameter("entryKey", entry.getKey())
 				.executeUpdate();
 		return marks + itemSessions + sessions + responses;
+	}
+	
+	/**
+	 * @param searchParams
+	 * @return The returned list is order by user name and test session key
+	 */
+	public List<AssessmentTestSession> getTestSessionsOfResponse(QTI21StatisticSearchParams searchParams) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("select testSession from qtiassessmenttestsession testSession ")
+		  .append(" inner join fetch testSession.assessmentEntry assessmentEntry")
+		  .append(" left join assessmentEntry.identity as ident")
+		  .append(" left join ident.user as usr");
+		
+		decorateTestSessionPermission(sb, searchParams);
+		//need to be anonymized
+		sb.append(" order by usr.lastName, testSession.key");
+		
+		TypedQuery<AssessmentTestSession> query = dbInstance.getCurrentEntityManager()
+				.createQuery(sb.toString(), AssessmentTestSession.class);
+		decorateTestSessionPermission(query, searchParams) ;
+		return query.getResultList();
+	}
+	
+	/**
+	 * Decorate a testSession query with the permissions of the specified search parameters.
+	 * 
+	 * @param sb
+	 * @param searchParams
+	 */
+	protected static final void decorateTestSessionPermission(StringBuilder sb, QTI21StatisticSearchParams searchParams) {
+	  	sb.append(" where testSession.testEntry.key=:testEntryKey")
+	  	  .append("  and testSession.finishTime is not null and testSession.authorMode=false");
+		if(searchParams.getCourseEntry() != null || searchParams.getTestEntry() != null) {
+			sb.append(" and testSession.repositoryEntry.key=:repoEntryKey");
+		}
+		if(StringHelper.containsNonWhitespace(searchParams.getNodeIdent())) {
+			sb.append(" and testSession.subIdent=:subIdent");
+		}
+		sb.append(" and (");
+		
+		if(searchParams.getLimitToGroups() != null) {
+			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
+			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key and rel.group.key in (:limitGroupKeys)");
+			if(!searchParams.isViewAllUsers()) {
+				sb.append(" and membership.role='").append(GroupRoles.participant.name()).append("'");
+			}
+			sb.append(" )");
+		} else if(searchParams.getLimitToIdentities() != null) {
+			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
+			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key and membership.identity.key in (:limitIdentityKeys)")
+			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
+			  .append(" )");
+		} else if(searchParams.isViewAllUsers()) {
+			sb.append(" testSession.identity.key is not null");
+		} else {
+			sb.append(" testSession.identity.key in (select membership.identity.key from  bgroupmember as membership, repoentrytogroup as rel")
+			  .append("   where rel.entry.key=:repoEntryKey and rel.group.key=membership.group.key ")
+			  .append("   and membership.role='").append(GroupRoles.participant.name()).append("'")
+			  .append(" )");
+		}
+		if(searchParams.isViewAnonymUsers()) {
+			sb.append(" or testSession.anonymousIdentifier is not null");
+		}
+		sb.append(")");
+	}
+	
+	/**
+	 * Decorate a testSession query with the permissions of the specified search parameters.
+	 * 
+	 * @param sb
+	 * @param searchParams
+	 */
+	protected static final void decorateTestSessionPermission(TypedQuery<?> query, QTI21StatisticSearchParams searchParams) {
+		query.setParameter("testEntryKey", searchParams.getTestEntry().getKey());
+		if(searchParams.getCourseEntry() != null) {
+			query.setParameter("repoEntryKey", searchParams.getCourseEntry().getKey());
+		} else {
+			query.setParameter("repoEntryKey", searchParams.getTestEntry().getKey());
+		}
+		if(StringHelper.containsNonWhitespace(searchParams.getNodeIdent())) {
+			query.setParameter("subIdent", searchParams.getNodeIdent());
+		}
+		if(searchParams.getLimitToGroups() != null && searchParams.getLimitToGroups().size() > 0) {
+			List<Long> keys = searchParams.getLimitToGroups().stream()
+					.map(group -> group.getKey()).collect(Collectors.toList());
+			query.setParameter("limitGroupKeys", keys);
+		}
+		if(searchParams.getLimitToIdentities() != null && searchParams.getLimitToIdentities().size() > 0) {
+			List<Long> keys = searchParams.getLimitToIdentities().stream()
+					.map(group -> group.getKey()).collect(Collectors.toList());
+			query.setParameter("limitIdentityKeys", keys);
+		}
 	}
 }

@@ -27,6 +27,7 @@ package org.olat.course.nodes;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +51,7 @@ import org.olat.core.util.Util;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.course.ICourse;
 import org.olat.course.condition.Condition;
+import org.olat.course.condition.interpreter.ConditionExpression;
 import org.olat.course.condition.interpreter.ConditionInterpreter;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
@@ -230,6 +232,22 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 		}
 		return true;
 	}
+	
+	@Override
+	public List<ConditionExpression> getConditionExpressions() {
+		List<ConditionExpression> parentConditions = super.getConditionExpressions();
+		List<ConditionExpression> conditions = new ArrayList<>();
+		if(parentConditions != null && parentConditions.size() > 0) {
+			conditions.addAll(parentConditions);
+		}
+		Condition editCondition = getPreConditionEdit();
+		if(editCondition != null && StringHelper.containsNonWhitespace(editCondition.getConditionExpression())) {
+			ConditionExpression ce = new ConditionExpression(editCondition.getConditionId());
+			ce.setExpressionString(editCondition.getConditionExpression());
+			conditions.add(ce);
+		}
+		return conditions;
+	}
 
 	public Condition getPreConditionEdit() {
 		if (preConditionEdit == null) {
@@ -268,6 +286,7 @@ public class WikiCourseNode extends AbstractAccessableCourseNode {
 
 	@Override
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
 		// mark the subscription to this node as deleted
 		SubscriptionContext subsContext = WikiManager.createTechnicalSubscriptionContextForCourse(course.getCourseEnvironment(), this);
 		NotificationsManager.getInstance().delete(subsContext);

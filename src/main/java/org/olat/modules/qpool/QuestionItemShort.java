@@ -54,6 +54,10 @@ public interface QuestionItemShort extends OLATResourceable, CreateInfo, Modifie
 	 */
 	public String getTaxonomyLevelName();
 	
+	public String getTaxonomicPath();
+	
+	public String getTopic();
+	
 	//educational
 	public String getEducationalContextLevel();
 
@@ -75,20 +79,9 @@ public interface QuestionItemShort extends OLATResourceable, CreateInfo, Modifie
 	//lifecycle
 	public QuestionStatus getQuestionStatus();
 	
+	public Date getQuestionStatusLastModified();
+	
 	//technics
 	public String getFormat();
 	
-	public Date getCreationDate();
-	
-	public Date getLastModified();
-	
-	
-	
-	
-	
-	
-	
-	
-	
-
 }

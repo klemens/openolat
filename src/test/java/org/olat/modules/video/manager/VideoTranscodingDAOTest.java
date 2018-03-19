@@ -71,9 +71,19 @@ public class VideoTranscodingDAOTest extends OlatTestCase {
 		// check for overall pending transcodings
 		List<VideoTranscoding> vTranscodingList2 = videoTranscodingDao.getVideoTranscodingsPendingAndInProgress();
 		Assert.assertNotNull(vTranscodingList2);
-		Assert.assertEquals(1, vTranscodingList2.size());
-		Assert.assertEquals(vTranscoding, vTranscodingList2.get(0));
+		Assert.assertTrue(vTranscodingList2.size() >= 1);
+		Assert.assertTrue(vTranscodingList2.contains(vTranscoding));
+	}
+	
+	@Test
+	public void getVideoTranscodingByKey() {
+		OLATResource resource = JunitTestHelper.createRandomResource();
+		VideoTranscoding vTranscoding = videoTranscodingDao.createVideoTranscoding(resource, 1080, "mp4");
+		dbInstance.commitAndCloseSession();
 		
+		VideoTranscoding reloadedTranscoding = videoTranscodingDao.getVideoTranscoding(vTranscoding.getKey());
+		Assert.assertNotNull(reloadedTranscoding);
+		Assert.assertEquals(vTranscoding, reloadedTranscoding);
 	}
 	
 	@Test
@@ -90,11 +100,11 @@ public class VideoTranscodingDAOTest extends OlatTestCase {
 			videoTranscodingDao.deleteVideoTranscoding(vTranscoding1);
 			dbInstance.commitAndCloseSession();
 			List<VideoTranscoding> results = videoTranscodingDao.getVideoTranscodings(resource);
-			Assert.assertTrue(results.size() == 3);
-			// delte all transcodings of resource
+			Assert.assertEquals(3,results.size());
+			// delete all transcodings of resource
 			videoTranscodingDao.deleteVideoTranscodings(resource);
 			dbInstance.commitAndCloseSession();
 			results = videoTranscodingDao.getVideoTranscodings(resource);
-			Assert.assertTrue(results.size() == 0);
+			Assert.assertEquals(0,results.size());
 	}
 }

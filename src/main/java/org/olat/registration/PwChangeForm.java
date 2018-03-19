@@ -25,7 +25,7 @@
 
 package org.olat.registration;
 
-import org.olat.core.CoreSpringFactory;
+import org.olat.basesecurity.BaseSecurityManager;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.form.flexible.FormItemContainer;
 import org.olat.core.gui.components.form.flexible.elements.TextElement;
@@ -38,6 +38,7 @@ import org.olat.core.util.Util;
 import org.olat.login.auth.OLATAuthManager;
 import org.olat.user.ChangePasswordForm;
 import org.olat.user.UserManager;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * Description:
@@ -49,55 +50,85 @@ public class PwChangeForm extends FormBasicController {
 	private TextElement newpass1;
 	private TextElement newpass2; // confirm
 	
-	private final OLATAuthManager olatAuthenticationSpi;
+	private TemporaryKey tempKey;
+	private Identity identityToChange;
 	
-	/**
-	 * Password change form.
-	 * @param name
-	 */
-	public PwChangeForm(UserRequest ureq, WindowControl wControl) {
+	@Autowired
+	private RegistrationManager rm;
+	@Autowired
+	private UserManager userManager;
+	@Autowired
+	private BaseSecurityManager securityManager;
+	@Autowired
+	private OLATAuthManager olatAuthenticationSpi;
+	
+	public PwChangeForm(UserRequest ureq, WindowControl wControl, Identity identityToChange, TemporaryKey tempKey) {
 		super(ureq, wControl, null, Util.createPackageTranslator(ChangePasswordForm.class, ureq.getLocale()));
-		
-		olatAuthenticationSpi = CoreSpringFactory.getImpl(OLATAuthManager.class);
-		
+		this.identityToChange = identityToChange;
+		this.tempKey = tempKey;
+		initForm(ureq);
+	}
+	
+	public PwChangeForm(UserRequest ureq, WindowControl wControl, TemporaryKey tempKey) {
+		super(ureq, wControl, null, Util.createPackageTranslator(ChangePasswordForm.class, ureq.getLocale()));
+		this.tempKey = tempKey;
 		initForm(ureq);
 	}
 
 	@Override
 	public boolean validateFormLogic(UserRequest ureq) {
-		
-		boolean newIsValid = UserManager.getInstance().syntaxCheckOlatPassword(newpass1.getValue());
+		boolean newIsValid = userManager.syntaxCheckOlatPassword(newpass1.getValue());
 		if (!newIsValid) {
 			newpass1.setErrorKey("form.checkPassword", null);
 		}
 		// validate that both passwords are the same
 		boolean newDoesMatch = newpass1.getValue().equals(newpass2.getValue());
 		if (!newDoesMatch) {
-				newpass2.setErrorKey("form.password.error.nomatch", null);
+			newpass2.setErrorKey("form.password.error.nomatch", null);
 		}
 		return newIsValid && newDoesMatch;
+	}
+
+	@Override
+	protected void formOK(UserRequest ureq) {
+		Identity identToChange = getIdentityToChange();
+		changeIdentity(identToChange);
+		fireEvent (ureq, Event.DONE_EVENT);
+	}
+
+	private Identity getIdentityToChange() {
+		Identity identToChange;
+		if(tempKey != null) {
+			identToChange = securityManager.loadIdentityByKey(tempKey.getIdentityKey());
+			rm.deleteTemporaryKeyWithId(tempKey.getRegistrationKey());	
+		} else {
+			identToChange = identityToChange;
+		}
+		return identToChange;
+	}
+
+	private void changeIdentity(Identity identToChange) {
+		if(identToChange != null && !saveFormData(identToChange)) {
+			showError("password.failed");
+		}
 	}
 
 	/**
 	 * Saves the form data in the user object and the database
 	 * 
-	 * @param doer The current identity.
 	 * @param s The identity to change the password.
 	 */
-	public boolean saveFormData(Identity s) {
+	private boolean saveFormData(Identity s) {
 		return olatAuthenticationSpi.changePasswordByPasswordForgottenLink(s, newpass1.getValue());	
-	}
-
-	@Override
-	protected void formOK(UserRequest ureq) {
-		fireEvent (ureq, Event.DONE_EVENT);
 	}
 
 	@Override
 	protected void initForm(FormItemContainer formLayout, Controller listener, UserRequest ureq) {
 		setFormTitle("form.password.enter.new");
 		newpass1 = uifactory.addPasswordElement("newpass1",  "form.password.new1", 128, "", formLayout);
+		newpass1.setAutocomplete("new-password");
 		newpass2 = uifactory.addPasswordElement("newpass2",  "form.password.new2", 128, "", formLayout);
+		newpass2.setAutocomplete("new-password");
 		uifactory.addFormSubmitButton("submit", formLayout);
 	}
 

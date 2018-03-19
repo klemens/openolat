@@ -51,14 +51,16 @@ public class MembersPage {
 	public MembersWizardPage addMember() {
 		By addMemberBy = By.className("o_sel_course_add_member");
 		browser.findElement(addMemberBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalWizard(browser);
+		OOGraphene.waitElement(By.cssSelector("fieldset.o_sel_usersearch_searchform"), 5, browser);
 		return new MembersWizardPage(browser);
 	}
 	
 	public MembersWizardPage importMembers() {
 		By importMembersBy = By.className("o_sel_course_import_members");
 		browser.findElement(importMembersBy).click();
-		OOGraphene.waitBusy(browser);
+		OOGraphene.waitModalWizard(browser);
+		OOGraphene.waitElement(By.cssSelector("div.o_sel_user_import textarea.form-control"), 5, browser);
 		return new MembersWizardPage(browser);
 	}
 	
@@ -129,7 +131,41 @@ public class MembersPage {
 	public void quickAdd(UserVO user) {
 		addMember()
 			.searchMember(user, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
+	}
+	
+	/**
+	 * Add a user by username with the specified roles.
+	 * 
+	 * @param user The user to add
+	 * @param owner true if the user will be owner
+	 * @param coach true if the user will be coach
+	 */
+	public void quickAdd(UserVO user, boolean owner, boolean coach) {
+		addMember()	
+			.searchMember(user, true)
+			.nextUsers()
+			.nextOverview()
+			.selectRepositoryEntryRole(owner, coach, false)
+			.nextPermissions()
+			.finish();
+	}
+	
+	/**
+	 * Import the specified users as participants.
+	 * 
+	 * @param users Users to import
+	 */
+	public void quickImport(UserVO... users) {
+		importMembers()
+			.setMembers(users)
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 	}
 	
 	/**

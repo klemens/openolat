@@ -60,7 +60,7 @@ public class UserManagerTest extends OlatTestCase {
 
 		//get the identity by email
 		String email = id.getUser().getProperty(UserConstants.EMAIL, null);
-		Identity foundIdentity = userManager.findIdentityByEmail(email);
+		Identity foundIdentity = userManager.findUniqueIdentityByEmail(email);
 		Assert.assertNotNull(foundIdentity);
 		Assert.assertEquals(id, foundIdentity);
 	}
@@ -73,7 +73,7 @@ public class UserManagerTest extends OlatTestCase {
 
 		//get the identity by email
 		String email = id.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
-		Identity foundIdentity = userManager.findIdentityByEmail(email);
+		Identity foundIdentity = userManager.findUniqueIdentityByEmail(email);
 		Assert.assertNotNull(foundIdentity);
 		Assert.assertEquals(id, foundIdentity);
 	}
@@ -91,7 +91,7 @@ public class UserManagerTest extends OlatTestCase {
 		Assert.assertTrue(emptyIdentities.isEmpty());
 		
 		//get the identities by emails
-		List<String> emails = new ArrayList<String>();
+		List<String> emails = new ArrayList<>();
 		emails.add(id1.getUser().getProperty(UserConstants.EMAIL, null));
 		emails.add(id2.getUser().getProperty(UserConstants.EMAIL, null));
 		
@@ -110,7 +110,7 @@ public class UserManagerTest extends OlatTestCase {
 		dbInstance.commitAndCloseSession();
 
 		//get the identities by emails
-		List<String> emails = new ArrayList<String>();
+		List<String> emails = new ArrayList<>();
 		emails.add(id1.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null));
 		emails.add(id2.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null));
 		
@@ -119,6 +119,32 @@ public class UserManagerTest extends OlatTestCase {
 		Assert.assertEquals(2, identities.size());
 		Assert.assertTrue(identities.contains(id1));
 		Assert.assertTrue(identities.contains(id2));
+	}
+	
+	@Test
+	public void findUserKeyWithProperty() {
+		//create a user
+		Identity id = createUser(UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+
+		String institutionalEmail = id.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
+		List<Long> identityKeys = userManager.findUserKeyWithProperty(UserConstants.INSTITUTIONALEMAIL, institutionalEmail);
+		Assert.assertNotNull(identityKeys);
+		Assert.assertEquals(1, identityKeys.size());
+		Assert.assertEquals(id.getUser().getKey(), identityKeys.get(0));
+	}
+	
+	@Test
+	public void findIdentitiesWithProperty() {
+		//create a user
+		Identity id = createUser(UUID.randomUUID().toString());
+		dbInstance.commitAndCloseSession();
+
+		String institutionalEmail = id.getUser().getProperty(UserConstants.INSTITUTIONALEMAIL, null);
+		List<Identity> identities = userManager.findIdentitiesWithProperty(UserConstants.INSTITUTIONALEMAIL, institutionalEmail);
+		Assert.assertNotNull(identities);
+		Assert.assertEquals(1, identities.size());
+		Assert.assertEquals(id, identities.get(0));
 	}
 	
 	private Identity createUser(String uuid) {

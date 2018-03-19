@@ -42,11 +42,8 @@ import org.olat.core.util.filter.FilterFactory;
 import org.olat.core.util.resource.OresHelper;
 import org.olat.course.CourseModule;
 import org.olat.modules.webFeed.dispatching.Path;
-import org.olat.modules.webFeed.managers.FeedManager;
-import org.olat.modules.webFeed.models.Enclosure;
-import org.olat.modules.webFeed.models.Feed;
-import org.olat.modules.webFeed.models.Item;
-import org.olat.modules.webFeed.models.ItemPublishDateComparator;
+import org.olat.modules.webFeed.manager.FeedManager;
+import org.olat.modules.webFeed.model.ItemPublishDateComparator;
 import org.olat.modules.webFeed.portfolio.LiveBlogArtefactHandler;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
@@ -67,8 +64,6 @@ public class FeedViewHelper {
 	
 	// display 5 items per default
 	private int itemsPerPage = 5;
-	private Feed feed;
-	private String feedAuthor;
 	private Identity identity;
 	private Translator translator;
 	private Locale locale;
@@ -77,28 +72,22 @@ public class FeedViewHelper {
 	private static final String MEDIA_DIR = Path.MEDIA_DIR;
 	// Per default show the first page
 	private int page = 0;
-	private List<Item> cachedItems;
-	//
+
 	private FeedManager feedManager = FeedManager.getInstance();
 
 	/**
 	 * Use this constructor for localized content (like e.g. date formats)
-	 * 
-	 * @param feed
 	 * @param identity
-	 * @param feedAuthor The full name's of the author
+	 * @param feed
 	 * @param locale
 	 */
-	public FeedViewHelper(Feed feed, Identity identity, String feedAuthor, Translator translator, Long courseId, String nodeId, FeedSecurityCallback callback) {
-		this.feed = feed;
+	public FeedViewHelper(Feed feed, Identity identity, Translator translator, Long courseId, String nodeId) {
 		this.identity = identity;
-		this.feedAuthor = feedAuthor;
 		this.translator = translator;
 		this.locale = translator.getLocale();
 		this.courseId = courseId;
 		this.nodeId = nodeId;
-		this.cachedItems = feed.getFilteredItems(callback, identity);
-		this.setURIs();
+		this.setURIs(feed);
 	}
 
 	/**
@@ -108,37 +97,30 @@ public class FeedViewHelper {
 	 * @param identityKey
 	 */
 	FeedViewHelper(Feed feed, Identity identity, Long courseId, String nodeId) {
-		this.feed = feed;
 		this.identity = identity;
 		
 		this.courseId = courseId;
 		this.nodeId = nodeId;
-		this.setURIs();
-	}
-
-	public String getFeedAuthor() {
-		return feedAuthor;
+		this.setURIs(feed);
 	}
 
 	/**
 	 * Set the base uri of an internal feed. <br>
 	 * E.g http://my.olat.org/olat/feed/ident/[IDKEY]/token/[TOKEN]/id/[ORESID]
+	 * @param feed 
 	 */
-	public void setURIs() {
+	public void setURIs(Feed feed) {
+		baseUri = FeedManager.getInstance().getFeedBaseUri(feed, identity, courseId, nodeId);
 		// Set feed base URI for internal feeds
 		if (feed.isInternal()) {
-			baseUri = FeedManager.getInstance().getFeedBaseUri(feed, identity, courseId, nodeId);
 			feedUrl = baseUri + "/" + FeedManager.RSS_FEED_NAME;
 		} else if (feed.isExternal()) {
 			// The base uri is needed for dispatching the picture
-			baseUri = FeedManager.getInstance().getFeedBaseUri(feed, identity, courseId, nodeId);
 			feedUrl = feed.getExternalFeedUrl();
 		} else {
 			// feed is undefined
 			// The base uri is needed for dispatching the picture
-			baseUri = FeedManager.getInstance().getFeedBaseUri(feed, identity, courseId, nodeId);
 			feedUrl = null;
-			feed.setExternalImageURL(null);
 		}
 	}
 
@@ -183,41 +165,49 @@ public class FeedViewHelper {
 	}
 
 	/**
-	 * @param item
-	 * @return The media url of the item
+	 * Format the lastModified of the feed.
+	 * @param feed
+	 * @return
 	 */
-	public String getMediaUrl(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return null;
+	public String getLastModified(Feed feed) {
+		String lastModified = null;
+		
+		Date date = feed.getLastModified();
+		if (date != null) {
+			lastModified = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
 		}
-
-		String file = null;
-		Enclosure enclosure = item.getEnclosure();
-		if (enclosure != null) {
-			if (feed.isExternal()) {
-				file = item.getEnclosure().getExternalUrl();
-			} else if (feed.isInternal()) {
-				file = this.baseUri + "/" + item.getGuid() + "/" + MEDIA_DIR + "/" + enclosure.getFileName();
-			}
-		}
-		return file;
+		
+		return lastModified;
 	}
 
 	/**
-	 * @return The feed image url
+	 * Get the concatenated URL of the Image of an internal feed or the URL of
+	 * the Image of an external Feed.
+	 * 
+	 * @param feed
+	 * @return
 	 */
-	public String getImageUrl() {
+	public String getImageUrl(Feed feed) {
 		String imageUrl = null;
+		
 		if (feed.getImageName() != null) {
 			imageUrl = baseUri + "/" + MEDIA_DIR + "/" + feed.getImageName();
 		} else if (feed.getExternalImageURL() != null) {
 			// If there's no custom image and the feed contains an image, use it!
 			imageUrl = feed.getExternalImageURL();
 		}
+		
 		return imageUrl;
+	}
+
+	/**
+	 * The feed description with dispatchable media file paths
+	 * @param feed
+	 * @return
+	 */
+	public String getFeedDescriptionForBrowser(Feed feed) {
+		Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(baseUri);
+		return mediaUrlFilter.filter(feed.getDescription());
 	}
 
 	/**
@@ -226,6 +216,7 @@ public class FeedViewHelper {
 	 */
 	public String getMediaType(Enclosure enclosure) {
 		String mediaType = null;
+		
 		if (enclosure != null) {
 			// type is like 'video/mpeg' or 'audio/mpeg'
 			String type = enclosure.getType();
@@ -236,89 +227,20 @@ public class FeedViewHelper {
 				}
 			}
 		}
+		
 		return mediaType;
 	}
 
 	/**
+	 * Information about the item mode. 
+	 * 
 	 * @param item
-	 * @return The formatted last modified date string of the item
-	 */
-	public String getLastModified(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-
-		String lastModified = null;
-		Date date = item == null ? null : item.getLastModified();
-		if (date != null) {
-			lastModified = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
-		}
-		return lastModified;
-	}
-
-	/**
-	 * @param item
-	 * @return The formatted last modified date string of the item
-	 */
-	private String getPublishDate(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return "";
-		}
-
-		String publishDate = null;
-		Date date = item.getPublishDate();
-		if (date != null) {
-			publishDate = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
-		}
-		return publishDate;
-	}
-
-	/**
-	 * @param item
-	 * @return Information about publication date and author
-	 */
-	private String getPublishInfo(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return "";
-		}
-
-		String info = null;
-		String date = getPublishDate(item);
-		String author = StringHelper.escapeHtml(item.getAuthor());
-		if (author != null) {
-			if (date != null) {
-				info = translator.translate("feed.published.by.on", new String[] { author, date });
-			} else {
-				info = translator.translate("feed.published.by", new String[] { author });
-			}
-		} else {
-			if (date != null) {
-				info = translator.translate("feed.published.on", new String[] { date });
-			} else {
-				// no publication info available
-			}
-		}
-		return info;
-	}
-
-	/**
-	 * @param item
-	 * @return Information about the item. Is it draft, scheduled or published?
+	 * @return Is it draft, scheduled or published?
 	 */
 	public String getInfo(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-
 		String info = null;
-		if(item == null) {
-			//oops deleted
+		
+		if (item == null) {
 			info = "";
 		} else if (item.isDraft()) {
 			info = translator.translate("feed.item.draft");
@@ -327,83 +249,249 @@ public class FeedViewHelper {
 		} else if (item.isPublished()) {
 			info = getPublishInfo(item);
 		}
+		
 		return info;
 	}
-	
-	public boolean isModified(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		return item != null && item.getModifierKey() > 0 && StringHelper.containsNonWhitespace(item.getModifier());
-	}
-	
+
 	/**
+	 * Get information about publication date and author.
+	 * 
 	 * @param item
-	 * @return Information about the item. Is it draft, scheduled or published?
+	 * @return
 	 */
-	public String getModifierInfo(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return "";
+	private String getPublishInfo(Item item) {
+		String publishInfo = "";
+		
+		if (item != null) {
+			String date = getPublishDate(item);
+			String author = StringHelper.escapeHtml(item.getAuthor());
+			if (author != null) {
+				if (date != null) {
+					publishInfo = translator.translate("feed.published.by.on", new String[] { author, date });
+				} else {
+					publishInfo = translator.translate("feed.published.by", new String[] { author });
+				}
+			} else if (date != null) {
+				publishInfo = translator.translate("feed.published.on", new String[] { date });
+			}
 		}
 
+		return publishInfo;
+	}
+
+	/**
+	 * Get the formatted last modified date string of the item.
+	 * 
+	 * @param item
+	 * @return
+	 */
+	private String getPublishDate(Item item) {
+		String publishDate = "";
+		
+		if (item != null) {
+			Date date = item.getPublishDate();
+			if (date != null) {
+				publishDate = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
+			}
+		}
+		
+		return publishDate;
+	}
+
+	/**
+	 * Get Information about the modifier.
+	 * 
+	 * @param item
+	 * @return 
+	 */
+	public String getModifierInfo(Item item) {
+		String modifierInfo = "";
+	
 		if (isModified(item)) {
 			String date = getLastModified(item);
 			String modifier = item.getModifier();
-			return translator.translate("feed.modified.by.on", new String[]{ modifier, date});
+			modifierInfo = translator.translate("feed.modified.by.on", new String[]{ modifier, date});
 		}
-		return null;
+		
+		return modifierInfo;
 	}
 
 	/**
-	 * @return The formatted last modified date string of the feed
+	 * Check if the Item was modified at least once.
+	 * 
+	 * @param item
+	 * @return
 	 */
-	public String getLastModified() {
-		String lastModified = null;
-		Date date = feed.getLastModified();
-		if (date != null) {
-			lastModified = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
+	public boolean isModified(Item item) {
+		boolean isModified = false;
+		
+		if (item != null) {
+			isModified = item.getModifierKey() != null && StringHelper.containsNonWhitespace(item.getModifier());
 		}
+		
+		return isModified;
+	}
+
+	/**
+	 * Get the formatted last modified date of the Item.
+	 * 
+	 * @param item
+	 * @return
+	 */
+	public String getLastModified(Item item) {
+		String lastModified = null;
+		
+		if (item != null) {
+			Date date = item.getLastModified();
+			if (date != null) {
+				lastModified = DateFormat.getDateInstance(DateFormat.MEDIUM, this.locale).format(date);
+			}
+		}
+		
 		return lastModified;
 	}
-	
-	public String getWidth(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		int width = item == null ? 0 : item.getWidth();
-		if(width > 0 && width < 2000) {
-			return Integer.toString(width);
-		}
-		return "400";
-	}
-	
-	public String getHeight(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
 
-		int height = item == null ? 0 : item.getHeight();
-		if(height > 0 && height < 2000) {
-			return Integer.toString(height);
+	/**
+	 * Get the item description with media file paths that are dispatchable by
+	 * a FeedMediaDispatcher.
+	 *         
+	 * @param item
+	 * @return 
+	 */
+	public String getItemDescriptionForBrowser(Item item) {
+		String itemDescription = "";
+		
+		if (item != null) {
+			String description = item.getDescription();
+			if (description != null) {
+				if (item.getFeed().isExternal()) {
+					// Apply xss filter for security reasons. Only necessary for external
+					// feeds (e.g. to not let them execute JS code in our OLAT environment)
+					Filter xssFilter = FilterFactory.getXSSFilter(description.length() + 1);
+					itemDescription = xssFilter.filter(description);
+				} else {
+					// Add relative media base to media elements to display internal media
+					// files
+					String basePath = baseUri + "/" + item.getGuid();
+					Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(basePath);
+					itemDescription = mediaUrlFilter.filter(description);
+				}
+			}
+			itemDescription = Formatter.formatLatexFormulas(itemDescription);
 		}
-		return "300";
+
+		return itemDescription;
 	}
 
 	/**
-	 * @param item the target item for the jumpInLink null if not want to refer to a specific post
-	 * @return The jump in link
+	 * The item content with media file paths that are dispatchable by
+	 * a FeedMediaDispatcher.
+	 *         
+	 * @param item
+	 * @return
 	 */
-	public String getJumpInLink(Item item) {
+	public String getItemContentForBrowser(Item item) {
+		String itemContent = "";
+		
+		if (item != null) {
+			String content = item.getContent();
+			if (content != null) {
+				if (item.getFeed().isExternal()) {
+					// Apply xss filter for security reasons. Only necessary for external
+					// feeds (e.g. to not let them execute JS code in our OLAT environment)
+					Filter xssFilter = FilterFactory.getXSSFilter(content.length() + 1);
+					itemContent = xssFilter.filter(content);
+				} else {
+					// Add relative media base to media elements to display internal media
+					// files
+					String basePath = baseUri + "/" + item.getGuid();
+					Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(basePath);
+					itemContent = mediaUrlFilter.filter(content);
+				}
+			}
+		}
+		
+		return itemContent;
+	}
+
+	/**
+	 * Get the width of the Item. The width is limited to a range of 0-2000.
+	 * 
+	 * @param item
+	 * @return
+	 */
+	public String getWidth(Item item) {
+		String widthString = "400";
+		
+		if (item != null) {
+			Integer width = item.getWidth();
+			if (width != null && width > 0 && width < 2000) {
+				widthString = Integer.toString(width);
+			}
+		}
+		
+		return widthString;
+	}
+	
+	/**
+	 * Get the height of the Item. The height is limited to a range of 0-2000.
+	 * 
+	 * @param item
+	 * @return
+	 */
+	public String getHeight(Item item) {
+		String heightString = "400";
+		
+		if (item != null) {
+			Integer height = item.getHeight();
+			if (height != null && height > 0 && height < 2000) {
+				heightString = Integer.toString(height);
+			}
+		}
+		
+		return heightString;
+	}
+
+	/**
+	 * @param item
+	 * @return The media url of the item
+	 */
+	public String getMediaUrl(Item item) {
+		// Reload item to prevent displaying of stale content
+		item = feedManager.loadItem(item.getKey());
+		if(item == null) {
+			return null;
+		}
+	
+		String file = null;
+		Enclosure enclosure = item.getEnclosure();
+		if (enclosure != null) {
+			if (item.getFeed().isExternal()) {
+				file = item.getEnclosure().getExternalUrl();
+			} else if (item.getFeed().isInternal()) {
+				file = this.baseUri + "/" + item.getGuid() + "/" + MEDIA_DIR + "/" + enclosure.getFileName();
+			}
+		}
+		return file;
+	}
+	
+	/**
+	 * 
+	 * @param feed
+	 *            the target feed for the jumpInLink
+	 * @param item
+	 *            the target item for the jumpInLink or null if not want to
+	 *            refer to a specific item
+	 * @return the jump in link
+	 */
+	public String getJumpInLink(Feed feed, Item item) {
 		String jumpInLink = null;
 		RepositoryManager resMgr = RepositoryManager.getInstance();
 		if (courseId != null && nodeId != null) {
 			OLATResourceable oresCourse = OLATResourceManager.getInstance().findResourceable(courseId, CourseModule.getCourseTypeName());
 			OLATResourceable oresNode = OresHelper.createOLATResourceableInstance("CourseNode", Long.valueOf(nodeId));
 			RepositoryEntry repositoryEntry = resMgr.lookupRepositoryEntry(oresCourse, false);
-			List<ContextEntry> ces = new ArrayList<ContextEntry>();
+			List<ContextEntry> ces = new ArrayList<>();
 			ces.add(BusinessControlFactory.getInstance().createContextEntry(repositoryEntry));
 			ces.add(BusinessControlFactory.getInstance().createContextEntry(oresNode));
 			jumpInLink = BusinessControlFactory.getInstance().getAsURIString(ces, false);
@@ -413,7 +501,7 @@ public class FeedViewHelper {
 				ContextEntry ce = BusinessControlFactory.getInstance().createContextEntry(repositoryEntry);
 				jumpInLink = BusinessControlFactory.getInstance().getAsURIString(Collections.singletonList(ce), false);
 			} else {
-				// its a liveblog-feed
+				// its a liveblog-helperFeed
 				final BusinessControlFactory bCF = BusinessControlFactory.getInstance();
 				String feedBP = LiveBlogArtefactHandler.LIVEBLOG + feed.getResourceableId() + "]";
 				final List<ContextEntry> ceList = bCF.createCEListFromString(feedBP);
@@ -421,81 +509,14 @@ public class FeedViewHelper {
 			}
 		}
 		if(item != null && jumpInLink != null){
-			jumpInLink += "/item=" + item.getGuid() +"/0";
+			jumpInLink += "/item=" + item.getKey() +"/0";
 		}
 		return jumpInLink;
 	}
 
-	/**
-	 * @param item
-	 * @return The item description with media file paths that are dispatchable by
-	 *         the FeedMediaDispatcher
-	 */
-	public String getItemDescriptionForBrowser(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return "";
-		}
-		
-		String itemDescription = item.getDescription();
-		if (itemDescription != null) {
-			if (feed.isExternal()) {
-				// Apply xss filter for security reasons. Only necessary for external
-				// feeds (e.g. to not let them execute JS code in our OLAT environment)
-				Filter xssFilter = FilterFactory.getXSSFilter(itemDescription.length() + 1);
-				itemDescription = xssFilter.filter(itemDescription);
-			} else {
-				// Add relative media base to media elements to display internal media
-				// files
-				String basePath = baseUri + "/" + item.getGuid();
-				Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(basePath);
-				itemDescription = mediaUrlFilter.filter(itemDescription);
-			}
-		}
-		itemDescription = Formatter.formatLatexFormulas(itemDescription);
-		return itemDescription;
-	}
 	
-	/**
-	 * @param item
-	 * @return The item content with media file paths that are dispatchable by
-	 *         the FeedMediaDispatcher
-	 */
-	public String getItemContentForBrowser(Item item) {
-		// Reload item to prevent displaying of stale content
-		feed = feedManager.getFeed(feed);
-		item = feedManager.getItem(feed, item.getGuid());
-		if(item == null) {
-			return "";
-		}
-		
-		String itemContent = item.getContent();
-		if (itemContent != null) {
-			if (feed.isExternal()) {
-				// Apply xss filter for security reasons. Only necessary for external
-				// feeds (e.g. to not let them execute JS code in our OLAT environment)
-				Filter xssFilter = FilterFactory.getXSSFilter(itemContent.length() + 1);
-				itemContent = xssFilter.filter(itemContent);
-			} else {
-				// Add relative media base to media elements to display internal media
-				// files
-				String basePath = baseUri + "/" + item.getGuid();
-				Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(basePath);
-				itemContent = mediaUrlFilter.filter(itemContent);
-			}
-		}
-		return itemContent;
-	}
 
-	/**
-	 * @return The feed description with dispatchable media file paths
-	 */
-	public String getFeedDescriptionForBrowser() {
-		Filter mediaUrlFilter = FilterFactory.getBaseURLToMediaRelativeURLFilter(baseUri);
-		return mediaUrlFilter.filter(feed.getDescription());
-	}
+	
 
 	/* Used for paging */
 
@@ -507,16 +528,7 @@ public class FeedViewHelper {
 	 * Show older items, meaning go to the next page.
 	 */
 	public void olderItems() {
-		if (hasOlderItems()) {
-			page++;
-		}
-	}
-
-	/**
-	 * @return True there are newer items to display
-	 */
-	public boolean hasOlderItems() {
-		return cachedItems.size() > itemsPerPage * (page + 1);
+		page++;
 	}
 
 	/**
@@ -530,113 +542,64 @@ public class FeedViewHelper {
 	}
 
 	/**
-	 * Go to the startpage
+	 * Go to the start page
+	 * 
 	 */
 	public void startpage() {
 		page = 0;
 	}
 
 	/**
-	 * @return True if there are newer items to display
+	 * Check if there are newer items to display
+	 * 
+	 * @return
 	 */
 	public boolean hasNewerItems() {
 		return page > 0;
 	}
 
 	/**
-	 * @param callback
-	 * @return The items count of all displayed (accessible) items
+	 * Check if there are older Items to display.
+	 * 
+	 * @param items
+	 * @return
 	 */
-	public int itemsCount(FeedSecurityCallback callback) {
-		if (cachedItems == null) {
-			cachedItems = feed.getFilteredItems(callback, identity);
-		}
-		return cachedItems.size();
+	public boolean hasOlderItems(List<Item> items) {
+		return items.size() > itemsPerPage * (page + 1);
 	}
 
 	/**
-	 * @return The items to be displayed on the current page
+	 * Get all displayed items inside the paged list of items.
+	 * 
+	 * @param items the already sorted items
+	 * @return
 	 */
-	public List<Item> getItems(FeedSecurityCallback callback) {
-		List<Item> itemsOnPage = new ArrayList<Item>(itemsPerPage);
-		if (cachedItems == null) {
-			cachedItems = feed.getFilteredItems(callback, identity);
-		}
+	public List<Item> getItemsOnPage(List<Item> items) {
+		List<Item> itemsOnPage = new ArrayList<>(itemsPerPage);
+		
 		final int start = page * itemsPerPage;
-		final int end = Math.min(cachedItems.size(), start + itemsPerPage);
+		final int end = Math.min(items.size(), start + itemsPerPage);
 		for (int i = start; i < end; i++) {
-			itemsOnPage.add(cachedItems.get(i));
+			itemsOnPage.add(items.get(i));
 		}
+		Collections.sort(itemsOnPage, new ItemPublishDateComparator());
+		
 		return itemsOnPage;
 	}
 
 	/**
-	 * @param selectedItems
-	 */
-	public void setSelectedItems(List<Item> selectedItems) {
-		this.cachedItems = selectedItems;
-		// go to the first page
-		page = 0;
-	}
-
-	/**
-	 * Removes the item from the current selection of items
-	 * 
-	 * @param item The item to remove
-	 */
-	public void removeItem(Item item) {
-		cachedItems.remove(item);
-	}
-
-	/**
-	 * Adds the item to the current selection of items.
-	 * 
-	 * @param item The item to add
-	 */
-	public void addItem(Item item) {
-		if (!cachedItems.contains(item)) {
-			cachedItems.add(item);
-		}
-		Collections.sort(cachedItems, new ItemPublishDateComparator());
-	}
-
-	/**
-	 * Update the given item in the current selection of items. The code will
-	 * replace the item with the same GUID in the current selection of items.
-	 * 
-	 * @param item The item to update
-	 */
-	public void updateItem(Item item) {
-		if (cachedItems.contains(item)) {
-			// Remove old version first. Not necessarily the same on object level
-			// since item overrides the equal method
-			cachedItems.remove(item);
-		}
-		addItem(item);
-	}
-
-	/**
-	 * Resets the item selection to all accessible items of the feed
-	 * 
-	 * @param callback
-	 */
-	public void resetItems(FeedSecurityCallback callback) {
-		feed = feedManager.getFeed(feed);
-		cachedItems = feed.getFilteredItems(callback, identity);
-	}
-
-	/**
-	 * Check if the current user is the author of this feed item
+	 * Check if the current user is the author of this helperFeed item
 	 * @param item
 	 * @return
 	 */
 	public boolean isAuthor(Item item) {
-		if (item != null) {
-			if (item.getAuthorKey() == identity.getKey().longValue()) {
-				return true;
-			}
+		boolean isAuthor = false;
+		
+		if (item != null && item.getAuthorKey() != null && item.getAuthorKey().equals(identity.getKey().longValue())) {
+			isAuthor = true;
 		}
-		return false;
+		
+		return isAuthor;
 	}
 
 }

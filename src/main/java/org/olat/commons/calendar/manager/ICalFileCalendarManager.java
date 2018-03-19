@@ -274,7 +274,7 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 		} catch (FileNotFoundException fne) {
 			throw new OLATRuntimeException("Not found: " + calendarFile, fne);
 		} catch (Exception e) {
-			throw new OLATRuntimeException("Error parsing calendar file.", e);
+			throw new OLATRuntimeException("Error parsing calendar file: " + calendarFile, e);
 		}
 	}
 
@@ -295,8 +295,10 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 	@Override
 	public boolean synchronizeCalendarFrom(InputStream in, String source, Kalendar targetCalendar) {
 		try(BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-			Calendar calendar = new CalendarBuilder().build(reader);
-			Kalendar tmpKalendar = createKalendar("TEMP", UUID.randomUUID().toString(), calendar);
+			Calendar inCalendar = new CalendarBuilder().build(reader);
+			Kalendar inTmpKalendar = createKalendar("TEMP", UUID.randomUUID().toString(), inCalendar);
+			
+			String targetId = "-" + targetCalendar.getType() + "-" + targetCalendar.getCalendarID() + "-";
 			
 			OLATResourceable calOres = getOresHelperFor(targetCalendar);
 			Boolean updatedSuccessful = CoordinatorManager.getInstance().getCoordinator().getSyncer().doInSync( calOres, new SyncerCallback<Boolean>() {
@@ -306,26 +308,31 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 					Collection<KalendarEvent> currentEvents = targetCalendar.getEvents();
 					for(KalendarEvent currentEvent:currentEvents) {
 						if(currentEvent.getExternalSource() != null && source.equals(currentEvent.getExternalSource())) {
-							
 							String eventId = currentEvent.getID();
 							String recurrenceId = currentEvent.getRecurrenceID();
-							if(tmpKalendar.getEvent(eventId, recurrenceId) == null) {
+							if(inTmpKalendar.getEvent(eventId, recurrenceId) == null) {
 								targetCalendar.removeEvent(currentEvent);
+							} else if(eventId.contains(targetId)) {
+								targetCalendar.removeEvent(currentEvent);//don't import myself;
 							}
 						}
 					}
-					
-					//
-					for(KalendarEvent event:tmpKalendar.getEvents()) {
-						event.setManagedFlags(new CalendarManagedFlag[]{ CalendarManagedFlag.all } );
-						event.setExternalSource(source);
+
+					Collection<KalendarEvent> inEvents = inTmpKalendar.getEvents();
+					for(KalendarEvent inEvent:inEvents) {
+						if(inEvent.getID().contains(targetId)) {
+							continue;
+						}
+
+						inEvent.setManagedFlags(new CalendarManagedFlag[]{ CalendarManagedFlag.all } );
+						inEvent.setExternalSource(source);
 						
-						KalendarEvent currentEvent = targetCalendar.getEvent(event.getID(), event.getRecurrenceID());
+						KalendarEvent currentEvent = targetCalendar.getEvent(inEvent.getID(), inEvent.getRecurrenceID());
 						if(currentEvent == null) {
-							targetCalendar.addEvent(event);
+							targetCalendar.addEvent(inEvent);
 						} else {
 							//need perhaps more refined synchronization per event
-							targetCalendar.addEvent(event);
+							targetCalendar.addEvent(inEvent);
 						}
 					}
 					
@@ -354,7 +361,7 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 	@Override
 	public boolean persistCalendar(Kalendar kalendar) {
 		Calendar calendar = buildCalendar(kalendar);
-		boolean success = writeCalendarFile(calendar,kalendar.getType(), kalendar.getCalendarID());
+		boolean success = writeCalendarFile(calendar, kalendar.getType(), kalendar.getCalendarID());
 		calendarCache.update(getKeyFor(kalendar.getType(), kalendar.getCalendarID()), kalendar);
 		return success;
 	}
@@ -419,7 +426,14 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 		String token = RandomStringUtils.randomAlphanumeric(6);
 		Kalendar calendar = new Kalendar(identity.getKey().toString(), CalendarManager.TYPE_USER_AGGREGATED);
 		return calendarUserConfigDao.createCalendarUserConfiguration(calendar, identity,
-				token, false, false);
+				token, true, true);
+	}
+
+	@Override
+	public CalendarUserConfiguration createCalendarConfig(Identity identity, Kalendar calendar) {
+		String token = RandomStringUtils.randomAlphanumeric(6);
+		return calendarUserConfigDao.createCalendarUserConfiguration(calendar, identity,
+				token, true, true);
 	}
 
 	@Override
@@ -437,6 +451,11 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 		return calendarUserConfigDao.getCalendarUserConfigurations(identity, types);
 	}
 	
+	@Override
+	public CalendarUserConfiguration getCalendarUserConfiguration(IdentityRef identity, Kalendar calendar) {
+		return calendarUserConfigDao.getCalendarUserConfiguration(identity, calendar.getCalendarID(), calendar.getType());
+	}
+
 	@Override
 	public Map<CalendarKey,CalendarUserConfiguration> getCalendarUserConfigurationsMap(IdentityRef identity, String... types) {
 		List<CalendarUserConfiguration> list = calendarUserConfigDao.getCalendarUserConfigurations(identity, types);
@@ -700,16 +719,25 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 
 		// check all day event first
 		boolean isAllDay = false;
-		Parameter dateParameter = event.getProperties().getProperty(Property.DTSTART).getParameters().getParameter(Value.DATE.getName());
-		if (dateParameter != null) isAllDay = true;
-
-		if (isAllDay) {
+		Parameter dateParameter = event.getProperties().getProperty(Property.DTSTART)
+				.getParameters().getParameter(Value.DATE.getName());
+		if (dateParameter != null) {
+			isAllDay = true;
+			
 			//Make sure the time of the dates are 00:00 localtime because DATE fields in iCal are GMT 00:00 
 			//Note that start date and end date can have different offset because of daylight saving switch
 			java.util.TimeZone timezone = java.util.GregorianCalendar.getInstance().getTimeZone();
 			start = new Date(start.getTime() - timezone.getOffset(start.getTime()));
-			end   = new Date(end.getTime()   - timezone.getOffset(end.getTime()));
+			end   = new Date(end.getTime() - timezone.getOffset(end.getTime()));
 			
+			// adjust end date: ICal sets end dates to the next day
+			end = new Date(end.getTime() - (1000 * 60 * 60 * 24));
+		} else if(start != null && end != null && (end.getTime() - start.getTime()) == (24 * 60 * 60 * 1000)) {
+			//check that start has no hour, no minute and no second
+			java.util.Calendar cal = java.util.Calendar.getInstance();
+			cal.setTime(start);
+			isAllDay = cal.get(java.util.Calendar.HOUR_OF_DAY) == 0 && cal.get(java.util.Calendar.MINUTE) == 0
+					&& cal.get(java.util.Calendar.SECOND) == 0 && cal.get(java.util.Calendar.MILLISECOND) == 0;
 			// adjust end date: ICal sets end dates to the next day
 			end = new Date(end.getTime() - (1000 * 60 * 60 * 24));
 		}
@@ -973,6 +1001,7 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 				Kalendar loadedCal = getCalendarFromCache(cal.getType(),cal.getCalendarID());
 				for(KalendarEvent kalendarEvent:kalendarEvents) {
 					loadedCal.addEvent(kalendarEvent);
+					kalendarEvent.resetImmutableDates();
 				}
 				boolean successfullyPersist = persistCalendar(loadedCal);
 				return new Boolean(successfullyPersist);
@@ -1195,6 +1224,7 @@ public class ICalFileCalendarManager implements CalendarManager, InitializingBea
 		}
 
 		reloadedCal.removeEvent(kalendarEvent); // remove old event
+		kalendarEvent.resetImmutableDates();
 		reloadedCal.addEvent(kalendarEvent); // add changed event
 
 		boolean successfullyPersist = persistCalendar(reloadedCal);

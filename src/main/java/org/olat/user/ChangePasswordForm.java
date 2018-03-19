@@ -33,6 +33,7 @@ import org.olat.core.gui.components.form.flexible.impl.FormLayoutContainer;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.Event;
 import org.olat.core.gui.control.WindowControl;
+import org.springframework.beans.factory.annotation.Autowired;
 
 
 /**
@@ -52,6 +53,9 @@ public class ChangePasswordForm extends FormBasicController {
 	
 	private String _oldpass = "";
 	private String _newpass = "";
+	
+	@Autowired
+	private UserManager userManager;
 
 	/**
 	 * @param name
@@ -95,17 +99,23 @@ public class ChangePasswordForm extends FormBasicController {
 	
 	@Override
 	protected boolean validateFormLogic (UserRequest ureq) {
-		if (!UserManager.getInstance().syntaxCheckOlatPassword(newpass1.getValue())) {
+		boolean allOk = true;
+		newpass1.clearError();
+		newpass2.clearError();
+		
+		if (!userManager.syntaxCheckOlatPassword(newpass1.getValue())) {
 			newpass1.setErrorKey("form.checkPassword", null);
-			return false;
+			allOk &= false;
 		}
+		
 		if (!newpass1.getValue().equals(newpass2.getValue())) {
 			newpass1.setValue("");
 			newpass2.setValue("");
 			newpass2.setErrorKey("error.password.nomatch", null);
-			return false;
+			allOk &= false;
 		}
-		return true;
+		
+		return allOk & super.validateFormLogic(ureq);
 	}
 
 	@Override
@@ -114,8 +124,10 @@ public class ChangePasswordForm extends FormBasicController {
 		oldpass.setElementCssClass("o_sel_home_pwd_old");
 		newpass1 = uifactory.addPasswordElement("newpass1",  "form.password.new1", 128, "", formLayout);
 		newpass1.setElementCssClass("o_sel_home_pwd_new_1");
+		newpass1.setAutocomplete("new-password");
 		newpass2 = uifactory.addPasswordElement("newpass2",  "form.password.new2", 128, "", formLayout);
 		newpass2.setElementCssClass("o_sel_home_pwd_new_2");
+		newpass2.setAutocomplete("new-password");
 		
 		// Button layout
 		FormLayoutContainer buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());

@@ -35,6 +35,7 @@ import javax.persistence.NamedQuery;
 import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
 
 import org.olat.basesecurity.IdentityImpl;
 import org.olat.core.id.CreateInfo;
@@ -74,6 +75,11 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	@Temporal(TemporalType.TIMESTAMP)
 	@Column(name="lastmodified", nullable=false, insertable=true, updatable=true)
 	private Date lastModified;
+	
+	@Column(name="lastcoachmodified", nullable=true, insertable=true, updatable=true)
+	private Date lastCoachModified;
+	@Column(name="lastusermodified", nullable=true, insertable=true, updatable=true)
+	private Date lastUserModified;
 
 	@Column(name="a_attemtps", nullable=true, insertable=true, updatable=true)
 	private Integer attempts;
@@ -85,10 +91,18 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	private String status;
 	@Column(name="a_details", nullable=true, insertable=true, updatable=true)
 	private String details;
+	@Column(name="a_user_visibility", nullable=true, insertable=true, updatable=true)
+	private Boolean userVisibility;
 
 	@Column(name="a_completion", nullable=true, insertable=true, updatable=true)
 	private Double completion;
+	@Column(name="a_current_run_completion", nullable=true, insertable=true, updatable=true)
+	private Double currentRunCompletion;
+	@Column(name="a_current_run_status", nullable=true, insertable=true, updatable=true)
+	private String runStatus;
 
+	@Column(name="a_num_assessment_docs", nullable=true, insertable=true, updatable=true)
+	private int numberOfAssessmentDocuments;
 	@Column(name="a_comment", nullable=true, insertable=true, updatable=true)
 	private String comment;
 	@Column(name="a_coach_comment", nullable=true, insertable=true, updatable=true)
@@ -118,6 +132,9 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	@JoinColumn(name="fk_identity", nullable=true, insertable=true, updatable=false)
     private Identity identity;
 	
+	public AssessmentEntryImpl() {
+		//
+	}
 	
 	@Override
 	public Long getKey() {
@@ -141,6 +158,24 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	@Override
 	public void setLastModified(Date lastModified) {
 		this.lastModified = lastModified;
+	}
+
+	@Override
+	public Date getLastCoachModified() {
+		return lastCoachModified;
+	}
+
+	public void setLastCoachModified(Date lastCoachModified) {
+		this.lastCoachModified = lastCoachModified;
+	}
+
+	@Override
+	public Date getLastUserModified() {
+		return lastUserModified;
+	}
+
+	public void setLastUserModified(Date lastUserModified) {
+		this.lastUserModified = lastUserModified;
 	}
 
 	@Override
@@ -204,6 +239,16 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	}
 
 	@Override
+	public Boolean getUserVisibility() {
+		return userVisibility;
+	}
+
+	@Override
+	public void setUserVisibility(Boolean visibility) {
+		this.userVisibility = visibility;
+	}
+
+	@Override
 	public Boolean getFullyAssessed() {
 		return fullyAssessed;
 	}
@@ -224,6 +269,39 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	}
 
 	@Override
+	public Double getCurrentRunCompletion() {
+		return currentRunCompletion;
+	}
+
+	@Override
+	public void setCurrentRunCompletion(Double currentCompletion) {
+		this.currentRunCompletion = currentCompletion;
+	}
+	
+	public String getRunStatus() {
+		return runStatus;
+	}
+	
+	public void setRunStatus(String runStatus) {
+		this.runStatus = runStatus;
+	}
+
+	@Override
+	@Transient
+	public AssessmentRunStatus getCurrentRunStatus() {
+		return StringHelper.containsNonWhitespace(runStatus) ? AssessmentRunStatus.valueOf(runStatus) : null;
+	}
+
+	@Override
+	public void setCurrentRunStatus(AssessmentRunStatus status) {
+		if(status == null) {
+			runStatus = null;
+		} else {
+			runStatus = status.name();
+		}
+	}
+
+	@Override
 	public String getComment() {
 		return comment;
 	}
@@ -231,6 +309,16 @@ public class AssessmentEntryImpl implements Persistable, ModifiedInfo, CreateInf
 	@Override
 	public void setComment(String comment) {
 		this.comment = comment;
+	}
+	
+	@Override
+	public int getNumberOfAssessmentDocuments() {
+		return numberOfAssessmentDocuments;
+	}
+
+	@Override
+	public void setNumberOfAssessmentDocuments(int numOfDocuments) {
+		numberOfAssessmentDocuments = numOfDocuments;
 	}
 
 	@Override

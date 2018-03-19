@@ -33,6 +33,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -107,6 +108,8 @@ import org.springframework.beans.factory.annotation.Autowired;
  * @author Florian Gnägi
  */
 public class FileUploadController extends FormBasicController {
+	
+	private static final String[] resizeKeys = new String[]{"resize"};
 	private int status = FolderCommandStatus.STATUS_SUCCESS;
 
 	private VFSContainer currentContainer;
@@ -123,6 +126,7 @@ public class FileUploadController extends FormBasicController {
 	private long uploadLimitKB;
 	private long remainingQuotKB;
 	private Set<String> mimeTypes;
+	private boolean uriValidation;
 	//
 	// Form elements
 	private FileElement fileEl;
@@ -146,8 +150,6 @@ public class FileUploadController extends FormBasicController {
 
 	@Autowired
 	private ImageService imageHelper;
-	@Autowired
-	private FilesInfoMBean fileInfoMBean;
 	@Autowired
 	private VFSLockManager vfsLockManager;
 	@Autowired
@@ -174,23 +176,23 @@ public class FileUploadController extends FormBasicController {
 	 */
 	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, long upLimitKB, long remainingQuotKB,
 			Set<String> mimeTypesRestriction, boolean showTargetPath) {
-		this(wControl, curContainer, ureq, upLimitKB, remainingQuotKB, mimeTypesRestriction, showTargetPath, false, true, true, true);
+		this(wControl, curContainer, ureq, upLimitKB, remainingQuotKB, mimeTypesRestriction, false, showTargetPath, false, true, true, true);
 	}
 	
 	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, long upLimitKB, long remainingQuotKB,
-			Set<String> mimeTypesRestriction, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle) {
+			Set<String> mimeTypesRestriction, boolean uriValidation, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle) {
 		this(wControl,curContainer,  ureq,  upLimitKB,  remainingQuotKB,
-				mimeTypesRestriction,  showTargetPath,  showMetadata,  resizeImg,  showCancel,  showTitle,null);
+				mimeTypesRestriction, uriValidation, showTargetPath,  showMetadata,  resizeImg,  showCancel,  showTitle,null);
 	}
 	
 	public FileUploadController(WindowControl wControl, VFSContainer curContainer, UserRequest ureq, long upLimitKB, long remainingQuotKB,
-			Set<String> mimeTypesRestriction, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle, String subfolderPath) {
+			Set<String> mimeTypesRestriction, boolean uriValidation, boolean showTargetPath, boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle, String subfolderPath) {
 		super(ureq, wControl, "file_upload");
-		setVariables(curContainer, upLimitKB, remainingQuotKB, mimeTypesRestriction, showTargetPath, showMetadata, resizeImg, showCancel, showTitle, subfolderPath);
+		setVariables(curContainer, upLimitKB, remainingQuotKB, mimeTypesRestriction, uriValidation, showTargetPath, showMetadata, resizeImg, showCancel, showTitle, subfolderPath);
 		initForm(ureq);
 	}
 	
-	private void setVariables(VFSContainer curContainer, long upLimitKB, long remainingQuotKB, Set<String> mimeTypesRestriction, boolean showTargetPath,
+	private void setVariables(VFSContainer curContainer, long upLimitKB, long remainingQuotKB, Set<String> mimeTypesRestriction, boolean uriValidation, boolean showTargetPath,
 			boolean showMetadata, boolean resizeImg, boolean showCancel, boolean showTitle, String subfolderPath) {
 		this.currentContainer = curContainer;
 		this.mimeTypes = mimeTypesRestriction;
@@ -198,6 +200,7 @@ public class FileUploadController extends FormBasicController {
 		this.showTargetPath = showTargetPath;
 		// set remaining quota and max upload size
 		this.uploadLimitKB = upLimitKB;
+		this.uriValidation = uriValidation;
 		this.remainingQuotKB = remainingQuotKB;
 		// use base container as upload dir
 		this.uploadRelPath = null;
@@ -230,10 +233,10 @@ public class FileUploadController extends FormBasicController {
 
 		// Add path element
 		if (showTargetPath) {			
-			String path = "/ " + uploadVFSContainer.getName();
+			String path = "/ " + StringHelper.escapeHtml(uploadVFSContainer.getName());
 			VFSContainer container = uploadVFSContainer.getParentContainer();
 			while (container != null) {
-				path = "/ " + container.getName() + " " + path;
+				path = "/ " + StringHelper.escapeHtml(container.getName()) + " " + path;
 				container = container.getParentContainer();
 			}
 			
@@ -263,11 +266,11 @@ public class FileUploadController extends FormBasicController {
 			}
 			formLayout.add(resizeCont);
 
-			String[] keys = new String[]{"resize"};
 			String[] values = new String[]{translate("resize_image")};
-			resizeEl = uifactory.addCheckboxesHorizontal("resize_image", resizeCont, keys, values);
+			resizeEl = uifactory.addCheckboxesHorizontal("resize_image", resizeCont, resizeKeys, values);
 			resizeEl.setLabel(null, null);
-			resizeEl.select("resize", true);
+			resizeEl.select(resizeKeys[0], true);
+			resizeEl.setVisible(false);
 		}
 		
 		// Check remaining quota
@@ -308,19 +311,35 @@ public class FileUploadController extends FormBasicController {
 				fileEl.reset();
 				fileEl.setDeleteEnabled(false);
 				fileEl.clearError();
-			} else if(metaDataCtr != null) {
-				String filename = fileEl.getUploadFileName();
-				if(filename == null) {
-					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
-				} else if(!FileUtils.validateFilename(filename)) {
-					String suffix = FileUtils.getFileSuffix(filename);
-					if(suffix != null && suffix.length() > 0) {
-						filename = filename.substring(0, filename.length() - suffix.length() - 1);
-					}
-					filename = FileUtils.normalizeFilename(filename) + "." + suffix;
-					metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+				if(resizeImg && resizeEl != null) {
+					resizeEl.setVisible(false);
 				}
-				metaDataCtr.setFilename(filename);
+			} else  {
+				String filename = fileEl.getUploadFileName();
+				if(metaDataCtr != null) {
+					if(filename == null) {
+						metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);	
+					} else if(!FileUtils.validateFilename(filename)) {
+						String suffix = FileUtils.getFileSuffix(filename);
+						if(suffix != null && suffix.length() > 0) {
+							filename = filename.substring(0, filename.length() - suffix.length() - 1);
+						}
+						filename = FileUtils.normalizeFilename(filename) + "." + suffix;
+						metaDataCtr.getFilenameEl().setExampleKey("mf.filename.warning", null);
+					}
+					metaDataCtr.setFilename(filename);
+				}
+				
+				if(resizeImg) {
+					boolean isImg = false;
+					if(filename != null) {
+						isImg = imageExtPattern.matcher(filename.toLowerCase()).find();
+					}
+					if(resizeEl != null) {
+						resizeEl.setVisible(isImg);
+						resizeEl.select(resizeKeys[0], true);
+					}
+				}
 			}
 		}
 		super.formInnerEvent(ureq, source, event);
@@ -695,7 +714,6 @@ public class FileUploadController extends FormBasicController {
 		if (success) {
 			String filePath = (uploadRelPath == null ? "" : uploadRelPath + "/") + newFile.getName();
 			finishSuccessfullUpload(filePath, newFile, ureq);
-			fileInfoMBean.logUpload(newFile.getSize());
 			fireEvent(ureq, Event.DONE_EVENT);										
 		} else {
 			showError("failed");
@@ -710,7 +728,6 @@ public class FileUploadController extends FormBasicController {
 		VFSItem item = currentContainer.resolve(filePath);
 		if(item != null) {
 			finishSuccessfullUpload(filePath, item, ureq);
-			fileInfoMBean.logUpload(newFile.getSize());
 		} else {
 			logWarn("Upload with error:" + filePath, null);
 		}
@@ -883,13 +900,42 @@ public class FileUploadController extends FormBasicController {
 		if(metaDataCtr != null && StringHelper.containsNonWhitespace(metaDataCtr.getFilename())) {
 			return validateFilename(metaDataCtr.getFilename(), metaDataCtr.getFilenameEl());
 		}
-		String filename = fileEl.getUploadFileName();
-		
-		boolean allOk = validateFilename(filename, fileEl);
+
+		boolean allOk = validateFilename(fileEl);
+		return allOk;
+	}
+	
+	private boolean validateFilename(FileElement itemEl) {
+		boolean allOk = true;
+		// validate clean the errors
 		List<ValidationStatus> fileStatus = new ArrayList<>();
-		fileEl.validate(fileStatus);//revalidate because we clear the error
-		fileEl.setDeleteEnabled(fileStatus.size() > 0);
-		return allOk && fileStatus.isEmpty();
+		// revalidate
+		itemEl.validate(fileStatus);
+
+		if(fileStatus.isEmpty()) {
+			String filename = itemEl.getUploadFileName();
+			if (!StringHelper.containsNonWhitespace(filename)) {
+				itemEl.setErrorKey("NoFileChosen", null);
+				allOk &= false;
+			}
+			
+			if(uriValidation) {
+				try {
+					new URI(filename);
+				} catch(Exception e) {
+					itemEl.setErrorKey("cfile.name.notvalid.uri", null);
+					allOk &= false;
+				}
+			}	
+			if(!FileUtils.validateFilename(filename)) {
+				itemEl.setErrorKey("cfile.name.notvalid", null);
+				allOk &= false;
+			}
+			allOk &= validateQuota(itemEl);
+		}
+		
+		itemEl.setDeleteEnabled(!allOk);
+		return allOk;
 	}
 	
 	private boolean validateFilename(String filename, FormItem itemEl) {
@@ -900,20 +946,31 @@ public class FileUploadController extends FormBasicController {
 			itemEl.setErrorKey("NoFileChosen", null);
 			allOk &= false;
 		}
-
-		boolean isFilenameValid = FileUtils.validateFilename(filename);		
-		if(!isFilenameValid) {
+		
+		if(uriValidation) {
+			try {
+				new URI(filename);
+			} catch(Exception e) {
+				itemEl.setErrorKey("cfile.name.notvalid.uri", null);
+				allOk &= false;
+			}
+		}	
+		if(!FileUtils.validateFilename(filename)) {
 			itemEl.setErrorKey("cfile.name.notvalid", null);
 			allOk &= false;
 		}
-		if (remainingQuotKB != -1  && fileEl.getUploadFile() != null
-				&& fileEl.getUploadFile().length() / 1024 > remainingQuotKB) {
-			fileEl.clearError();
+		
+		allOk &= validateQuota(fileEl);
+		return allOk;
+	}
+	
+	private boolean validateQuota(FileElement itemEl) {
+		if (remainingQuotKB != -1  && itemEl.getUploadFile() != null
+				&& itemEl.getUploadFile().length() / 1024 > remainingQuotKB) {
 			String supportAddr = WebappHelper.getMailConfig("mailQuota");
 			getWindowControl().setError(translate("ULLimitExceeded", new String[] { Formatter.roundToString((uploadLimitKB+0f) / 1000, 1), supportAddr }));
-			allOk &= false;
+			return false;
 		}
-		
-		return allOk;
+		return true;
 	}
 }

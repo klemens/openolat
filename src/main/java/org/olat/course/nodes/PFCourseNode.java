@@ -23,6 +23,8 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Date;
+import java.util.Locale;
+import java.util.zip.ZipOutputStream;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.modules.bc.vfs.OlatRootFolderImpl;
@@ -33,6 +35,7 @@ import org.olat.core.gui.components.stack.BreadcrumbPanel;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
 import org.olat.core.gui.control.generic.tabbable.TabbableController;
+import org.olat.core.gui.translator.Translator;
 import org.olat.core.id.Identity;
 import org.olat.core.util.FileUtils;
 import org.olat.core.util.Util;
@@ -43,6 +46,7 @@ import org.olat.course.ICourse;
 import org.olat.course.editor.CourseEditorEnv;
 import org.olat.course.editor.NodeEditController;
 import org.olat.course.editor.StatusDescription;
+import org.olat.course.nodes.pf.manager.FileSystemExport;
 import org.olat.course.nodes.pf.manager.PFManager;
 import org.olat.course.nodes.pf.ui.PFEditController;
 import org.olat.course.nodes.pf.ui.PFPeekviewController;
@@ -120,20 +124,17 @@ public class PFCourseNode extends AbstractAccessableCourseNode {
 	}
 	
 	public boolean hasParticipantBoxConfigured() {
-		boolean hasStundentBox = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_PARTICIPANTBOX);
-		return hasStundentBox;
+		return getModuleConfiguration().getBooleanSafe(CONFIG_KEY_PARTICIPANTBOX);
 	}
 	
 	public boolean hasCoachBoxConfigured() {
-		boolean hasTeacherBox = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_COACHBOX);
-		return hasTeacherBox;
+		return getModuleConfiguration().getBooleanSafe(CONFIG_KEY_COACHBOX);
 	}
 	
 	public boolean hasAlterFileConfigured() {
 		boolean hasStundentBox = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_PARTICIPANTBOX);
 		if (hasStundentBox) {
-			boolean hasAlterFile = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_ALTERFILE);
-			return hasAlterFile;
+			return getModuleConfiguration().getBooleanSafe(CONFIG_KEY_ALTERFILE);
 		}
 		return false;
 	}
@@ -141,8 +142,7 @@ public class PFCourseNode extends AbstractAccessableCourseNode {
 	public boolean hasLimitCountConfigured() {
 		boolean hasStundentBox = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_PARTICIPANTBOX);
 		if (hasStundentBox) {
-			boolean hasLimitCount = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_LIMITCOUNT);
-			return hasLimitCount;
+			return getModuleConfiguration().getBooleanSafe(CONFIG_KEY_LIMITCOUNT);
 		}
 		return false;
 	}
@@ -157,8 +157,7 @@ public class PFCourseNode extends AbstractAccessableCourseNode {
 	public boolean hasDropboxTimeFrameConfigured() {
 		boolean hasStundentBox = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_PARTICIPANTBOX);
 		if (hasStundentBox) {
-			boolean hasTimeFrame = getModuleConfiguration().getBooleanSafe(CONFIG_KEY_TIMEFRAME);
-			return hasTimeFrame;
+			return getModuleConfiguration().getBooleanSafe(CONFIG_KEY_TIMEFRAME);
 		}
 		return false;
 	}
@@ -263,6 +262,7 @@ public class PFCourseNode extends AbstractAccessableCourseNode {
 
 	@Override
 	public void cleanupOnDelete(ICourse course) {
+		super.cleanupOnDelete(course);
 		// mark the subscription to this node as deleted
 		SubscriptionContext folderSubContext = CourseModule.createTechnicalSubscriptionContext(course.getCourseEnvironment(), this);
 		NotificationsManager.getInstance().delete(folderSubContext);
@@ -274,6 +274,16 @@ public class PFCourseNode extends AbstractAccessableCourseNode {
 		if (root.exists()){
 			FileUtils.deleteDirsAndFiles(root, true, true);		
 		} 
+	}
+	
+	@Override
+	public boolean archiveNodeData(Locale locale, ICourse course, ArchiveOptions options, ZipOutputStream exportStream,
+			String charset) {
+		CourseEnvironment courseEnv = course.getCourseEnvironment();
+		Path sourceFolder = Paths.get(courseEnv.getCourseBaseContainer().getBasefile().getAbsolutePath(),
+				PFManager.FILENAME_PARTICIPANTFOLDER, getIdent()); 
+		Translator translator = Util.createPackageTranslator(PFRunController.class, locale);
+		return FileSystemExport.fsToZip(exportStream, sourceFolder, this, null, translator);		
 	}
 
 	@Override

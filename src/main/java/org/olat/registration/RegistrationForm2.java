@@ -77,6 +77,8 @@ public class RegistrationForm2 extends FormBasicController {
 
 	@Autowired
 	private UserModule userModule;
+	@Autowired
+	private I18nManager i18nManager;
 	
 	/**
 	 * @param name
@@ -174,7 +176,7 @@ public class RegistrationForm2 extends FormBasicController {
 		
 		uifactory.addSpacerElement("lang", formLayout, true);
 		// second the user language
-		Map<String, String> languages = I18nManager.getInstance().getEnabledLanguagesTranslated();
+		Map<String, String> languages = i18nManager.getEnabledLanguagesTranslated();
 		lang = uifactory.addDropdownSingleselect("user.language", formLayout,
 				StringHelper.getMapKeysAsStringArray(languages),
 				StringHelper.getMapValuesAsStringArray(languages),
@@ -198,10 +200,11 @@ public class RegistrationForm2 extends FormBasicController {
 		}
 		
 		newpass1 = uifactory.addPasswordElement("newpass1",  "form.password.new1", 128, "", formLayout);
-		newpass2 = uifactory.addPasswordElement("newpass2",  "form.password.new2", 128, "", formLayout);
-
 		newpass1.setMandatory(true);
+		newpass1.setAutocomplete("new-password");
+		newpass2 = uifactory.addPasswordElement("newpass2",  "form.password.new2", 128, "", formLayout);
 		newpass2.setMandatory(true);
+		newpass2.setAutocomplete("new-password");
 	
 		// Button layout
 		buttonLayout = FormLayoutContainer.createButtonLayout("button_layout", getTranslator());

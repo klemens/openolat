@@ -26,7 +26,6 @@
 
 package org.olat.core.gui.components.form.flexible.impl.elements.table;
 
-
 /**
  * 
  * @author Christian Guretzki
@@ -73,4 +72,8 @@ public interface FlexiColumnModel {
 
 	public void setCellRenderer(FlexiCellRenderer cellRenderer);
 
+	public FlexiCellRenderer getFooterCellRenderer();
+	
+	public void setFooterCellRenderer(FlexiCellRenderer cellRenderer);
+	
 }

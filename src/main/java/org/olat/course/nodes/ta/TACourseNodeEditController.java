@@ -88,6 +88,7 @@ import org.olat.modules.ModuleConfiguration;
 import org.olat.properties.Property;
 import org.olat.repository.RepositoryEntry;
 import org.olat.repository.RepositoryManager;
+import org.olat.user.UserManager;
 
 /**
  *  
@@ -514,7 +515,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 		Identity identity = ureq.getIdentity();
 		c.put("first", identity.getUser().getProperty(UserConstants.FIRSTNAME, getLocale()));
 		c.put("last", identity.getUser().getProperty(UserConstants.LASTNAME, getLocale()));
-		c.put("email", identity.getUser().getProperty(UserConstants.EMAIL, getLocale()));
+		c.put("email", UserManager.getInstance().getUserDisplayEmail(identity, ureq.getLocale()));
 		c.put("filename", fileName);		
 		c.put("coursename", courseName);
 		c.put("courselink", courseLink);
@@ -535,7 +536,7 @@ public class TACourseNodeEditController extends ActivateableTabbableDefaultContr
 				MailBundle ccBundle = mailManager.makeMailBundle(context, sender, mailTemplate, sender, metaId, result);
 				result.append(mailManager.sendMessage(ccBundle));
 			}
-			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getLocale());
+			MailHelper.printErrorsAndWarnings(result, getWindowControl(), ureq.getUserSession().getRoles().isOLATAdmin(), ureq.getLocale());
 		}
 	}
 	

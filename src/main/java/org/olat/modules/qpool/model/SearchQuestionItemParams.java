@@ -26,6 +26,8 @@ import java.util.List;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
 import org.olat.core.util.StringHelper;
+import org.olat.modules.qpool.QuestionStatus;
+import org.olat.modules.taxonomy.TaxonomyLevel;
 
 /**
  * 
@@ -43,6 +45,15 @@ public class SearchQuestionItemParams {
 	
 	private boolean favoritOnly;
 	private Identity author;
+	
+	private TaxonomyLevel likeTaxonomyLevel;
+	private QuestionStatus questionStatus;
+	private Identity onlyAuthor;
+	private Identity excludeAuthor;
+	private Identity excludeRater;
+	
+	private boolean withoutTaxonomyLevelOnly;
+	private boolean withoutAuthorOnly;
 	
 	private final Identity identity;
 	private final Roles roles;
@@ -92,9 +103,65 @@ public class SearchQuestionItemParams {
 		this.author = author;
 	}
 	
+	public TaxonomyLevel getLikeTaxonomyLevel() {
+		return likeTaxonomyLevel;
+	}
+
+	public void setLikeTaxonomyLevel(TaxonomyLevel likeTaxonomyLevel) {
+		this.likeTaxonomyLevel = likeTaxonomyLevel;
+	}
+
+	public QuestionStatus getQuestionStatus() {
+		return questionStatus;
+	}
+
+	public void setQuestionStatus(QuestionStatus questionStatus) {
+		this.questionStatus = questionStatus;
+	}
+
+	public Identity getOnlyAuthor() {
+		return onlyAuthor;
+	}
+
+	public void setOnlyAuthor(Identity onlyAuthor) {
+		this.onlyAuthor = onlyAuthor;
+	}
+
+	public Identity getExcludeAuthor() {
+		return excludeAuthor;
+	}
+
+	public void setExcludeAuthor(Identity excludeAuthor) {
+		this.excludeAuthor = excludeAuthor;
+	}
+
+	public Identity getExcludeRater() {
+		return excludeRater;
+	}
+
+	public void setExcludeRated(Identity excludeRater) {
+		this.excludeRater = excludeRater;
+	}
+
+	public boolean isWithoutTaxonomyLevelOnly() {
+		return withoutTaxonomyLevelOnly;
+	}
+
+	public void setWithoutTaxonomyLevelOnly(boolean withoutTaxonomyLevelOnly) {
+		this.withoutTaxonomyLevelOnly = withoutTaxonomyLevelOnly;
+	}
+
+	public boolean isWithoutAuthorOnly() {
+		return withoutAuthorOnly;
+	}
+
+	public void setWithoutAuthorOnly(boolean withoutAuthorOnly) {
+		this.withoutAuthorOnly = withoutAuthorOnly;
+	}
+
 	public boolean isFulltextSearch() {
 		return StringHelper.containsNonWhitespace(searchString) ||
-				condQueries != null && condQueries.size() > 0;
+				condQueries != null && !condQueries.isEmpty();
 	}
 
 	public String getSearchString() {
@@ -107,9 +174,9 @@ public class SearchQuestionItemParams {
 
 	public List<String> getCondQueries() {
 		if(condQueries == null) {
-			return new ArrayList<String>(1);
+			return new ArrayList<>(1);
 		}
-		return new ArrayList<String>(condQueries);
+		return new ArrayList<>(condQueries);
 	}
 
 	public void setCondQueries(List<String> condQueries) {
@@ -133,6 +200,14 @@ public class SearchQuestionItemParams {
 		clone.condQueries = getCondQueries();
 		clone.favoritOnly = favoritOnly;
 		clone.author = author;
+		clone.likeTaxonomyLevel = likeTaxonomyLevel;
+		clone.questionStatus = questionStatus;
+		clone.onlyAuthor = onlyAuthor;
+		clone.excludeAuthor = excludeAuthor;
+		clone.excludeRater = excludeRater;
+		clone.withoutTaxonomyLevelOnly = withoutTaxonomyLevelOnly;
+		clone.withoutAuthorOnly = withoutAuthorOnly;
 		return clone;
 	}
+
 }

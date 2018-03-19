@@ -1,26 +1,19 @@
 <div class="clearfix">
-	<div class="o_sel_qpool_edit_content">
-		$r.contextHelpWithWrapper("Item Detailed View")
-		$r.render("previous")
-		$r.render("next")
-		#if($r.available("edit"))
-			$r.render("edit")
-		#end
+	$r.render("review")
+</div>
+<div class="row">
+	#if($metadataSwitch)
+		<div class="col-md-8">
+			$r.render("type_specifics")
+			$r.render("comments")
+		</div>
+		<div class="col-md-4">
+			$r.render("metadatas")
+		</div>
+	#else
+	<div class="col-md-12">
+		$r.render("type_specifics")
+		$r.render("comments")
 	</div>
-</div>
-<div class="container-fluid clearfix">
-	$r.render("type_specifics")
-</div>
-<hr/>
-<div class="clearfix">
-	$r.render("metadatas")
-</div>
-<div class="o_button_group">
-	$r.render("export.item")
-	$r.render("share.item")
-	$r.render("copy")
-	#if($r.available("delete.item"))
-		$r.render("delete.item")
 	#end
 </div>
-$r.render("comments")

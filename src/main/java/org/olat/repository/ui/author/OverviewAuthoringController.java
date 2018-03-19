@@ -41,6 +41,7 @@ import org.olat.core.id.context.StateEntry;
 import org.olat.core.logging.activity.ThreadLocalUserActivityLogger;
 import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
+import org.olat.core.util.coordinate.CoordinatorManager;
 import org.olat.core.util.event.EventBus;
 import org.olat.core.util.event.GenericEventListener;
 import org.olat.core.util.resource.OresHelper;
@@ -101,21 +102,25 @@ public class OverviewAuthoringController extends BasicController implements Acti
 
 		eventBus = ureq.getUserSession().getSingleUserEventCenter();
 		eventBus.registerFor(this, getIdentity(), RepositoryService.REPOSITORY_EVENT_ORES);
-
+		
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().registerFor(this, getIdentity(), RepositoryService.REPOSITORY_EVENT_ORES);
 		putInitialPanel(mainPanel);
 	}
 	
 	@Override
 	protected void doDispose() {
 		eventBus.deregisterFor(this, RepositoryService.REPOSITORY_EVENT_ORES);
+		CoordinatorManager.getInstance().getCoordinator().getEventBus().deregisterFor(this, RepositoryService.REPOSITORY_EVENT_ORES);
 	}
 	
 	@Override
 	public void event(Event event) {
 		if(EntryChangedEvent.CHANGE_CMD.equals(event.getCommand()) && event instanceof EntryChangedEvent) {
 			EntryChangedEvent ece = (EntryChangedEvent)event;
-			if(ece.getChange() == Change.addBookmark || ece.getChange() == Change.removeBookmark
-					|| ece.getChange() == Change.added || ece.getChange() == Change.deleted) {
+			if(ece.getChange() == Change.addBookmark
+					|| ece.getChange() == Change.removeBookmark
+					|| ece.getChange() == Change.added
+					|| ece.getChange() == Change.deleted) {
 				if(markedCtrl != null && !markedCtrl.getI18nName().equals(ece.getSource())) {
 					favoritDirty = true;
 				}
@@ -124,6 +129,18 @@ public class OverviewAuthoringController extends BasicController implements Acti
 				}
 				if(deletedEntriesCtrl != null && !deletedEntriesCtrl.getI18nName().equals(ece.getSource())) {
 					deletedDirty = true;
+				}
+			} else if(ece.getChange() == Change.modifiedAccess
+					|| ece.getChange() == Change.modifiedAtPublish
+					|| ece.getChange() == Change.modifiedDescription) {
+				if(markedCtrl != null) {
+					markedCtrl.addDirtyRows(ece.getRepositoryEntryKey());
+				}
+				if(myEntriesCtrl != null) {
+					myEntriesCtrl.addDirtyRows(ece.getRepositoryEntryKey());
+				}
+				if(deletedEntriesCtrl != null) {
+					deletedEntriesCtrl.addDirtyRows(ece.getRepositoryEntryKey());
 				}
 			}
 		}
@@ -148,9 +165,13 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			}
 			if(favoritDirty && markedCtrl != null) {
 				markedCtrl.reloadRows();
+			} else if(markedCtrl != null) {
+				markedCtrl.reloadDirtyRows();
 			}
 			if(myDirty && myEntriesCtrl != null) {
 				myEntriesCtrl.reloadRows();
+			} else if(myEntriesCtrl != null) {
+				myEntriesCtrl.reloadDirtyRows();
 			}
 			addToHistory(ureq, currentCtrl);
 		} else {
@@ -211,10 +232,12 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Favorits", 0l);
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			markedCtrl = new AuthorListController(ureq, bwControl, "search.mark", searchParams, false);
+			markedCtrl = new AuthorListController(ureq, bwControl, "search.mark", searchParams, false, true);
 			listenTo(markedCtrl);
 		} else if(favoritDirty) {
 			markedCtrl.reloadRows();
+		} else {
+			markedCtrl.reloadDirtyRows();
 		}
 		favoritDirty = false;
 		
@@ -233,10 +256,12 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("My", 0l);
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			myEntriesCtrl = new AuthorListController(ureq, bwControl, "search.my", searchParams, false);
+			myEntriesCtrl = new AuthorListController(ureq, bwControl, "search.my", searchParams, false, true);
 			listenTo(myEntriesCtrl);	
 		} else if(myDirty) {
 			myEntriesCtrl.reloadRows();
+		} else {
+			myEntriesCtrl.reloadDirtyRows();
 		}
 		myDirty = false;
 		
@@ -255,7 +280,7 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			OLATResourceable ores = OresHelper.createOLATResourceableInstance("Search", 0l);
 			ThreadLocalUserActivityLogger.addLoggingResourceInfo(LoggingResourceable.wrapBusinessPath(ores));
 			WindowControl bwControl = BusinessControlFactory.getInstance().createBusinessWindowControl(ores, null, getWindowControl());
-			searchEntriesCtrl = new AuthorListController(ureq, bwControl, "search.generic", searchParams, true);
+			searchEntriesCtrl = new AuthorListController(ureq, bwControl, "search.generic", searchParams, true, false);
 			listenTo(searchEntriesCtrl);
 		}
 		
@@ -281,6 +306,8 @@ public class OverviewAuthoringController extends BasicController implements Acti
 			listenTo(deletedEntriesCtrl);	
 		} else if(deletedDirty) {
 			deletedEntriesCtrl.reloadRows();
+		} else {
+			deletedEntriesCtrl.reloadDirtyRows();
 		}
 		deletedDirty = false;
 		

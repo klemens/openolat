@@ -56,6 +56,7 @@ import org.olat.core.id.context.BusinessControlFactory;
 import org.olat.core.id.context.ContextEntry;
 import org.olat.core.id.context.StateEntry;
 import org.olat.core.util.ArrayHelper;
+import org.olat.core.util.UserSession;
 import org.olat.core.util.Util;
 import org.olat.core.util.WebappHelper;
 import org.olat.core.util.i18n.I18nManager;
@@ -85,19 +86,22 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 	private StackedPanel dmzPanel;
 	
 	@Autowired
+	private I18nModule i18nModule;
+	@Autowired
 	private LoginModule loginModule;
 	
 	public LoginAuthprovidersController(UserRequest ureq, WindowControl wControl) {
 		// Use fallback translator from full webapp package to translate accessibility stuff
 		super(ureq, wControl, Util.createPackageTranslator(BaseFullWebappController.class, ureq.getLocale()));
 		
-		if(ureq.getUserSession().getEntry("error.change.email") != null) {
-			wControl.setError(ureq.getUserSession().getEntry("error.change.email").toString());
-			ureq.getUserSession().removeEntryFromNonClearedStore("error.change.email");
+		UserSession usess = ureq.getUserSession();
+		if(usess.getEntry("error.change.email") != null) {
+			wControl.setError(usess.getEntry("error.change.email").toString());
+			usess.removeEntryFromNonClearedStore("error.change.email");
 		}
-		if(ureq.getUserSession().getEntry("error.change.email.time") != null) {
-			wControl.setError(ureq.getUserSession().getEntry("error.change.email.time").toString());
-			ureq.getUserSession().removeEntryFromNonClearedStore("error.change.email.time");
+		if(usess.getEntry("error.change.email.time") != null) {
+			wControl.setError(usess.getEntry("error.change.email.time").toString());
+			usess.removeEntryFromNonClearedStore("error.change.email.time");
 		}
 		
 		MainPanel panel = new MainPanel("content");
@@ -166,7 +170,7 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		contentBorn.put("loginComp", authController.getInitialComponent());
 		contentBorn.contextPut("currentProvider", authProvider.getName());		
 		Collection<AuthenticationProvider> providers = loginModule.getAuthenticationProviders();
-		List<AuthenticationProvider> providerSet = new ArrayList<AuthenticationProvider>(providers.size());
+		List<AuthenticationProvider> providerSet = new ArrayList<>(providers.size());
 		int count = 0;
 		for (AuthenticationProvider prov : providers) {
 			if (prov.isEnabled()) {
@@ -283,14 +287,14 @@ public class LoginAuthprovidersController extends MainLayoutBasicController impl
 		aboutVC.contextPut("version", Settings.getFullVersionInfo());
 		// Add translator and languages info
 		I18nManager i18nMgr = I18nManager.getInstance();
-		Collection<String> enabledKeysSet = I18nModule.getEnabledLanguageKeys();
+		Collection<String> enabledKeysSet = i18nModule.getEnabledLanguageKeys();
 		Map<String, String> langNames = new HashMap<String, String>();
 		Map<String, String> langTranslators = new HashMap<String, String>();
 		String[] enabledKeys = ArrayHelper.toArray(enabledKeysSet);
 		String[] names = new String[enabledKeys.length];
 		for (int i = 0; i < enabledKeys.length; i++) {
 			String key = enabledKeys[i];
-			String langName = i18nMgr.getLanguageInEnglish(key, I18nModule.isOverlayEnabled());
+			String langName = i18nMgr.getLanguageInEnglish(key, i18nModule.isOverlayEnabled());
 			langNames.put(key, langName);
 			names[i] = langName;
 			String author = i18nMgr.getLanguageAuthor(key);

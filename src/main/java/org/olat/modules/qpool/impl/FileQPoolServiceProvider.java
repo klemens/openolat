@@ -26,7 +26,6 @@ import java.util.List;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.control.Controller;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.modules.qpool.QItemFactory;
 import org.olat.modules.qpool.QPoolService;
 import org.olat.modules.qpool.QuestionItem;
@@ -81,11 +80,6 @@ public class FileQPoolServiceProvider extends AbstractQPoolServiceProvider {
 	}
 
 	@Override
-	public boolean isCompatible(String filename, VFSLeaf file) {
-		return isCompatible(filename, (File)null);
-	}
-
-	@Override
 	public List<QItemFactory> getItemfactories() {
 		return Collections.emptyList();
 	}
@@ -105,5 +99,10 @@ public class FileQPoolServiceProvider extends AbstractQPoolServiceProvider {
 	public Controller getEditableController(UserRequest ureq,	WindowControl wControl, QuestionItem item) {
 		FilePreviewController fileController = new FilePreviewController(ureq, wControl, item);
 		return fileController;
+	}
+
+	@Override
+	public Controller getReadOnlyController(UserRequest ureq,	WindowControl wControl, QuestionItem item) {
+		return getEditableController(ureq, wControl, item);
 	}
 }

@@ -19,11 +19,16 @@
  */
 package org.olat.modules.qpool.manager;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.olat.core.util.vfs.VFSContainer;
+import org.olat.core.util.vfs.VFSItem;
 import org.olat.test.OlatTestCase;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -61,4 +66,44 @@ public class FileStorageTest extends OlatTestCase {
 		Assert.assertNotNull(dir2);
 		Assert.assertFalse(dir1.equals(dir2));
 	}
+	
+	@Test
+	public void testDeleteDir() {
+		String uuid = UUID.randomUUID().toString();
+		String dir = qpoolFileStorage.generateDir(uuid);
+		VFSContainer container = qpoolFileStorage.getContainer(dir);
+		container.createChildLeaf("abc.txt");
+		container.createChildLeaf("xyzc.txt");
+		qpoolFileStorage.backupDir(dir);
+		Assert.assertTrue(container.getItems().size() > 0);
+
+		qpoolFileStorage.deleteDir(dir);
+		
+		String containerName = container.getName();
+		Assert.assertTrue(container.getParentContainer().resolve(containerName) == null);
+		String backupName = containerName + "_backup";
+		Assert.assertTrue(container.getParentContainer().resolve(backupName) == null);
+	}
+	
+	@Test
+	public void testBackupDir() {
+		String uuid = UUID.randomUUID().toString();
+		String dir = qpoolFileStorage.generateDir(uuid);
+		VFSContainer container = qpoolFileStorage.getContainer(dir);
+		String name1 = "abc.txt";
+		container.createChildLeaf(name1);
+		String name2 = "xyzc.txt";
+		container.createChildLeaf(name2);
+
+		qpoolFileStorage.backupDir(dir);
+		
+		VFSContainer backupContainer = qpoolFileStorage.getBackupContainer(dir);
+		assertThat(backupContainer).isNotNull();
+		VFSContainer backupSubContainer = (VFSContainer) backupContainer.getItems().get(0);
+		List<VFSItem> items = backupSubContainer.getItems();
+		assertThat(items).hasSize(2);
+		List<String> names = items.stream().map(item -> item.getName()).collect(Collectors.toList());
+		assertThat(names).contains(name1, name2);
+	}
+
 }

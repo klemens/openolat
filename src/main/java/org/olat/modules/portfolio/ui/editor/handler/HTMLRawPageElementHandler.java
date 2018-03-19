@@ -22,18 +22,17 @@ package org.olat.modules.portfolio.ui.editor.handler;
 import java.util.Locale;
 
 import org.olat.core.gui.UserRequest;
-import org.olat.core.gui.components.Component;
+import org.olat.core.gui.components.text.TextComponent;
 import org.olat.core.gui.components.text.TextFactory;
 import org.olat.core.gui.control.WindowControl;
-import org.olat.core.gui.translator.Translator;
 import org.olat.core.util.CodeHelper;
 import org.olat.core.util.Formatter;
-import org.olat.core.util.Util;
 import org.olat.modules.portfolio.model.HTMLPart;
 import org.olat.modules.portfolio.ui.editor.HTMLRawEditorController;
 import org.olat.modules.portfolio.ui.editor.PageElement;
 import org.olat.modules.portfolio.ui.editor.PageElementEditorController;
 import org.olat.modules.portfolio.ui.editor.PageElementHandler;
+import org.olat.modules.portfolio.ui.editor.PageElementRenderingHints;
 import org.olat.modules.portfolio.ui.editor.PageRunComponent;
 import org.olat.modules.portfolio.ui.editor.PageRunElement;
 import org.olat.modules.portfolio.ui.editor.SimpleAddPageElementHandler;
@@ -59,13 +58,14 @@ public class HTMLRawPageElementHandler implements PageElementHandler, SimpleAddP
 	}
 
 	@Override
-	public PageRunElement getContent(UserRequest ureq, WindowControl wControl, PageElement element) {
+	public PageRunElement getContent(UserRequest ureq, WindowControl wControl, PageElement element, PageElementRenderingHints options) {
 		String content = "";
 		if(element instanceof HTMLPart) {
 			content = ((HTMLPart)element).getContent();
 			content = Formatter.formatLatexFormulas(content);
 		}
-		Component cmp = TextFactory.createTextComponentFromString("htmlRawCmp" + CodeHelper.getRAMUniqueID(), content, null, false, null);
+		TextComponent cmp = TextFactory.createTextComponentFromString("htmlRawCmp" + CodeHelper.getRAMUniqueID(), content, null, false, null);
+		cmp.setElementCssClass("o_pf_html_raw");
 		return new PageRunComponent(cmp);
 	}
 
@@ -79,10 +79,6 @@ public class HTMLRawPageElementHandler implements PageElementHandler, SimpleAddP
 
 	@Override
 	public PageElement createPageElement(Locale locale) {
-		Translator translator = Util.createPackageTranslator(HTMLRawEditorController.class, locale);
-		String content = translator.translate("raw.example");
-		HTMLPart htmlPart = new HTMLPart();
-		htmlPart.setContent(content);
-		return htmlPart;
+		return new HTMLPart();
 	}
 }

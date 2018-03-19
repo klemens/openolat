@@ -27,16 +27,13 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.UUID;
 
-import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.drone.api.annotation.Drone;
 import org.jboss.arquillian.graphene.page.InitialPage;
 import org.jboss.arquillian.graphene.page.Page;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
-import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.olat.selenium.page.LoginPage;
@@ -54,7 +51,6 @@ import org.olat.selenium.page.course.GroupTaskConfigurationPage;
 import org.olat.selenium.page.course.GroupTaskPage;
 import org.olat.selenium.page.course.GroupTaskToCoachPage;
 import org.olat.selenium.page.course.MembersPage;
-import org.olat.selenium.page.course.PublisherPageFragment.Access;
 import org.olat.selenium.page.graphene.OOGraphene;
 import org.olat.selenium.page.group.GroupPage;
 import org.olat.selenium.page.qti.QTI12Page;
@@ -69,7 +65,6 @@ import org.olat.user.restapi.UserVO;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
-import org.openqa.selenium.firefox.FirefoxDriver;
 
 /**
  * 
@@ -78,12 +73,7 @@ import org.openqa.selenium.firefox.FirefoxDriver;
  *
  */
 @RunWith(Arquillian.class)
-public class AssessmentTest {
-
-	@Deployment(testable = false)
-	public static WebArchive createDeployment() {
-		return ArquillianDeployments.createDeployment();
-	}
+public class AssessmentTest extends Deployments {
 
 	@Drone
 	private WebDriver browser;
@@ -105,9 +95,6 @@ public class AssessmentTest {
 	public void qti12Test(@InitialPage LoginPage authorLoginPage)
 	throws IOException, URISyntaxException {
 		
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-				
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		
@@ -155,16 +142,16 @@ public class AssessmentTest {
 		QTI12Page testPage = QTI12Page.getQTI12Page(browser);
 		testPage
 			.start()
-			.selectItem(0)
-			.answerSingleChoice(0)
+			.selectItem("Single choice")
+			.answerSingleChoice("Correct answer")
 			.saveAnswer()
-			.selectItem(1)
-			.answerMultipleChoice(0, 2)
+			.selectItem("Multiple choice")
+			.answerMultipleChoice("Correct answer", "The answer is correct")
 			.saveAnswer()
-			.selectItem(2)
+			.selectItem("Kprim")
 			.answerKPrim(true, false, true, false)
 			.saveAnswer()
-			.selectItem(3)
+			.selectItem("Fill-in")
 			.answerFillin("not")
 			.saveAnswer();
 		testPage
@@ -200,9 +187,7 @@ public class AssessmentTest {
 	public void qti12CourseWithAssessment(@InitialPage LoginPage authorLoginPage,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-		
+
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -235,7 +220,7 @@ public class AssessmentTest {
 		//publish the course
 		courseEditor
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 		
 		//open the course and see the test start page
 		CoursePageFragment courseRuntime = courseEditor
@@ -253,7 +238,10 @@ public class AssessmentTest {
 			.members()
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Ryomou open the course
 		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
@@ -277,16 +265,16 @@ public class AssessmentTest {
 		QTI12Page testPage = QTI12Page.getQTI12Page(ryomouBrowser);
 		testPage
 			.start()
-			.selectItem(0)
-			.answerSingleChoice(0)
+			.selectItem("Single choice")
+			.answerSingleChoice("Correct answer")
 			.saveAnswer()
-			.selectItem(1)
-			.answerMultipleChoice(0, 2)
+			.selectItem("Multiple choice")
+			.answerMultipleChoice("Correct answer", "The answer is correct")
 			.saveAnswer()
-			.selectItem(2)
+			.selectItem("Kprim")
 			.answerKPrim(true, false, true, false)
 			.saveAnswer()
-			.selectItem(3)
+			.selectItem("Fill-in")
 			.answerFillin("not")
 			.saveAnswer();
 		testPage
@@ -342,9 +330,7 @@ public class AssessmentTest {
 	public void scormCourseWithAssessment(@InitialPage LoginPage authorLoginPage,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-				
+		
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -387,7 +373,10 @@ public class AssessmentTest {
 			.members()
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//Ryomou open the course
 		LoginPage ryomouLoginPage = LoginPage.getLoginPage(ryomouBrowser, deploymentUrl);
@@ -462,9 +451,7 @@ public class AssessmentTest {
 	public void assessmentMode_manual(@InitialPage LoginPage authorLoginPage,
 			@Drone @Student WebDriver ryomouBrowser, @Drone @Participant WebDriver kanuBrowser)
 	throws IOException, URISyntaxException {
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-		
+
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		authorLoginPage.loginAs(author.getLogin(), author.getPassword());
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -631,7 +618,11 @@ public class AssessmentTest {
 		members
 			.addMember()
 			.searchMember(rei, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
+		
 		// return to course
 		courseRuntime = members
 				.clickToolbarBack()
@@ -721,7 +712,11 @@ public class AssessmentTest {
 		members
 			.addMember()
 			.searchMember(rei, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
+		
 		// return to course
 		courseRuntime = members
 				.clickToolbarBack()
@@ -822,7 +817,10 @@ public class AssessmentTest {
 		members
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//efficiency statement is default on
 		//go to the assessment to to set the points
@@ -878,9 +876,7 @@ public class AssessmentTest {
 			@Drone @User WebDriver ryomouBrowser,
 			@Drone @Participant WebDriver kanuBrowser)
 	throws IOException, URISyntaxException {
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
-						
+			
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO kanu = new UserRestClient(deploymentUrl).createRandomUser("Kanu");
 		UserVO ryomou = new UserRestClient(deploymentUrl).createRandomUser("Ryomou");
@@ -915,12 +911,14 @@ public class AssessmentTest {
 		
 		URL task1Url = JunitTestHelper.class.getResource("file_resources/task_1_a.txt");
 		File task1File = new File(task1Url.toURI());
-		gtaConfig.uploadTask("Task 1", task1File);
+		String taskName1 = "Task-1";
+		gtaConfig.uploadTask(taskName1, task1File);
 		
 		URL task2Url = JunitTestHelper.class.getResource("file_resources/task_1_b.txt");
 		File task2File = new File(task2Url.toURI());
+		String taskName2 = "Task-2-b";
 		gtaConfig
-			.uploadTask("Task 2 B", task2File)
+			.uploadTask(taskName2, task2File)
 			.saveTasks()
 			.selectSolution();
 		
@@ -930,7 +928,7 @@ public class AssessmentTest {
 		
 		courseEditor
 			.publish()
-			.quickPublish(Access.guests);
+			.quickPublish(UserAccess.guest);
 		
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -945,13 +943,17 @@ public class AssessmentTest {
 		groupPage
 			.addMember()
 			.searchMember(kanu, true)
-			.next().next().next()
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
 			.finish();
 		
 		groupPage
 			.addMember()
 			.searchMember(ryomou, true)
-			.next().next().next()
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
 			.finish();
 		
 		groupPage.close();
@@ -984,7 +986,7 @@ public class AssessmentTest {
 		GroupTaskPage ryomouTask = new GroupTaskPage(ryomouBrowser);
 		ryomouTask
 			.assertAssignmentAvailable()
-			.selectTask(1)
+			.selectTask(taskName2)
 			.assertSubmissionAvailable();
 		
 		//Participant 2 log in
@@ -1011,7 +1013,7 @@ public class AssessmentTest {
 		String submittedText = "This is my solution";
 		GroupTaskPage kanuTask = new GroupTaskPage(kanuBrowser);
 		kanuTask
-			.assertTask("Task 2 B")
+			.assertTask(taskName2)
 			.assertSubmissionAvailable()
 			.submitFile(submit1File)
 			.submitText(submittedFilename, submittedText)
@@ -1066,8 +1068,6 @@ public class AssessmentTest {
 	public void taskWithIndividuScoreAndRevision(@InitialPage LoginPage authorLoginPage,
 			@Drone @User WebDriver ryomouBrowser)
 	throws IOException, URISyntaxException {
-		//File upload only work with Firefox
-		Assume.assumeTrue(browser instanceof FirefoxDriver);
 						
 		UserVO author = new UserRestClient(deploymentUrl).createAuthor();
 		UserVO kanu = new UserRestClient(deploymentUrl).createRandomUser("kanu");
@@ -1116,7 +1116,7 @@ public class AssessmentTest {
 		
 		courseEditor
 			.publish()
-			.quickPublish(Access.membersOnly);
+			.quickPublish(UserAccess.membersOnly);
 		
 		MembersPage membersPage = courseEditor
 			.clickToolbarBack()
@@ -1125,7 +1125,10 @@ public class AssessmentTest {
 		membersPage
 			.importMembers()
 			.setMembers(kanu, ryomou)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		//go to the course
 		CoursePageFragment coursePage = membersPage
@@ -1272,7 +1275,10 @@ public class AssessmentTest {
 		members
 			.importMembers()
 			.setMembers(ryomou, kanu)
-			.next().next().next().finish();
+			.nextUsers()
+			.nextOverview()
+			.nextPermissions()
+			.finish();
 		
 		BulkAssessmentData[] data = new BulkAssessmentData[] {
 			new BulkAssessmentData(ryomou, 8.0f, null, "Well done"),
@@ -1284,9 +1290,9 @@ public class AssessmentTest {
 			.assessmentTool()
 			.bulk()
 			.data(data)
-			.next()
-			.next()
-			.next()
+			.nextData()
+			.nextColumns()
+			.nextValidation()
 			.finish();
 		
 		//Ryomou login

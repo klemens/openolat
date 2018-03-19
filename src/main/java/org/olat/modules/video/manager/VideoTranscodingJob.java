@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.hibernate.ObjectDeletedException;
@@ -41,7 +42,6 @@ import org.olat.modules.video.VideoTranscoding;
 import org.olat.resource.OLATResource;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.StatefulJob;
 
 /**
  * 
@@ -49,7 +49,8 @@ import org.quartz.StatefulJob;
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  *
  */
-public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
+public class VideoTranscodingJob extends JobWithDB {
+	private ArrayList<String> resolutionsWithProfile = new ArrayList<String>(Arrays.asList("1080", "720", "480"));
 
 	/**
 	 * 
@@ -75,6 +76,14 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 		}
 		
 		// Find first one to work with
+		boolean allOk = true;
+		for(VideoTranscoding videoTranscoding = getNextVideo(); videoTranscoding != null;  videoTranscoding = getNextVideo()) {
+			allOk &= forkTranscodingProcess(videoTranscoding);
+		}
+		return allOk;
+	}
+	
+	private VideoTranscoding getNextVideo() {
 		VideoManager videoManager = CoreSpringFactory.getImpl(VideoManager.class);
 		List<VideoTranscoding> videoTranscodings = videoManager.getVideoTranscodingsPendingAndInProgress();
 		VideoTranscoding videoTranscoding = null;
@@ -93,20 +102,7 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 				break;
 			}
 		}
-		
-		if (videoTranscoding == null) {
-			log.debug("Skipping execution of video transcoding job, no pending video transcoding found in database");
-			return false;
-		}
-		// Ready transcode, forke process now
-		boolean success = forkTranscodingProcess(videoTranscoding);
-		
-		// Transcoding done, call execution again until no more videos to be
-		// processed. If an error happend, don't continue to not get into a loop
-		if (success) {
-			success = doExecute(context); 
-		}
-		return success;
+		return videoTranscoding;
 	}
 	
 	/**
@@ -125,6 +121,12 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 		videoTranscoding.setTranscoder(VideoTranscoding.TRANSCODER_LOCAL);
 		videoTranscoding = videoManager.updateVideoTranscoding(videoTranscoding);
 		
+		String resolution = Integer.toString(videoTranscoding.getResolution());
+		String profile = "Normal"; // Legacy fallback		
+		if (resolutionsWithProfile.contains(resolution)) {
+			profile = videoModule.getVideoTranscodingProfile() + " " + resolution + "p30";
+		}
+		
 		ArrayList<String> cmd = new ArrayList<>();
 		String tasksetConfig = videoModule.getTranscodingTasksetConfig();
 		if (tasksetConfig != null && !"Mac OS X".equals(System.getProperty("os.name"))) {
@@ -137,13 +139,12 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 		cmd.add(masterFile.getAbsolutePath());
 		cmd.add("-o"); 
 		cmd.add(transcodedFile.getAbsolutePath());
-		cmd.add("--optimize");
+		cmd.add("--optimize"); 	// add video infos to header for web "fast start"
 		cmd.add("--preset");
-		cmd.add("Normal");
+		cmd.add(profile);
 		cmd.add("--height");
-		cmd.add(Integer.toString(videoTranscoding.getResolution()));
-		cmd.add("--deinterlace");
-		cmd.add("--crop");
+		cmd.add(resolution);
+		cmd.add("--crop");		// do not crop
 		cmd.add("0:0:0:0");
 		
 		Process process = null;
@@ -174,20 +175,62 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 	 * @return true: everything fine; false: an error happended somewhere
 	 */
 	private final boolean updateVideoTranscodingFromProcessOutput(Process proc, VideoTranscoding videoTranscoding, File transcodedFile) {
-		VideoManager videoManager = CoreSpringFactory.getImpl(VideoManager.class);
-		
-		StringBuilder errors = new StringBuilder();
-		StringBuilder output = new StringBuilder();
-		String line;
-		
-		// Read from standard input and parse percentages of transcoding process
-		InputStream stdout = proc.getInputStream();
-		InputStreamReader isr = new InputStreamReader(stdout);
-		BufferedReader br = new BufferedReader(isr);
-		line = null;
 		try {
+			if(!updateStatus(proc, videoTranscoding)) {
+				return false;
+			}
+			consumeErrorStream(proc);
+			int exitValue = proc.waitFor();
+			return updateStatus(videoTranscoding, transcodedFile, exitValue);
+		} catch (InterruptedException e) {
+			return false;
+		}
+	}
+	
+	private boolean updateStatus(VideoTranscoding videoTranscoding, File transcodedFile, int exitCode) {
+		VideoManager videoManager = CoreSpringFactory.getImpl(VideoManager.class);
+		MovieService movieService = CoreSpringFactory.getImpl(MovieService.class);
+		videoTranscoding = videoManager.getVideoTranscoding(videoTranscoding.getKey());
+		
+		Size videoSize = movieService.getSize(new LocalFileImpl(transcodedFile), VideoManagerImpl.FILETYPE_MP4);
+		if(videoSize != null) {
+			videoTranscoding.setWidth(videoSize.getWidth());
+			videoTranscoding.setHeight(videoSize.getHeight());
+		} else {
+			videoTranscoding.setWidth(0);
+			videoTranscoding.setHeight(0);
+		}
+		if(transcodedFile.exists()) {
+			videoTranscoding.setSize(transcodedFile.length());
+		} else {
+			videoTranscoding.setSize(0);
+		}
+		if(exitCode == 0) {
+			videoTranscoding.setStatus(VideoTranscoding.TRANSCODING_STATUS_DONE);
+		} else {
+			log.error("Exit code " + videoTranscoding + ":" + exitCode);
+			videoTranscoding.setStatus(VideoTranscoding.TRANSCODING_STATUS_ERROR);
+		}
+		videoTranscoding = videoManager.updateVideoTranscoding(videoTranscoding);
+		DBFactory.getInstance().commitAndCloseSession();
+		return exitCode == 0;
+	}
+	
+	/**
+	 * Update the transcoding object in database.
+	 * 
+	 * @param proc The transcoding process
+	 * @param videoTranscoding The video transcoding object
+	 * @return false if the transcoding object was deleted
+	 */
+	private boolean updateStatus(Process proc, VideoTranscoding videoTranscoding) {
+		VideoManager videoManager = CoreSpringFactory.getImpl(VideoManager.class);
+		try(InputStream stdout = proc.getInputStream();
+			InputStreamReader isr = new InputStreamReader(stdout);
+			BufferedReader br = new BufferedReader(isr)) {
+			
+			String line = null;
 			while ((line = br.readLine()) != null) {
-				output.append(line);
 				// Parse the percentage. Logline looks like this:
 				// Encoding: task 1 of 1, 85.90 % (307.59 fps, avg 330.35 fps, ETA 00h00m05s)
 				int start = line.indexOf(",");
@@ -212,59 +255,28 @@ public class VideoTranscodingJob extends JobWithDB implements StatefulJob {
 				}
 			}
 		} catch (IOException e) {
-			//
-		} finally {
-			try {
-				stdout.close();
-				isr.close();
-				br.close();
-			} catch (Exception e2) {
-				// ignore
-			}
+			log.error("", e);
 		}
-
-		// Read and ignore errors, Handbrake outputs a lot info on startup. Only
-		// display errors in debug level
- 		InputStream stderr = proc.getErrorStream();
-		InputStreamReader iserr = new InputStreamReader(stderr);
-		BufferedReader berr = new BufferedReader(iserr);
-		line = null;
-		try {
+		return true;
+	}
+	
+	/**
+	 * Read and ignore errors, Handbrake outputs a lot info on startup. Only
+	 * display errors in debug level.
+	 * 
+	 * @param proc The process
+	 */
+	private void consumeErrorStream(Process proc) {
+		try(	InputStream stderr = proc.getErrorStream();
+			InputStreamReader iserr = new InputStreamReader(stderr);
+			BufferedReader berr = new BufferedReader(iserr)) {
+			
+			String line = null;
 			while ((line = berr.readLine()) != null) {
-				errors.append(line);
 				log.debug("Error: " + line);
 			}
 		} catch (IOException e) {
-			//
-		} finally {
-			try {
-				stderr.close();
-				iserr.close();
-				berr.close();
-			} catch (Exception e2) {
-				// ignore
-			}
-		}
-
-		try {
-			// On finish, update metadata file
-			int exitValue = proc.waitFor();
-			if (exitValue == 0) {
-				MovieService movieService = CoreSpringFactory.getImpl(MovieService.class);
-				Size videoSize = movieService.getSize(new LocalFileImpl(transcodedFile), VideoManagerImpl.FILETYPE_MP4);
-				videoTranscoding.setWidth(videoSize.getWidth());
-				videoTranscoding.setHeight(videoSize.getHeight());
-				videoTranscoding.setSize(transcodedFile.length());
-				videoTranscoding.setStatus(VideoTranscoding.TRANSCODING_STATUS_DONE);
-				videoTranscoding = videoManager.updateVideoTranscoding(videoTranscoding);
-				DBFactory.getInstance().commitAndCloseSession();
-				return true;
-			} 
-			return false;
-		} catch (InterruptedException e) {
-			return false;
+			log.error("", e);
 		}
 	}
-
-	
 }

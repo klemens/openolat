@@ -19,6 +19,9 @@
  */
 package org.olat.modules.portfolio;
 
+import org.olat.core.logging.OLog;
+import org.olat.core.logging.Tracing;
+import org.olat.course.CorruptedCourseException;
 import org.olat.course.CourseFactory;
 import org.olat.course.ICourse;
 import org.olat.course.nodes.CourseNode;
@@ -33,21 +36,33 @@ import org.olat.repository.RepositoryEntry;
  */
 public class BinderConfiguration {
 	
+	private static final OLog log = Tracing.createLoggerFor(BinderConfiguration.class);
+	
 	private final boolean withScore;
 	private final boolean withPassed;
 	private final boolean assessable;
 	private final boolean timeline;
 	private final boolean shareable;
 	private final boolean options;
+	private final Float maxScore;
+	private final Float minScore;
+	private final String displayname;
 	
-	public BinderConfiguration(boolean assessable, boolean withScore, boolean withPassed,
-			boolean timeline, boolean shareable, boolean options) {
+	public BinderConfiguration(boolean assessable, boolean withScore, Float maxScore, Float minScore,
+			boolean withPassed, boolean timeline, boolean shareable, boolean options, String displayname) {
 		this.assessable = assessable;
 		this.withScore = withScore;
 		this.withPassed = withPassed;
 		this.timeline = timeline;
 		this.shareable = shareable;
 		this.options = options;
+		this.maxScore = maxScore;
+		this.minScore = minScore;
+		this.displayname = displayname;
+	}
+	
+	public String getDisplayname() {
+		return displayname;
 	}
 	
 	public boolean isAssessable() {
@@ -56,6 +71,14 @@ public class BinderConfiguration {
 
 	public boolean isWithScore() {
 		return withScore;
+	}
+	
+	public Float getMaxScore() {
+		return maxScore;
+	}
+	
+	public Float getMinScore() {
+		return minScore;
 	}
 
 	public boolean isWithPassed() {
@@ -84,51 +107,68 @@ public class BinderConfiguration {
 	}
 	
 	public static BinderConfiguration createBusinessGroupConfig() {
-		return new BinderConfiguration(false, false, false, true, false, false);
+		return new BinderConfiguration(false, false, null, null, false, true, false, false, null);
 	}
 	
 	public static BinderConfiguration createTemplateConfig(boolean optionsEditable) {
-		return new BinderConfiguration(false, false, false, false, false, optionsEditable);
+		return new BinderConfiguration(false, false, null, null, false, false, false, optionsEditable, null);
 	}
 	
 	public static BinderConfiguration createInvitationConfig() {
-		return new BinderConfiguration(false, false, false, true, false, false);
+		return new BinderConfiguration(false, false, null, null, false, true, false, false, null);
 	}
 	
 	public static BinderConfiguration createMyPagesConfig() {
-		return new BinderConfiguration(false, false, false, true, true, false);
+		return new BinderConfiguration(false, false, null, null, false, true, true, false, null);
 	}
 	
 	public static BinderConfiguration createDeletedPagesConfig() {
-		return new BinderConfiguration(false, false, false, false, false, false);
+		return new BinderConfiguration(false, false, null, null, false, false, false, false, null);
 	}
 
 	public static BinderConfiguration createConfig(Binder binder) {
 		boolean withScore = false;
 		boolean withPassed = false;
 		boolean assessable = false;
+		Float maxScore = null;
+		Float minScore = null;
 		
+		
+		String displayname;
 		RepositoryEntry entry = binder.getEntry();
 		if(binder.getSubIdent() != null) {
-			ICourse course = CourseFactory.loadCourse(entry);
-			CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
-			if(courseNode instanceof PortfolioCourseNode) {
-				PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
-				withScore = pfNode.hasScoreConfigured();
-				withPassed = pfNode.hasPassedConfigured();
-				assessable = withPassed || withScore;
-			} else {
-				withPassed = true;
-				withScore = false;
-				assessable = true;
+			try {
+				ICourse course = CourseFactory.loadCourse(entry);
+				displayname = course.getCourseTitle();
+				CourseNode courseNode = course.getRunStructure().getNode(binder.getSubIdent());
+				if(courseNode instanceof PortfolioCourseNode) {
+					PortfolioCourseNode pfNode = (PortfolioCourseNode)courseNode;
+					withScore = pfNode.hasScoreConfigured();
+					if(withScore) {
+						maxScore = pfNode.getMaxScoreConfiguration();
+						minScore = pfNode.getMinScoreConfiguration();
+					}
+					withPassed = pfNode.hasPassedConfigured();
+					assessable = withPassed || withScore;
+				} else {
+					withPassed = true;
+					withScore = false;
+					assessable = true;
+				}
+			} catch (CorruptedCourseException e) {
+				displayname = entry.getDisplayname();
+				withPassed = withScore = assessable = false;
+				log.error("Corrupted course: " + entry, e);
 			}
 		} else if(entry != null) {
+			displayname = entry.getDisplayname();
 			withPassed = true;
 			withScore = false;
 			assessable = true;
 		} else {
+			displayname = null;
 			withPassed = withScore = assessable = false;
 		}
-		return new BinderConfiguration(assessable, withScore, withPassed, true, true, false);
+		return new BinderConfiguration(assessable, withScore, maxScore, minScore, withPassed, true, true, false, displayname);
 	}
 }

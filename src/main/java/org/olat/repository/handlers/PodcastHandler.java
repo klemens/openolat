@@ -24,6 +24,7 @@ import java.util.Locale;
 
 import org.olat.core.CoreSpringFactory;
 import org.olat.core.commons.persistence.DBFactory;
+import org.olat.core.commons.services.notifications.SubscriptionContext;
 import org.olat.core.gui.UserRequest;
 import org.olat.core.gui.components.stack.TooledStackedPanel;
 import org.olat.core.gui.control.Controller;
@@ -47,9 +48,11 @@ import org.olat.fileresource.FileResourceManager;
 import org.olat.fileresource.types.FileResource;
 import org.olat.fileresource.types.PodcastFileResource;
 import org.olat.fileresource.types.ResourceEvaluation;
+import org.olat.modules.webFeed.Feed;
+import org.olat.modules.webFeed.FeedChangedEvent;
 import org.olat.modules.webFeed.FeedResourceSecurityCallback;
 import org.olat.modules.webFeed.FeedSecurityCallback;
-import org.olat.modules.webFeed.managers.FeedManager;
+import org.olat.modules.webFeed.manager.FeedManager;
 import org.olat.modules.webFeed.ui.FeedMainController;
 import org.olat.modules.webFeed.ui.FeedRuntimeController;
 import org.olat.modules.webFeed.ui.podcast.PodcastUIFactory;
@@ -71,7 +74,6 @@ import org.olat.resource.references.ReferenceManager;
  * 
  * @author Gregor Wassmann
  */
-// Loads of parameters are unused
 public class PodcastHandler implements RepositoryHandler {
 	
 	@Override
@@ -112,6 +114,7 @@ public class PodcastHandler implements RepositoryHandler {
 		File fResourceFileroot = FileResourceManager.getInstance().getFileResourceRootImpl(resource).getBasefile();
 		File blogRoot = new File(fResourceFileroot, FeedManager.getInstance().getFeedKind(resource));
 		FileResource.copyResource(file, filename, blogRoot);
+		FeedManager.getInstance().importFeedFromXML(resource, true);
 		RepositoryEntry re = CoreSpringFactory.getImpl(RepositoryService.class)
 				.create(initialAuthor, null, "", displayname, description, resource, RepositoryEntry.ACC_OWNERS);
 		DBFactory.getInstance().commit();
@@ -137,7 +140,7 @@ public class PodcastHandler implements RepositoryHandler {
 		// For now, notifications are not implemented since a podcast feed is meant
 		// to be subscriped to anyway.
 		// NotificationsManager.getInstance().deletePublishersOf(res);
-		FeedManager.getInstance().delete(res);
+		FeedManager.getInstance().deleteFeed(res);
 		return true;
 	}
 	
@@ -163,6 +166,8 @@ public class PodcastHandler implements RepositoryHandler {
 		boolean isAdmin = ureq.getUserSession().getRoles().isOLATAdmin();
 		boolean isOwner = reSecurity.isOwner();	
 		final FeedSecurityCallback callback = new FeedResourceSecurityCallback(isAdmin, isOwner);
+		SubscriptionContext subsContext = new SubscriptionContext(re.getOlatResource(), re.getSoftkey());
+		callback.setSubscriptionContext(subsContext);
 		return new FeedRuntimeController(ureq, wControl, re, reSecurity,
 			new RuntimeControllerCreator() {
 				@Override
@@ -228,4 +233,14 @@ public class PodcastHandler implements RepositoryHandler {
 	public boolean isLocked(OLATResourceable ores) {
 		return FeedManager.getInstance().isLocked(ores);
 	}
+
+	@Override
+	public void onDescriptionChanged(RepositoryEntry entry) {
+		Feed feed = FeedManager.getInstance().updateFeedWithRepositoryEntry(entry);
+		DBFactory.getInstance().commitAndCloseSession();
+		
+		CoordinatorManager.getInstance().getCoordinator().getEventBus()
+				.fireEventToListenersOf(new FeedChangedEvent(feed.getKey()), feed);
+	}
+	
 }

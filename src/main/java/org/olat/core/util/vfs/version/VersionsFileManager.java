@@ -61,9 +61,9 @@ import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSItem;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.core.util.vfs.VFSManager;
+import org.olat.core.util.vfs.filters.SystemItemFilter;
 import org.olat.core.util.vfs.filters.VFSItemSuffixFilter;
 import org.olat.core.util.vfs.filters.VFSLeafFilter;
-import org.olat.core.util.vfs.restapi.SystemItemFilter;
 import org.olat.core.util.xml.XStreamHelper;
 
 import com.thoughtworks.xstream.XStream;
@@ -751,11 +751,15 @@ public class VersionsFileManager extends VersionsManager implements Initializabl
 
 	protected VFSContainer getCanonicalVersionFolder(VFSContainer container, boolean create) {
 		String relPath = getRelPath(container);
-		File fVersion = new File(getRootVersionsFile(), relPath);
-		if (fVersion.exists()) { return new LocalFolderImpl(fVersion); }
-		if (create) {
-			fVersion.mkdirs();
-			return new LocalFolderImpl(fVersion);
+		if(relPath != null) {
+			File fVersion = new File(getRootVersionsFile(), relPath);
+			if (fVersion.exists()) {
+				return new LocalFolderImpl(fVersion);
+			}
+			if (create) {
+				fVersion.mkdirs();
+				return new LocalFolderImpl(fVersion);
+			}
 		}
 		return null;
 	}

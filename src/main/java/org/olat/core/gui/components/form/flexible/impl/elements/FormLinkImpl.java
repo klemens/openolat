@@ -63,6 +63,7 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 	private boolean hasCustomEnabledCss = false;
 	private boolean hasCustomDisabledCss = false;
 	private boolean domReplacementWrapperRequired = false;
+	private boolean ownDirtyFormWarning = false;
 	private String iconLeftCSS;
 	private String iconRightCSS;
 	private String customEnabledLinkCSS;
@@ -131,6 +132,19 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 		}
 	}
 
+	@Override
+	public boolean isForceOwnDirtyFormWarning() {
+		return ownDirtyFormWarning;
+	}
+
+	@Override
+	public void setForceOwnDirtyFormWarning(boolean warning) {
+		ownDirtyFormWarning = warning;
+		if(component != null) {
+			component.setForceFlexiDirtyFormWarning(ownDirtyFormWarning);
+		}
+	}
+
 	/*
 	 * uses the FormLinkFactory to create the link associated with this formlink
 	 * it is deferred to have the translator, and most of all the form id where
@@ -174,6 +188,7 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 		component.setIconRightCSS(iconRightCSS);
 		component.setElementCssClass(getElementCssClass());
 		component.setTitle(title);
+		component.setForceFlexiDirtyFormWarning(ownDirtyFormWarning);
 		if(textReasonForDisabling != null) {
 			component.setTextReasonForDisabling(textReasonForDisabling);
 		}
@@ -292,6 +307,20 @@ public class FormLinkImpl extends FormItemImpl implements FormLink {
 			} else if (StringHelper.containsNonWhitespace(i18n)) {
 				// translate other links
 				component.setCustomDisplayText(getTranslator().translate(i18n));
+			}
+		}
+	}
+	
+	@Override
+	public void setI18nKey(String i18n, String[] args) {
+		this.i18n = i18n;
+		if (component != null) {
+			if ((presentation - Link.NONTRANSLATED) >= 0) {
+				// don't translate non-tranlated links
+				component.setCustomDisplayText(i18n);					
+			} else if (StringHelper.containsNonWhitespace(i18n)) {
+				// translate other links
+				component.setCustomDisplayText(getTranslator().translate(i18n, args));
 			}
 		}
 	}

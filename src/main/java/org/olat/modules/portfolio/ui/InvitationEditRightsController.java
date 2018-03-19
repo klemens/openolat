@@ -20,11 +20,13 @@
 package org.olat.modules.portfolio.ui;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.velocity.VelocityContext;
 import org.olat.basesecurity.BaseSecurity;
 import org.olat.basesecurity.Constants;
 import org.olat.basesecurity.Invitation;
@@ -53,6 +55,7 @@ import org.olat.core.util.mail.MailContext;
 import org.olat.core.util.mail.MailContextImpl;
 import org.olat.core.util.mail.MailHelper;
 import org.olat.core.util.mail.MailManager;
+import org.olat.core.util.mail.MailTemplate;
 import org.olat.core.util.mail.MailerResult;
 import org.olat.modules.portfolio.Binder;
 import org.olat.modules.portfolio.Page;
@@ -80,6 +83,7 @@ public class InvitationEditRightsController extends FormBasicController {
 	
 	private FormLink removeLink;
 	private FormLink selectAll, deselectAll;
+	private TextElement subjectEl, bodyEl;
 	private TextElement firstNameEl, lastNameEl, mailEl;
 	
 	private int counter;
@@ -88,6 +92,7 @@ public class InvitationEditRightsController extends FormBasicController {
 	private Binder binder;
 	private Identity invitee;
 	private Invitation invitation;
+	private MailTemplate mailTemplate;
 	private BinderAccessRightsRow binderRow;
 	
 	@Autowired
@@ -105,9 +110,8 @@ public class InvitationEditRightsController extends FormBasicController {
 		super(ureq, wControl, "invitee_access_rights");
 		this.email = email;
 		this.binder = binder;
-		List<Identity> identities = userManager.findIdentitiesByEmail(Collections.singletonList(email));
-		if(identities.size() == 1) {
-			invitee = identities.get(0);
+		invitee = userManager.findUniqueIdentityByEmail(email);
+		if(invitee != null) {
 			invitation = invitationDao.findInvitation(binder.getBaseGroup(), invitee);
 		} 
 		if(invitation == null) {
@@ -117,6 +121,26 @@ public class InvitationEditRightsController extends FormBasicController {
 				invitation.setLastName(invitee.getUser().getLastName());
 			}
 		}
+		
+		String busLink = getInvitationLink();
+		String sender = userManager.getUserDisplayName(getIdentity());
+		String[] args = new String[] {
+			busLink,								// {0}
+			sender,									// {1}
+			getIdentity().getUser().getFirstName(),	// {2}
+			getIdentity().getUser().getLastName()	// {3}
+		};
+		
+		String subject = translate("invitation.extern.mail.subject", args);
+		String body = translate("invitation.extern.mail.body", args);
+		mailTemplate = new MailTemplate(subject, body, null) {
+			@Override
+			public void putVariablesInMailContext(VelocityContext vContext, Identity recipient) {
+				//
+			}
+		};
+		
+		
 		initForm(ureq);
 		loadModel();
 	}
@@ -154,11 +178,9 @@ public class InvitationEditRightsController extends FormBasicController {
 			
 		if(StringHelper.containsNonWhitespace(invitation.getMail()) && MailHelper.isValidEmailAddress(invitation.getMail())) {
 			SecurityGroup allUsers = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-			List<Identity> currentIdentities = userManager.findIdentitiesByEmail(Collections.singletonList(invitation.getMail()));
-			for(Identity currentIdentity:currentIdentities) {
-				if(currentIdentity != null && securityManager.isIdentityInSecurityGroup(currentIdentity, allUsers)) {
-					mailEl.setErrorKey("map.share.with.mail.error.olatUser", new String[]{ invitation.getMail() });
-				}
+			List<Identity> shareWithIdentities = userManager.findIdentitiesByEmail(Collections.singletonList(invitation.getMail()));
+			if (isAtLeastOneInSecurityGroup(shareWithIdentities, allUsers)) {
+				mailEl.setErrorKey("map.share.with.mail.error.olatUser", new String[]{ invitation.getMail() });
 			}
 		}
 			
@@ -166,6 +188,16 @@ public class InvitationEditRightsController extends FormBasicController {
 		StaticTextElement linkEl = uifactory.addStaticTextElement("invitation.link" , link, inviteeCont);
 		linkEl.setElementCssClass("o_sel_pf_invitation_url");
 		linkEl.setLabel("invitation.link", null);
+		
+		if(mailTemplate != null) {
+			subjectEl = uifactory.addTextElement("subjectElem", "mail.subject", 128, mailTemplate.getSubjectTemplate(), inviteeCont);
+			subjectEl.setDisplaySize(60);
+			subjectEl.setMandatory(true);
+		
+			bodyEl = uifactory.addTextAreaElement("bodyElem", "mail.body", -1, 15, 60, true, mailTemplate.getBodyTemplate(), inviteeCont);
+			bodyEl.setHelpUrlForManualPage("E-Mail");
+			bodyEl.setMandatory(true);
+		}
 		
 		//binder
 		MultipleSelectionElement accessEl = uifactory.addCheckboxesHorizontal("access-" + (counter++), null, formLayout, theKeys, theValues);
@@ -250,8 +282,8 @@ public class InvitationEditRightsController extends FormBasicController {
 			if (StringHelper.containsNonWhitespace(mail)) {
 				if (MailHelper.isValidEmailAddress(mail)) {
 					SecurityGroup allUsers = securityManager.findSecurityGroupByName(Constants.GROUP_OLATUSERS);
-					Identity currentIdentity = userManager.findIdentityByEmail(mail);
-					if (currentIdentity != null && securityManager.isIdentityInSecurityGroup(currentIdentity, allUsers)) {
+					List<Identity> shareWithIdentities = userManager.findIdentitiesByEmail(Collections.singletonList(mail));
+					if (isAtLeastOneInSecurityGroup(shareWithIdentities, allUsers)) {
 						mailEl.setErrorKey("map.share.with.mail.error.olatUser", new String[] { mail });
 						allOk &= false;
 					}
@@ -278,6 +310,15 @@ public class InvitationEditRightsController extends FormBasicController {
 		}
 		
 		return allOk & super.validateFormLogic(ureq);
+	}
+	
+	private boolean isAtLeastOneInSecurityGroup(Collection<Identity> identites, SecurityGroup group) {
+		for (Identity identity: identites) {
+			if (securityManager.isIdentityInSecurityGroup(identity, group)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Override
@@ -347,21 +388,18 @@ public class InvitationEditRightsController extends FormBasicController {
 		String inviteeEmail = invitee.getUser().getProperty(UserConstants.EMAIL, getLocale());
 		ContactList contactList = new ContactList(inviteeEmail);
 		contactList.add(inviteeEmail);
-		String busLink = getInvitationLink();
 
 		boolean success = false;
 		try {
-			String first = getIdentity().getUser().getProperty(UserConstants.FIRSTNAME, null);
-			String last = getIdentity().getUser().getProperty(UserConstants.LASTNAME, null);
-			String sender = first + " " + last;
-			String[] bodyArgs = new String[]{busLink, sender};
+			mailTemplate.setSubjectTemplate(subjectEl.getValue());
+			mailTemplate.setBodyTemplate(bodyEl.getValue());
 
 			MailContext context = new MailContextImpl(binder, null, getWindowControl().getBusinessControl().getAsString()); 
 			MailBundle bundle = new MailBundle();
 			bundle.setContext(context);
 			bundle.setFromId(getIdentity());
 			bundle.setContactList(contactList);
-			bundle.setContent(translate("invitation.mail.subject"), translate("invitation.mail.body", bodyArgs));
+			bundle.setContent(subjectEl.getValue(), bodyEl.getValue());
 
 			MailerResult result = mailManager.sendExternMessage(bundle, null, true);
 			success = result.isSuccessful();

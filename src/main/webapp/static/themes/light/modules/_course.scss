@@ -79,6 +79,10 @@
 	.o_statusinfo {
 		@extend %o_note;
 	}
+	.o_in_review {
+		font-style: italic;
+		position: relative;
+	}
 	
 	@if not $o-course-show-icon-title {
 		// hide icons in title, too much fuzz
@@ -162,18 +166,23 @@
 .o_cmembers {
 	.o_cmember {
 		margin: $padding-base-horizontal 0;
+		display: table;
 		.o_portrait {
-			margin-right: $padding-large-vertical;		
+			padding-right: $padding-large-vertical;		
+			display: table-cell;
+			vertical-align: top;
 			img {
 				width: 50px;
 				height: 50px;
 			}
 		}
 		.o_cmember_info_wrapper {
-			line-height: 50px;
+			display: table-cell;
+			vertical-align: middle;
 			.o_mail {
 				margin-left: $padding-base-vertical;					
 			}
+			color: $text-muted;
 		}
 	}
 	
@@ -205,10 +214,16 @@
 		
 		img {
 			border-radius: 0px;
+			max-width: 100%;
+			max-height:100%;
+			width: auto;
+			height: auto;
+			position: absolute;  
+			top: 0;  
+			bottom: 0;  
+			left: 0;  
+			right: 0;  
 			margin: auto;
-			display:block;
-			max-width: 100px;
-			max-height:100px;
 		}
 	}
 	
@@ -266,4 +281,12 @@
 	height:auto;
 }
 
-
+/* Assessment tool */
+div.o_sel_correction_navigation {
+	text-align: center;
+	
+	#o_cocurrent_item_SELBOX {
+		display: inline-block;
+	}
+	
+}

@@ -49,7 +49,7 @@ public class TaskModuleManagerImpl extends TaskModuleManager {
 
 	@Override
 	public TaskModule loadTaskModuleByID(long ID) {
-		return (TaskModule)DBFactory.getInstance().loadObject(TaskModuleImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(TaskModuleImpl.class, ID);
 	}
 
 	@Override

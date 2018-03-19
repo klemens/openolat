@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.olat.core.commons.persistence.DB;
 import org.olat.core.configuration.AbstractSpringModule;
 import org.olat.core.configuration.ConfigOnOff;
 import org.olat.core.logging.OLog;
@@ -40,28 +41,29 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * 
+ *
  * Description:<br>
  * Module for access control of OLAT Resource
- * 
+ *
  * <P>
  * Initial Date:  14 avr. 2011 <br>
  * @author srosse, stephane.rosse@frentix.com, http://www.frentix.com
  */
 @Service("acModule")
 public class AccessControlModule extends AbstractSpringModule implements ConfigOnOff {
-	
+
 	private static final OLog log = Tracing.createLoggerFor(AccessControlModule.class);
-	
+
 	public static final String AC_ENABLED = "resource.accesscontrol.enabled";
 	public static final String AC_HOME_ENABLED = "resource.accesscontrol.home.overview";
 	private static final String VAT_ENABLED = "vat.enabled";
 	private static final String VAT_RATE = "vat.rate";
 	private static final String VAT_NR = "vat.number";
-	
+
 	private static final String TOKEN_ENABLED = "method.token.enabled";
 	private static final String FREE_ENABLED = "method.free.enabled";
 	private static final String PAYPAL_ENABLED = "method.paypal.enabled";
+	private static final String AUTO_ENABLED = "method.auto.enabled";
 
 	@Value("${resource.accesscontrol.enabled:true}")
 	private boolean enabled;
@@ -69,6 +71,8 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 	private boolean homeOverviewEnabled;
 	@Value("${method.free.enabled:true}")
 	private boolean freeEnabled;
+	@Value("${method.auto.enabled:false}")
+	private boolean autoEnabled;
 	@Value("${method.token.enabled:true}")
 	private boolean tokenEnabled;
 	@Value("${method.paypal.enabled:false}")
@@ -81,23 +85,36 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 	private String vatNumber;
 
 	@Autowired
-	private ACMethodDAO acMethodManager;
+	private DB dbInstance;
+	private final ACMethodDAO acMethodManager;
 	@Autowired
 	private List<AccessMethodHandler> methodHandlers;
 
 	@Autowired
-	public AccessControlModule(CoordinatorManager coordinatorManager) {
+	public AccessControlModule(CoordinatorManager coordinatorManager, ACMethodDAO acMethodManager) {
 		super(coordinatorManager);
+		this.acMethodManager = acMethodManager;
 	}
 
 	@Override
 	public void init() {
 		//module enabled/disabled
+		updateProperties();
+		updateAccessMethods();
+		log.info("Access control module is enabled: " + Boolean.toString(enabled));
+	}
+
+	@Override
+	protected void initFromChangedProperties() {
+		updateProperties();
+	}
+	
+	private void updateProperties() {
 		String enabledObj = getStringPropertyValue(AC_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(enabledObj)) {
 			enabled = "true".equals(enabledObj);
 		}
-		
+
 		String tokenEnabledObj = getStringPropertyValue(TOKEN_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(tokenEnabledObj)) {
 			tokenEnabled = "true".equals(tokenEnabledObj);
@@ -107,22 +124,27 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 		if(StringHelper.containsNonWhitespace(paypalEnabledObj)) {
 			paypalEnabled = "true".equals(paypalEnabledObj);
 		}
-		
+
 		String freeEnabledObj = getStringPropertyValue(FREE_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(freeEnabledObj)) {
 			freeEnabled = "true".equals(freeEnabledObj);
 		}
-		
+
+		String autoEnabledObj = getStringPropertyValue(AUTO_ENABLED, true);
+		if(StringHelper.containsNonWhitespace(autoEnabledObj)) {
+			autoEnabled = "true".equals(autoEnabledObj);
+		}
+
 		String homeEnabledObj = getStringPropertyValue(AC_HOME_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(homeEnabledObj)) {
 			homeOverviewEnabled = "true".equals(homeEnabledObj);
 		}
-		
+
 		String vatEnabledObj = getStringPropertyValue(VAT_ENABLED, true);
 		if(StringHelper.containsNonWhitespace(vatEnabledObj)) {
 			vatEnabled = "true".equals(vatEnabledObj);
 		}
-		
+
 		String vatRateObj = getStringPropertyValue(VAT_RATE, true);
 		if(StringHelper.containsNonWhitespace(vatRateObj)) {
 			try {
@@ -131,28 +153,29 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 				log.error("Error parsing the VAT: " + vatRateObj, e);
 			}
 		}
-		
+
 		String vatNrObj = getStringPropertyValue(VAT_NR, true);
 		if(StringHelper.containsNonWhitespace(vatNrObj)) {
 			vatNumber = vatNrObj;
 		}
-		log.info("Access control module is enabled: " + Boolean.toString(enabled));
-	}
-
-	@Override
-	protected void initFromChangedProperties() {
-		init();
 	}
 	
+	private void updateAccessMethods() {
+		acMethodManager.enableMethod(TokenAccessMethod.class, isTokenEnabled());
+		acMethodManager.enableMethod(FreeAccessMethod.class, isFreeEnabled());
+		acMethodManager.enableMethod(PaypalAccessMethod.class, isPaypalEnabled());
+		acMethodManager.enableAutoMethods(isAutoEnabled());
+		dbInstance.commitAndCloseSession();
+	}
+
 	@Override
 	public boolean isEnabled() {
 		return enabled;
 	}
-	
+
 	public void setEnabled(boolean enabled) {
-		if(this.enabled != enabled) {
-			setStringProperty(AC_ENABLED, Boolean.toString(enabled), true);
-		}
+		this.enabled = enabled;
+		setStringProperty(AC_ENABLED, Boolean.toString(enabled), true);
 	}
 
 	public boolean isTokenEnabled() {
@@ -160,12 +183,9 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 	}
 
 	public void setTokenEnabled(boolean tokenEnabled) {
-		if(this.tokenEnabled != tokenEnabled) {
-			setStringProperty(TOKEN_ENABLED, Boolean.toString(tokenEnabled), true);
-		}
-		if(acMethodManager != null) {
-			acMethodManager.enableMethod(TokenAccessMethod.class, tokenEnabled);
-		}
+		this.tokenEnabled = tokenEnabled;
+		setStringProperty(TOKEN_ENABLED, Boolean.toString(tokenEnabled), true);
+		acMethodManager.enableMethod(TokenAccessMethod.class, tokenEnabled);
 	}
 
 	public boolean isFreeEnabled() {
@@ -173,25 +193,31 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 	}
 
 	public void setFreeEnabled(boolean freeEnabled) {
-		if(this.freeEnabled != freeEnabled) {
-			setStringProperty(FREE_ENABLED, Boolean.toString(freeEnabled), true);
-		}
+		this.freeEnabled = freeEnabled;
+		setStringProperty(FREE_ENABLED, Boolean.toString(freeEnabled), true);
 		if(acMethodManager != null) {
 			acMethodManager.enableMethod(FreeAccessMethod.class, freeEnabled);
 		}
 	}
-	
+
+	public boolean isAutoEnabled() {
+		return autoEnabled;
+	}
+
+	public void setAutoEnabled(boolean autoEnabled) {
+		this.autoEnabled = autoEnabled;
+		setStringProperty(AUTO_ENABLED, Boolean.toString(autoEnabled), true);
+		acMethodManager.enableAutoMethods(autoEnabled);
+	}
+
 	public boolean isPaypalEnabled() {
 		return paypalEnabled;
 	}
 
 	public void setPaypalEnabled(boolean paypalEnabled) {
-		if(this.paypalEnabled != paypalEnabled) {
-			setStringProperty(PAYPAL_ENABLED, Boolean.toString(paypalEnabled), true);
-		}
-		if(acMethodManager != null) {
-			acMethodManager.enableMethod(PaypalAccessMethod.class, paypalEnabled);
-		}
+		this.paypalEnabled = paypalEnabled;
+		setStringProperty(PAYPAL_ENABLED, Boolean.toString(paypalEnabled), true);
+		acMethodManager.enableMethod(PaypalAccessMethod.class, paypalEnabled);
 	}
 
 	public boolean isHomeOverviewEnabled() {
@@ -203,7 +229,7 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 			setStringProperty(AC_HOME_ENABLED, Boolean.toString(homeOverviewEnabled), true);
 		}
 	}
-	
+
 	public boolean isVatEnabled() {
 		return vatEnabled;
 	}
@@ -231,21 +257,21 @@ public class AccessControlModule extends AbstractSpringModule implements ConfigO
 	}
 
 	public List<AccessMethodHandler> getMethodHandlers() {
-		return new ArrayList<AccessMethodHandler>(methodHandlers);
+		return new ArrayList<>(methodHandlers);
 	}
-	
+
 	public void setMethodHandlers(List<AccessMethodHandler> handlers) {
 		if(handlers != null) {
 			methodHandlers.addAll(handlers);
 		}
 	}
-	
+
 	public void addMethodHandler(AccessMethodHandler handler) {
 		if(handler != null) {
 			methodHandlers.add(handler);
 		}
 	}
-	
+
 	public void removeMethodHandler(AccessMethodHandler handler) {
 		if(handler != null) {
 			methodHandlers.remove(handler);

@@ -21,6 +21,7 @@ package org.olat.repository.ui.author;
 
 import org.olat.core.gui.control.Event;
 import org.olat.core.id.context.StateEntry;
+import org.olat.repository.model.SearchAuthorRepositoryEntryViewParams.ResourceUsage;
 
 /**
  * 
@@ -37,7 +38,9 @@ public class SearchEvent extends Event implements StateEntry {
 	private String author;
 	private String description;
 	private String type;
+	private Boolean closed;
 	private boolean ownedResourcesOnly;
+	private ResourceUsage resourceUsage;
 	
 	public SearchEvent() {
 		super("re-search");
@@ -92,6 +95,22 @@ public class SearchEvent extends Event implements StateEntry {
 		this.ownedResourcesOnly = ownedResourcesOnly;
 	}
 
+	public ResourceUsage getResourceUsage() {
+		return resourceUsage;
+	}
+
+	public void setResourceUsage(ResourceUsage resourceUsage) {
+		this.resourceUsage = resourceUsage;
+	}
+
+	public Boolean getClosed() {
+		return closed;
+	}
+
+	public void setClosed(Boolean closed) {
+		this.closed = closed;
+	}
+
 	@Override
 	public SearchEvent clone() {
 		SearchEvent clone = new SearchEvent();
@@ -101,6 +120,8 @@ public class SearchEvent extends Event implements StateEntry {
 		clone.description = description;
 		clone.type = type;
 		clone.ownedResourcesOnly = ownedResourcesOnly;
+		clone.resourceUsage = resourceUsage;
+		clone.closed = closed;
 		return clone;
 	}
 }

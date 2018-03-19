@@ -45,16 +45,22 @@ import org.springframework.stereotype.Service;
 public class MailModule extends AbstractSpringModule {
 	
 	private static final String INTERN_MAIL_SYSTEM = "internSystem";
-	private static final String SHOW_RECIPIENT_NAMES = "showRecipientNames";
-	private static final String SHOW_MAIL_ADDRESSES = "showMailAddresses";
+	private static final String SHOW_OUTBOX_RECIPIENT_NAMES = "showRecipientNames";
+	private static final String SHOW_OUTBOX_MAIL_ADDRESSES = "showMailAddresses";
+	private static final String SHOW_INBOX_RECIPIENT_NAMES = "showInboxRecipientNames";
+	private static final String SHOW_INBOX_MAIL_ADDRESSES = "showInboxMailAddresses";
 	private static final String RECEIVE_REAL_MAIL_USER_DEFAULT_SETTING = "receiveRealMailUserDefaultSetting";
 	
 	@Value("${mail.intern:false}")
 	private boolean internSystem;
-	@Value("${mail.showRecipientNames:true}")
-	private boolean showRecipientNames;
-	@Value("${mail.showMailAddresses:false}")
-	private boolean showMailAddresses;
+	@Value("${mail.showOutboxRecipientNames:true}")
+	private boolean showOutboxRecipientNames;
+	@Value("${mail.showOutboxMailAddresses:false}")
+	private boolean showOutboxMailAddresses;
+	@Value("${mail.showInboxRecipientNames:true}")
+	private boolean showInboxRecipientNames;
+	@Value("${mail.showInboxMailAddresses:false}")
+	private boolean showInboxMailAddresses;
 	@Value("${mail.receiveRealMailUserDefaultSetting:true}")
 	private boolean receiveRealMailUserDefaultSetting;
 	
@@ -83,14 +89,24 @@ public class MailModule extends AbstractSpringModule {
 			receiveRealMailUserDefaultSetting = "true".equalsIgnoreCase(receiveRealMailUserDefaultSettingValue);
 		}
 
-		String showRecipientNamesValue = getStringPropertyValue(SHOW_RECIPIENT_NAMES, true);
-		if(StringHelper.containsNonWhitespace(showRecipientNamesValue)) {
-			showRecipientNames = "true".equalsIgnoreCase(showRecipientNamesValue);
+		String showOutboxRecipientNamesValue = getStringPropertyValue(SHOW_OUTBOX_RECIPIENT_NAMES, true);
+		if(StringHelper.containsNonWhitespace(showOutboxRecipientNamesValue)) {
+			showOutboxRecipientNames = "true".equalsIgnoreCase(showOutboxRecipientNamesValue);
 		}
 
-		String showMailAddressesValue = getStringPropertyValue(SHOW_MAIL_ADDRESSES, true);
-		if(StringHelper.containsNonWhitespace(showMailAddressesValue)) {
-			showMailAddresses = "true".equalsIgnoreCase(showMailAddressesValue);
+		String showOutboxMailAddressesValue = getStringPropertyValue(SHOW_OUTBOX_MAIL_ADDRESSES, true);
+		if(StringHelper.containsNonWhitespace(showOutboxMailAddressesValue)) {
+			showOutboxMailAddresses = "true".equalsIgnoreCase(showOutboxMailAddressesValue);
+		}
+		
+		String showInboxRecipientNamesValue = getStringPropertyValue(SHOW_INBOX_RECIPIENT_NAMES, true);
+		if(StringHelper.containsNonWhitespace(showInboxRecipientNamesValue)) {
+			showInboxRecipientNames = "true".equalsIgnoreCase(showInboxRecipientNamesValue);
+		}
+
+		String showInboxMailAddressesValue = getStringPropertyValue(SHOW_INBOX_MAIL_ADDRESSES, true);
+		if(StringHelper.containsNonWhitespace(showInboxMailAddressesValue)) {
+			showInboxMailAddresses = "true".equalsIgnoreCase(showInboxMailAddressesValue);
 		}
 	}
 
@@ -117,27 +133,46 @@ public class MailModule extends AbstractSpringModule {
 	}
 
 
-	public boolean isShowRecipientNames() {
-		return showRecipientNames;
+	public boolean isShowOutboxRecipientNames() {
+		return showOutboxRecipientNames;
 	}
 
-	public void setShowRecipientNames(boolean showRecipientNames) {
-		this.showRecipientNames = showRecipientNames;
-		String showRecipientNamesStr = showRecipientNames ? "true" : "false";
-		setStringProperty(SHOW_RECIPIENT_NAMES, showRecipientNamesStr, true);
+	public void setShowOutboxRecipientNames(boolean showOutboxRecipientNames) {
+		this.showOutboxRecipientNames = showOutboxRecipientNames;
+		String showOutboxRecipientNamesStr = showOutboxRecipientNames ? "true" : "false";
+		setStringProperty(SHOW_OUTBOX_RECIPIENT_NAMES, showOutboxRecipientNamesStr, true);
 	}
 
-	public boolean isShowMailAddresses() {
-		return showMailAddresses;
+	public boolean isShowOutboxMailAddresses() {
+		return showOutboxMailAddresses;
 	}
 
-	public void setShowMailAddresses(boolean showMailAddresses) {
-		this.showMailAddresses = showMailAddresses;
-		String showMailAddressesStr = showMailAddresses ? "true" : "false";
-		setStringProperty(SHOW_MAIL_ADDRESSES, showMailAddressesStr, true);
+	public void setShowOutboxMailAddresses(boolean showOutboxMailAddresses) {
+		this.showOutboxMailAddresses = showOutboxMailAddresses;
+		String showOutboxMailAddressesStr = showOutboxMailAddresses ? "true" : "false";
+		setStringProperty(SHOW_OUTBOX_MAIL_ADDRESSES, showOutboxMailAddressesStr, true);
 	}
 
+	public boolean isShowInboxRecipientNames() {
+		return showInboxRecipientNames;
+	}
 	
+	public void setShowInboxRecipientNames(boolean showInboxRecipientsNames) {
+		this.showInboxRecipientNames = showInboxRecipientsNames;
+		String showInboxRecipientNamesStr = showInboxRecipientsNames ? "true" : "false";
+		setStringProperty(SHOW_INBOX_RECIPIENT_NAMES, showInboxRecipientNamesStr, true);
+	}
+	
+	public boolean isShowInboxMailAddresses() {
+		return showInboxMailAddresses;
+	}
+
+	public void setShowInboxMailAddresses(boolean showInboxMailAddresses) {
+		this.showInboxMailAddresses = showInboxMailAddresses;
+		String showInboxMailAddressesStr = showInboxMailAddresses ? "true" : "false";
+		setStringProperty(SHOW_INBOX_MAIL_ADDRESSES, showInboxMailAddressesStr, true);
+	}
+
 	/**
 	 * Users can receive real e-mail too. This setting is the default for
 	 * users. They can change it in Preferences Panel.
@@ -189,4 +224,5 @@ public class MailModule extends AbstractSpringModule {
 	public String getMailhost() {
 		return WebappHelper.getMailConfig("mailhost");
 	}
+
 }

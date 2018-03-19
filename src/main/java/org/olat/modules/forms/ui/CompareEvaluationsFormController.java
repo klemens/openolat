@@ -183,6 +183,10 @@ public class CompareEvaluationsFormController extends FormBasicController {
 
 	private List<EvaluationFormElementWrapper> forgeTextInput(TextInput element) {
 		List<EvaluationFormResponse> responses = identifierToResponses.get(element.getId());
+		if (responses == null) {
+			// in review - selbstreview ??
+			return new ArrayList<EvaluationFormElementWrapper>();
+		}
 		List<EvaluationFormElementWrapper> inputWrappers = new ArrayList<>(responses.size());
 		for(EvaluationFormResponse response:responses) {
 			if(StringHelper.containsNonWhitespace(response.getStringuifiedResponse())) {
@@ -227,10 +231,10 @@ public class CompareEvaluationsFormController extends FormBasicController {
 		Map<EvaluationFormSession,RadarSeries> series = new HashMap<>();
 		for(Slider slider:sliders) {
 			String axis;
-			if(StringHelper.containsNonWhitespace(slider.getStartLabel())) {
-				axis = slider.getStartLabel();
-			} else if(StringHelper.containsNonWhitespace(slider.getEndLabel())) {
+			 if(StringHelper.containsNonWhitespace(slider.getEndLabel())) {
 				axis = slider.getEndLabel();
+			} else if(StringHelper.containsNonWhitespace(slider.getStartLabel())) {
+				axis = slider.getStartLabel();
 			} else {
 				axis = "";
 			}

@@ -86,7 +86,7 @@ public class TaskConfigurationManagerImpl extends TaskConfigurationManager {
 
 	@Override
 	public TaskConfiguration loadTaskConfigurationByID(long ID) {
-		return (TaskConfiguration)DBFactory.getInstance().loadObject(TaskConfigurationImpl.class, ID);
+		return DBFactory.getInstance().getCurrentEntityManager().find(TaskConfigurationImpl.class, ID);
 	}
 
 	@Override

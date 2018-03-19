@@ -19,6 +19,7 @@
  */
 package org.olat.modules.assessment;
 
+import java.util.Date;
 import java.util.List;
 
 import org.olat.core.id.Identity;
@@ -46,7 +47,7 @@ public interface AssessmentService {
 	 * @return
 	 */
 	public AssessmentEntry createAssessmentEntry(Identity assessedIdentity, String anonymousIdentifier,
-			RepositoryEntry entry, String subIdent, RepositoryEntry referenceEntry, Float score, Boolean passed);
+			RepositoryEntry entry, String subIdent, RepositoryEntry referenceEntry, Float score, Boolean passed, Date lastUserModified, Date lastCoachModified);
 	
 	/**
 	 * 
@@ -83,6 +84,8 @@ public interface AssessmentService {
 	
 	
 	public List<AssessmentEntry> loadAssessmentEntriesBySubIdent(RepositoryEntry entry, String subIdent);
+	
+	public List<AssessmentEntry> loadAssessmentEntriesBySubIdentWithStatus(RepositoryEntry entry, String subIdent, AssessmentEntryStatus status, boolean excludeZeroScore);
 	
 	public List<AssessmentEntry> loadAssessmentEntriesByAssessedIdentity(Identity assessedIdentity, RepositoryEntry entry);
 	

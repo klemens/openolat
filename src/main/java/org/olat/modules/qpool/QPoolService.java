@@ -31,13 +31,19 @@ import org.olat.core.commons.persistence.SortKey;
 import org.olat.core.gui.media.MediaResource;
 import org.olat.core.id.Identity;
 import org.olat.core.id.Roles;
+import org.olat.core.util.coordinate.LockResult;
 import org.olat.core.util.vfs.VFSContainer;
 import org.olat.core.util.vfs.VFSLeaf;
 import org.olat.group.BusinessGroup;
+import org.olat.modules.qpool.QuestionItemAuditLog.Action;
 import org.olat.modules.qpool.model.QEducationalContext;
 import org.olat.modules.qpool.model.QItemType;
 import org.olat.modules.qpool.model.QLicense;
 import org.olat.modules.qpool.model.SearchQuestionItemParams;
+import org.olat.modules.taxonomy.Taxonomy;
+import org.olat.modules.taxonomy.TaxonomyCompetenceTypes;
+import org.olat.modules.taxonomy.TaxonomyLevel;
+import org.olat.modules.taxonomy.TaxonomyLevelRef;
 import org.olat.resource.OLATResource;
 
 /**
@@ -64,22 +70,39 @@ public interface QPoolService {
 	public QuestionItem createAndPersistItem(Identity owner, String subject, String format, String language, TaxonomyLevel taxonLevel,
 			String dir, String rootFilename, QItemType type);
 	
+	/**
+	 * @param key The primary key
+	 * @return The question item or null if not found
+	 */
 	public QuestionItem loadItemById(Long key);
+	
+	/**
+	 * @param identifier The identifier as defined in metadata
+	 * @return The question items with the corresponding identifier
+	 */
+	public List<QuestionItem> loadItemByIdentifier(String identifier);
 	
 	public List<QuestionItemFull> getAllItems(int firstResult, int maxResults);
 	
 	public QuestionItem updateItem(QuestionItem item);
 	
-	public void deleteItems(List<QuestionItemShort> items);
+	public void backupQuestion(QuestionItem item);
+	
+	public void deleteItems(List<? extends QuestionItemShort> items);
 	
 	public int countItems(SearchQuestionItemParams params);
 	
 	public ResultInfos<QuestionItemView> getItems(SearchQuestionItemParams params, int firstResult, int maxResults, SortKey... orderBy);
 	
+	public QuestionItemView getItem(Long key, Identity identity, Long restrictToPoolKey, Long restrictToGroupKey);
 	
-	
-	//manage authors
-	public boolean isAuthor(QuestionItem item, Identity identity);
+	/**
+	 * Search the question items using the specified taxonomy level
+	 * 
+	 * @param level The taxonomy level
+	 * @return A list of the question items
+	 */
+	public List<QuestionItemShort> getItems(TaxonomyLevelRef level);
 	
 	public List<Identity> getAuthors(QuestionItem item);
 	
@@ -87,16 +110,17 @@ public interface QPoolService {
 	
 	public void removeAuthors(List<Identity> authors, List<QuestionItemShort> items);
 	
+	// locking
+	public LockResult acquireLock(QuestionItemShort item, Identity identity);
+	
+	public void releaseLock(LockResult lock);
+	
 	//import / export
 	public MediaResource export(List<QuestionItemShort> items, ExportFormatOptions format, Locale locale);
 	
-	/**
-	 * 
-	 * @param item
-	 * @param zout
-	 * @param names Collection of the names used in the ZIP dd
-	 */
 	public void exportItem(QuestionItemShort item, ZipOutputStream zout, Locale locale, Set<String> names);
+	
+	public Set<ExportFormatOptions> getExportFormatOptions(List<QuestionItemShort> items, ExportFormatOptions.Outcome outcome);
 	
 	public List<QuestionItem> importItems(Identity owner, Locale defaultLocale, String filename, File file);
 
@@ -109,6 +133,9 @@ public interface QPoolService {
 	public VFSContainer getRootContainer(QuestionItemShort item);
 	
 	public List<QuestionItem> copyItems(Identity cloner, List<QuestionItemShort> itemsToCopy);
+
+	public List<QuestionItem> convertItems(Identity cloner, List<QuestionItemShort> itemsToConvert, String format,
+			Locale locale);
 
 	//pools
 	public List<Pool> getPools(Identity identity, Roles roles);
@@ -162,16 +189,38 @@ public interface QPoolService {
 	 * @param items
 	 */
 	public void index(List<? extends QuestionItemShort> items);
+
+	// review process
+	public List<TaxonomyLevel> getTaxonomyLevel(Identity identity, TaxonomyCompetenceTypes... competenceType);
 	
-	//study field admin
+	public void rateItemInReview(QuestionItem item, Identity identity, Float rating, String comment);
+
+	/**
+	 * Reset the status of all questions in the question bank to the status "draft".
+	 * @param reseter identity who reseted the states (for logging)
+	 */
+	public void resetAllStatesToDraft(Identity reseter);
+	
+	/**
+	 * @return The taxonomy configured for the question pool or null
+	 */
+	public Taxonomy getQPoolTaxonomy();
+	
+	/**
+	 * @return The list of taxonomy levels defined in the taxonomy
+	 *			of the question pool.
+	 */
 	public List<TaxonomyLevel> getTaxonomyLevels();
 	
-	public TaxonomyLevel createTaxonomyLevel(TaxonomyLevel parent, String field);
+	/**
+	 * 
+	 * @param parent
+	 * @param displayName
+	 * @return
+	 */
+	public List<TaxonomyLevel> getTaxonomyLevelBy(TaxonomyLevel parent, String displayName);
 	
-	public TaxonomyLevel updateTaxonomyLevel(String newField, TaxonomyLevel level);
-	
-	public boolean delete(TaxonomyLevel level);
-	
+	public TaxonomyLevel createTaxonomyLevel(TaxonomyLevel parent, String identifier, String displayName);
 	
 	//pool administration
 	public void createPool(Identity identity, String name, boolean publicPool);
@@ -212,6 +261,16 @@ public interface QPoolService {
 	public QLicense updateLicense(QLicense license);
 	
 	public boolean deleteLicense(QLicense license);
+
+	// Audit log
+	public QuestionItemAuditLogBuilder createAuditLogBuilder(Identity author, Action action);
 	
+	public void persist(QuestionItemAuditLog auditLog);
 	
+	public String toAuditXml(QuestionItem item);
+	
+	public QuestionItem toAuditQuestionItem(String xml);
+
+	public List<QuestionItemAuditLog> getAuditLogByQuestionItem(QuestionItemShort item);
+
 }

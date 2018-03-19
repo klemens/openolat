@@ -58,6 +58,9 @@
 			</div>
 			<h5><i class="o_flag o_flag_$targetLanguageKey"> </i> $r.translate("generic.${customizingPrefix}lang.target"): $targetLanguage</h5>
 			$r.render("targetArea")
+			#if($f.hasError("targetArea"))
+				<div class="clearfix">$r.render("targetArea_ERROR")</div>
+			#end
 		</div>		
 		<div class="o_button_group">
 		#if ($hasPrevious) 
@@ -146,7 +149,7 @@ function checkClick(wrapperName, langCode) {
 	
 ## Method to copy the text from the reference language to the target language
 function copyFromReference() {
-	var refVal = jQuery('.o_translation_edit_reference textarea').val();
+	var refVal = jQuery('.o_translation_edit_reference .o_form_element_disabled').text();
 	jQuery('.o_translation_edit_target textarea').val(refVal);	
 }
 	
