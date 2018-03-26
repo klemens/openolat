@@ -2463,7 +2463,7 @@
 		<dependency>
 			<groupId>redstone.xmlrpc</groupId>
 			<artifactId>xmlrpc</artifactId>
-			<version>1.1.1.autolat1</version>
+			<version>1.1.1.autolat2</version>
 		</dependency>
 
 		<!-- Start test dependencies -->
