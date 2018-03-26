@@ -19,10 +19,7 @@
  */
 package org.olat.modules.lecture.ui.coach;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -70,7 +67,7 @@ public class LecturesSearchController extends BasicController implements Activat
 		Roles roles = ureq.getUserSession().getRoles();
 		admin = (roles.isUserManager() || roles.isOLATAdmin());
 		
-		searchForm = new LecturesSearchFormController(ureq, getWindowControl());
+		searchForm = new LecturesSearchFormController(ureq, getWindowControl(), admin);
 		listenTo(searchForm);
 		putInitialPanel(searchForm.getInitialComponent());
 	}
@@ -115,7 +112,7 @@ public class LecturesSearchController extends BasicController implements Activat
 		List<LectureBlockIdentityStatistics> statistics = lectureService
 				.getLecturesStatistics(params, userPropertyHandlers, getIdentity(), admin);
 		
-		Set<Long> identities = statistics.stream().map(s -> s.getIdentityKey())
+		Set<Long> identities = statistics.stream().map(LectureBlockIdentityStatistics::getIdentityKey)
 			     .collect(Collectors.toSet());
 		
 		Controller ctrl;
@@ -133,17 +130,5 @@ public class LecturesSearchController extends BasicController implements Activat
 
 		stackPanel.popUpToRootController(ureq);
 		stackPanel.pushController(translate("results"), ctrl);
-	}
-	
-	protected static List<LectureBlockIdentityStatistics> groupByIdentity(List<LectureBlockIdentityStatistics> statistics) {
-		Map<Long,LectureBlockIdentityStatistics> groupBy = new HashMap<>();
-		for(LectureBlockIdentityStatistics statistic:statistics) {
-			if(groupBy.containsKey(statistic.getIdentityKey())){
-				groupBy.get(statistic.getIdentityKey()).aggregate(statistic);
-			} else {
-				groupBy.put(statistic.getIdentityKey(), statistic.cloneForAggregation());
-			}
-		}
-		return new ArrayList<>(groupBy.values());
 	}
 }

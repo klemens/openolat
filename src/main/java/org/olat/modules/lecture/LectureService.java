@@ -465,6 +465,8 @@ public interface LectureService {
 	public void recalculateSummary(RepositoryEntry entry, Identity identity);
 	
 	
+	public List<LectureBlockIdentityStatistics> groupByIdentity(List<LectureBlockIdentityStatistics> statistics);
+	
 	/**
 	 * Returns the statistics for the specified participant.
 	 * 
@@ -503,9 +505,10 @@ public interface LectureService {
 	 * 
 	 * @param entry
 	 * @param participant
+	 * @param teacherSeparator The separator between the name of 2 teachers
 	 * @return
 	 */
-	public List<LectureBlockAndRollCall> getParticipantLectureBlocks(RepositoryEntryRef entry, IdentityRef participant);
+	public List<LectureBlockAndRollCall> getParticipantLectureBlocks(RepositoryEntryRef entry, IdentityRef participant, String teacherSeparator);
 
 	
 	/**

@@ -24,6 +24,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -174,8 +175,7 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 
 	@Override
 	public RepositoryEntryLectureConfiguration updateRepositoryEntryLectureConfiguration(RepositoryEntryLectureConfiguration config) {
-		RepositoryEntryLectureConfiguration updatedConfig = lectureConfigurationDao.update(config);
-		return updatedConfig;
+		return lectureConfigurationDao.update(config);
 	}
 
 	@Override
@@ -422,6 +422,7 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 		return new ArrayList<>(participants);
 	}
 	
+	@Override
 	public List<Identity> syncParticipantSummaries(LectureBlock lectureBlock) {
 		RepositoryEntry entry = lectureBlock.getEntry();
 		Date now = new Date();
@@ -800,24 +801,45 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 	}
 
 	@Override
+	public List<LectureBlockIdentityStatistics> groupByIdentity(List<LectureBlockIdentityStatistics> statistics) {
+		Map<Long,LectureBlockIdentityStatistics> groupBy = new HashMap<>();
+		for(LectureBlockIdentityStatistics statistic:statistics) {
+			if(groupBy.containsKey(statistic.getIdentityKey())){
+				groupBy.get(statistic.getIdentityKey()).aggregate(statistic);
+			} else {
+				groupBy.put(statistic.getIdentityKey(), statistic.cloneForAggregation());
+			}
+		}
+
+		boolean countAuthorizedAbsenceAsAttendant = lectureModule.isCountAuthorizedAbsenceAsAttendant();
+		List<LectureBlockIdentityStatistics> aggregatedStatistics = new ArrayList<>(groupBy.values());
+		for(LectureBlockIdentityStatistics statistic:aggregatedStatistics) {
+			lectureBlockRollCallDao.calculateAttendanceRate(statistic, countAuthorizedAbsenceAsAttendant);
+		}
+		return aggregatedStatistics;
+	}
+
+	@Override
 	public List<LectureBlockStatistics> getParticipantLecturesStatistics(IdentityRef identity) {
+		boolean authorizedAbsenceEnabled = lectureModule.isAuthorizedAbsenceEnabled();
 		boolean calculateAttendanceRate = lectureModule.isRollCallCalculateAttendanceRateDefaultEnabled();
 		boolean absenceDefaultAuthorized = lectureModule.isAbsenceDefaultAuthorized();
 		boolean countAuthorizedAbsenceAsAttendant = lectureModule.isCountAuthorizedAbsenceAsAttendant();
 		double defaultRequiredAttendanceRate = lectureModule.getRequiredAttendanceRateDefault();
-		return lectureBlockRollCallDao.getStatistics(identity,
+		return lectureBlockRollCallDao.getStatistics(identity, authorizedAbsenceEnabled,
 				absenceDefaultAuthorized, countAuthorizedAbsenceAsAttendant,
 				calculateAttendanceRate, defaultRequiredAttendanceRate);
 	}
 
 	@Override
 	public List<LectureBlockStatistics> getParticipantsLecturesStatistics(RepositoryEntry entry) {
+		boolean authorizedAbsenceEnabled = lectureModule.isAuthorizedAbsenceEnabled();
 		boolean calculateAttendanceRate = lectureModule.isRollCallCalculateAttendanceRateDefaultEnabled();
 		boolean absenceDefaultAuthorized = lectureModule.isAbsenceDefaultAuthorized();
 		boolean countAuthorizedAbsenceAsAttendant = lectureModule.isCountAuthorizedAbsenceAsAttendant();
 		double defaultRequiredAttendanceRate = lectureModule.getRequiredAttendanceRateDefault();
 		RepositoryEntryLectureConfiguration config = getRepositoryEntryLectureConfiguration(entry);
-		return lectureBlockRollCallDao.getStatistics(entry, config,
+		return lectureBlockRollCallDao.getStatistics(entry, config, authorizedAbsenceEnabled,
 				absenceDefaultAuthorized, countAuthorizedAbsenceAsAttendant,
 				calculateAttendanceRate, defaultRequiredAttendanceRate);
 	}
@@ -825,12 +847,13 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 	@Override
 	public List<LectureBlockIdentityStatistics> getLecturesStatistics(LectureStatisticsSearchParameters params,
 			List<UserPropertyHandler> userPropertyHandlers, Identity identity, boolean admin) {
+		boolean authorizedAbsenceEnabled = lectureModule.isAuthorizedAbsenceEnabled();
 		boolean calculateAttendanceRate = lectureModule.isRollCallCalculateAttendanceRateDefaultEnabled();
 		boolean absenceDefaultAuthorized = lectureModule.isAbsenceDefaultAuthorized();
 		boolean countAuthorizedAbsenceAsAttendant = lectureModule.isCountAuthorizedAbsenceAsAttendant();
 		double defaultRequiredAttendanceRate = lectureModule.getRequiredAttendanceRateDefault();
-		return lectureBlockRollCallDao.getStatistics(params, userPropertyHandlers, identity, admin,
-				absenceDefaultAuthorized, countAuthorizedAbsenceAsAttendant,
+		return lectureBlockRollCallDao.getStatistics(params, userPropertyHandlers, identity, admin, 
+				authorizedAbsenceEnabled, absenceDefaultAuthorized, countAuthorizedAbsenceAsAttendant,
 				calculateAttendanceRate, defaultRequiredAttendanceRate);
 	}
 
@@ -841,8 +864,9 @@ public class LectureServiceImpl implements LectureService, UserDataDeletable, De
 	}
 
 	@Override
-	public List<LectureBlockAndRollCall> getParticipantLectureBlocks(RepositoryEntryRef entry, IdentityRef participant) {
-		return lectureBlockRollCallDao.getParticipantLectureBlockAndRollCalls(entry, participant);
+	public List<LectureBlockAndRollCall> getParticipantLectureBlocks(RepositoryEntryRef entry, IdentityRef participant,
+			String teacherSeaparator) {
+		return lectureBlockRollCallDao.getParticipantLectureBlockAndRollCalls(entry, participant, teacherSeaparator);
 	}
 
 	@Override
