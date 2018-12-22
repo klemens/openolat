@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.jdom.JDOMException;
 
@@ -237,6 +238,30 @@ public class BBautOLATConnector {
 		
 	}
 	
+	/**
+	 * Generate an alphanumeric seed suitable for the getLivingTaskInstance call.
+	 */
+	public static String generateRandomSeed() {
+		final char[] ALPHANUMERIC = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
+		final int LENGTH = 20;
+
+		char[] buffer = new char[LENGTH];
+		ThreadLocalRandom rnd = ThreadLocalRandom.current();
+
+		for(int i = 0; i < LENGTH; ++i) {
+			buffer[i] = ALPHANUMERIC[rnd.nextInt(ALPHANUMERIC.length)];
+		}
+
+		return new String(buffer);
+	}
+
+	/**
+	 * Create a living task instance using a random seed
+	 */
+	public LivingTaskInstance getLivingTaskInstance(TaskConfiguration taskConfiguration) {
+		return getLivingTaskInstance(taskConfiguration, generateRandomSeed());
+	}
+
 	public LivingTaskInstance getLivingTaskInstance(TaskConfiguration taskConfiguration, String seed) {
 		
 		Signed<Pair<String,String>> taskConfigurationAsPair = new Signed<Pair<String, String>>(new Pair<String, String> (taskConfiguration.getTaskType().getType(), taskConfiguration.getConfigurationText()), taskConfiguration.getSignature());

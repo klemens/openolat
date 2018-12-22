@@ -508,12 +508,10 @@ public class TaskInstanceTestController extends BasicController
 			showInfo("error.form.editconnection.Servererror");
 			return;
 		}
-		if(seed != null)
-			this.seed = seed;
-		else
-		{
-			Random generator = new Random(System.currentTimeMillis());			 			 
-			this.seed = Integer.toString(100000 + generator.nextInt(900000));
+
+		this.seed = seed;
+		if(this.seed == null) {
+			this.seed = BBautOLATConnector.generateRandomSeed();
 		}
 		
 		livingTaskInstance = connector.getLivingTaskInstance(taskConfiguration, this.seed);

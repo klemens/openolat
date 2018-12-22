@@ -8,7 +8,6 @@ import java.util.List;
 import org.jdom.JDOMException;
 import org.olat.core.commons.persistence.DBFactory;
 import org.olat.core.commons.persistence.DBQuery;
-import org.olat.core.id.UserConstants;
 
 import de.htwk.autolat.Configuration.Configuration;
 import de.htwk.autolat.Connector.AutolatConnectorException;
@@ -371,24 +370,7 @@ public class TaskInstanceManagerImpl extends TaskInstanceManager {
 		Iterator<TaskInstance> taskIt = taskInstances.iterator();
 		while(taskIt.hasNext()) {
 			TaskInstance instance = taskIt.next();
-			// try to get a registration number
-			String seed = instance.getStudent().getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
-			
-			if(seed == null)
-			{
-				// quick hack to generate a fake registration number from the user name
-				String name = instance.getStudent().getIdentity().getKey().toString();
-				int namenumber = 1;
-				int prime[] = {2, 3, 5, 7, 11, 13, 17, 19};		
-				for(int i = 0; i < name.length() && i < 8; i++)
-				{
-					namenumber *= java.lang.Math.pow(prime[i], name.charAt(i) % 4);
-					namenumber = namenumber % 1000000 + 1; 
-				}
-				seed = Integer.toString(namenumber);
-				//end of hack
-			}
-			LivingTaskInstance livingInstance = conn.getLivingTaskInstance(conf.getTaskConfiguration(), seed);
+			LivingTaskInstance livingInstance = conn.getLivingTaskInstance(conf.getTaskConfiguration());
 			LivingTaskInstanceManagerImpl.getInstance().saveLivingTaskInstance(livingInstance);
 			instance.setLivingTaskInstance(livingInstance);
 			this.updateTaskInstance(instance);
