@@ -23,7 +23,6 @@ import org.olat.core.gui.control.generic.closablewrapper.CloseableModalControlle
 import org.olat.core.gui.media.DefaultMediaResource;
 import org.olat.core.gui.translator.PackageTranslator;
 import org.olat.core.id.Identity;
-import org.olat.core.id.UserConstants;
 import org.olat.core.util.Util;
 import org.olat.course.run.environment.CourseEnvironment;
 
@@ -206,9 +205,6 @@ public class TaskInstanceRunController extends BasicController
 	 *  flag will be set and a notification will be displayed.
 	 */
 	private boolean hasPassed;
-	
-	/** The seed that will be used to generate a new living task instance. */
-	private String seed;
 			
 	/** The max score. */
 	private double maxScore = new Double(0);
@@ -269,27 +265,7 @@ public class TaskInstanceRunController extends BasicController
 		userID = ureq.getIdentity();
 		
 		initForms(ureq);
-		
-		// try to get a registration number
-		this.seed = ureq.getIdentity().getUser().getProperty(UserConstants.INSTITUTIONALUSERIDENTIFIER, null);
-		
-		if(seed == null || seed.equals(""))
-		{
-			/*
-			 *  quick hack to generate a fake registration number from the user name
-			 *  in case there is no institutional user identifier
-			 */
-			String name = userID.getKey().toString();
-			int namenumber = 1;
-			int prime[] = {2, 3, 5, 7, 11, 13, 17, 19};		
-			for(int i = 0; i < name.length() && i < 8; i++)
-			{
-				namenumber *= java.lang.Math.pow(prime[i], name.charAt(i) % 4);
-				namenumber = namenumber % 1000000 + 1; 
-			}
-			seed = Integer.toString(namenumber);
-		}
-											
+
 		this.student = StudentManagerImpl.getInstance().getStudentByIdentity(userID);
 				
 		if(student == null) // student does not exist yet
@@ -720,11 +696,8 @@ public class TaskInstanceRunController extends BasicController
 		
 		if(taskExpired && (connector != null))
 		{
-			// generate a new seed based on the old seed
-			String tempSeed = getNextSeed(seed);
-			
 			// get a new livingTaskInstance
-			LivingTaskInstance tempLivingTaskInstance = connector.getLivingTaskInstance(taskConfiguration, tempSeed);
+			LivingTaskInstance tempLivingTaskInstance = connector.getLivingTaskInstance(taskConfiguration);
 			
 			// get the next task module
 			TaskModule tempTaskModule = TaskModuleManagerImpl.getInstance().getNextTaskModule(courseID, courseNodeID, taskModule);
@@ -813,7 +786,7 @@ public class TaskInstanceRunController extends BasicController
 			return;
 		}
 		// get a new livingTaskIntance
-		livingTaskInstance = connector.getLivingTaskInstance(taskConfiguration, seed);
+		livingTaskInstance = connector.getLivingTaskInstance(taskConfiguration);
 		
 		/*
 		 *  if the previous line yields a livingTaskInstance == null, the autotool-Server
@@ -866,11 +839,9 @@ public class TaskInstanceRunController extends BasicController
 		if(connector == null) {
 			return;
 		}
-		// generate a new seed based on the old seed
-		seed = getNextSeed(seed);
 		
 		// get a new livingTaskInstance
-		livingTaskInstance = connector.getLivingTaskInstance(taskConfiguration, seed);
+		livingTaskInstance = connector.getLivingTaskInstance(taskConfiguration);
 		
 		/*
 		 *  if the last line yields a livingTaskInstance == null, the autotool-Server
@@ -924,17 +895,6 @@ public class TaskInstanceRunController extends BasicController
 		solutionPreset = livingTaskInstance.getSampleSolution();
 		taskForm.setDisplayOnly(false);
 		displayEvaluation = false;
-	}
-	
-	/** Generates a new seed from a given seed.
-	 *  
-	 */
-	private String getNextSeed(String seed)
-	{
-		int seednumber = Integer.valueOf(seed.trim());
-		seednumber = ((seednumber*3) % 1000000) + 1;
-		String newSeed = String.valueOf(seednumber);
-		return newSeed;
 	}
 
 }
